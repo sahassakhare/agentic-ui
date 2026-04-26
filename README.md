@@ -83,7 +83,7 @@ See [PLAN.md](./PLAN.md) for the full architecture, milestones, and risk handlin
 | M5 | DataSource / Persistence / Layout / SchemaTransformer registries + MCP bridge + OTel telemetry sink | ✅ |
 | v1.0 polish | Docs, cookbook, ADRs, Gemini-backed demo with working MFE federation + generative UI | ✅ |
 
-**Test count**: 11 spec files / 66 unit tests passing (registries, run-orchestrator, capability-module, conformance suite, M4 + M5 registries, AG-UI converters/event-mapper/async-iterable, static-JSON + Spring Boot MFE registries).
+**Test count**: 12 spec files / 76 unit tests passing (registries, run-orchestrator, capability-module, conformance suite, M4 + M5 registries, AG-UI converters/event-mapper/async-iterable, static-JSON + Spring Boot MFE registries, schematics snapshot tests for all 10 generators).
 
 **Working demos**:
 - `demo-monolith` — single-app with bookFlight tool + flightCard widget registered locally.
@@ -210,7 +210,7 @@ npm run build:lib          # builds @maverick/agentic-ui + schematics
 npx ng build demo-monolith
 npx ng build demo-shell
 npx ng build demo-remote-bookings
-npx ng test agentic-ui --no-watch    # 66 unit tests
+npx ng test agentic-ui --no-watch    # 76 unit tests
 ```
 
 ## License
