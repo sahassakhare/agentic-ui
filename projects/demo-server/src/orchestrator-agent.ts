@@ -68,11 +68,18 @@ export class OrchestratorAgent implements ServerAgent {
     yield { type: EventType.RUN_STARTED, threadId: input.threadId, runId: input.runId } as BaseEvent;
 
     try {
-      const lastUser = [...input.messages].reverse().find((m) => m.role === 'user');
-      const userText = typeof lastUser?.content === 'string' ? lastUser.content : '';
+      // Feed the classifier a small recent-history window, not just the last
+      // user line. Otherwise a follow-up like "2026" (clarifying a year for a
+      // flight booking) looks like nothing and routes to "none".
+      const window = recentTranscript(input.messages, 6);
 
-      const decision = await this.classify(userText, signal);
-      log.info('orchestrator routed', { runId: input.runId, agent: decision.agent, reason: decision.reason });
+      const decision = await this.classify(window, signal);
+      log.info('orchestrator routed', {
+        runId: input.runId,
+        agent: decision.agent,
+        reason: decision.reason,
+        windowMessages: window.length,
+      });
 
       const sub = this.subs.get(decision.agent);
 
@@ -92,9 +99,18 @@ export class OrchestratorAgent implements ServerAgent {
         } as BaseEvent;
         yield { type: EventType.TEXT_MESSAGE_END, messageId: noteId } as BaseEvent;
 
+        // Strip the orchestrator's own routing-annotation messages from history
+        // before forwarding to the specialist — they would otherwise appear in
+        // the specialist's prompt as past assistant turns ("Routed to bookings
+        // specialist.") and confuse it about who said what.
+        const cleanedInput = {
+          ...input,
+          messages: input.messages.filter((m) => !isRoutingAnnotation(m)),
+        };
+
         // Forward the sub-agent's stream. Strip its own RUN_STARTED / RUN_FINISHED /
         // RUN_ERROR — those lifecycle events belong to the orchestrator.
-        for await (const ev of sub.agent.run(input, signal)) {
+        for await (const ev of sub.agent.run(cleanedInput, signal)) {
           if (
             ev.type === EventType.RUN_STARTED ||
             ev.type === EventType.RUN_FINISHED ||
@@ -121,19 +137,28 @@ export class OrchestratorAgent implements ServerAgent {
    * registry) — the rest of the orchestrator doesn't care how the decision
    * is made.
    */
-  protected async classify(query: string, signal: AbortSignal): Promise<{ agent: string; reason: string }> {
-    if (query.trim() === '') return { agent: 'none', reason: 'empty query' };
+  protected async classify(
+    window: ReadonlyArray<{ role: string; text: string }>,
+    signal: AbortSignal,
+  ): Promise<{ agent: string; reason: string }> {
+    if (window.length === 0) return { agent: 'none', reason: 'empty conversation' };
 
     const choices = [...this.subs.values()]
       .map((s) => `  - "${s.id}" — ${s.description}\n    Examples: ${s.examples.map((e) => `"${e}"`).join(', ')}`)
       .join('\n');
 
+    const transcript = window.map((m) => `${m.role}: ${m.text}`).join('\n');
+
     const prompt =
-      `You are a router. Pick exactly one specialist to handle the user's request.\n` +
+      `You are a router. Pick exactly one specialist to handle the LATEST user turn.\n` +
       `Specialists:\n${choices}\n\n` +
-      `User query: "${query}"\n\n` +
-      `Reply ONLY with JSON of the form {"agent": "<id>", "reason": "<one short sentence>"}.\n` +
-      `If no specialist fits, use "agent": "none".`;
+      `Recent conversation (most recent last):\n${transcript}\n\n` +
+      `Rules:\n` +
+      `- Stay with the specialist that matches the ongoing topic. A short follow-up like a date,\n` +
+      `  a number, or a yes/no should route to whoever was just asking the question.\n` +
+      `- Switch specialists only when the user's latest turn clearly changes domain.\n` +
+      `- If truly nothing fits, use "agent": "none".\n\n` +
+      `Reply ONLY with JSON of the form {"agent": "<id>", "reason": "<one short sentence>"}.`;
 
     try {
       const response = await this.ai.models.generateContent({
@@ -153,4 +178,39 @@ export class OrchestratorAgent implements ServerAgent {
       return { agent: 'none', reason: 'classifier error' };
     }
   }
+}
+
+/**
+ * Take the last N messages, keep only `user` / `assistant` text content, skip
+ * the orchestrator's own routing annotations, and return them oldest-first as
+ * `{role, text}` pairs. Used to give the classifier enough context so short
+ * follow-ups ("2026", "yes please") don't get routed to `none`.
+ */
+function recentTranscript(
+  messages: RunAgentInput['messages'],
+  limit: number,
+): Array<{ role: string; text: string }> {
+  const out: Array<{ role: string; text: string }> = [];
+  for (let i = messages.length - 1; i >= 0 && out.length < limit; i--) {
+    const m = messages[i];
+    if (!m) continue;
+    if (m.role !== 'user' && m.role !== 'assistant') continue;
+    if (isRoutingAnnotation(m)) continue;
+    const text = typeof m.content === 'string' ? m.content.trim() : '';
+    if (text === '') continue;
+    out.push({ role: m.role, text });
+  }
+  return out.reverse();
+}
+
+/**
+ * The orchestrator emits a one-line italic "_Routed to **<id>** specialist._"
+ * banner before forwarding a specialist's stream. Recognise it by structure
+ * so we can strip it from both the classifier window and the prompt history
+ * the specialist sees.
+ */
+function isRoutingAnnotation(m: { role: string; content?: unknown }): boolean {
+  if (m.role !== 'assistant') return false;
+  if (typeof m.content !== 'string') return false;
+  return /^_Routed to \*\*[^*]+\*\* specialist\._/.test(m.content.trim());
 }
