@@ -144,15 +144,39 @@ export class OrchestratorAgent implements ServerAgent {
           messages: input.messages.filter((m) => !isRoutingAnnotation(m)),
         };
 
-        // Forward the sub-agent's stream. Strip its own RUN_STARTED / RUN_FINISHED /
-        // RUN_ERROR — those lifecycle events belong to the orchestrator.
+        // Forward the sub-agent's stream. Strip its own RUN_STARTED /
+        // RUN_FINISHED — those lifecycle events belong to the orchestrator.
+        // RUN_ERROR is captured so we can surface it to the user with
+        // context about which specialist failed; without this, the user
+        // would see only the routing banner and then dead silence when
+        // the specialist hits a quota / network error.
+        let subError: BaseEvent | null = null;
         for await (const ev of sub.agent.run(cleanedInput, signal)) {
           if (
             ev.type === EventType.RUN_STARTED ||
-            ev.type === EventType.RUN_FINISHED ||
-            ev.type === EventType.RUN_ERROR
+            ev.type === EventType.RUN_FINISHED
           ) continue;
+          if (ev.type === EventType.RUN_ERROR) {
+            subError = ev;
+            continue;
+          }
           yield ev;
+        }
+
+        if (subError) {
+          const subMsg = ((subError as unknown as { message?: unknown }).message ?? 'unknown error') as string;
+          const errMsgId = `err-${input.runId}`;
+          yield { type: EventType.TEXT_MESSAGE_START, messageId: errMsgId, role: 'assistant' } as BaseEvent;
+          yield {
+            type: EventType.TEXT_MESSAGE_CONTENT,
+            messageId: errMsgId,
+            delta: `_⚠️ The **${sub.id}** specialist failed: ${truncate(String(subMsg), 240)}_`,
+          } as BaseEvent;
+          yield { type: EventType.TEXT_MESSAGE_END, messageId: errMsgId } as BaseEvent;
+          // Forward the RUN_ERROR so any error-aware client surfaces it.
+          // RUN_ERROR is terminal in AG-UI — no RUN_FINISHED follows.
+          yield subError;
+          return;
         }
       }
 
@@ -332,6 +356,12 @@ function isRoutingAnnotation(m: { role: string; content?: unknown }): boolean {
 function isTransientClassifierError(err: unknown): boolean {
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
   return /\b(429|500|502|503|504|temporarily|unavailable|reset|timeout|network|fetch failed|resource_exhausted|quota)\b/.test(msg);
+}
+
+/** Truncate to N chars with an ellipsis. Defensive — long Gemini error
+ *  bodies include nested JSON we don't want to dump into the chat. */
+function truncate(s: string, n: number): string {
+  return s.length > n ? s.slice(0, n - 1) + '…' : s;
 }
 
 /** Sleep that aborts cleanly when the run is cancelled. */
