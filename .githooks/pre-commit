@@ -38,7 +38,8 @@ patterns=(
 # Inspect diff content (not file contents); avoids noise from untouched lines.
 diff=$(git diff --cached -U0)
 for pattern in "${patterns[@]}"; do
-  if echo "$diff" | grep -E "$pattern" >/dev/null; then
+  # Use -e so patterns beginning with '-' aren't parsed as flags (BSD grep).
+  if echo "$diff" | grep -E -e "$pattern" >/dev/null; then
     echo "❌ Secret pattern detected in staged diff: /$pattern/"
     echo "   Inspect with: git diff --cached"
     exit 1
