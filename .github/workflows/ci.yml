@@ -60,6 +60,12 @@ jobs:
       - name: Build demo-remote-bookings (production, Native Federation remote)
         run: npx ng build demo-remote-bookings --configuration=production
 
+      - name: Build demo-remote-loyalty (production, Native Federation remote)
+        run: npx ng build demo-remote-loyalty --configuration=production
+
+      - name: Build demo-remote-support (production, Native Federation remote)
+        run: npx ng build demo-remote-support --configuration=production
+
       - name: Compile demo-server (TypeScript → dist/)
         working-directory: projects/demo-server
         run: |

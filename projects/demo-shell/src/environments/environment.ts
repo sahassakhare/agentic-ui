@@ -8,8 +8,14 @@
  */
 export const environment = {
   production: false,
-  /** Agent server SSE endpoint. Switch to `/agents/echo/run` for the no-LLM agent. */
-  agentUrl: 'http://localhost:4111/agents/gemini/run',
+  /**
+   * Agent server SSE endpoint. The orchestrator routes each turn to one of
+   * the per-domain specialists (bookings, loyalty, support) using whichever
+   * tools/widgets the loaded MFE remotes contributed. Swap to
+   * `/agents/echo/run` for the no-LLM smoke test or `/agents/gemini/run`
+   * for the original single-agent demo.
+   */
+  agentUrl: 'http://localhost:4111/agents/orchestrator/run',
   /** URL of the static MFE registry document (JSON: { remotes: RemoteSpec[] }). */
   mfeRegistryUrl: '/mfes.json',
   /** Environment name passed to MfeRegistryClient.discover(). */

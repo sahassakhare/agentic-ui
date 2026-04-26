@@ -395,6 +395,130 @@
           }
         }
       }
+    },
+    "demo-remote-loyalty": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": { "style": "scss" }
+      },
+      "root": "projects/demo-remote-loyalty",
+      "sourceRoot": "projects/demo-remote-loyalty/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {},
+          "configurations": {
+            "production": { "target": "demo-remote-loyalty:esbuild:production" },
+            "development": { "target": "demo-remote-loyalty:esbuild:development", "dev": true }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "target": "demo-remote-loyalty:serve-original:development",
+            "rebuildDelay": 500,
+            "dev": true,
+            "cacheExternalArtifacts": false,
+            "port": 0
+          }
+        },
+        "test": { "builder": "@angular/build:unit-test" },
+        "esbuild": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "projects/demo-remote-loyalty/src/main.ts",
+            "tsConfig": "projects/demo-remote-loyalty/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [{ "glob": "**/*", "input": "projects/demo-remote-loyalty/public" }],
+            "styles": ["projects/demo-remote-loyalty/src/styles.scss"],
+            "polyfills": ["es-module-shims"]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                { "type": "initial", "maximumWarning": "500kB", "maximumError": "1MB" },
+                { "type": "anyComponentStyle", "maximumWarning": "4kB", "maximumError": "8kB" }
+              ],
+              "outputHashing": "all"
+            },
+            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve-original": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": { "buildTarget": "demo-remote-loyalty:esbuild:production" },
+            "development": { "buildTarget": "demo-remote-loyalty:esbuild:development" }
+          },
+          "defaultConfiguration": "development",
+          "options": { "port": 4203 }
+        }
+      }
+    },
+    "demo-remote-support": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": { "style": "scss" }
+      },
+      "root": "projects/demo-remote-support",
+      "sourceRoot": "projects/demo-remote-support/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {},
+          "configurations": {
+            "production": { "target": "demo-remote-support:esbuild:production" },
+            "development": { "target": "demo-remote-support:esbuild:development", "dev": true }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "target": "demo-remote-support:serve-original:development",
+            "rebuildDelay": 500,
+            "dev": true,
+            "cacheExternalArtifacts": false,
+            "port": 0
+          }
+        },
+        "test": { "builder": "@angular/build:unit-test" },
+        "esbuild": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "projects/demo-remote-support/src/main.ts",
+            "tsConfig": "projects/demo-remote-support/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [{ "glob": "**/*", "input": "projects/demo-remote-support/public" }],
+            "styles": ["projects/demo-remote-support/src/styles.scss"],
+            "polyfills": ["es-module-shims"]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                { "type": "initial", "maximumWarning": "500kB", "maximumError": "1MB" },
+                { "type": "anyComponentStyle", "maximumWarning": "4kB", "maximumError": "8kB" }
+              ],
+              "outputHashing": "all"
+            },
+            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve-original": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": { "buildTarget": "demo-remote-support:esbuild:production" },
+            "development": { "buildTarget": "demo-remote-support:esbuild:development" }
+          },
+          "defaultConfiguration": "development",
+          "options": { "port": 4205 }
+        }
+      }
     }
   }
 }

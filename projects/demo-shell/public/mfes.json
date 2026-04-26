@@ -5,6 +5,18 @@
       "version": "1.0.0",
       "remoteEntry": "http://localhost:4201/remoteEntry.json",
       "env": "dev"
+    },
+    {
+      "remoteName": "demo-remote-loyalty",
+      "version": "1.0.0",
+      "remoteEntry": "http://localhost:4203/remoteEntry.json",
+      "env": "dev"
+    },
+    {
+      "remoteName": "demo-remote-support",
+      "version": "1.0.0",
+      "remoteEntry": "http://localhost:4205/remoteEntry.json",
+      "env": "dev"
     }
   ]
 }

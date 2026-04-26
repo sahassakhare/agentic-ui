@@ -8,7 +8,7 @@
  */
 export const environment = {
   production: true,
-  agentUrl: 'https://agent.example.com/agents/gemini/run',
+  agentUrl: 'https://agent.example.com/agents/orchestrator/run',
   mfeRegistryUrl: 'https://registry.example.com/mfes.json',
   mfeEnv: 'production',
   telemetry: 'otel' as 'none' | 'console' | 'otel',
