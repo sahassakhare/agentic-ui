@@ -1,0 +1,73 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel an in-flight run for the same ref when a new push lands.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build + test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Pin to Angular 21's supported LTS Node versions. Add 22.x once stable
+        # and the toolchain catches up.
+        node: ['20.19']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install workspace dependencies
+        run: npm ci --no-audit --fund=false
+
+      - name: Build the library (primary entry + schematics)
+        run: npm run build:lib
+
+      - name: Link the freshly built lib into node_modules
+        run: npm install ./dist/agentic-ui --no-save
+
+      - name: Unit tests (Vitest via @angular/build:unit-test)
+        run: npx ng test agentic-ui --no-watch
+
+      - name: Build demo-monolith (production)
+        run: npx ng build demo-monolith --configuration=production
+
+      - name: Build demo-shell (production, Native Federation host)
+        run: npx ng build demo-shell --configuration=production
+
+      - name: Build demo-remote-bookings (production, Native Federation remote)
+        run: npx ng build demo-remote-bookings --configuration=production
+
+      - name: Compile demo-server (TypeScript → dist/)
+        working-directory: projects/demo-server
+        run: |
+          npm ci --no-audit --fund=false
+          npx tsc -p tsconfig.json
+
+      - name: Bundle-size guard (lib FESM under 200 KB)
+        run: |
+          size=$(wc -c < dist/agentic-ui/fesm2022/maverick-agentic-ui.mjs)
+          echo "FESM size: $size bytes"
+          if [ "$size" -gt 204800 ]; then
+            echo "::error::Lib FESM exceeded 200 KB ($size B). Investigate before merging."
+            exit 1
+          fi
