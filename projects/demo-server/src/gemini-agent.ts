@@ -153,6 +153,21 @@ async function sleep(ms: number, signal: AbortSignal): Promise<void> {
 
 /** Convert AG-UI `Message[]` to Gemini `contents` array. */
 function convertMessagesToGemini(messages: readonly Message[]): { role: string; parts: Array<{ text?: string; functionCall?: unknown; functionResponse?: unknown }> }[] {
+  // Build tool-call-id → function-name from prior assistant turns. Gemini's
+  // `functionResponse.name` MUST be the original function name (`bookFlight`),
+  // not the AG-UI tool-call id (`fc-0-run-…`); using the id silently breaks
+  // the model's notion that its own call was answered, which causes
+  // duplicate tool calls.
+  const idToName = new Map<string, string>();
+  for (const m of messages) {
+    if (m.role !== 'assistant') continue;
+    const tcs = (m as Message & { toolCalls?: Array<{ id: string; function?: { name?: string } }> }).toolCalls ?? [];
+    for (const tc of tcs) {
+      const name = tc.function?.name;
+      if (tc.id && typeof name === 'string' && name !== '') idToName.set(tc.id, name);
+    }
+  }
+
   const out: { role: string; parts: Array<{ text?: string; functionCall?: unknown; functionResponse?: unknown }> }[] = [];
   for (const m of messages) {
     if (m.role === 'user' && typeof m.content === 'string') {
@@ -171,11 +186,15 @@ function convertMessagesToGemini(messages: readonly Message[]): { role: string; 
       if (parts.length > 0) out.push({ role: 'model', parts });
     } else if (m.role === 'tool') {
       const toolCallId = (m as Message & { toolCallId?: string }).toolCallId;
+      // Resolve back to the original function name; fall back to the id only
+      // if we can't match (defensive — should never happen in a normal flow).
+      const fnName = (toolCallId && idToName.get(toolCallId)) || toolCallId || 'unknown';
       let response: unknown;
       try { response = JSON.parse(typeof m.content === 'string' ? m.content : ''); } catch { response = m.content; }
       out.push({
-        role: 'user',
-        parts: [{ functionResponse: { name: toolCallId ?? 'unknown', response: { result: response } } }],
+        // Gemini expects `role: 'function'` for function responses.
+        role: 'function',
+        parts: [{ functionResponse: { name: fnName, response: { result: response } } }],
       });
     }
   }

@@ -38,29 +38,42 @@ if (apiKey) {
   // Specialist sub-agents for the multi-agent orchestration example. Each has
   // its own focused system prompt; client-side tool/widget registration on
   // the host app determines what each can actually do.
+  // Shared rules for every specialist. Two rules really matter:
+  //   1. Never re-call a tool whose result you've already received in the
+  //      current conversation. The host renders the result automatically.
+  //   2. Don't emit any HTML / XML / markdown widget tag — generative UI is
+  //      attached automatically from the `components` field on the tool
+  //      result. Just write a short natural-language confirmation.
+  const sharedRules =
+    ' Important rules:\n' +
+    ' 1. Call each tool AT MOST ONCE per user request. After you receive a successful tool result, do NOT call the same tool again — summarize and stop.\n' +
+    ' 2. Do NOT output any HTML, XML, or custom tags such as <flight-card>, <points-card>, or <ticket-card>. The card renders automatically from the tool result; just confirm in plain text.\n' +
+    ' 3. Keep the natural-language reply short — one or two sentences.\n' +
+    " 4. If the user asks about something outside your domain, briefly say it isn't your area and stop.";
+
   const bookingsAgent = new GeminiAgent('bookings', {
     apiKey,
     model,
     systemInstruction:
       'You are a flight booking specialist. Help users search, book, change, and cancel flights. ' +
-      'Call tools when available; render flight cards via the generative-UI components. ' +
-      'Stay focused on travel; if asked about loyalty points or support tickets, say so briefly and stop.',
+      'Call the booking tools when needed.' +
+      sharedRules,
   });
   const loyaltyAgent = new GeminiAgent('loyalty', {
     apiKey,
     model,
     systemInstruction:
       'You are a loyalty program specialist. Help users check points balances, tier status, and redeem rewards. ' +
-      'Call tools when available; render points cards via the generative-UI components. ' +
-      'Stay focused on loyalty; if asked about flight booking or support, say so briefly and stop.',
+      'Call the loyalty tools when needed.' +
+      sharedRules,
   });
   const supportAgent = new GeminiAgent('support', {
     apiKey,
     model,
     systemInstruction:
       'You are a customer support specialist. Help users open tickets, check ticket status, and resolve common ' +
-      'account issues. Call tools when available; render ticket cards via the generative-UI components. ' +
-      'Stay focused on support; if asked about flights or loyalty, say so briefly and stop.',
+      'account issues. Call the support tools when needed.' +
+      sharedRules,
   });
 
   agents.set('bookings', bookingsAgent);
