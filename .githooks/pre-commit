@@ -12,8 +12,10 @@ if [ -z "$staged" ]; then
   exit 0
 fi
 
-# 1. Reject .env / .env.* files outright (regardless of contents).
-env_files=$(echo "$staged" | grep -E '(^|/)\.env(\.|$)' || true)
+# 1. Reject .env / .env.local / .env.<env> files (regardless of contents).
+#    Allow templates: .env.example, .env.sample, .env.template — these are
+#    intentional docs that never carry real values.
+env_files=$(echo "$staged" | grep -E '(^|/)\.env($|\.[A-Za-z0-9_-]+$)' | grep -vE '\.(example|sample|template)$' || true)
 if [ -n "$env_files" ]; then
   echo "❌ Refusing to commit .env file(s):"
   echo "$env_files" | sed 's/^/    /'

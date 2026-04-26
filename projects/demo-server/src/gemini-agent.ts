@@ -55,15 +55,7 @@ export class GeminiAgent implements ServerAgent {
       const contents = convertMessagesToGemini(input.messages);
       const tools = convertToolsToGemini(input.tools);
 
-      const stream = await this.ai.models.generateContentStream({
-        model: this.model,
-        contents: contents as never,
-        config: {
-          systemInstruction: this.systemInstruction,
-          ...(tools.length > 0 ? { tools: [{ functionDeclarations: tools }] } : {}),
-          abortSignal: signal,
-        } as never,
-      });
+      const stream = await this.openStreamWithRetry(contents, tools, signal);
 
       const messageId = `msg-${input.runId}`;
       let textStarted = false;
@@ -109,6 +101,54 @@ export class GeminiAgent implements ServerAgent {
       } as BaseEvent;
     }
   }
+
+  /**
+   * Retry transient Gemini errors (429 quota, 503 unavailable, 500, network)
+   * with exponential backoff + jitter. Bails on user abort and on permanent
+   * errors (400 invalid arg, 401/403 auth, 404 not found).
+   */
+  private async openStreamWithRetry(
+    contents: ReturnType<typeof convertMessagesToGemini>,
+    tools: FunctionDeclaration[],
+    signal: AbortSignal,
+  ): Promise<AsyncIterable<{ candidates?: Array<{ content?: { parts?: Array<{ text?: string; functionCall?: { id?: string; name?: string; args?: unknown }}>}}>}>> {
+    const MAX_ATTEMPTS = 3;
+    const BASE_DELAY_MS = 500;
+    let lastErr: unknown;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      if (signal.aborted) throw new Error('aborted');
+      try {
+        return await this.ai.models.generateContentStream({
+          model: this.model,
+          contents: contents as never,
+          config: {
+            systemInstruction: this.systemInstruction,
+            ...(tools.length > 0 ? { tools: [{ functionDeclarations: tools }] } : {}),
+            abortSignal: signal,
+          } as never,
+        }) as never;
+      } catch (err) {
+        lastErr = err;
+        if (!isTransient(err) || attempt === MAX_ATTEMPTS) throw err;
+        const delay = BASE_DELAY_MS * 2 ** (attempt - 1) + Math.floor(Math.random() * 200);
+        await sleep(delay, signal);
+      }
+    }
+    throw lastErr;
+  }
+}
+
+function isTransient(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return /\b(429|500|502|503|504|temporarily|unavailable|reset|timeout|network|fetch failed)\b/.test(msg);
+}
+
+async function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) return reject(new Error('aborted'));
+    const t = setTimeout(resolve, ms);
+    signal.addEventListener('abort', () => { clearTimeout(t); reject(new Error('aborted')); }, { once: true });
+  });
 }
 
 /** Convert AG-UI `Message[]` to Gemini `contents` array. */
