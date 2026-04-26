@@ -141,33 +141,66 @@ For tools, widgets, MFE federation, and the full step-by-step walkthrough that b
 
 ## Demo applications
 
-The repository ships four reference applications under `projects/`:
+The repository ships six reference applications under `projects/`. They cover three different patterns:
+
+**Single-process examples**
 
 | App | Purpose | Port |
 |-----|---------|------|
-| `demo-monolith` | Single-app demo. Tools and widgets registered locally; no federation moving parts. | 4202 |
-| `demo-multi-agent` | Multi-agent example. Host registers tools + widgets for three domains (bookings / loyalty / support); the orchestrator agent on the server classifies each turn and forwards events from the chosen specialist. | 4204 |
-| `demo-shell` | Native Federation host. Discovers remotes via `MfeRegistryClient`, loads them at boot via `provideAppInitializer`. | 4200 |
-| `demo-remote-bookings` | Native Federation remote. Exposes `./Capability` containing `bookFlightTool` + `flightCardWidget`. | 4201 |
-| `demo-server` | Hono SSE agent server with multiple `ServerAgent` implementations: `EchoAgent`, single-domain `GeminiAgent`, three specialist agents (bookings / loyalty / support), and an `OrchestratorAgent` that routes between them. | 4111 |
+| `demo-monolith` | Single-app, single-agent demo. Tools and widgets registered locally; no federation moving parts. | 4202 |
+| `demo-multi-agent` | One host, multiple agents. Registers tools + widgets for three domains inline; the orchestrator on the server classifies each turn and forwards events from the chosen specialist. | 4204 |
 
-Run order:
+**Federated example — one app per domain, one agent per app**
+
+| App | Purpose | Port |
+|-----|---------|------|
+| `demo-shell` | Native Federation host. Discovers remotes via `MfeRegistryClient`, blocks bootstrap until each `Capability` registers via `provideAppInitializer`. Talks to `/agents/orchestrator/run`. | 4200 |
+| `demo-remote-bookings` | Bookings MFE remote. Exposes `./Capability` with `bookFlightTool` + `flightCardWidget`. | 4201 |
+| `demo-remote-loyalty` | Loyalty MFE remote. Exposes `./Capability` with `checkPointsTool`, `redeemPointsTool`, and `pointsCardWidget`. | 4203 |
+| `demo-remote-support` | Support MFE remote. Exposes `./Capability` with `openTicketTool`, `checkTicketTool`, and `ticketCardWidget`. | 4205 |
+
+**Backend**
+
+| App | Purpose | Port |
+|-----|---------|------|
+| `demo-server` | Hono SSE agent server. Hosts six `ServerAgent` implementations under one process: `EchoAgent`, the single-domain `GeminiAgent`, three specialists (`bookings`, `loyalty`, `support`), and an `OrchestratorAgent` that classifies each turn and forwards events from the chosen specialist. | 4111 |
+
+### Quick start — single-process multi-agent (`demo-multi-agent`)
 
 ```bash
 npm install
 cd projects/demo-server && npm install && cd ../..
 cp projects/demo-server/.env.example projects/demo-server/.env
 # Add your GOOGLE_GENERATIVE_AI_API_KEY to projects/demo-server/.env
-
 npm run build:lib
+npm install ./dist/agentic-ui --no-save
 
-# In separate terminals:
+# Two terminals:
+cd projects/demo-server && npm run dev     # :4111
+npx ng serve demo-multi-agent              # :4204
+```
+
+Open <http://localhost:4204> and try `Book a flight from LAX to JFK on 2026-05-05`, `How many points do I have?`, or `Open a support ticket`. The orchestrator routes each turn to the matching specialist and renders the appropriate card.
+
+### Quick start — federated, one app per domain (`demo-shell` + remotes)
+
+```bash
+npm install
+cd projects/demo-server && npm install && cd ../..
+cp projects/demo-server/.env.example projects/demo-server/.env
+# Add your GOOGLE_GENERATIVE_AI_API_KEY to projects/demo-server/.env
+npm run build:lib
+npm install ./dist/agentic-ui --no-save
+
+# Five terminals:
 cd projects/demo-server && npm run dev     # :4111
 npx ng serve demo-remote-bookings          # :4201
+npx ng serve demo-remote-loyalty           # :4203
+npx ng serve demo-remote-support           # :4205
 npx ng serve demo-shell                    # :4200
 ```
 
-Open <http://localhost:4200> and submit `Book me a flight from LAX to JFK on 2026-05-15`. The header shows `Capabilities: 1 tool(s) across 1 remote(s)` once the remote loads, and the chat transcript renders the `flightCard` widget — a component defined in the remote MFE — under the tool result.
+Open <http://localhost:4200>. The browser console should log `[demo-shell] Loaded demo-remote-bookings (1 tool(s), 1 widget(s))` and the same for loyalty + support. Each domain now lives in its own deployable; the orchestrator on the server routes per turn to the specialist whose tools the loaded remote contributed.
 
 ## Documentation
 
