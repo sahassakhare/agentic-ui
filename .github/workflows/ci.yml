@@ -83,3 +83,6 @@ jobs:
 
       - name: Build TypeDoc API site
         run: npm run docs:api
+
+      - name: Build Compodoc site
+        run: npm run docs:compodoc

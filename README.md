@@ -248,6 +248,7 @@ Adding a fourth domain is the same recipe: clone one of the remote folders, poin
 | Document | Contents |
 |----------|----------|
 | [API reference](https://sahassakhare.github.io/agentic-ui/) | Full TypeDoc-generated reference; rebuilt on every push to `main` and on every `v*` tag. Locally: `npm run docs:api`. |
+| Compodoc site | Angular-aware docs site (components, services, modules, routes) with the cookbook embedded as an additional-pages section. Build: `npm run docs:compodoc`. Live-reload: `npm run docs:compodoc:serve`. Output: `docs/compodoc/`. |
 | [User Guide](./docs/USER_GUIDE.md) | 7-step walkthrough from clean clone to a working federated demo, plus a troubleshooting matrix keyed to specific error messages. |
 | [Quickstart](./docs/cookbook/quickstart.md) | Provider wiring in five minutes. |
 | [Federate an MFE](./docs/cookbook/federate-an-mfe.md) | Host + remote setup with Native Federation. |

@@ -11,6 +11,144 @@ This guide walks you through the working example in
 [`OrchestratorAgent`](../../projects/demo-server/src/orchestrator-agent.ts)
 in the demo server.
 
+## Where things live
+
+All six agents are constructed and registered in **one Node process**
+(`projects/demo-server/`, port 4111). The Hono router exposes each at
+`POST /agents/:id/run`; clients pick which agent by URL.
+
+| Agent id | Implementation | Role |
+|---|---|---|
+| `echo` | [`@maverick/agentic-ui-server` → `EchoAgent`](../../projects/agentic-ui-server/src/echo-agent.ts) | No-LLM smoke-test agent — useful for testing the SSE pipeline without burning quota. |
+| `gemini` | [`projects/demo-server/src/gemini-agent.ts`](../../projects/demo-server/src/gemini-agent.ts) → `GeminiAgent` | Original single-domain demo agent (still wired so `demo-monolith` works). |
+| `bookings` | same `GeminiAgent` class, different `systemInstruction` | Flight specialist. |
+| `loyalty` | same `GeminiAgent` class, different `systemInstruction` | Loyalty-program specialist. |
+| `support` | same `GeminiAgent` class, different `systemInstruction` | Support specialist. |
+| **`orchestrator`** | [`projects/demo-server/src/orchestrator-agent.ts`](../../projects/demo-server/src/orchestrator-agent.ts) → `OrchestratorAgent` | Classifier + forwarder. Picks one specialist per turn and forwards its event stream verbatim. |
+
+Wiring lives in [`projects/demo-server/src/server.ts`](../../projects/demo-server/src/server.ts). A simplified excerpt:
+
+```ts
+const bookingsAgent = new GeminiAgent('bookings', { systemInstruction: '...' });
+const loyaltyAgent  = new GeminiAgent('loyalty',  { systemInstruction: '...' });
+const supportAgent  = new GeminiAgent('support',  { systemInstruction: '...' });
+
+const orchestrator = new OrchestratorAgent('orchestrator', {
+  apiKey, model,
+  subAgents: [
+    { id: 'bookings', agent: bookingsAgent, description: '...', examples: [...] },
+    { id: 'loyalty',  agent: loyaltyAgent,  description: '...', examples: [...] },
+    { id: 'support',  agent: supportAgent,  description: '...', examples: [...] },
+  ],
+});
+
+agents.set('orchestrator', orchestrator);
+agents.set('bookings', bookingsAgent);  // also reachable directly
+agents.set('loyalty',  loyaltyAgent);
+agents.set('support',  supportAgent);
+```
+
+Host apps choose which agent to talk to via `environment.ts → agentUrl`:
+
+| App | `agentUrl` | What it gets |
+|---|---|---|
+| [`demo-monolith`](../../projects/demo-monolith) (4202) | `/agents/gemini/run` | Single-domain agent — simplest example. |
+| [`demo-multi-agent`](../../projects/demo-multi-agent) (4204) | `/agents/orchestrator/run` | Orchestrator + three specialists. Tools and widgets registered inline in the host. |
+| [`demo-shell`](../../projects/demo-shell) (4200) | `/agents/orchestrator/run` | Same orchestrator, but tools/widgets are contributed by federated MFE remotes — `demo-remote-bookings` (4201), `demo-remote-loyalty` (4203), `demo-remote-support` (4205). |
+
+## Sequence — one full turn
+
+End-to-end flow for *"Book a flight from LAX to JFK on 2026-05-05"* against the federated host:
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Host as demo-shell<br/>(:4200)
+    participant Orch as OrchestratorAgent<br/>(/agents/orchestrator/run)
+    participant Sub as Bookings specialist<br/>(GeminiAgent)
+    participant LLM as Gemini API
+    participant Tool as bookFlight handler<br/>(client-side, from MFE)
+
+    User->>Host: types prompt
+    Host->>Orch: POST /run (AG-UI SSE)<br/>messages, tools, widgets
+
+    Note over Orch: First turn — no sticky specialist yet
+    Orch->>LLM: classify(window) — small JSON-only call
+    LLM-->>Orch: { agent: "bookings", reason: "..." }
+    Orch-->>Host: TEXT _Routed to **bookings** specialist._
+
+    Orch->>Sub: run(input, signal) — verbatim forward
+    Sub->>LLM: streamGenerateContent(messages, tools)
+    LLM-->>Sub: TOOL_CALL bookFlight({from,to,date})
+    Sub-->>Orch: TOOL_CALL_START / ARGS / END
+    Orch-->>Host: forwarded (RUN_* stripped)
+
+    Host->>Tool: handler({from,to,date})
+    Tool-->>Host: { bookingId, status, components: [{name,props}] }
+    Host->>Host: WidgetContainer renders flightCard via *ngComponentOutlet
+    Host->>Orch: POST /run again (with tool result)
+
+    Note over Orch: isToolFollowUp → reuse sticky bookings,<br/>SKIP classifier, SKIP banner
+    Orch->>Sub: run(input)
+    Sub->>LLM: streamGenerateContent (with function response)
+    LLM-->>Sub: TEXT "Your flight is booked..."
+    Sub-->>Orch: TEXT_MESSAGE_* events
+    Orch-->>Host: forwarded
+    Orch-->>Host: RUN_FINISHED
+    Host-->>User: text + flight card
+```
+
+A few things worth noting in the diagram:
+
+- **The orchestrator never calls a tool itself.** It picks a specialist and forwards events. The specialist emits the tool call; the host's `runUntilSettled` loop executes it and sends the result back as the next turn.
+- **A single user prompt produces two `POST /run` calls** when there's a client-side tool. The first run yields the tool-call event; the second run feeds the tool result back to the LLM so it can compose a final natural-language answer.
+- **The orchestrator is sticky-by-thread.** The second run hits `isToolFollowUp`, finds the stored specialist for this `threadId`, and skips the classifier entirely — no extra LLM call, no second routing banner.
+
+## Flow — the routing decision tree
+
+What `OrchestratorAgent.run()` actually decides on each invocation:
+
+```mermaid
+flowchart TD
+    A[run input] --> B{Last message<br/>is tool result OR<br/>assistant tool-call?}
+    B -- "Yes (tool follow-up)" --> C{Sticky specialist<br/>for this threadId?}
+    C -- Yes --> D["Reuse sticky specialist<br/>(no classifier call,<br/>no routing banner)"]
+    C -- No --> E[classify recent transcript window]
+
+    B -- "No (fresh user turn)" --> E
+
+    E --> F{LLM call OK?}
+    F -- "200 / valid JSON" --> G[Use LLM choice]
+    F -- "429 · 5xx · network" --> H[Retry up to 3×<br/>with exponential backoff + jitter]
+    H --> F
+    F -- "All retries failed<br/>or non-JSON output" --> I[Keyword fallback<br/>token-overlap scoring vs<br/>each specialist's<br/>description + examples]
+
+    I --> J{score > 0?}
+    J -- Yes --> K[Pick top-scoring specialist]
+    J -- No --> L{Sticky exists?}
+    L -- Yes --> M[Stay with sticky specialist]
+    L -- No --> N[Return 'none' →<br/>fallback message to user]
+
+    G --> O[Set sticky for thread]
+    K --> O
+    M --> P[Forward specialist's stream]
+    D --> P
+    O --> P
+
+    P --> Q{Specialist<br/>RUN_ERROR?}
+    Q -- No --> R[Yield RUN_FINISHED]
+    Q -- Yes --> S["Emit visible error message<br/>'⚠️ The X specialist failed: ...'"]
+    S --> T[Forward RUN_ERROR<br/>(terminal — no RUN_FINISHED)]
+
+    N --> R
+```
+
+Key invariants encoded in this flow:
+
+1. **No re-classification mid-tool-chain.** Tool follow-up runs short-circuit to the sticky specialist. This stops `bookFlight`'s tool result (which looks meaningless to the classifier) from misrouting to `none`.
+2. **Routing always returns a decision.** When the LLM is exhausted, keyword scoring picks one of the specialists; if that scores zero, sticky takes over; only if both fail does the user see the "no specialist matched" banner. Quota exhaustion never leaves a turn stranded.
+3. **Specialist failures are surfaced.** The earlier version silently swallowed `RUN_ERROR` from the sub-agent. The current version emits a visible `⚠️` line and forwards the error so the user (and any error-aware client) knows what went wrong.
+
 ## Architecture
 
 ```

@@ -55,3 +55,9 @@ PLAN.md
 
 # Generated API docs (built by `npm run docs:api`; published, not tracked)
 /docs/api/
+
+# Compodoc output + the build-time-synced includes folder.
+# `docs/compodoc-includes/summary.json` IS tracked; the .md files copied
+# next to it at build time are not.
+/docs/compodoc/
+/docs/compodoc-includes/*.md

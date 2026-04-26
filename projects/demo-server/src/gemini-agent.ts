@@ -22,12 +22,32 @@ interface PendingFunctionCall {
  * `RunAgentInput` ⇄ Gemini's chat API and emits AG-UI `BaseEvent`s for the
  * route handler to encode as SSE.
  *
+ * @remarks
  * Supports:
- *  - Streaming text (Gemini token stream → TEXT_MESSAGE_CONTENT deltas)
- *  - Function/tool calling (AG-UI tools[] → Gemini function declarations;
- *    function-call response → TOOL_CALL_* events)
- *  - Tool-result feedback (a follow-up turn after the client returns a
- *    tool result, so Gemini can compose a natural-language answer)
+ *  - **Streaming text** — Gemini token stream → `TEXT_MESSAGE_CONTENT` deltas.
+ *  - **Function / tool calling** — AG-UI `tools[]` → Gemini
+ *    `FunctionDeclaration[]`; `functionCall` parts → `TOOL_CALL_START` /
+ *    `TOOL_CALL_ARGS` / `TOOL_CALL_END` event triplets.
+ *  - **Tool-result feedback** — when the client posts a tool-result message
+ *    on the next turn, this agent maps it back to a Gemini `functionResponse`
+ *    so the model can compose a natural-language answer.
+ *  - **Transient retry** — `openStreamWithRetry` retries the upstream
+ *    streaming call up to 3 times with exponential backoff + jitter on
+ *    transient errors (429, 5xx, network).
+ *
+ * Wire multiple instances under different ids and `systemInstruction`s to
+ * create per-domain specialists; route between them with
+ * {@link OrchestratorAgent}.
+ *
+ * @example
+ * ```ts
+ * const bookingsAgent = new GeminiAgent('bookings', {
+ *   apiKey: process.env.GEMINI_KEY,
+ *   model: 'gemini-2.5-flash',
+ *   systemInstruction: 'You are a flight booking specialist...',
+ * });
+ * agents.set('bookings', bookingsAgent);
+ * ```
  */
 export class GeminiAgent implements ServerAgent {
   readonly id: string;
@@ -35,6 +55,12 @@ export class GeminiAgent implements ServerAgent {
   private readonly model: string;
   private readonly systemInstruction?: string;
 
+  /**
+   * @param id     Agent id used for resolution from URL paths.
+   * @param config See {@link GeminiAgentConfig}. The API key may come from
+   *               config, `GOOGLE_GENERATIVE_AI_API_KEY`, or `GEMINI_API_KEY`.
+   * @throws Error if no API key is available.
+   */
   constructor(id = 'gemini', config: GeminiAgentConfig = {}) {
     const apiKey = config.apiKey ?? process.env['GOOGLE_GENERATIVE_AI_API_KEY'] ?? process.env['GEMINI_API_KEY'];
     if (!apiKey) {
@@ -48,6 +74,15 @@ export class GeminiAgent implements ServerAgent {
     this.id = id;
   }
 
+  /**
+   * One full Gemini turn. Yields lifecycle, text-stream, and tool-call events
+   * in AG-UI's canonical shape.
+   *
+   * @param input  AG-UI run input — message history, tools, widgets.
+   * @param signal Aborts when the client disconnects or the request times out.
+   * @returns AG-UI events: `RUN_STARTED` → `TEXT_MESSAGE_*` and/or
+   *          `TOOL_CALL_*` → `RUN_FINISHED` (or terminal `RUN_ERROR`).
+   */
   async *run(input: RunAgentInput, signal: AbortSignal): AsyncIterable<BaseEvent> {
     yield { type: EventType.RUN_STARTED, threadId: input.threadId, runId: input.runId } as BaseEvent;
 

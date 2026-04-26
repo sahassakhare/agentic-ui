@@ -3,23 +3,50 @@ import { EventType, type BaseEvent, type RunAgentInput } from '@ag-ui/core';
 import type { ServerAgent } from '@maverick/agentic-ui-server';
 import { log } from './logger.js';
 
+/**
+ * One specialist registered with the orchestrator. The orchestrator never
+ * inspects the underlying `agent` — it just forwards events from `agent.run()`
+ * verbatim. The `description` and `examples` are seen only by the classifier
+ * LLM (and the keyword fallback router).
+ *
+ * @example
+ * {
+ *   id: 'bookings',
+ *   agent: bookingsGeminiAgent,
+ *   description: 'flight search, booking, cancellation, schedule changes',
+ *   examples: [
+ *     'Book a flight from LAX to JFK on March 5',
+ *     'Cancel my booking BK-XXX',
+ *   ],
+ * }
+ */
 export interface SubAgentSpec {
-  /** Sub-agent id; must match a key the orchestrator's classifier can return. */
+  /** Stable id used for routing. Must be unique across registered specialists. */
   readonly id: string;
-  /** One-line description shown to the classifier LLM. */
+  /** One-line domain summary shown to the classifier LLM. */
   readonly description: string;
-  /** A few canonical phrasings to anchor the classifier. */
+  /** Canonical phrasings that anchor the classifier and seed the keyword fallback. */
   readonly examples: readonly string[];
+  /** The actual agent implementation. Anything implementing `ServerAgent` works. */
   readonly agent: ServerAgent;
 }
 
+/**
+ * Constructor configuration for {@link OrchestratorAgent}.
+ *
+ * @remarks
+ * `apiKey` is required because the classifier issues its own `generateContent`
+ * calls separate from any specialist. The `model` parameter affects ONLY the
+ * classifier — each specialist agent picks its own model independently.
+ */
 export interface OrchestratorAgentConfig {
+  /** Google Generative AI API key (used by the classifier). */
   readonly apiKey: string;
   /** Classifier model. Defaults to `gemini-2.5-flash`. */
   readonly model?: string;
-  /** Sub-agents the orchestrator can route to. */
+  /** Specialists the orchestrator can route to. At least one is required. */
   readonly subAgents: readonly SubAgentSpec[];
-  /** Optional fallback message when no sub-agent matches. */
+  /** Optional fallback assistant message when no specialist matches. */
   readonly fallbackMessage?: string;
 }
 
@@ -30,19 +57,46 @@ export interface OrchestratorAgentConfig {
  * widgets, and text deltas exactly as if it had connected directly to the
  * specialist.
  *
- * Why intent-classification + forwarding rather than a "delegate-as-tool"
- * approach: it preserves AG-UI fidelity. Specialists keep their own tools,
+ * @remarks
+ * **Why intent-classification + forwarding rather than a "delegate-as-tool"
+ * approach.** It preserves AG-UI fidelity. Specialists keep their own tools,
  * widgets, and system prompts, and the host app's `ToolRegistry` /
  * `ComponentRegistry` are passed through untouched in `input.tools` /
- * `input.widgets`.
+ * `input.widgets`. The chat shell sees one continuous SSE stream — no tool
+ * round-trip layered on top of a tool round-trip.
  *
- * Trade-offs:
- *  - One extra LLM call per turn (the classifier). Cheap with `gemini-2.5-flash`,
- *    but if you need it free, swap in a regex / keyword router by re-implementing
- *    {@link classify}.
+ * **Resilience model.**
+ *  - Sticky-by-thread routing: once a thread is routed to a specialist, the
+ *    choice is remembered. The post-tool-call re-run from `runUntilSettled`
+ *    short-circuits to that specialist instead of re-classifying.
+ *  - Classifier retries: up to 3 attempts with exponential backoff + jitter on
+ *    transient errors (429, 5xx, network).
+ *  - Keyword fallback: if the LLM is permanently unavailable, route by
+ *    counting query tokens against each specialist's `description` +
+ *    `examples` corpus. Quota exhaustion never strands a turn.
+ *  - Specialist error surfacing: if a forwarded specialist yields RUN_ERROR,
+ *    the orchestrator emits a visible "⚠️ The X specialist failed: ..."
+ *    message and propagates the error.
+ *
+ * **Trade-offs.**
+ *  - One extra LLM call per fresh user turn (the classifier). Cheap with
+ *    `gemini-2.5-flash`; bypass entirely by overriding {@link classify} with
+ *    a deterministic router (regex / keyword / `IntentRegistry`).
  *  - The orchestrator commits to one specialist per turn. For multi-step
- *    cross-domain answers, model the cross-domain step as a tool the specialist
- *    owns, or upgrade to a planner-executor (a future enhancement).
+ *    cross-domain answers, model the cross-domain step as a tool the
+ *    specialist owns, or upgrade to a planner-executor.
+ *
+ * @example
+ * ```ts
+ * const orch = new OrchestratorAgent('orchestrator', {
+ *   apiKey: process.env.GEMINI_KEY!,
+ *   subAgents: [
+ *     { id: 'bookings', agent: bookingsAgent, description: '...', examples: [...] },
+ *     { id: 'loyalty',  agent: loyaltyAgent,  description: '...', examples: [...] },
+ *   ],
+ * });
+ * agents.set('orchestrator', orch);
+ * ```
  */
 export class OrchestratorAgent implements ServerAgent {
   readonly id: string;
@@ -59,6 +113,12 @@ export class OrchestratorAgent implements ServerAgent {
    */
   private readonly threadSpecialist = new Map<string, string>();
 
+  /**
+   * @param id     Identifier under which the orchestrator is registered with
+   *               the `AgentResolver`. Visible in URLs as `/agents/<id>/run`.
+   * @param config See {@link OrchestratorAgentConfig}.
+   * @throws Error when `apiKey` is empty or `subAgents` is empty.
+   */
   constructor(id = 'orchestrator', config: OrchestratorAgentConfig) {
     if (!config.apiKey) throw new Error('OrchestratorAgent: missing apiKey.');
     if (config.subAgents.length === 0) throw new Error('OrchestratorAgent: at least one sub-agent required.');
@@ -72,6 +132,20 @@ export class OrchestratorAgent implements ServerAgent {
       `I'm not sure which specialist to involve. Try asking about: ${[...this.subs.keys()].join(', ')}.`;
   }
 
+  /**
+   * Runs one orchestration turn. Yields AG-UI events that the
+   * `agUiRouteHandler` encodes as SSE.
+   *
+   * @param input  AG-UI run input — `threadId`, `runId`, message history,
+   *               available tools/widgets.
+   * @param signal Aborts when the client disconnects or the request times out.
+   * @returns An async iterable of AG-UI `BaseEvent`s. The orchestrator owns the
+   *          outer `RUN_STARTED` / `RUN_FINISHED` (or terminal `RUN_ERROR`); the
+   *          forwarded specialist's lifecycle events are stripped.
+   *
+   * @see {@link classify}              for the LLM-based router (overridable).
+   * @see {@link classifyByKeywords}    for the deterministic fallback router.
+   */
   async *run(input: RunAgentInput, signal: AbortSignal): AsyncIterable<BaseEvent> {
     yield { type: EventType.RUN_STARTED, threadId: input.threadId, runId: input.runId } as BaseEvent;
 
@@ -190,12 +264,32 @@ export class OrchestratorAgent implements ServerAgent {
   }
 
   /**
-   * Classify the user's query against the registered sub-agents using a small
-   * LLM call. Returns `{ agent: 'none', ... }` when nothing matches.
+   * Pick a specialist for the latest user turn.
    *
-   * Override this if you want a deterministic router (regex / keyword / Intent
-   * registry) — the rest of the orchestrator doesn't care how the decision
-   * is made.
+   * Strategy:
+   *  1. Try the LLM classifier with up to 3 attempts and exponential backoff.
+   *     Recognised transients: `429`, `5xx`, `RESOURCE_EXHAUSTED`, network /
+   *     timeout. Each attempt sees the recent transcript window plus a hint
+   *     that biases toward `currentSpecialist` if one is active.
+   *  2. If the LLM is permanently unavailable or returns malformed JSON,
+   *     fall through to {@link classifyByKeywords} — a deterministic
+   *     token-overlap router that needs no API call.
+   *
+   * Override this method to plug in a different routing strategy (regex,
+   * `IntentRegistry`, embeddings). The rest of the orchestrator only depends
+   * on the return shape, so swapping the classifier is a one-method change.
+   *
+   * @param window             Recent user/assistant transcript window
+   *                           (oldest-first), already stripped of the
+   *                           orchestrator's own routing-banner messages.
+   * @param signal             Abort signal for the run; honoured between
+   *                           retry attempts.
+   * @param currentSpecialist  The specialist currently active for this thread,
+   *                           if any. Passed to the LLM as a "default to
+   *                           staying" hint and consumed by the keyword
+   *                           fallback when nothing scores > 0.
+   * @returns `{ agent, reason }` — `agent` is either a registered sub-agent id
+   *          or the literal string `'none'` when no match could be found.
    */
   protected async classify(
     window: ReadonlyArray<{ role: string; text: string }>,
@@ -273,14 +367,27 @@ export class OrchestratorAgent implements ServerAgent {
   }
 
   /**
-   * Deterministic keyword-overlap router. Used when the LLM classifier is
-   * unavailable (rate-limited, network outage, etc.). Score each specialist
-   * by counting query tokens that appear in its `description` + `examples`
-   * corpus; pick the highest-scoring specialist if any score > 0.
+   * Deterministic keyword-overlap router used as a fallback when the LLM
+   * classifier is unavailable (rate-limited, network outage, malformed output).
    *
-   * If nothing matches and we have a sticky specialist, stay with them — the
-   * user is plausibly continuing the same topic and we have no signal to
-   * justify switching.
+   * Algorithm:
+   *  1. Take the user's latest turn from the window.
+   *  2. Tokenise on word boundaries, lowercase, keep tokens of length >= 3
+   *     that aren't stopwords.
+   *  3. For each specialist, build a corpus from `description + examples + id`
+   *     and count how many query tokens appear in it.
+   *  4. Pick the highest-scoring specialist if any score > 0.
+   *
+   * Fallbacks within the fallback:
+   *  - If nothing scores > 0 and there's a sticky specialist, stay with them.
+   *  - Otherwise return `'none'` (caller emits the user-facing fallback message).
+   *
+   * Override this to change the scoring (TF-IDF, BM25, embeddings); the
+   * rest of the orchestrator only depends on the return shape.
+   *
+   * @param window             Same window passed to {@link classify}.
+   * @param currentSpecialist  Sticky specialist for the thread, if any.
+   * @returns `{ agent, reason }` — `reason` carries the score for telemetry.
    */
   protected classifyByKeywords(
     window: ReadonlyArray<{ role: string; text: string }>,

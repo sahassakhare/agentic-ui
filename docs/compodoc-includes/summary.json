@@ -1,0 +1,22 @@
+[
+  {
+    "title": "Quickstart",
+    "file": "quickstart.md"
+  },
+  {
+    "title": "Multi-agent orchestration",
+    "file": "multi-agent-orchestration.md"
+  },
+  {
+    "title": "Federate an MFE",
+    "file": "federate-an-mfe.md"
+  },
+  {
+    "title": "Swap the backend",
+    "file": "swap-backend.md"
+  },
+  {
+    "title": "Observability",
+    "file": "observability.md"
+  }
+]
