@@ -141,14 +141,15 @@ For tools, widgets, MFE federation, and the full step-by-step walkthrough that b
 
 ## Demo applications
 
-The repository ships three reference applications under `projects/`:
+The repository ships four reference applications under `projects/`:
 
 | App | Purpose | Port |
 |-----|---------|------|
 | `demo-monolith` | Single-app demo. Tools and widgets registered locally; no federation moving parts. | 4202 |
+| `demo-multi-agent` | Multi-agent example. Host registers tools + widgets for three domains (bookings / loyalty / support); the orchestrator agent on the server classifies each turn and forwards events from the chosen specialist. | 4204 |
 | `demo-shell` | Native Federation host. Discovers remotes via `MfeRegistryClient`, loads them at boot via `provideAppInitializer`. | 4200 |
 | `demo-remote-bookings` | Native Federation remote. Exposes `./Capability` containing `bookFlightTool` + `flightCardWidget`. | 4201 |
-| `demo-server` | Hono SSE agent server with two `ServerAgent` implementations: `EchoAgent` (no LLM) and `GeminiAgent` (Gemini 2.5 Flash, env-driven). | 4111 |
+| `demo-server` | Hono SSE agent server with multiple `ServerAgent` implementations: `EchoAgent`, single-domain `GeminiAgent`, three specialist agents (bookings / loyalty / support), and an `OrchestratorAgent` that routes between them. | 4111 |
 
 Run order:
 
@@ -176,6 +177,7 @@ Open <http://localhost:4200> and submit `Book me a flight from LAX to JFK on 202
 | [User Guide](./docs/USER_GUIDE.md) | 7-step walkthrough from clean clone to a working federated demo, plus a troubleshooting matrix keyed to specific error messages. |
 | [Quickstart](./docs/cookbook/quickstart.md) | Provider wiring in five minutes. |
 | [Federate an MFE](./docs/cookbook/federate-an-mfe.md) | Host + remote setup with Native Federation. |
+| [Multi-agent orchestration](./docs/cookbook/multi-agent-orchestration.md) | Shell orchestrator routes to per-domain specialists; AG-UI events forwarded verbatim so widgets and tool calls keep working. |
 | [Swap the backend](./docs/cookbook/swap-backend.md) | AG-UI ↔ Hashbrown ↔ A2UI; runtime backend selection via `BackendRegistry`. |
 | [Observability](./docs/cookbook/observability.md) | `provideAgenticTelemetry` wiring; OpenTelemetry SDK integration. |
 | [ADR-001](./docs/adr/0001-agentic-backend-abstraction.md) | Pluggable backend abstraction. |

@@ -130,6 +130,64 @@
         }
       }
     },
+    "demo-multi-agent": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
+      "root": "projects/demo-multi-agent",
+      "sourceRoot": "projects/demo-multi-agent/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "projects/demo-multi-agent/src/main.ts",
+            "tsConfig": "projects/demo-multi-agent/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              { "glob": "**/*", "input": "projects/demo-multi-agent/public" }
+            ],
+            "styles": ["projects/demo-multi-agent/src/styles.scss"]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                { "type": "initial", "maximumWarning": "500kB", "maximumError": "1MB" },
+                { "type": "anyComponentStyle", "maximumWarning": "4kB", "maximumError": "8kB" }
+              ],
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "projects/demo-multi-agent/src/environments/environment.ts",
+                  "with": "projects/demo-multi-agent/src/environments/environment.prod.ts"
+                }
+              ]
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": { "port": 4204 },
+          "configurations": {
+            "production": { "buildTarget": "demo-multi-agent:build:production" },
+            "development": { "buildTarget": "demo-multi-agent:build:development" }
+          },
+          "defaultConfiguration": "development"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test"
+        }
+      }
+    },
     "demo-shell": {
       "projectType": "application",
       "schematics": {
