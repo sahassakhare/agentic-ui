@@ -1,0 +1,10 @@
+/**
+ * Generative-UI widgets the agent can render via tool results.
+ *
+ * Add widgets with: ng generate @maverick/agentic-ui:widget --name=MyWidget
+ *
+ * Each widget pairs an Angular component with a Zod schema for its props.
+ */
+import type { ComponentDef } from '@maverick/agentic-ui';
+
+export const widgets: ComponentDef[] = [];

@@ -1,0 +1,15 @@
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+
+@Component({
+  selector: '<%= prefix %>-<%= dasherize(name) %>',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <div class="<%= dasherize(name) %>">
+      <!-- TODO: render <%= classify(name) %> -->
+      <pre>{{ data() | json }}</pre>
+    </div>
+  `,
+})
+export class <%= classify(name) %>Component {
+  readonly data = input.required<unknown>();
+}

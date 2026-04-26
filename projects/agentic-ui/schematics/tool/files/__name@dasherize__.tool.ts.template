@@ -1,0 +1,16 @@
+import { agenticTool } from '@maverick/agentic-ui';
+import { z } from 'zod';
+
+export const <%= camelize(name) %>Tool = agenticTool({
+  name: '<%= camelize(name) %>',
+  description: '<%= description %>',
+  schema: z.object({
+    // TODO: define arguments
+  }),
+  executeIn: '<%= executeIn %>',
+  handler: async (args, ctx) => {
+    // TODO: implement
+    void args; void ctx;
+    return { ok: true };
+  },
+});

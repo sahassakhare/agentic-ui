@@ -1,0 +1,22 @@
+import { serve } from '@hono/node-server';
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { agUiRouteHandler, EchoAgent, type AgentResolver } from '@maverick/agentic-ui-server';
+
+const PORT = Number(process.env['PORT'] ?? <%= port %>);
+
+const echoAgent = new EchoAgent('echo');
+const resolver: AgentResolver = {
+  resolve(id) { return id === 'echo' ? echoAgent : undefined; },
+};
+
+const handler = agUiRouteHandler({ resolver });
+const app = new Hono();
+
+app.use('*', cors({ origin: (o) => o ?? '*', allowMethods: ['POST', 'OPTIONS'], allowHeaders: ['Content-Type', 'Accept'] }));
+app.get('/health', (c) => c.json({ ok: true, agents: ['echo'] }));
+app.post('/agents/:id/run', async (c) => handler(c.req.raw));
+
+serve({ fetch: app.fetch, port: PORT }, (info) => {
+  console.log(`[<%= dasherize(name) %>] AG-UI route at http://localhost:${info.port}/agents/echo/run`);
+});

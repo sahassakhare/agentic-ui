@@ -1,0 +1,42 @@
+import type { EnvironmentProviders } from '@angular/core';
+import {
+  provideAgenticBackend,
+  type AgenticBackend,
+  type AgenticEvent,
+  type AgenticRunInput,
+  type BackendCapabilities,
+} from '@maverick/agentic-ui';
+
+export interface <%= classify(name) %>Config {
+  // TODO: declare your backend configuration here
+  readonly url?: string;
+}
+
+const CAPABILITIES: BackendCapabilities = {
+  streaming: true,
+  clientTools: true,
+  generativeUi: false,
+  uiActions: false,
+};
+
+export class <%= classify(name) %> implements AgenticBackend {
+  readonly id = '<%= dasherize(name) %>';
+  readonly capabilities = CAPABILITIES;
+
+  constructor(private readonly config: <%= classify(name) %>Config) {}
+
+  async *run(input: AgenticRunInput): AsyncIterable<AgenticEvent> {
+    yield { type: 'run-started', threadId: input.threadId, runId: input.runId };
+    // TODO: bridge your protocol/events here.
+    yield { type: 'run-finished', runId: input.runId };
+  }
+}
+
+export function provide<%= classify(name) %>(config: <%= classify(name) %>Config): EnvironmentProviders {
+  return provideAgenticBackend({
+    id: '<%= dasherize(name) %>',
+    label: '<%= classify(name) %>',
+    capabilities: CAPABILITIES,
+    factory: () => new <%= classify(name) %>(config),
+  });
+}

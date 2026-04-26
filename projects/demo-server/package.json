@@ -1,0 +1,25 @@
+{
+  "name": "@maverick/demo-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Demo AG-UI agent server backing demo-monolith. Hono + EchoAgent.",
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --enable-source-maps dist/server.js",
+    "dev": "tsx watch src/server.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^1.50.1",
+    "@hono/node-server": "^1.13.0",
+    "@maverick/agentic-ui-server": "file:../agentic-ui-server",
+    "dotenv": "^17.4.2",
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "~5.9.0"
+  }
+}

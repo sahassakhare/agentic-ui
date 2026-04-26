@@ -1,0 +1,19 @@
+import { agenticForm } from '@maverick/agentic-ui';
+import { z } from 'zod';
+
+export const <%= camelize(name) %>Form = agenticForm({
+  name: '<%= camelize(name) %>',
+  description: '<%= description %>',
+  fieldsSchema: z.object({
+    // TODO: define form fields
+    // example: from: z.string(),
+  }),
+  ui: {
+    // Per-field UI hints (order, widget, options, placeholder)
+    // example: from: { order: 1, placeholder: 'LAX' },
+  },
+  submit: async (values) => {
+    // TODO: handle submission
+    void values;
+  },
+});

@@ -1,0 +1,11 @@
+import { agenticWidget } from '@maverick/agentic-ui';
+import { z } from 'zod';
+import { <%= classify(name) %>Component } from './<%= dasherize(name) %>.component';
+
+export const <%= camelize(name) %>Widget = agenticWidget({
+  name: '<%= camelize(name) %>',
+  component: <%= classify(name) %>Component,
+  propsSchema: z.object({
+    data: z.unknown(),
+  }),
+});

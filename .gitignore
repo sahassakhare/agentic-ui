@@ -1,0 +1,53 @@
+# Compiled output (rooted + nested)
+/dist
+dist/
+/tmp
+tmp/
+/out-tsc
+/bazel-out
+
+# Node (rooted + nested)
+/node_modules
+node_modules/
+npm-debug.log
+yarn-error.log
+.npm/
+*.tsbuildinfo
+
+# IDE
+/.idea
+/.project
+/.classpath
+/.c9/
+*.launch
+.settings/
+*.sublime-workspace
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/launch.json
+!/.vscode/tasks.json
+/.history/*
+
+# Angular cache
+/.angular/cache
+
+# Misc
+.sass-cache/
+/connect.lock
+/coverage
+/libpeerconnection.log
+testem.log
+/typings
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.env.local
+.env.*.local
+
+# Tool-output (not committed; Claude session state lives elsewhere)
+.claude/
+/.claude/local

@@ -1,0 +1,14 @@
+import { agenticIntent } from '@maverick/agentic-ui';
+import { z } from 'zod';
+
+export const <%= camelize(name) %>Intent = agenticIntent({
+  id: '<%= camelize(name) %>',
+  description: '<%= description %>',
+  examples: [
+    // Phrases that should trigger this intent
+  ],
+  schema: z.object({
+    // Captured slots / parameters
+  }),
+  mapsTo: { kind: '<%= kind %>', target: '<%= target %>' },
+});

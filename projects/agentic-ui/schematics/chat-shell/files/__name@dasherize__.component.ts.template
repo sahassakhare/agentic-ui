@@ -1,0 +1,11 @@
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChatShellComponent } from '@maverick/agentic-ui';
+
+@Component({
+  selector: '<%= prefix %>-<%= dasherize(name) %>',
+  imports: [ChatShellComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `<mvk-chat-shell />`,
+  styles: `:host { display: flex; flex: 1; min-height: 0; }`,
+})
+export class <%= classify(name) %>Component {}

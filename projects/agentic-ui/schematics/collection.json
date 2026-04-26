@@ -1,0 +1,60 @@
+{
+  "$schema": "../../../node_modules/@angular-devkit/schematics/collection-schema.json",
+  "schematics": {
+    "ng-add": {
+      "description": "Install @maverick/agentic-ui peer deps and wire provideAgenticUi + provideAgUiBackend in app.config.ts.",
+      "factory": "./ng-add/index#ngAdd",
+      "schema": "./ng-add/schema.json"
+    },
+    "tool": {
+      "description": "Scaffold a client tool: *.tool.ts with agenticTool({...}) and a Zod argument schema.",
+      "factory": "./tool/index#toolSchematic",
+      "schema": "./tool/schema.json",
+      "aliases": ["t"]
+    },
+    "widget": {
+      "description": "Scaffold a generative-UI widget: standalone Angular component + *.widget.ts factory with a Zod props schema.",
+      "factory": "./widget/index#widgetSchematic",
+      "schema": "./widget/schema.json",
+      "aliases": ["w"]
+    },
+    "chat-shell": {
+      "description": "Scaffold a route + standalone component embedding <mvk-chat-shell>.",
+      "factory": "./chat-shell/index#chatShellSchematic",
+      "schema": "./chat-shell/schema.json"
+    },
+    "backend": {
+      "description": "Scaffold a custom AgenticBackend adapter and its provideXxxBackend(...) factory.",
+      "factory": "./backend/index#backendSchematic",
+      "schema": "./backend/schema.json"
+    },
+    "agent-server": {
+      "description": "Scaffold a Hono-based AG-UI agent server with an EchoAgent (or other ServerAgent) template.",
+      "factory": "./agent-server/index#agentServerSchematic",
+      "schema": "./agent-server/schema.json"
+    },
+    "mfe-capability": {
+      "description": "Scaffold a CapabilityModule for an MFE remote: capability.ts + capabilities.json manifest.",
+      "factory": "./mfe-capability/index#mfeCapabilitySchematic",
+      "schema": "./mfe-capability/schema.json"
+    },
+    "action": {
+      "description": "Scaffold an agentic action (NgRx-style command) — *.action.ts with agenticAction({...}).",
+      "factory": "./action/index#actionSchematic",
+      "schema": "./action/schema.json",
+      "aliases": ["a"]
+    },
+    "intent": {
+      "description": "Scaffold an intent → tool/action/route mapping with examples and Zod schema.",
+      "factory": "./intent/index#intentSchematic",
+      "schema": "./intent/schema.json",
+      "aliases": ["i"]
+    },
+    "form": {
+      "description": "Scaffold a schema-driven form: *.form.ts with agenticForm({...}) and Zod fieldsSchema.",
+      "factory": "./form/index#formSchematic",
+      "schema": "./form/schema.json",
+      "aliases": ["f"]
+    }
+  }
+}

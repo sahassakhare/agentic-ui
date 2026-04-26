@@ -1,0 +1,25 @@
+import { defineCapabilityModule } from '@maverick/agentic-ui';
+
+/**
+ * Capability module exposed by the "<%= remoteName %>" MFE remote.
+ * Authored once; pushed into the host's registries on load via
+ * loadRemoteCapabilities() (Native Federation) or loadRemoteCapabilitiesMF()
+ * (webpack Module Federation).
+ *
+ * Add tools and components below — they'll be available to the host's chat
+ * shell as soon as this module is loaded.
+ */
+export const capability = defineCapabilityModule({
+  remoteName: '<%= remoteName %>',
+  version: '<%= version %>',
+  tools: [
+    // Import your tools here:
+    // import { bookFlightTool } from './tools/book-flight.tool';
+    // bookFlightTool,
+  ],
+  components: [
+    // Import your widgets here:
+    // import { flightCardWidget } from './widgets/flight-card.widget';
+    // flightCardWidget,
+  ],
+});

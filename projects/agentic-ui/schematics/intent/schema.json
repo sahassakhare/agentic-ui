@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "MaverickAgenticUiIntent",
+  "title": "Generate an intent → tool/action/route mapping",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "$default": { "$source": "argv", "index": 0 },
+      "x-prompt": "Intent id (e.g., bookFlightIntent)?"
+    },
+    "project": { "type": "string", "$default": { "$source": "projectName" } },
+    "path": { "type": "string", "default": "app/agentic/intents" },
+    "description": { "type": "string", "default": "Intent description." },
+    "kind": { "type": "string", "enum": ["tool", "action", "route"], "default": "tool" },
+    "target": { "type": "string", "default": "myTool" }
+  },
+  "required": ["name"]
+}

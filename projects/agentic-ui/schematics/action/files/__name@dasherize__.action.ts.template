@@ -1,0 +1,14 @@
+import { agenticAction } from '@maverick/agentic-ui';
+import { z } from 'zod';
+
+export const <%= camelize(name) %>Action = agenticAction({
+  type: '<%= camelize(name) %>',
+  description: '<%= description %>',
+  payloadSchema: z.object({
+    // TODO: define payload shape
+  }),
+  effect: async (payload, ctx) => {
+    // TODO: implement (dispatch into NgRx, navigate, mutate store, etc.)
+    void payload; void ctx;
+  },
+});

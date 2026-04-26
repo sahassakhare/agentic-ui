@@ -1,0 +1,71 @@
+{
+  "name": "@maverick/agentic-ui",
+  "version": "1.0.0",
+  "description": "Reusable agentic UI library for Angular — pluggable AG-UI / Hashbrown / A2UI backends, MFE-aware registries, OpenTelemetry observability.",
+  "license": "MIT",
+  "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
+  "bugs": {
+    "url": "https://github.com/sahassakhare/agentic-ui/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sahassakhare/agentic-ui.git",
+    "directory": "projects/agentic-ui"
+  },
+  "keywords": [
+    "angular",
+    "agentic-ui",
+    "ag-ui",
+    "hashbrown",
+    "a2ui",
+    "mfe",
+    "module-federation",
+    "native-federation",
+    "llm",
+    "agent",
+    "generative-ui",
+    "tool-calling",
+    "mcp",
+    "opentelemetry",
+    "registry",
+    "schematics"
+  ],
+  "author": {
+    "name": "Maverick"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "schematics": "./schematics/collection.json",
+  "ng-add": {
+    "save": "dependencies"
+  },
+  "peerDependencies": {
+    "@angular/common": "^21.2.0",
+    "@angular/core": "^21.2.0",
+    "rxjs": "~7.8.0",
+    "zod": "^3.23.0"
+  },
+  "peerDependenciesMeta": {
+    "@angular/forms": {
+      "optional": true
+    },
+    "@ag-ui/client": {
+      "optional": true
+    },
+    "@module-federation/runtime": {
+      "optional": true
+    },
+    "@opentelemetry/api": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "tslib": "^2.3.0",
+    "zod-to-json-schema": "3.24.5"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  }
+}

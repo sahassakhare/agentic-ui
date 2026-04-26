@@ -1,0 +1,19 @@
+/**
+ * Client-side tools registered with the agent.
+ *
+ * Add tools with: ng generate @maverick/agentic-ui:tool --name=myTool
+ *
+ * Each tool exposes a callable function the agent can invoke. The Zod schema
+ * validates arguments before the handler runs.
+ */
+import { agenticTool, type ToolDef } from '@maverick/agentic-ui';
+import { z } from 'zod';
+
+const sayHelloTool = agenticTool({
+  name: 'sayHello',
+  description: 'Greets the named person.',
+  schema: z.object({ name: z.string().describe('Person to greet') }),
+  handler: async ({ name }) => `Hello, ${name}!`,
+});
+
+export const tools: ToolDef[] = [sayHelloTool as ToolDef];
