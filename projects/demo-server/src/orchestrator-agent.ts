@@ -202,23 +202,86 @@ export class OrchestratorAgent implements ServerAgent {
       `- If truly nothing fits and there is no active specialist, use "agent": "none".\n\n` +
       `Reply ONLY with JSON of the form {"agent": "<id>", "reason": "<one short sentence>"}.`;
 
-    try {
-      const response = await this.ai.models.generateContent({
-        model: this.model,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }] as never,
-        config: { abortSignal: signal } as never,
-      });
-      const text = response.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
-      const match = text.match(/\{[\s\S]*\}/);
-      if (!match) return { agent: 'none', reason: 'classifier returned non-JSON' };
-      const parsed = JSON.parse(match[0]) as { agent?: string; reason?: string };
-      const agent = typeof parsed.agent === 'string' ? parsed.agent : 'none';
-      const reason = typeof parsed.reason === 'string' ? parsed.reason : '';
-      return { agent, reason };
-    } catch (err) {
-      log.warn('classifier failed', { err: err instanceof Error ? err.message : String(err) });
-      return { agent: 'none', reason: 'classifier error' };
+    // Try the LLM classifier with retry/backoff. On transient errors (429,
+    // 5xx, network) wait per attempt; on permanent errors break out and use
+    // the deterministic keyword fallback. Either way the orchestrator gets a
+    // routing decision — quota exhaustion never strands a turn.
+    const MAX_ATTEMPTS = 3;
+    const BASE_DELAY_MS = 800;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      if (signal.aborted) return { agent: 'none', reason: 'aborted' };
+      try {
+        const response = await this.ai.models.generateContent({
+          model: this.model,
+          contents: [{ role: 'user', parts: [{ text: prompt }] }] as never,
+          config: { abortSignal: signal } as never,
+        });
+        const text = response.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+        const match = text.match(/\{[\s\S]*\}/);
+        if (!match) break;
+        const parsed = JSON.parse(match[0]) as { agent?: string; reason?: string };
+        const agent = typeof parsed.agent === 'string' ? parsed.agent : 'none';
+        const reason = typeof parsed.reason === 'string' ? parsed.reason : '';
+        return { agent, reason };
+      } catch (err) {
+        const transient = isTransientClassifierError(err);
+        log.warn('classifier attempt failed', {
+          attempt,
+          transient,
+          err: err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200),
+        });
+        if (!transient || attempt === MAX_ATTEMPTS) break;
+        const delay = BASE_DELAY_MS * 2 ** (attempt - 1) + Math.floor(Math.random() * 400);
+        await sleepWithSignal(delay, signal);
+      }
     }
+
+    // LLM unavailable — use keyword scoring against each specialist's
+    // description + examples. Lossy but bounded; if the user clearly says
+    // "loyalty points", we route to loyalty regardless of API quota state.
+    const fallback = this.classifyByKeywords(window, currentSpecialist);
+    log.info('classifier fell back to keywords', {
+      agent: fallback.agent,
+      reason: fallback.reason,
+      sticky: currentSpecialist ?? null,
+    });
+    return fallback;
+  }
+
+  /**
+   * Deterministic keyword-overlap router. Used when the LLM classifier is
+   * unavailable (rate-limited, network outage, etc.). Score each specialist
+   * by counting query tokens that appear in its `description` + `examples`
+   * corpus; pick the highest-scoring specialist if any score > 0.
+   *
+   * If nothing matches and we have a sticky specialist, stay with them — the
+   * user is plausibly continuing the same topic and we have no signal to
+   * justify switching.
+   */
+  protected classifyByKeywords(
+    window: ReadonlyArray<{ role: string; text: string }>,
+    currentSpecialist?: string,
+  ): { agent: string; reason: string } {
+    const lastUserText = [...window].reverse().find((m) => m.role === 'user')?.text ?? '';
+    const tokens = (lastUserText.toLowerCase().match(/[a-z][a-z0-9-]+/g) ?? []).filter(
+      (t) => t.length >= 3 && !STOPWORDS.has(t),
+    );
+
+    let best = { agent: 'none', score: 0 };
+    for (const sub of this.subs.values()) {
+      const corpus = (sub.description + ' ' + sub.examples.join(' ') + ' ' + sub.id).toLowerCase();
+      let score = 0;
+      for (const tok of tokens) if (corpus.includes(tok)) score++;
+      if (score > best.score) best = { agent: sub.id, score };
+    }
+
+    if (best.score > 0) {
+      return { agent: best.agent, reason: `keyword fallback (score ${best.score})` };
+    }
+    if (currentSpecialist) {
+      return { agent: currentSpecialist, reason: 'no keyword match — staying with active specialist' };
+    }
+    return { agent: 'none', reason: 'no keyword match and no active specialist' };
   }
 }
 
@@ -256,6 +319,50 @@ function isRoutingAnnotation(m: { role: string; content?: unknown }): boolean {
   if (typeof m.content !== 'string') return false;
   return /^_Routed to \*\*[^*]+\*\* specialist\._/.test(m.content.trim());
 }
+
+/**
+ * Recognise classifier errors that are worth retrying:
+ *  - HTTP 429 (rate limit / quota exhausted)
+ *  - HTTP 5xx
+ *  - Network / fetch failures and timeouts
+ *
+ * Anything else (4xx other than 429, malformed request, auth) is permanent —
+ * fall straight through to the keyword fallback.
+ */
+function isTransientClassifierError(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return /\b(429|500|502|503|504|temporarily|unavailable|reset|timeout|network|fetch failed|resource_exhausted|quota)\b/.test(msg);
+}
+
+/** Sleep that aborts cleanly when the run is cancelled. */
+async function sleepWithSignal(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) return reject(new Error('aborted'));
+    const t = setTimeout(resolve, ms);
+    signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(t);
+        reject(new Error('aborted'));
+      },
+      { once: true },
+    );
+  });
+}
+
+/**
+ * Stopwords used by the keyword fallback router. Without these every short
+ * filler word like "have" or "many" would inflate the score for whichever
+ * specialist's examples happened to use them. Kept tiny — we only need to
+ * suppress the most generic English words that show up in routing prompts.
+ */
+const STOPWORDS = new Set<string>([
+  'the', 'and', 'for', 'are', 'with', 'this', 'that', 'have', 'has', 'had',
+  'how', 'what', 'when', 'where', 'why', 'who', 'which', 'about', 'from', 'into',
+  'can', 'could', 'should', 'would', 'will', 'just', 'they', 'them', 'their',
+  'you', 'your', 'yours', 'are', 'was', 'were', 'been', 'being', 'any', 'some',
+  'many', 'much', 'one', 'two', 'three', 'please', 'okay', 'yes', 'sure',
+]);
 
 /**
  * Detect whether `messages` represents the post-tool-call re-run inside
