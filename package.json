@@ -20,7 +20,6 @@
   "dependencies": {
     "@ag-ui/client": "^0.0.52",
     "@angular-architects/module-federation": "^21.2.2",
-    "@maverick/agentic-ui": "file:./dist/agentic-ui",
     "@angular-architects/native-federation": "^21.2.3",
     "@angular/animations": "^21.0.0",
     "@angular/cdk": "^21.0.0",
