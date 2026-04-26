@@ -184,6 +184,39 @@ Open <http://localhost:4204> and try `Book a flight from LAX to JFK on 2026-05-0
 
 ### Quick start — federated, one app per domain (`demo-shell` + remotes)
 
+Topology — each domain owns one app; the orchestrator on the server routes per turn:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  demo-shell  (host, :4200)                                      │
+│   • orchestrator agent URL: /agents/orchestrator/run            │
+│   • discovers remotes from /mfes.json at boot                   │
+│   • blocks bootstrap until every Capability is registered       │
+└────────┬─────────────┬──────────────┬───────────────────────────┘
+         │             │              │
+   ┌─────▼────┐  ┌─────▼─────┐  ┌─────▼─────┐
+   │ bookings │  │  loyalty  │  │  support  │
+   │  :4201   │  │   :4203   │  │   :4205   │
+   │          │  │           │  │           │
+   │ tools +  │  │ tools +   │  │ tools +   │
+   │ widget   │  │ widget    │  │ widget    │
+   └──────────┘  └───────────┘  └───────────┘
+                       │
+              ┌────────▼────────────────────────┐
+              │ demo-server (:4111)             │
+              │ orchestrator + specialists      │
+              │ (bookings · loyalty · support)  │
+              └─────────────────────────────────┘
+```
+
+| Process | Port | Role |
+|---|---|---|
+| `demo-server` | 4111 | Six agents — `echo`, `gemini`, `bookings`, `loyalty`, `support`, `orchestrator` |
+| `demo-shell` | 4200 | Federation host. Talks to `/agents/orchestrator/run`. Loads remotes via `MfeRegistryClient.discover()`. |
+| `demo-remote-bookings` | 4201 | Owns `bookFlight`, `flightCard` |
+| `demo-remote-loyalty` | 4203 | Owns `checkPoints`, `redeemPoints`, `pointsCard` |
+| `demo-remote-support` | 4205 | Owns `openTicket`, `checkTicket`, `ticketCard` |
+
 ```bash
 npm install
 cd projects/demo-server && npm install && cd ../..
@@ -200,7 +233,15 @@ npx ng serve demo-remote-support           # :4205
 npx ng serve demo-shell                    # :4200
 ```
 
-Open <http://localhost:4200>. The browser console should log `[demo-shell] Loaded demo-remote-bookings (1 tool(s), 1 widget(s))` and the same for loyalty + support. Each domain now lives in its own deployable; the orchestrator on the server routes per turn to the specialist whose tools the loaded remote contributed.
+Open <http://localhost:4200>. The browser console should log `[demo-shell] Loaded demo-remote-bookings (1 tool(s), 1 widget(s))` and the same for loyalty + support. Try one prompt per domain:
+
+| Prompt | Routes to | Owned by |
+|---|---|---|
+| *"Book a flight from LAX to JFK on 2026-05-05"* | bookings specialist | `demo-remote-bookings` |
+| *"How many loyalty points do I have?"* | loyalty specialist | `demo-remote-loyalty` |
+| *"Open a support ticket — my refund hasn't arrived"* | support specialist | `demo-remote-support` |
+
+Adding a fourth domain is the same recipe: clone one of the remote folders, point it at a new port, register it in `mfes.json`, add a corresponding sub-agent in `demo-server/src/server.ts`, and the orchestrator picks it up automatically.
 
 ## Documentation
 
