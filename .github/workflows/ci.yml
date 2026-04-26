@@ -71,3 +71,6 @@ jobs:
             echo "::error::Lib FESM exceeded 200 KB ($size B). Investigate before merging."
             exit 1
           fi
+
+      - name: Build TypeDoc API site
+        run: npm run docs:api

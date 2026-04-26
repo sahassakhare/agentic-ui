@@ -1,0 +1,22 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "@maverick/agentic-ui",
+  "entryPoints": ["projects/agentic-ui/src/public-api.ts"],
+  "tsconfig": "projects/agentic-ui/tsconfig.lib.json",
+  "out": "docs/api",
+  "readme": "README.md",
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "excludeProtected": false,
+  "categorizeByGroup": true,
+  "navigationLinks": {
+    "GitHub": "https://github.com/sahassakhare/agentic-ui",
+    "Cookbook": "https://github.com/sahassakhare/agentic-ui/tree/main/docs/cookbook",
+    "ADRs": "https://github.com/sahassakhare/agentic-ui/tree/main/docs/adr"
+  },
+  "treatWarningsAsErrors": false,
+  "skipErrorChecking": true,
+  "githubPages": false,
+  "hideGenerator": true
+}

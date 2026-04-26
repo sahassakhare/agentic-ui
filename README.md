@@ -172,6 +172,7 @@ Open <http://localhost:4200> and submit `Book me a flight from LAX to JFK on 202
 
 | Document | Contents |
 |----------|----------|
+| [API reference](https://sahassakhare.github.io/agentic-ui/) | Full TypeDoc-generated reference; rebuilt on every push to `main` and on every `v*` tag. Locally: `npm run docs:api`. |
 | [User Guide](./docs/USER_GUIDE.md) | 7-step walkthrough from clean clone to a working federated demo, plus a troubleshooting matrix keyed to specific error messages. |
 | [Quickstart](./docs/cookbook/quickstart.md) | Provider wiring in five minutes. |
 | [Federate an MFE](./docs/cookbook/federate-an-mfe.md) | Host + remote setup with Native Federation. |

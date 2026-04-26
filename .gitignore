@@ -52,3 +52,6 @@ Thumbs.db
 .claude/
 /.claude/local
 PLAN.md
+
+# Generated API docs (built by `npm run docs:api`; published, not tracked)
+/docs/api/
