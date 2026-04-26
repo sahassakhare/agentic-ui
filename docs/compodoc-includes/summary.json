@@ -12,6 +12,10 @@
     "file": "federate-an-mfe.md"
   },
   {
+    "title": "Domain MFEs as standalone apps + capability providers",
+    "file": "domain-mfe-standalone-and-federated.md"
+  },
+  {
     "title": "Swap the backend",
     "file": "swap-backend.md"
   },

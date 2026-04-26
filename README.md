@@ -155,9 +155,9 @@ The repository ships six reference applications under `projects/`. They cover th
 | App | Purpose | Port |
 |-----|---------|------|
 | `demo-shell` | Native Federation host. Discovers remotes via `MfeRegistryClient`, blocks bootstrap until each `Capability` registers via `provideAppInitializer`. Talks to `/agents/orchestrator/run`. | 4200 |
-| `demo-remote-bookings` | Bookings MFE remote. Exposes `./Capability` with `bookFlightTool` + `flightCardWidget`. | 4201 |
-| `demo-remote-loyalty` | Loyalty MFE remote. Exposes `./Capability` with `checkPointsTool`, `redeemPointsTool`, and `pointsCardWidget`. | 4203 |
-| `demo-remote-support` | Support MFE remote. Exposes `./Capability` with `openTicketTool`, `checkTicketTool`, and `ticketCardWidget`. | 4205 |
+| `demo-remote-bookings` | Bookings MFE remote. Exposes `./Capability` with `bookFlightTool` + `flightCardWidget`. **Also has its own form-driven UI** at `:4201` that calls the same handler and renders the same widget. | 4201 |
+| `demo-remote-loyalty` | Loyalty MFE remote. Exposes `./Capability` with `checkPointsTool`, `redeemPointsTool`, and `pointsCardWidget`. **Also has its own UI** at `:4203` (check balance + redeem) that reuses the same handlers and widget. | 4203 |
+| `demo-remote-support` | Support MFE remote. Exposes `./Capability` with `openTicketTool`, `checkTicketTool`, and `ticketCardWidget`. **Also has its own UI** at `:4205` (open + check ticket) reusing the same handlers and widget. | 4205 |
 
 **Backend**
 
@@ -243,6 +243,10 @@ Open <http://localhost:4200>. The browser console should log `[demo-shell] Loade
 
 Adding a fourth domain is the same recipe: clone one of the remote folders, point it at a new port, register it in `mfes.json`, add a corresponding sub-agent in `demo-server/src/server.ts`, and the orchestrator picks it up automatically.
 
+#### Each remote is also a standalone app
+
+Open <http://localhost:4201>, <http://localhost:4203>, and <http://localhost:4205> directly to see each domain MFE running on its own with a real form-driven UI. The standalone UIs call the **same tool handlers** and render the **same widget components** the agent uses — proving each MFE is a complete domain artefact, not a chat-only shim. The capability surface (`./Capability` exposed via federation) is unchanged; the host shell at `:4200` keeps consuming each remote exactly as before.
+
 ## Documentation
 
 | Document | Contents |
@@ -252,6 +256,7 @@ Adding a fourth domain is the same recipe: clone one of the remote folders, poin
 | [User Guide](./docs/USER_GUIDE.md) | 7-step walkthrough from clean clone to a working federated demo, plus a troubleshooting matrix keyed to specific error messages. |
 | [Quickstart](./docs/cookbook/quickstart.md) | Provider wiring in five minutes. |
 | [Federate an MFE](./docs/cookbook/federate-an-mfe.md) | Host + remote setup with Native Federation. |
+| [Domain MFEs as standalone apps + capability providers](./docs/cookbook/domain-mfe-standalone-and-federated.md) | Why each remote is simultaneously a real Angular app and an agentic capability — one codebase, two surfaces, same widgets. |
 | [Multi-agent orchestration](./docs/cookbook/multi-agent-orchestration.md) | Shell orchestrator routes to per-domain specialists; AG-UI events forwarded verbatim so widgets and tool calls keep working. |
 | [Swap the backend](./docs/cookbook/swap-backend.md) | AG-UI ↔ Hashbrown ↔ A2UI; runtime backend selection via `BackendRegistry`. |
 | [Observability](./docs/cookbook/observability.md) | `provideAgenticTelemetry` wiring; OpenTelemetry SDK integration. |

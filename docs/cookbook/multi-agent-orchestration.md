@@ -56,6 +56,8 @@ Host apps choose which agent to talk to via `environment.ts → agentUrl`:
 | [`demo-multi-agent`](../../projects/demo-multi-agent) (4204) | `/agents/orchestrator/run` | Orchestrator + three specialists. Tools and widgets registered inline in the host. |
 | [`demo-shell`](../../projects/demo-shell) (4200) | `/agents/orchestrator/run` | Same orchestrator, but tools/widgets are contributed by federated MFE remotes — `demo-remote-bookings` (4201), `demo-remote-loyalty` (4203), `demo-remote-support` (4205). |
 
+Each remote is **also a complete domain app on its own port**. Visiting `:4201` / `:4203` / `:4205` directly shows a form-driven UI that calls the same tool handler and renders the same widget the agent uses — so the MFE is a full Angular app for that domain, with the agentic capability layered on rather than replacing it.
+
 ## Sequence — one full turn
 
 End-to-end flow for *"Book a flight from LAX to JFK on 2026-05-05"* against the federated host:
