@@ -51,3 +51,4 @@ Thumbs.db
 # Tool-output (not committed; Claude session state lives elsewhere)
 .claude/
 /.claude/local
+PLAN.md
