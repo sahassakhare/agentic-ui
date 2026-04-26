@@ -50,6 +50,14 @@ export class OrchestratorAgent implements ServerAgent {
   private readonly model: string;
   private readonly subs: ReadonlyMap<string, SubAgentSpec>;
   private readonly fallbackMessage: string;
+  /**
+   * Per-thread sticky specialist. Once we route a thread to a specialist we
+   * remember it so that follow-up runs (especially `runUntilSettled`'s
+   * post-tool-call re-run) don't get re-classified on transcript content the
+   * classifier can't parse cleanly (tool-result JSON, empty assistant turns
+   * carrying tool calls, etc.).
+   */
+  private readonly threadSpecialist = new Map<string, string>();
 
   constructor(id = 'orchestrator', config: OrchestratorAgentConfig) {
     if (!config.apiKey) throw new Error('OrchestratorAgent: missing apiKey.');
@@ -68,20 +76,39 @@ export class OrchestratorAgent implements ServerAgent {
     yield { type: EventType.RUN_STARTED, threadId: input.threadId, runId: input.runId } as BaseEvent;
 
     try {
-      // Feed the classifier a small recent-history window, not just the last
-      // user line. Otherwise a follow-up like "2026" (clarifying a year for a
-      // flight booking) looks like nothing and routes to "none".
-      const window = recentTranscript(input.messages, 6);
+      const sticky = this.threadSpecialist.get(input.threadId);
+      const continuingTurn = isToolFollowUp(input.messages);
 
-      const decision = await this.classify(window, signal);
-      log.info('orchestrator routed', {
-        runId: input.runId,
-        agent: decision.agent,
-        reason: decision.reason,
-        windowMessages: window.length,
-      });
+      let chosen: string;
+      let reason: string;
+      let didClassify = false;
 
-      const sub = this.subs.get(decision.agent);
+      if (continuingTurn && sticky) {
+        // `runUntilSettled` has just executed a client-side tool and is
+        // re-running the agent to fetch the post-tool text. Keep the sticky
+        // specialist — re-classifying on tool-result JSON tends to misroute,
+        // and the topic hasn't changed.
+        chosen = sticky;
+        reason = 'continuing tool chain';
+        log.info('orchestrator stick (tool follow-up)', { runId: input.runId, agent: chosen });
+      } else {
+        // Fresh user turn — classify, but feed the classifier a small recent
+        // window so short follow-ups like "2026" don't fall back to "none".
+        const window = recentTranscript(input.messages, 6);
+        const decision = await this.classify(window, signal, sticky);
+        chosen = decision.agent;
+        reason = decision.reason;
+        didClassify = true;
+        log.info('orchestrator routed', {
+          runId: input.runId,
+          agent: chosen,
+          reason,
+          windowMessages: window.length,
+          sticky: sticky ?? null,
+        });
+      }
+
+      const sub = this.subs.get(chosen);
 
       if (!sub) {
         const messageId = `msg-${input.runId}`;
@@ -89,15 +116,24 @@ export class OrchestratorAgent implements ServerAgent {
         yield { type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta: this.fallbackMessage } as BaseEvent;
         yield { type: EventType.TEXT_MESSAGE_END, messageId } as BaseEvent;
       } else {
-        // Annotate the routing decision so the user sees who's answering.
-        const noteId = `route-${input.runId}`;
-        yield { type: EventType.TEXT_MESSAGE_START, messageId: noteId, role: 'assistant' } as BaseEvent;
-        yield {
-          type: EventType.TEXT_MESSAGE_CONTENT,
-          messageId: noteId,
-          delta: `_Routed to **${sub.id}** specialist._\n\n`,
-        } as BaseEvent;
-        yield { type: EventType.TEXT_MESSAGE_END, messageId: noteId } as BaseEvent;
+        // Remember the choice so later turns in this thread are sticky.
+        this.threadSpecialist.set(input.threadId, sub.id);
+
+        // Show the routing banner only when classification ran AND the
+        // specialist changed (or this is the first turn). Skip it for tool
+        // follow-up runs and for "still the same specialist" turns — the user
+        // already saw the banner and reposting it is noise.
+        const switched = didClassify && sticky !== sub.id;
+        if (switched || (didClassify && !sticky)) {
+          const noteId = `route-${input.runId}`;
+          yield { type: EventType.TEXT_MESSAGE_START, messageId: noteId, role: 'assistant' } as BaseEvent;
+          yield {
+            type: EventType.TEXT_MESSAGE_CONTENT,
+            messageId: noteId,
+            delta: `_Routed to **${sub.id}** specialist._\n\n`,
+          } as BaseEvent;
+          yield { type: EventType.TEXT_MESSAGE_END, messageId: noteId } as BaseEvent;
+        }
 
         // Strip the orchestrator's own routing-annotation messages from history
         // before forwarding to the specialist — they would otherwise appear in
@@ -140,6 +176,7 @@ export class OrchestratorAgent implements ServerAgent {
   protected async classify(
     window: ReadonlyArray<{ role: string; text: string }>,
     signal: AbortSignal,
+    currentSpecialist?: string,
   ): Promise<{ agent: string; reason: string }> {
     if (window.length === 0) return { agent: 'none', reason: 'empty conversation' };
 
@@ -148,16 +185,21 @@ export class OrchestratorAgent implements ServerAgent {
       .join('\n');
 
     const transcript = window.map((m) => `${m.role}: ${m.text}`).join('\n');
+    const stickyHint = currentSpecialist
+      ? `\nThe conversation is currently being handled by the "${currentSpecialist}" specialist. Default to staying with them unless the user's latest turn clearly switches domain.\n`
+      : '';
 
     const prompt =
       `You are a router. Pick exactly one specialist to handle the LATEST user turn.\n` +
-      `Specialists:\n${choices}\n\n` +
-      `Recent conversation (most recent last):\n${transcript}\n\n` +
+      `Specialists:\n${choices}\n` +
+      stickyHint +
+      `\nRecent conversation (most recent last):\n${transcript}\n\n` +
       `Rules:\n` +
-      `- Stay with the specialist that matches the ongoing topic. A short follow-up like a date,\n` +
-      `  a number, or a yes/no should route to whoever was just asking the question.\n` +
-      `- Switch specialists only when the user's latest turn clearly changes domain.\n` +
-      `- If truly nothing fits, use "agent": "none".\n\n` +
+      `- Stay with the active specialist when the latest turn is a continuation (a date, number,\n` +
+      `  yes/no, or short clarification of the previous question).\n` +
+      `- Switch specialists only when the latest user turn clearly changes domain.\n` +
+      `- If there is an active specialist and the user's intent is ambiguous, prefer keeping them.\n` +
+      `- If truly nothing fits and there is no active specialist, use "agent": "none".\n\n` +
       `Reply ONLY with JSON of the form {"agent": "<id>", "reason": "<one short sentence>"}.`;
 
     try {
@@ -213,4 +255,26 @@ function isRoutingAnnotation(m: { role: string; content?: unknown }): boolean {
   if (m.role !== 'assistant') return false;
   if (typeof m.content !== 'string') return false;
   return /^_Routed to \*\*[^*]+\*\* specialist\._/.test(m.content.trim());
+}
+
+/**
+ * Detect whether `messages` represents the post-tool-call re-run inside
+ * `runUntilSettled` — i.e., the latest message is either a tool result
+ * (`role: 'tool'`) or an assistant turn whose only payload is tool calls.
+ *
+ * Used to skip re-classification: the topic hasn't changed since the previous
+ * run, and re-classifying on tool-result JSON tends to misroute.
+ */
+function isToolFollowUp(messages: RunAgentInput['messages']): boolean {
+  if (messages.length === 0) return false;
+  const last = messages[messages.length - 1];
+  if (!last) return false;
+  if (last.role === 'tool') return true;
+  if (last.role === 'assistant') {
+    const calls = (last as { toolCalls?: unknown[] }).toolCalls;
+    const hasToolCalls = Array.isArray(calls) && calls.length > 0;
+    const text = typeof last.content === 'string' ? last.content.trim() : '';
+    return hasToolCalls && text === '';
+  }
+  return false;
 }
