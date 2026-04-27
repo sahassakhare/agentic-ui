@@ -1,7 +1,21 @@
 import { GoogleGenAI } from '@google/genai';
 import { EventType, type BaseEvent, type RunAgentInput } from '@ag-ui/core';
-import type { ServerAgent } from '@maverick/agentic-ui-server';
+import {
+  InMemoryThreadStateStore,
+  type ServerAgent,
+  type ThreadStateStore,
+} from '@maverick/agentic-ui-server';
 import { log } from './logger.js';
+
+/**
+ * Per-thread state the orchestrator persists. Right now just the sticky
+ * specialist; could expand to last-route timestamp, conversation summary,
+ * etc. without changing the store API.
+ */
+export interface OrchestratorThreadState {
+  /** Last specialist this thread was routed to. */
+  readonly specialist: string;
+}
 
 /**
  * One specialist registered with the orchestrator. The orchestrator never
@@ -48,6 +62,16 @@ export interface OrchestratorAgentConfig {
   readonly subAgents: readonly SubAgentSpec[];
   /** Optional fallback assistant message when no specialist matches. */
   readonly fallbackMessage?: string;
+  /**
+   * Where per-thread sticky-routing state is persisted. Defaults to an
+   * `InMemoryThreadStateStore` — fine for single-pod or local dev.
+   *
+   * For multi-pod / production deployments, pass a Redis / Postgres /
+   * DynamoDB-backed `ThreadStateStore` so state survives a process
+   * restart and is shared across replicas. See the cookbook entry on
+   * production deployment for adapter sketches.
+   */
+  readonly stateStore?: ThreadStateStore<OrchestratorThreadState>;
 }
 
 /**
@@ -105,13 +129,17 @@ export class OrchestratorAgent implements ServerAgent {
   private readonly subs: ReadonlyMap<string, SubAgentSpec>;
   private readonly fallbackMessage: string;
   /**
-   * Per-thread sticky specialist. Once we route a thread to a specialist we
-   * remember it so that follow-up runs (especially `runUntilSettled`'s
-   * post-tool-call re-run) don't get re-classified on transcript content the
-   * classifier can't parse cleanly (tool-result JSON, empty assistant turns
-   * carrying tool calls, etc.).
+   * Per-thread sticky specialist persistence. Once we route a thread to a
+   * specialist we remember it so that follow-up runs (especially
+   * `runUntilSettled`'s post-tool-call re-run) don't get re-classified on
+   * transcript content the classifier can't parse cleanly (tool-result
+   * JSON, empty assistant turns carrying tool calls, etc.).
+   *
+   * Defaults to an in-memory map; consumers can pass a Redis-backed
+   * implementation via {@link OrchestratorAgentConfig.stateStore} so
+   * routing state survives restarts and works across pods.
    */
-  private readonly threadSpecialist = new Map<string, string>();
+  private readonly stateStore: ThreadStateStore<OrchestratorThreadState>;
 
   /**
    * @param id     Identifier under which the orchestrator is registered with
@@ -130,6 +158,7 @@ export class OrchestratorAgent implements ServerAgent {
     this.fallbackMessage =
       config.fallbackMessage ??
       `I'm not sure which specialist to involve. Try asking about: ${[...this.subs.keys()].join(', ')}.`;
+    this.stateStore = config.stateStore ?? new InMemoryThreadStateStore<OrchestratorThreadState>();
   }
 
   /**
@@ -150,7 +179,12 @@ export class OrchestratorAgent implements ServerAgent {
     yield { type: EventType.RUN_STARTED, threadId: input.threadId, runId: input.runId } as BaseEvent;
 
     try {
-      const sticky = this.threadSpecialist.get(input.threadId);
+      // Read sticky from the configured store. With the in-memory default
+      // this is a synchronous map lookup wrapped in a resolved Promise; with
+      // a Redis-backed store this is a real network call. Either way the
+      // orchestrator awaits — failing-loud beats stale state.
+      const stickyState = await this.stateStore.get(input.threadId);
+      const sticky = stickyState?.specialist;
       const continuingTurn = isToolFollowUp(input.messages);
 
       let chosen: string;
@@ -190,8 +224,10 @@ export class OrchestratorAgent implements ServerAgent {
         yield { type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta: this.fallbackMessage } as BaseEvent;
         yield { type: EventType.TEXT_MESSAGE_END, messageId } as BaseEvent;
       } else {
-        // Remember the choice so later turns in this thread are sticky.
-        this.threadSpecialist.set(input.threadId, sub.id);
+        // Persist the choice so later turns in this thread are sticky.
+        // Awaited so a failing store surfaces as a RUN_ERROR rather than
+        // silently letting the next turn re-classify against memory only.
+        await this.stateStore.set(input.threadId, { specialist: sub.id });
 
         // Show the routing banner only when classification ran AND the
         // specialist changed (or this is the first turn). Skip it for tool
@@ -413,6 +449,16 @@ export class OrchestratorAgent implements ServerAgent {
       return { agent: currentSpecialist, reason: 'no keyword match — staying with active specialist' };
     }
     return { agent: 'none', reason: 'no keyword match and no active specialist' };
+  }
+
+  /**
+   * Drop persisted sticky-routing state for a thread. Call when the user
+   * clears the conversation so the next turn re-classifies from scratch.
+   * Optional in `ServerAgent`; surfaces here as a thin wrapper over the
+   * configured `ThreadStateStore`.
+   */
+  async reset(threadId: string): Promise<void> {
+    await this.stateStore.delete?.(threadId);
   }
 }
 

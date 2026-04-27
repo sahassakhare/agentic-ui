@@ -8,6 +8,14 @@
     "file": "sample-prompts.md"
   },
   {
+    "title": "Production deployment",
+    "file": "production-deployment.md"
+  },
+  {
+    "title": "Federation at scale",
+    "file": "federation-at-scale.md"
+  },
+  {
     "title": "Integrate into an existing Angular app",
     "file": "integrate-into-existing-angular-app.md"
   },

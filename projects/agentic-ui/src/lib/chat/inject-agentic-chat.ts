@@ -6,6 +6,7 @@ import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
 import type { AgenticMessage } from '../types/agentic-message';
 import { randomId } from './message-utils';
 import { runUntilSettled } from './run-orchestrator';
+import { TOOL_FILTER } from './tool-filter';
 
 export interface AgenticChatOptions {
   readonly maxLocalTurns?: number;
@@ -39,6 +40,7 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
   const widgets = inject(ComponentRegistry);
   const backends = inject(BackendRegistry);
   const telemetry = inject(AGENTIC_TELEMETRY_SINK);
+  const toolFilter = inject(TOOL_FILTER);
 
   const maxLocalTurns = options.maxLocalTurns ?? 10;
   const messages: WritableSignal<readonly AgenticMessage[]> = signal([]);
@@ -80,12 +82,24 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
     lastError.set(undefined);
 
     const runId = randomId('run');
+
+    // Run the configured tool filter so the backend (and the LLM behind
+    // it) only sees a relevant subset. Default is the identity filter,
+    // so this is a no-op until a consumer calls provideToolFilter(...).
+    const filteredTools = toolFilter({
+      messages: messages().map((m) => ({
+        role: m.role,
+        content: typeof m.content === 'string' ? m.content : '',
+      })),
+      tools: tools.list(),
+    });
+
     runUntilSettled({
       backend,
       threadId,
       runId,
       initialMessages: messages(),
-      tools: tools.list(),
+      tools: filteredTools,
       widgets: widgets.list(),
       messageStream: messages,
       maxLocalTurns,
