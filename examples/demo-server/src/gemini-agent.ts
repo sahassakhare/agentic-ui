@@ -56,6 +56,23 @@ export class GeminiAgent implements ServerAgent {
   private readonly systemInstruction?: string;
 
   /**
+   * Per-tool-call `thoughtSignature` cache. Gemini 3 / Gemini 3.x preview
+   * models attach an opaque `thoughtSignature` to every `functionCall`
+   * part they emit; that signature MUST be echoed back on the same
+   * functionCall part in subsequent turns or the model returns a 400
+   * "Function call is missing a thought_signature" error.
+   *
+   * AG-UI's `Message.toolCalls` shape has no slot for this Gemini-specific
+   * field, so we cache it server-side keyed by the tool-call id and re-inject
+   * it in `convertMessagesToGemini` when feeding the conversation back. In a
+   * multi-pod deployment this map should move behind a `ThreadStateStore` —
+   * scoped to (threadId, toolCallId) — but in-memory is fine for a single-pod
+   * demo and any setup using gemini-2.5* (which doesn't require thought
+   * signatures at all).
+   */
+  private readonly thoughtSignatures = new Map<string, string>();
+
+  /**
    * @param id     Agent id used for resolution from URL paths.
    * @param config See {@link GeminiAgentConfig}. The API key may come from
    *               config, `GOOGLE_GENERATIVE_AI_API_KEY`, or `GEMINI_API_KEY`.
@@ -87,7 +104,7 @@ export class GeminiAgent implements ServerAgent {
     yield { type: EventType.RUN_STARTED, threadId: input.threadId, runId: input.runId } as BaseEvent;
 
     try {
-      const contents = convertMessagesToGemini(input.messages);
+      const contents = convertMessagesToGemini(input.messages, this.thoughtSignatures);
       const tools = convertToolsToGemini(input.tools);
 
       const stream = await this.openStreamWithRetry(contents, tools, signal);
@@ -116,6 +133,14 @@ export class GeminiAgent implements ServerAgent {
             const name = part.functionCall.name ?? '';
             const args = (part.functionCall.args as Record<string, unknown> | undefined) ?? {};
             pendingCalls.push({ id: callId, name, args });
+
+            // Gemini 3 attaches `thoughtSignature` on the same Part as the
+            // functionCall. Capture it here so we can echo it back on the
+            // next turn — see this.thoughtSignatures docstring.
+            const sig = (part as { thoughtSignature?: string }).thoughtSignature;
+            if (typeof sig === 'string' && sig.length > 0) {
+              this.thoughtSignatures.set(callId, sig);
+            }
 
             yield { type: EventType.TOOL_CALL_START, toolCallId: callId, toolCallName: name, parentMessageId: messageId } as BaseEvent;
             yield { type: EventType.TOOL_CALL_ARGS, toolCallId: callId, delta: JSON.stringify(args) } as BaseEvent;
@@ -186,8 +211,21 @@ async function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-/** Convert AG-UI `Message[]` to Gemini `contents` array. */
-function convertMessagesToGemini(messages: readonly Message[]): { role: string; parts: Array<{ text?: string; functionCall?: unknown; functionResponse?: unknown }> }[] {
+/**
+ * Convert AG-UI `Message[]` to Gemini `contents` array.
+ *
+ * @param messages           AG-UI message history.
+ * @param thoughtSignatures  Optional `Map<toolCallId, signature>` populated
+ *                           from streaming responses. When present, each
+ *                           `functionCall` Part the converter emits is
+ *                           tagged with its matching `thoughtSignature` so
+ *                           Gemini 3.x preview models accept the follow-up
+ *                           turn. Older models ignore the field.
+ */
+function convertMessagesToGemini(
+  messages: readonly Message[],
+  thoughtSignatures?: ReadonlyMap<string, string>,
+): { role: string; parts: Array<{ text?: string; functionCall?: unknown; functionResponse?: unknown; thoughtSignature?: string }> }[] {
   // Build tool-call-id → function-name from prior assistant turns. Gemini's
   // `functionResponse.name` MUST be the original function name (`bookFlight`),
   // not the AG-UI tool-call id (`fc-0-run-…`); using the id silently breaks
@@ -203,20 +241,25 @@ function convertMessagesToGemini(messages: readonly Message[]): { role: string; 
     }
   }
 
-  const out: { role: string; parts: Array<{ text?: string; functionCall?: unknown; functionResponse?: unknown }> }[] = [];
+  const out: { role: string; parts: Array<{ text?: string; functionCall?: unknown; functionResponse?: unknown; thoughtSignature?: string }> }[] = [];
   for (const m of messages) {
     if (m.role === 'user' && typeof m.content === 'string') {
       out.push({ role: 'user', parts: [{ text: m.content }] });
     } else if (m.role === 'assistant') {
-      const parts: Array<{ text?: string; functionCall?: unknown }> = [];
+      const parts: Array<{ text?: string; functionCall?: unknown; thoughtSignature?: string }> = [];
       if (m.content) parts.push({ text: typeof m.content === 'string' ? m.content : '' });
       const tcs = (m as Message & { toolCalls?: Array<{ id: string; function?: { name?: string; arguments?: string } }> }).toolCalls ?? [];
       for (const tc of tcs) {
-        try {
-          parts.push({ functionCall: { name: tc.function?.name ?? '', args: JSON.parse(tc.function?.arguments ?? '{}') } });
-        } catch {
-          parts.push({ functionCall: { name: tc.function?.name ?? '', args: {} } });
-        }
+        const sig = thoughtSignatures?.get(tc.id);
+        const part: { functionCall: unknown; thoughtSignature?: string } = (() => {
+          try {
+            return { functionCall: { name: tc.function?.name ?? '', args: JSON.parse(tc.function?.arguments ?? '{}') } };
+          } catch {
+            return { functionCall: { name: tc.function?.name ?? '', args: {} } };
+          }
+        })();
+        if (sig) part.thoughtSignature = sig;
+        parts.push(part);
       }
       if (parts.length > 0) out.push({ role: 'model', parts });
     } else if (m.role === 'tool') {
