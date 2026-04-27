@@ -2,7 +2,14 @@ import 'dotenv/config';
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { agUiRouteHandler, EchoAgent, type AgentResolver, type ServerAgent } from '@maverick/agentic-ui-server';
+import {
+  agUiRouteHandler,
+  createSpecialist,
+  EchoAgent,
+  registerSpecialists,
+  type AgentResolver,
+  type ServerAgent,
+} from '@maverick/agentic-ui-server';
 import { GeminiAgent } from './gemini-agent.js';
 import { OrchestratorAgent } from './orchestrator-agent.js';
 import { bearerAuth } from './auth.js';
@@ -51,34 +58,45 @@ if (apiKey) {
     ' 3. Keep the natural-language reply short — one or two sentences.\n' +
     " 4. If the user asks about something outside your domain, briefly say it isn't your area and stop.";
 
-  const bookingsAgent = new GeminiAgent('bookings', {
-    apiKey,
-    model,
-    systemInstruction:
-      'You are a flight booking specialist. Help users search, book, change, and cancel flights. ' +
-      'Call the booking tools when needed.' +
-      sharedRules,
-  });
-  const loyaltyAgent = new GeminiAgent('loyalty', {
-    apiKey,
-    model,
-    systemInstruction:
-      'You are a loyalty program specialist. Help users check points balances, tier status, and redeem rewards. ' +
-      'Call the loyalty tools when needed.' +
-      sharedRules,
-  });
-  const supportAgent = new GeminiAgent('support', {
-    apiKey,
-    model,
-    systemInstruction:
-      'You are a customer support specialist. Help users open tickets, check ticket status, and resolve common ' +
-      'account issues. Call the support tools when needed.' +
-      sharedRules,
-  });
-
-  agents.set('bookings', bookingsAgent);
-  agents.set('loyalty', loyaltyAgent);
-  agents.set('support', supportAgent);
+  // `createSpecialist` bundles "build the agent" + "write the SubAgentSpec"
+  // into one call. `registerSpecialists` adds each agent to the AgentResolver
+  // map so it's also reachable directly via /agents/<id>/run, AND returns the
+  // same array we pass into the orchestrator config.
+  const specialists = registerSpecialists(agents, [
+    createSpecialist({
+      id: 'bookings',
+      factory: (id) => new GeminiAgent(id, {
+        apiKey, model,
+        systemInstruction:
+          'You are a flight booking specialist. Help users search, book, change, and cancel flights. ' +
+          'Call the booking tools when needed.' + sharedRules,
+      }),
+      description: 'flight search, booking, cancellation, schedule changes',
+      examples: ['Book a flight from LAX to JFK on March 5', 'Cancel my booking BK-XXX', 'What flights are there to Tokyo tomorrow?'],
+    }),
+    createSpecialist({
+      id: 'loyalty',
+      factory: (id) => new GeminiAgent(id, {
+        apiKey, model,
+        systemInstruction:
+          'You are a loyalty program specialist. Help users check points balances, tier status, and redeem rewards. ' +
+          'Call the loyalty tools when needed.' + sharedRules,
+      }),
+      description: 'points balance, tier status, reward redemption',
+      examples: ['How many points do I have?', 'Redeem 25,000 points for a flight', 'Am I still gold tier?'],
+    }),
+    createSpecialist({
+      id: 'support',
+      factory: (id) => new GeminiAgent(id, {
+        apiKey, model,
+        systemInstruction:
+          'You are a customer support specialist. Help users open tickets, check ticket status, and resolve common ' +
+          'account issues. Call the support tools when needed.' + sharedRules,
+      }),
+      description: 'support tickets, account problems, complaints',
+      examples: ['Open a ticket for my refund', 'Status of ticket TICK-123', 'My account is locked'],
+    }),
+  ]);
 
   // Orchestrator: classifies user intent, then forwards the chosen specialist's
   // event stream verbatim (so client-side tools, widgets, and text deltas all
@@ -86,26 +104,7 @@ if (apiKey) {
   const orchestrator = new OrchestratorAgent('orchestrator', {
     apiKey,
     model,
-    subAgents: [
-      {
-        id: 'bookings',
-        agent: bookingsAgent,
-        description: 'flight search, booking, cancellation, schedule changes',
-        examples: ['Book a flight from LAX to JFK on March 5', 'Cancel my booking BK-XXX', 'What flights are there to Tokyo tomorrow?'],
-      },
-      {
-        id: 'loyalty',
-        agent: loyaltyAgent,
-        description: 'points balance, tier status, reward redemption',
-        examples: ['How many points do I have?', 'Redeem 25,000 points for a flight', 'Am I still gold tier?'],
-      },
-      {
-        id: 'support',
-        agent: supportAgent,
-        description: 'support tickets, account problems, complaints',
-        examples: ['Open a ticket for my refund', 'Status of ticket TICK-123', 'My account is locked'],
-      },
-    ],
+    subAgents: specialists,
   });
   agents.set('orchestrator', orchestrator);
 }

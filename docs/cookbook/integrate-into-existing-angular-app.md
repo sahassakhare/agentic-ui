@@ -75,6 +75,13 @@ No tools, no widgets — just text in, text out.
 
 ### Step 1.1 — install
 
+> 💡 **Skip Steps 1.1 → 1.4 with `ng add`.**
+> The schematic installs peer deps, patches `app.config.ts` with the providers, and writes seed `tools.ts` / `widgets.ts`. See [Schematics reference](./schematics.md).
+> ```bash
+> ng add @maverick/agentic-ui --backend=ag-ui --server=mastra
+> ```
+> Continue from Step 1.5 to verify.
+
 ```bash
 npm install @maverick/agentic-ui zod
 # Optional: peer for the AG-UI backend transport (SSE)
@@ -85,6 +92,12 @@ npm install @ag-ui/client
 > `@angular/core@^21`, `zod`, and (optionally) `@ag-ui/client`.
 
 ### Step 1.2 — stand up an agent server
+
+> 💡 **Skip the Node setup with `agent-server`.**
+> ```bash
+> ng g @maverick/agentic-ui:agent-server --framework=mastra --route=/api/ag-ui
+> ```
+> Generates a new `<your-project>-server/` directory with a Hono app, a sample `EchoAgent`, and a `.env.example`. Drop in your API key and run.
 
 You need an HTTP endpoint that accepts AG-UI requests and streams events
 back. Two options:
@@ -226,6 +239,12 @@ sequenceDiagram
 
 ### Step 2.1 — define a tool
 
+> 💡 **Skip the boilerplate with `tool`.**
+> ```bash
+> ng g @maverick/agentic-ui:tool bookFlight --executeIn=host
+> ```
+> Generates `book-flight.tool.ts` with the `agenticTool({...})` skeleton, a Zod schema stub, and an auto-import in your nearest `tools.ts` barrel.
+
 ```ts
 // app/agentic/tools/book-flight.tool.ts
 import { agenticTool } from '@maverick/agentic-ui';
@@ -256,6 +275,12 @@ Schema is Zod — the type-system enforces the handler's `args` shape and
 the chat shell validates real arguments before invoking the handler.
 
 ### Step 2.2 — define a widget (generative UI)
+
+> 💡 **Skip with `widget`.**
+> ```bash
+> ng g @maverick/agentic-ui:widget FlightCard --inputs=bookingId:string,from:string,to:string,date:string,status:string
+> ```
+> Scaffolds the standalone component, the `agenticWidget(...)` factory file, and a Zod props schema matching your `--inputs`.
 
 A *widget* is just a standalone Angular component you've registered with
 a name. The chat shell renders it via `*ngComponentOutlet` whenever a
@@ -485,6 +510,13 @@ export const appConfig: ApplicationConfig = {
 
 ### Step 3.4 — build a remote
 
+> 💡 **Use `mfe-capability` to scaffold the federation surface.**
+> Inside the remote project:
+> ```bash
+> ng g @maverick/agentic-ui:mfe-capability --remoteName=remote-a --federation=native
+> ```
+> Generates `capability.ts` with the `defineCapabilityModule({...})` block, updates `federation.config.js` to expose `./Capability`, and writes a `capabilities.json` manifest sibling for the host's prefetch step.
+
 In a separate Angular project (or another package in your monorepo):
 
 ```bash
@@ -629,38 +661,52 @@ its domain.
 
 ### Step 4.2 — add the orchestrator
 
+The library exports a `createSpecialist` helper that bundles "build the
+agent" + "write the orchestrator metadata" into one call site. Cuts the
+~30 lines of boilerplate that accumulate when you have multiple
+specialists.
+
 ```ts
+import {
+  createSpecialist, registerSpecialists, type ServerAgent,
+} from '@maverick/agentic-ui-server';
 import { OrchestratorAgent } from './orchestrator-agent';  // copy from demo-server
+import { GeminiAgent } from './gemini-agent';
+
+const agents = new Map<string, ServerAgent>();
+
+const specialists = registerSpecialists(agents, [
+  createSpecialist({
+    id: 'bookings',
+    factory: (id) => new GeminiAgent(id, { apiKey, systemInstruction: '...' }),
+    description: 'flight search, booking, cancellation, schedule changes',
+    examples: ['Book a flight from LAX to JFK on March 5', 'Cancel my booking BK-XXX'],
+  }),
+  createSpecialist({
+    id: 'loyalty',
+    factory: (id) => new GeminiAgent(id, { apiKey, systemInstruction: '...' }),
+    description: 'points balance, tier status, reward redemption',
+    examples: ['How many points do I have?', 'Redeem 25,000 points for a flight'],
+  }),
+  createSpecialist({
+    id: 'support',
+    factory: (id) => new GeminiAgent(id, { apiKey, systemInstruction: '...' }),
+    description: 'support tickets, account problems, complaints',
+    examples: ['Open a ticket for my refund', 'My account is locked'],
+  }),
+]);
 
 const orchestrator = new OrchestratorAgent('orchestrator', {
   apiKey,
-  subAgents: [
-    {
-      id: 'bookings',
-      agent: bookingsAgent,
-      description: 'flight search, booking, cancellation, schedule changes',
-      examples: ['Book a flight from LAX to JFK on March 5', 'Cancel my booking BK-XXX'],
-    },
-    {
-      id: 'loyalty',
-      agent: loyaltyAgent,
-      description: 'points balance, tier status, reward redemption',
-      examples: ['How many points do I have?', 'Redeem 25,000 points for a flight'],
-    },
-    {
-      id: 'support',
-      agent: supportAgent,
-      description: 'support tickets, account problems, complaints',
-      examples: ['Open a ticket for my refund', 'My account is locked'],
-    },
-  ],
+  subAgents: specialists,
 });
-
 agents.set('orchestrator', orchestrator);
-agents.set('bookings', bookingsAgent);
-agents.set('loyalty',  loyaltyAgent);
-agents.set('support',  supportAgent);
 ```
+
+`registerSpecialists` adds each agent to the resolver map (so they're
+also reachable directly via `/agents/<id>/run`) and returns the same
+array of specs that the orchestrator's `subAgents` config expects — no
+`.toSpec()` step.
 
 ### Step 4.3 — flip the agent URL
 

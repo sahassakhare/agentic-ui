@@ -256,6 +256,7 @@ Open <http://localhost:4201>, <http://localhost:4203>, and <http://localhost:420
 | [User Guide](./docs/USER_GUIDE.md) | 7-step walkthrough from clean clone to a working federated demo, plus a troubleshooting matrix keyed to specific error messages. |
 | [Quickstart](./docs/cookbook/quickstart.md) | Provider wiring in five minutes. |
 | [Integrate into an existing Angular app](./docs/cookbook/integrate-into-existing-angular-app.md) | Step-by-step guide with sequence + flow diagrams: install → tools/widgets → MFE federation → multi-agent orchestration. Each phase is independently shippable. |
+| [Schematics reference](./docs/cookbook/schematics.md) | The 10 generators (`ng add`, `tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `action`, `intent`, `form`) — all options + common pipelines. |
 | [Federate an MFE](./docs/cookbook/federate-an-mfe.md) | Host + remote setup with Native Federation. |
 | [Domain MFEs as standalone apps + capability providers](./docs/cookbook/domain-mfe-standalone-and-federated.md) | Why each remote is simultaneously a real Angular app and an agentic capability — one codebase, two surfaces, same widgets. |
 | [Multi-agent orchestration](./docs/cookbook/multi-agent-orchestration.md) | Shell orchestrator routes to per-domain specialists; AG-UI events forwarded verbatim so widgets and tool calls keep working. |

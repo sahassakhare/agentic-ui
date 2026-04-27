@@ -8,6 +8,10 @@
     "file": "integrate-into-existing-angular-app.md"
   },
   {
+    "title": "Schematics reference",
+    "file": "schematics.md"
+  },
+  {
     "title": "Multi-agent orchestration",
     "file": "multi-agent-orchestration.md"
   },
