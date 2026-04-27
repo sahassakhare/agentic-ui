@@ -4,6 +4,10 @@
     "file": "quickstart.md"
   },
   {
+    "title": "Integrate into an existing Angular app",
+    "file": "integrate-into-existing-angular-app.md"
+  },
+  {
     "title": "Multi-agent orchestration",
     "file": "multi-agent-orchestration.md"
   },
