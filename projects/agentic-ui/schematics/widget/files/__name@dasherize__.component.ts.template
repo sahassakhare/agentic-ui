@@ -1,5 +1,20 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
+/**
+ * `<%= classify(name) %>Component` — generative-UI widget paired with the
+ * `<%= camelize(name) %>` registration in the matching `*.widget.ts` file.
+ *
+ * Rendered by `<mvk-widget-container>` via `*ngComponentOutlet` whenever a
+ * tool's result includes
+ * `components: [{ name: '<%= camelize(name) %>', props: { ... } }]`.
+ * The `props` object is validated against the widget's `propsSchema`
+ * before bind-time, so any mismatch fails loudly during development
+ * rather than silently rendering broken UI.
+ *
+ * Standalone by design — keep the imports list minimal and self-contained
+ * so the widget travels well via Native Federation when published from an
+ * MFE remote.
+ */
 @Component({
   selector: '<%= prefix %>-<%= dasherize(name) %>',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -11,5 +26,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   `,
 })
 export class <%= classify(name) %>Component {
+  /** Generic catch-all input. Replace with strongly-typed inputs that mirror
+   *  the Zod `propsSchema` declared in the matching `.widget.ts` factory. */
   readonly data = input.required<unknown>();
 }

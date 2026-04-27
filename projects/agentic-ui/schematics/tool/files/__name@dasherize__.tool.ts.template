@@ -1,6 +1,37 @@
 import { agenticTool } from '@maverick/agentic-ui';
 import { z } from 'zod';
 
+/**
+ * `<%= camelize(name) %>` — agentic tool exposed to the LLM as a callable
+ * function. The Zod `schema` validates arguments before the handler runs,
+ * and the handler's return value is shown to the LLM on its next turn.
+ *
+ * - `name` is the function id the LLM sees and emits in tool calls.
+ * - `description` biases when the LLM picks this tool — keep it specific.
+ * - `executeIn`:
+ *   - `'host'` (default) runs the handler in the host app's injection context.
+ *   - `'remote'` indicates this tool depends on services from an MFE remote;
+ *     the orchestrator routes the call into that remote's captured
+ *     `EnvironmentInjector`.
+ *
+ * Generative-UI hint: include a `components: [{ name, props }]` array on
+ * the return value to render an Angular widget under the tool's result.
+ *
+ * @example
+ * ```ts
+ * return {
+ *   bookingId: 'BK-001',
+ *   components: [{ name: 'flightCard', props: { bookingId: 'BK-001', ... } }],
+ * };
+ * ```
+ *
+ * Register in your provider config:
+ * ```ts
+ * provideAgenticUi({ tools: [<%= camelize(name) %>Tool] })
+ * ```
+ *
+ * @see https://github.com/sahassakhare/agentic-ui/blob/main/docs/cookbook/integrate-into-existing-angular-app.md#phase-2--add-tools-and-widgets
+ */
 export const <%= camelize(name) %>Tool = agenticTool({
   name: '<%= camelize(name) %>',
   description: '<%= description %>',
@@ -9,6 +40,10 @@ export const <%= camelize(name) %>Tool = agenticTool({
   }),
   executeIn: '<%= executeIn %>',
   handler: async (args, ctx) => {
+    // `args` is typed from the Zod schema above.
+    // `ctx` carries threadId, runId, toolCallId, and an AbortSignal that
+    // fires when the user/orchestrator cancels — honour it for long-running
+    // work to avoid leaked I/O.
     // TODO: implement
     void args; void ctx;
     return { ok: true };

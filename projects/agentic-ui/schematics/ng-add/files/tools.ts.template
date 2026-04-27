@@ -1,14 +1,33 @@
 /**
  * Client-side tools registered with the agent.
  *
- * Add tools with: ng generate @maverick/agentic-ui:tool --name=myTool
+ * Each tool exposes a callable function the agent can invoke during a
+ * chat turn. The Zod `schema` validates arguments before the handler
+ * runs, and the handler's return value becomes the LLM's tool result on
+ * its next turn.
  *
- * Each tool exposes a callable function the agent can invoke. The Zod schema
- * validates arguments before the handler runs.
+ * Add new tools either by hand or with the schematic:
+ * ```bash
+ * ng generate @maverick/agentic-ui:tool myTool
+ * ```
+ * The schematic creates a typed file in `app/agentic/tools/` and adds
+ * the import to this barrel for you.
+ *
+ * Wire the array into your provider config:
+ * ```ts
+ * provideAgenticUi({ tools, widgets })
+ * ```
+ *
+ * @see https://github.com/sahassakhare/agentic-ui/blob/main/docs/cookbook/integrate-into-existing-angular-app.md#phase-2--add-tools-and-widgets
  */
 import { agenticTool, type ToolDef } from '@maverick/agentic-ui';
 import { z } from 'zod';
 
+/**
+ * Sample tool — replace or remove. Demonstrates the minimum shape: a
+ * Zod schema, a typed handler, and a serialisable return value the
+ * agent will see on its next turn.
+ */
 const sayHelloTool = agenticTool({
   name: 'sayHello',
   description: 'Greets the named person.',
@@ -16,4 +35,5 @@ const sayHelloTool = agenticTool({
   handler: async ({ name }) => `Hello, ${name}!`,
 });
 
+/** Aggregated tool list — keep extending as you add more `*.tool.ts` files. */
 export const tools: ToolDef[] = [sayHelloTool as ToolDef];

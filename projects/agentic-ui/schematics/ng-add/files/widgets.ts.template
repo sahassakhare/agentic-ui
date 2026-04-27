@@ -1,10 +1,27 @@
 /**
  * Generative-UI widgets the agent can render via tool results.
  *
- * Add widgets with: ng generate @maverick/agentic-ui:widget --name=MyWidget
+ * Each widget pairs an Angular standalone component with a Zod schema
+ * for its props. When a tool returns
+ * `components: [{ name: 'flightCard', props }]`, the chat shell looks
+ * the name up in this registry, validates `props` against the matching
+ * `propsSchema`, and renders the component via `*ngComponentOutlet`.
  *
- * Each widget pairs an Angular component with a Zod schema for its props.
+ * Add new widgets either by hand or with the schematic:
+ * ```bash
+ * ng generate @maverick/agentic-ui:widget MyWidget
+ * ```
+ * The schematic creates the component + the registration factory and
+ * adds the import to this barrel for you.
+ *
+ * Wire the array into your provider config:
+ * ```ts
+ * provideAgenticUi({ tools, widgets })
+ * ```
+ *
+ * @see https://github.com/sahassakhare/agentic-ui/blob/main/docs/cookbook/integrate-into-existing-angular-app.md#phase-2--add-tools-and-widgets
  */
 import type { ComponentDef } from '@maverick/agentic-ui';
 
+/** Aggregated widget list — keep extending as you add more `*.widget.ts` files. */
 export const widgets: ComponentDef[] = [];

@@ -1,6 +1,30 @@
 import { agenticIntent } from '@maverick/agentic-ui';
 import { z } from 'zod';
 
+/**
+ * `<%= camelize(name) %>` — intent registration for the `IntentRegistry`.
+ *
+ * Intents are *routers*, never executors: they map a recognised user
+ * phrase to a single `tool` / `action` / `route` target. Useful for
+ * pre-LLM short-circuiting on common phrasings (cheaper, more
+ * deterministic) and for offline / restricted environments where you
+ * can't reach the model.
+ *
+ * - `description` is the human-readable summary.
+ * - `examples` anchor the matcher — write 3-6 phrasings that should
+ *   trigger this intent.
+ * - `schema` captures the slots / parameters extracted from the user's
+ *   message (e.g. dates, ids, amounts).
+ * - `mapsTo`:
+ *   - `kind: 'tool'`    → invokes a registered tool by `target` id
+ *   - `kind: 'action'`  → dispatches a registered action by `target` type
+ *   - `kind: 'route'`   → navigates to `target` (Angular Router path)
+ *
+ * Register in your provider config:
+ * ```ts
+ * provideAgenticUi({ intents: [<%= camelize(name) %>Intent] })
+ * ```
+ */
 export const <%= camelize(name) %>Intent = agenticIntent({
   id: '<%= camelize(name) %>',
   description: '<%= description %>',
