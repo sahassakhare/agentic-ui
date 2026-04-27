@@ -149,6 +149,7 @@ The repository ships six reference applications under `projects/`. They cover th
 |-----|---------|------|
 | `demo-monolith` | Single-app, single-agent demo. Tools and widgets registered locally; no federation moving parts. | 4202 |
 | `demo-multi-agent` | One host, multiple agents. Registers tools + widgets for three domains inline; the orchestrator on the server classifies each turn and forwards events from the chosen specialist. | 4204 |
+| `demo-feature-tour` | Extended-registry showcase. Demonstrates the four library capabilities not covered by the other demos: `ActionRegistry` (agent-triggered navigation + toasts), `FormRegistry` (`<mvk-form-renderer>`), `DataSourceRegistry` (typed REST adapter), and an `IntentRegistry` entry for pre-LLM short-circuit. | 4206 |
 
 **Federated example — one app per domain, one agent per app**
 
@@ -260,6 +261,7 @@ Open <http://localhost:4201>, <http://localhost:4203>, and <http://localhost:420
 | [Federate an MFE](./docs/cookbook/federate-an-mfe.md) | Host + remote setup with Native Federation. |
 | [Domain MFEs as standalone apps + capability providers](./docs/cookbook/domain-mfe-standalone-and-federated.md) | Why each remote is simultaneously a real Angular app and an agentic capability — one codebase, two surfaces, same widgets. |
 | [Multi-agent orchestration](./docs/cookbook/multi-agent-orchestration.md) | Shell orchestrator routes to per-domain specialists; AG-UI events forwarded verbatim so widgets and tool calls keep working. |
+| [Extended registries — feature tour](./docs/cookbook/extended-registries-feature-tour.md) | Worked walkthrough of `ActionRegistry`, `FormRegistry`, `DataSourceRegistry`, `IntentRegistry` with the running `demo-feature-tour` app. |
 | [Swap the backend](./docs/cookbook/swap-backend.md) | AG-UI ↔ Hashbrown ↔ A2UI; runtime backend selection via `BackendRegistry`. |
 | [Observability](./docs/cookbook/observability.md) | `provideAgenticTelemetry` wiring; OpenTelemetry SDK integration. |
 | [ADR-001](./docs/adr/0001-agentic-backend-abstraction.md) | Pluggable backend abstraction. |

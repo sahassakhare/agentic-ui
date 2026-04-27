@@ -16,6 +16,10 @@
     "file": "multi-agent-orchestration.md"
   },
   {
+    "title": "Extended registries — feature tour",
+    "file": "extended-registries-feature-tour.md"
+  },
+  {
     "title": "Federate an MFE",
     "file": "federate-an-mfe.md"
   },

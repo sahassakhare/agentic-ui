@@ -54,6 +54,9 @@ jobs:
       - name: Build demo-multi-agent (production)
         run: npx ng build demo-multi-agent --configuration=production
 
+      - name: Build demo-feature-tour (production)
+        run: npx ng build demo-feature-tour --configuration=production
+
       - name: Build demo-shell (production, Native Federation host)
         run: npx ng build demo-shell --configuration=production
 
