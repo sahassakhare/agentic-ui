@@ -39,6 +39,10 @@ interface Registry<TDef extends { name: string; source?: CapabilitySource }> {
 - Every entry carries a `source` field (`'host'` / `'remote:<name>'` / `'mcp:<name>'`); MFE unload calls `removeBySource('remote:<name>')` once and every registry cleans up — no per-registry teardown plumbing.
 - Apps pay for what they use: only `Tool` + `Component` + `Backend` are required to render a working chat. The other ten are opt-in via `provideAgenticUi({...})` flags or providers.
 - Sublinear maintenance cost in registry count.
+- Per-registry governance hooks land on the shared base, not on each registry: a single edit to `RegistryBase` propagates to all 13. Today implemented:
+  - `conflictPolicy: 'replace' | 'throw' | 'first-wins' | 'namespace'` — strategy on duplicate-name registration. Default `'replace'` is backward-compatible. Set per-registry via `inject(ToolRegistry).conflictPolicy = 'throw'`.
+  - `RegistryEntry.onDispose?` — optional hook fired when an entry is removed (explicit disposer, `removeBySource`, or replaced under `'replace'`). Errors from a single hook are caught and routed to telemetry so a bad disposer can't poison a sweep.
+- See [registries-vs-industry.md](../architecture/registries-vs-industry.md) for the full integration map of additional governance hooks (scopes, versioning, activation events, health probes) — same pattern, ship as needed.
 
 ## Risks
 

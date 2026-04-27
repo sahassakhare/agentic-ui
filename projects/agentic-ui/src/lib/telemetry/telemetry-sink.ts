@@ -15,7 +15,10 @@ export type TelemetryEventName =
   | 'agentic.federation.load.start'
   | 'agentic.federation.load.end'
   | 'agentic.registry.register'
-  | 'agentic.registry.remove';
+  | 'agentic.registry.remove'
+  | 'agentic.registry.dropped'
+  | 'agentic.registry.namespaced'
+  | 'agentic.registry.dispose_failed';
 
 export interface AgenticTelemetrySink {
   startSpan(name: TelemetryEventName, attributes?: Readonly<Record<string, unknown>>): TelemetrySpan;

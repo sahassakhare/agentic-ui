@@ -19,6 +19,28 @@ export interface RegistryEntry {
   readonly name: string;
   /** Where the entry came from. Defaults to `'host'` when omitted. */
   readonly source?: CapabilitySource;
+  /**
+   * Optional cleanup hook called when this entry is removed — by an
+   * explicit disposer, by `removeBySource()` (e.g. when an MFE unloads),
+   * or because a registration with the same name replaced it under a
+   * `'replace'` conflict policy.
+   *
+   * Use it to release timers, unsubscribe observers, abort in-flight
+   * fetches, etc., that the entry's owner started. Errors thrown from
+   * `onDispose` are caught and routed to the telemetry sink so a single
+   * misbehaving entry can't poison the rest of a teardown sweep.
+   *
+   * @example
+   * ```ts
+   * agenticTool({
+   *   name: 'pollSubmissions',
+   *   schema: z.object({ ... }),
+   *   handler: async () => { ... },
+   *   onDispose: () => clearInterval(pollHandle),
+   * })
+   * ```
+   */
+  readonly onDispose?: () => void | Promise<void>;
 }
 
 /**
