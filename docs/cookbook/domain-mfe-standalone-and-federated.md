@@ -145,3 +145,17 @@ that exists purely to be invoked by an agent), there's no reason to
 fabricate a standalone page. Ship just `capability.ts` and skip the
 `app.ts` UI. The federation surface is the same; the placeholder Angular
 landing page is fine for that case.
+
+## Sample prompts to verify both surfaces
+
+| Surface | URL | Try |
+|---|---|---|
+| Standalone bookings UI | <http://localhost:4201> | Fill the form (LAX → JFK, 2026-05-05) → click **Book** → `flightCard` renders inline |
+| Standalone loyalty UI | <http://localhost:4203> | Click **Check my points** → `pointsCard` renders; submit the redeem form → green confirmation |
+| Standalone support UI | <http://localhost:4205> | Open a ticket → `ticketCard` renders → use the auto-filled id to check status |
+| Federated host (chat) | <http://localhost:4200> | *"Book a flight from LAX to JFK on 2026-05-05"* — same widget, this time triggered by the orchestrator chat |
+
+Open Angular DevTools at both `:4201` and `:4200` and inspect the
+flight card — both show `FlightCardComponent` from the bookings remote
+(same class identity, no fork). Full prompt list across all demos:
+[Sample prompts](./sample-prompts.md).

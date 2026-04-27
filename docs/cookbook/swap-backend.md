@@ -75,7 +75,11 @@ backends.list().map((b) => b.label);   // ['AG-UI', 'Hashbrown']
 backends.setActive('hashbrown');        // chat shell now uses Hashbrown
 ```
 
-Useful for evaluation UI ("compare AG-UI vs Hashbrown response on the same prompt") and AB tests.
+Useful for evaluation UI ("compare AG-UI vs Hashbrown response on the same prompt") and AB tests. Try it with the same prompt across two backends:
+
+> *"Book a flight from LAX to JFK on 2026-05-05"*
+
+— register both `AgUiBackend` and `HashbrownBackend`, switch via `BackendRegistry.setActive(id)` between turns, and compare. More AB-test prompts in [Sample prompts](./sample-prompts.md).
 
 ## Custom backend
 

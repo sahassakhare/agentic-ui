@@ -774,6 +774,7 @@ switch — follow-up turns don't repeat it.
 
 ## What's next
 
+- **[Sample prompts](./sample-prompts.md)** — canonical prompts for every demo and every library feature, plus adversarial / boundary prompts for stress-testing.
 - **[Domain MFEs as standalone apps + capability providers](./domain-mfe-standalone-and-federated.md)** — give each remote its own UI in addition to its capability surface so each domain is a real Angular app, not just a chat shim.
 - **[Multi-agent orchestration deep-dive](./multi-agent-orchestration.md)** — sequence and flow diagrams for the orchestrator's internals; classification + forwarding vs. delegate-as-tool trade-offs.
 - **[Observability](./observability.md)** — wire `provideAgenticTelemetry` to push spans across the SSE boundary so a single trace covers `chat shell → backend → agent → LLM → tool`.

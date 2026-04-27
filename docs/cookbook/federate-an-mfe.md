@@ -120,3 +120,11 @@ const remote = await loadRemoteCapabilitiesMF({
   exposedModule: './Capability',
 });
 ```
+
+## Try it
+
+After running the host on `:4200` plus at least one remote (`:4201` for bookings):
+
+> *"Book a flight from LAX to JFK on 2026-05-05"*
+
+The chat shell renders the `flightCard` widget shipped from the remote's bundle. The header reads `Capabilities: 1 tool(s) across 1 remote(s): demo-remote-bookings`. To exercise the live-update path (kill a remote and watch the registry shrink), the cross-domain prompts, and the keyword-fallback router, see [Sample prompts](./sample-prompts.md).

@@ -90,3 +90,15 @@ npm install && npm run dev
 ```
 
 Boots a Hono server on `:4111` exposing the `EchoAgent` (no LLM key required) at `POST /agents/echo/run`. Swap in a real agent (Mastra, LangGraph, Gemini, OpenAI Agent SDK) by implementing the `ServerAgent` interface — see `examples/demo-server/src/gemini-agent.ts` for a working example.
+
+## 6. Try it
+
+Reload the app and type a prompt. Against the echo agent (no LLM), any
+prompt works — you'll see your message streamed back word-by-word.
+Against an LLM-backed agent with the `bookFlight` tool registered:
+
+> *"Book a flight from LAX to JFK on 2026-05-05"*
+
+The agent calls your tool, your handler returns `{ bookingId, ..., components: [{name: 'flightCard', props}] }`, and the chat shell renders the `flightCard` widget under the tool result.
+
+For prompts covering every demo and every registry, see [Sample prompts](./sample-prompts.md).

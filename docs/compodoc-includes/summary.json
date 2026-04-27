@@ -4,6 +4,10 @@
     "file": "quickstart.md"
   },
   {
+    "title": "Sample prompts",
+    "file": "sample-prompts.md"
+  },
+  {
     "title": "Integrate into an existing Angular app",
     "file": "integrate-into-existing-angular-app.md"
   },
