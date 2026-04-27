@@ -169,14 +169,14 @@ The repository ships six reference applications under `projects/`. They cover th
 
 ```bash
 npm install
-cd projects/demo-server && npm install && cd ../..
-cp projects/demo-server/.env.example projects/demo-server/.env
-# Add your GOOGLE_GENERATIVE_AI_API_KEY to projects/demo-server/.env
+cd examples/demo-server && npm install && cd ../..
+cp examples/demo-server/.env.example examples/demo-server/.env
+# Add your GOOGLE_GENERATIVE_AI_API_KEY to examples/demo-server/.env
 npm run build:lib
 npm install ./dist/agentic-ui --no-save
 
 # Two terminals:
-cd projects/demo-server && npm run dev     # :4111
+cd examples/demo-server && npm run dev     # :4111
 npx ng serve demo-multi-agent              # :4204
 ```
 
@@ -219,14 +219,14 @@ Topology — each domain owns one app; the orchestrator on the server routes per
 
 ```bash
 npm install
-cd projects/demo-server && npm install && cd ../..
-cp projects/demo-server/.env.example projects/demo-server/.env
-# Add your GOOGLE_GENERATIVE_AI_API_KEY to projects/demo-server/.env
+cd examples/demo-server && npm install && cd ../..
+cp examples/demo-server/.env.example examples/demo-server/.env
+# Add your GOOGLE_GENERATIVE_AI_API_KEY to examples/demo-server/.env
 npm run build:lib
 npm install ./dist/agentic-ui --no-save
 
 # Five terminals:
-cd projects/demo-server && npm run dev     # :4111
+cd examples/demo-server && npm run dev     # :4111
 npx ng serve demo-remote-bookings          # :4201
 npx ng serve demo-remote-loyalty           # :4203
 npx ng serve demo-remote-support           # :4205

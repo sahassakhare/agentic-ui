@@ -7,26 +7,26 @@ passed through untouched, so generative-UI widgets and client-side tool calls
 keep working transparently.
 
 This guide walks you through the working example in
-[`projects/demo-multi-agent`](../../projects/demo-multi-agent) and the
-[`OrchestratorAgent`](../../projects/demo-server/src/orchestrator-agent.ts)
+[`examples/demo-multi-agent`](../../examples/demo-multi-agent) and the
+[`OrchestratorAgent`](../../examples/demo-server/src/orchestrator-agent.ts)
 in the demo server.
 
 ## Where things live
 
 All six agents are constructed and registered in **one Node process**
-(`projects/demo-server/`, port 4111). The Hono router exposes each at
+(`examples/demo-server/`, port 4111). The Hono router exposes each at
 `POST /agents/:id/run`; clients pick which agent by URL.
 
 | Agent id | Implementation | Role |
 |---|---|---|
 | `echo` | [`@maverick/agentic-ui-server` → `EchoAgent`](../../projects/agentic-ui-server/src/echo-agent.ts) | No-LLM smoke-test agent — useful for testing the SSE pipeline without burning quota. |
-| `gemini` | [`projects/demo-server/src/gemini-agent.ts`](../../projects/demo-server/src/gemini-agent.ts) → `GeminiAgent` | Original single-domain demo agent (still wired so `demo-monolith` works). |
+| `gemini` | [`examples/demo-server/src/gemini-agent.ts`](../../examples/demo-server/src/gemini-agent.ts) → `GeminiAgent` | Original single-domain demo agent (still wired so `demo-monolith` works). |
 | `bookings` | same `GeminiAgent` class, different `systemInstruction` | Flight specialist. |
 | `loyalty` | same `GeminiAgent` class, different `systemInstruction` | Loyalty-program specialist. |
 | `support` | same `GeminiAgent` class, different `systemInstruction` | Support specialist. |
-| **`orchestrator`** | [`projects/demo-server/src/orchestrator-agent.ts`](../../projects/demo-server/src/orchestrator-agent.ts) → `OrchestratorAgent` | Classifier + forwarder. Picks one specialist per turn and forwards its event stream verbatim. |
+| **`orchestrator`** | [`examples/demo-server/src/orchestrator-agent.ts`](../../examples/demo-server/src/orchestrator-agent.ts) → `OrchestratorAgent` | Classifier + forwarder. Picks one specialist per turn and forwards its event stream verbatim. |
 
-Wiring lives in [`projects/demo-server/src/server.ts`](../../projects/demo-server/src/server.ts). A simplified excerpt:
+Wiring lives in [`examples/demo-server/src/server.ts`](../../examples/demo-server/src/server.ts). A simplified excerpt:
 
 ```ts
 const bookingsAgent = new GeminiAgent('bookings', { systemInstruction: '...' });
@@ -52,9 +52,9 @@ Host apps choose which agent to talk to via `environment.ts → agentUrl`:
 
 | App | `agentUrl` | What it gets |
 |---|---|---|
-| [`demo-monolith`](../../projects/demo-monolith) (4202) | `/agents/gemini/run` | Single-domain agent — simplest example. |
-| [`demo-multi-agent`](../../projects/demo-multi-agent) (4204) | `/agents/orchestrator/run` | Orchestrator + three specialists. Tools and widgets registered inline in the host. |
-| [`demo-shell`](../../projects/demo-shell) (4200) | `/agents/orchestrator/run` | Same orchestrator, but tools/widgets are contributed by federated MFE remotes — `demo-remote-bookings` (4201), `demo-remote-loyalty` (4203), `demo-remote-support` (4205). |
+| [`demo-monolith`](../../examples/demo-monolith) (4202) | `/agents/gemini/run` | Single-domain agent — simplest example. |
+| [`demo-multi-agent`](../../examples/demo-multi-agent) (4204) | `/agents/orchestrator/run` | Orchestrator + three specialists. Tools and widgets registered inline in the host. |
+| [`demo-shell`](../../examples/demo-shell) (4200) | `/agents/orchestrator/run` | Same orchestrator, but tools/widgets are contributed by federated MFE remotes — `demo-remote-bookings` (4201), `demo-remote-loyalty` (4203), `demo-remote-support` (4205). |
 
 Each remote is **also a complete domain app on its own port**. Visiting `:4201` / `:4203` / `:4205` directly shows a form-driven UI that calls the same tool handler and renders the same widget the agent uses — so the MFE is a full Angular app for that domain, with the agentic capability layered on rather than replacing it.
 
@@ -206,7 +206,7 @@ issues a sequence of specialist calls).
 
 ## Server: register the orchestrator alongside specialists
 
-[`projects/demo-server/src/server.ts`](../../projects/demo-server/src/server.ts)
+[`examples/demo-server/src/server.ts`](../../examples/demo-server/src/server.ts)
 wires four LLM-backed agents under one Hono process:
 
 ```ts
@@ -256,7 +256,7 @@ specialist it picks, so the host registers the union of every domain's
 capabilities:
 
 ```ts
-// projects/demo-multi-agent/src/app/agentic/agentic.ts
+// examples/demo-multi-agent/src/app/agentic/agentic.ts
 export const tools: ToolDef[] = [
   bookFlightTool, cancelFlightTool,                 // bookings
   checkPointsTool, redeemPointsTool,                // loyalty
@@ -285,8 +285,8 @@ the routing layer is what unifies them for the user.
 ## Run it
 
 ```bash
-# In one terminal, with GOOGLE_GENERATIVE_AI_API_KEY in projects/demo-server/.env
-cd projects/demo-server
+# In one terminal, with GOOGLE_GENERATIVE_AI_API_KEY in examples/demo-server/.env
+cd examples/demo-server
 npm install
 npx tsx src/server.ts
 

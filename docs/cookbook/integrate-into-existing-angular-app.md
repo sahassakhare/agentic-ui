@@ -104,7 +104,7 @@ back. Two options:
 
 | Option | When to use |
 |---|---|
-| **Reuse `projects/demo-server` as a template** | You're prototyping. Copy `projects/demo-server/` into your repo, swap the API key in `.env`, change the `systemInstruction`. Done in 5 minutes. |
+| **Reuse `examples/demo-server` as a template** | You're prototyping. Copy `examples/demo-server/` into your repo, swap the API key in `.env`, change the `systemInstruction`. Done in 5 minutes. |
 | **Add the route to your existing Node service** | You already run a Node API. Install `@maverick/agentic-ui-server` and `hono`; add a single route. |
 
 Minimal `/agents/:id/run` route with one Gemini-backed agent:

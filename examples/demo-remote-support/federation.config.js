@@ -1,10 +1,10 @@
 const { withNativeFederation, shareAll } = require('@angular-architects/native-federation/config');
 
 module.exports = withNativeFederation({
-  name: 'demo-remote-loyalty',
+  name: 'demo-remote-support',
 
   exposes: {
-    './Capability': './projects/demo-remote-loyalty/src/app/capability.ts',
+    './Capability': './examples/demo-remote-support/src/app/capability.ts',
   },
 
   shared: {

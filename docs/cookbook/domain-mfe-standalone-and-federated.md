@@ -21,7 +21,7 @@ The repo's three remotes (`demo-remote-bookings`, `demo-remote-loyalty`,
 as the canonical example:
 
 ```
-projects/demo-remote-bookings/
+examples/demo-remote-bookings/
   src/app/
     app.ts                          ← standalone domain UI (form + widget)
     capability.ts                   ← federation entrypoint (tools + widgets)
@@ -136,7 +136,7 @@ npx ng serve demo-shell             # :4200
 The components in the chat are the same class identity as the components
 on the standalone pages — open Angular DevTools at `:4200` and at `:4201`
 and inspect a flight card; both will show `FlightCardComponent` from
-`projects/demo-remote-bookings/src/app/widgets/flight-card.component.ts`.
+`examples/demo-remote-bookings/src/app/widgets/flight-card.component.ts`.
 
 ## When NOT to do this
 

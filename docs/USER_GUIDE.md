@@ -36,7 +36,7 @@ From the workspace root:
 
 ```bash
 npm install
-cd projects/demo-server && npm install && cd ../..
+cd examples/demo-server && npm install && cd ../..
 ```
 
 The first one installs Angular 21, the lib's peer deps, federation runtimes, etc. The second installs Hono + the Google Gen AI SDK for the agent server.
@@ -46,10 +46,10 @@ The first one installs Angular 21, the lib's peer deps, federation runtimes, etc
 ## Step 2 — Add your Gemini key
 
 ```bash
-cp projects/demo-server/.env.example projects/demo-server/.env
+cp examples/demo-server/.env.example examples/demo-server/.env
 ```
 
-Open `projects/demo-server/.env` in your editor and paste your key:
+Open `examples/demo-server/.env` in your editor and paste your key:
 
 ```
 GOOGLE_GENERATIVE_AI_API_KEY=AIza...
@@ -85,7 +85,7 @@ You need three processes running concurrently. Open three terminals in the works
 ### Terminal 1: agent server
 
 ```bash
-cd projects/demo-server
+cd examples/demo-server
 npm run dev
 ```
 
@@ -127,7 +127,7 @@ curl -I http://localhost:4201/remoteEntry.json
 # → HTTP/1.1 200 OK
 ```
 
-The remote exposes one module: `./Capability` (its [`capability.ts`](../projects/demo-remote-bookings/src/app/capability.ts)) which contributes the `bookFlight` tool and `flightCard` widget.
+The remote exposes one module: `./Capability` (its [`capability.ts`](../examples/demo-remote-bookings/src/app/capability.ts)) which contributes the `bookFlight` tool and `flightCard` widget.
 
 ### Terminal 3: host shell
 
@@ -209,7 +209,7 @@ The boxed card is `FlightCardComponent`, a standalone Angular component **define
 
 ### Test C: backend swap
 
-Stop the agent server (Ctrl-C in Terminal 1), then change line ~7 of [`projects/demo-shell/src/app/app.config.ts`](../projects/demo-shell/src/app/app.config.ts):
+Stop the agent server (Ctrl-C in Terminal 1), then change line ~7 of [`examples/demo-shell/src/app/app.config.ts`](../examples/demo-shell/src/app/app.config.ts):
 
 ```ts
 const AGENT_URL = 'http://localhost:4111/agents/gemini/run';
@@ -249,7 +249,7 @@ The MFE remote didn't load. Check:
 
 The lib is being loaded twice (once in the host bundle, once in the remote bundle) instead of being shared via federation. Check:
 
-- Both `projects/demo-shell/federation.config.js` and `projects/demo-remote-bookings/federation.config.js` have `'@maverick/agentic-ui'` in their `shared` block AND `features: { ignoreUnusedDeps: false }`.
+- Both `examples/demo-shell/federation.config.js` and `examples/demo-remote-bookings/federation.config.js` have `'@maverick/agentic-ui'` in their `shared` block AND `features: { ignoreUnusedDeps: false }`.
 - `dist/agentic-ui` exists and was built recently.
 - Hard-refresh the browser (Cmd-Shift-R / Ctrl-Shift-R) — Vite dev server may be serving a cached chunk.
 
@@ -259,7 +259,7 @@ Same root cause as NG0912 from a different angle — the federation importmap do
 
 ### Gemini returns `"NOT_FOUND"` or `models/X is not found`
 
-The model id is stale. Edit `projects/demo-server/src/gemini-agent.ts` (`config.model ?? 'gemini-2.5-flash'`) or set `GEMINI_MODEL` in `.env`. List available models for your key:
+The model id is stale. Edit `examples/demo-server/src/gemini-agent.ts` (`config.model ?? 'gemini-2.5-flash'`) or set `GEMINI_MODEL` in `.env`. List available models for your key:
 
 ```bash
 curl "https://generativelanguage.googleapis.com/v1beta/models?key=$GOOGLE_GENERATIVE_AI_API_KEY" \
@@ -270,7 +270,7 @@ curl "https://generativelanguage.googleapis.com/v1beta/models?key=$GOOGLE_GENERA
 
 Most likely the chat shell sent an empty `tools` array because the remote hadn't finished loading. Check:
 
-- The Console shows `[demo-shell] Remote loaded:` *before* you type. If not, the boot sequence isn't blocking on the remote load — verify [`projects/demo-shell/src/app/app.config.ts`](../projects/demo-shell/src/app/app.config.ts) uses `provideAppInitializer` (returns the loadRemote promise), not the older `provideEnvironmentInitializer` (fire-and-forget).
+- The Console shows `[demo-shell] Remote loaded:` *before* you type. If not, the boot sequence isn't blocking on the remote load — verify [`examples/demo-shell/src/app/app.config.ts`](../examples/demo-shell/src/app/app.config.ts) uses `provideAppInitializer` (returns the loadRemote promise), not the older `provideEnvironmentInitializer` (fire-and-forget).
 
 ### Port already in use (`EADDRINUSE`)
 
@@ -284,8 +284,8 @@ kill $(lsof -ti:4111)   # or 4200, 4201
 
 ## Where to go next
 
-- Look at [`projects/demo-remote-bookings/src/app/capability.ts`](../projects/demo-remote-bookings/src/app/capability.ts) to see how the remote contributes tools/widgets.
-- Look at [`projects/demo-shell/src/app/app.config.ts`](../projects/demo-shell/src/app/app.config.ts) to see how the host loads remotes at boot.
+- Look at [`examples/demo-remote-bookings/src/app/capability.ts`](../examples/demo-remote-bookings/src/app/capability.ts) to see how the remote contributes tools/widgets.
+- Look at [`examples/demo-shell/src/app/app.config.ts`](../examples/demo-shell/src/app/app.config.ts) to see how the host loads remotes at boot.
 - Read the cookbook:
   - [Federate an MFE](./cookbook/federate-an-mfe.md)
   - [Swap the backend](./cookbook/swap-backend.md)

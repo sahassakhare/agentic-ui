@@ -63,24 +63,24 @@
           "style": "scss"
         }
       },
-      "root": "projects/demo-monolith",
-      "sourceRoot": "projects/demo-monolith/src",
+      "root": "examples/demo-monolith",
+      "sourceRoot": "examples/demo-monolith/src",
       "prefix": "app",
       "architect": {
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "browser": "projects/demo-monolith/src/main.ts",
-            "tsConfig": "projects/demo-monolith/tsconfig.app.json",
+            "browser": "examples/demo-monolith/src/main.ts",
+            "tsConfig": "examples/demo-monolith/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": [
               {
                 "glob": "**/*",
-                "input": "projects/demo-monolith/public"
+                "input": "examples/demo-monolith/public"
               }
             ],
             "styles": [
-              "projects/demo-monolith/src/styles.scss"
+              "examples/demo-monolith/src/styles.scss"
             ]
           },
           "configurations": {
@@ -100,8 +100,8 @@
               "outputHashing": "all",
               "fileReplacements": [
                 {
-                  "replace": "projects/demo-monolith/src/environments/environment.ts",
-                  "with": "projects/demo-monolith/src/environments/environment.prod.ts"
+                  "replace": "examples/demo-monolith/src/environments/environment.ts",
+                  "with": "examples/demo-monolith/src/environments/environment.prod.ts"
                 }
               ]
             },
@@ -137,20 +137,20 @@
           "style": "scss"
         }
       },
-      "root": "projects/demo-multi-agent",
-      "sourceRoot": "projects/demo-multi-agent/src",
+      "root": "examples/demo-multi-agent",
+      "sourceRoot": "examples/demo-multi-agent/src",
       "prefix": "app",
       "architect": {
         "build": {
           "builder": "@angular/build:application",
           "options": {
-            "browser": "projects/demo-multi-agent/src/main.ts",
-            "tsConfig": "projects/demo-multi-agent/tsconfig.app.json",
+            "browser": "examples/demo-multi-agent/src/main.ts",
+            "tsConfig": "examples/demo-multi-agent/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": [
-              { "glob": "**/*", "input": "projects/demo-multi-agent/public" }
+              { "glob": "**/*", "input": "examples/demo-multi-agent/public" }
             ],
-            "styles": ["projects/demo-multi-agent/src/styles.scss"]
+            "styles": ["examples/demo-multi-agent/src/styles.scss"]
           },
           "configurations": {
             "production": {
@@ -161,8 +161,8 @@
               "outputHashing": "all",
               "fileReplacements": [
                 {
-                  "replace": "projects/demo-multi-agent/src/environments/environment.ts",
-                  "with": "projects/demo-multi-agent/src/environments/environment.prod.ts"
+                  "replace": "examples/demo-multi-agent/src/environments/environment.ts",
+                  "with": "examples/demo-multi-agent/src/environments/environment.prod.ts"
                 }
               ]
             },
@@ -195,8 +195,8 @@
           "style": "scss"
         }
       },
-      "root": "projects/demo-shell",
-      "sourceRoot": "projects/demo-shell/src",
+      "root": "examples/demo-shell",
+      "sourceRoot": "examples/demo-shell/src",
       "prefix": "app",
       "architect": {
         "build": {
@@ -207,8 +207,8 @@
               "target": "demo-shell:esbuild:production",
               "fileReplacements": [
                 {
-                  "replace": "projects/demo-shell/src/environments/environment.ts",
-                  "with": "projects/demo-shell/src/environments/environment.prod.ts"
+                  "replace": "examples/demo-shell/src/environments/environment.ts",
+                  "with": "examples/demo-shell/src/environments/environment.prod.ts"
                 }
               ]
             },
@@ -235,17 +235,17 @@
         "esbuild": {
           "builder": "@angular/build:application",
           "options": {
-            "browser": "projects/demo-shell/src/main.ts",
-            "tsConfig": "projects/demo-shell/tsconfig.app.json",
+            "browser": "examples/demo-shell/src/main.ts",
+            "tsConfig": "examples/demo-shell/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": [
               {
                 "glob": "**/*",
-                "input": "projects/demo-shell/public"
+                "input": "examples/demo-shell/public"
               }
             ],
             "styles": [
-              "projects/demo-shell/src/styles.scss"
+              "examples/demo-shell/src/styles.scss"
             ],
             "polyfills": [
               "es-module-shims"
@@ -268,8 +268,8 @@
               "outputHashing": "all",
               "fileReplacements": [
                 {
-                  "replace": "projects/demo-shell/src/environments/environment.ts",
-                  "with": "projects/demo-shell/src/environments/environment.prod.ts"
+                  "replace": "examples/demo-shell/src/environments/environment.ts",
+                  "with": "examples/demo-shell/src/environments/environment.prod.ts"
                 }
               ]
             },
@@ -305,8 +305,8 @@
           "style": "scss"
         }
       },
-      "root": "projects/demo-remote-bookings",
-      "sourceRoot": "projects/demo-remote-bookings/src",
+      "root": "examples/demo-remote-bookings",
+      "sourceRoot": "examples/demo-remote-bookings/src",
       "prefix": "app",
       "architect": {
         "build": {
@@ -339,17 +339,17 @@
         "esbuild": {
           "builder": "@angular/build:application",
           "options": {
-            "browser": "projects/demo-remote-bookings/src/main.ts",
-            "tsConfig": "projects/demo-remote-bookings/tsconfig.app.json",
+            "browser": "examples/demo-remote-bookings/src/main.ts",
+            "tsConfig": "examples/demo-remote-bookings/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": [
               {
                 "glob": "**/*",
-                "input": "projects/demo-remote-bookings/public"
+                "input": "examples/demo-remote-bookings/public"
               }
             ],
             "styles": [
-              "projects/demo-remote-bookings/src/styles.scss"
+              "examples/demo-remote-bookings/src/styles.scss"
             ],
             "polyfills": [
               "es-module-shims"
@@ -401,8 +401,8 @@
       "schematics": {
         "@schematics/angular:component": { "style": "scss" }
       },
-      "root": "projects/demo-remote-loyalty",
-      "sourceRoot": "projects/demo-remote-loyalty/src",
+      "root": "examples/demo-remote-loyalty",
+      "sourceRoot": "examples/demo-remote-loyalty/src",
       "prefix": "app",
       "architect": {
         "build": {
@@ -428,11 +428,11 @@
         "esbuild": {
           "builder": "@angular/build:application",
           "options": {
-            "browser": "projects/demo-remote-loyalty/src/main.ts",
-            "tsConfig": "projects/demo-remote-loyalty/tsconfig.app.json",
+            "browser": "examples/demo-remote-loyalty/src/main.ts",
+            "tsConfig": "examples/demo-remote-loyalty/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-            "assets": [{ "glob": "**/*", "input": "projects/demo-remote-loyalty/public" }],
-            "styles": ["projects/demo-remote-loyalty/src/styles.scss"],
+            "assets": [{ "glob": "**/*", "input": "examples/demo-remote-loyalty/public" }],
+            "styles": ["examples/demo-remote-loyalty/src/styles.scss"],
             "polyfills": ["es-module-shims"]
           },
           "configurations": {
@@ -463,8 +463,8 @@
       "schematics": {
         "@schematics/angular:component": { "style": "scss" }
       },
-      "root": "projects/demo-remote-support",
-      "sourceRoot": "projects/demo-remote-support/src",
+      "root": "examples/demo-remote-support",
+      "sourceRoot": "examples/demo-remote-support/src",
       "prefix": "app",
       "architect": {
         "build": {
@@ -490,11 +490,11 @@
         "esbuild": {
           "builder": "@angular/build:application",
           "options": {
-            "browser": "projects/demo-remote-support/src/main.ts",
-            "tsConfig": "projects/demo-remote-support/tsconfig.app.json",
+            "browser": "examples/demo-remote-support/src/main.ts",
+            "tsConfig": "examples/demo-remote-support/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-            "assets": [{ "glob": "**/*", "input": "projects/demo-remote-support/public" }],
-            "styles": ["projects/demo-remote-support/src/styles.scss"],
+            "assets": [{ "glob": "**/*", "input": "examples/demo-remote-support/public" }],
+            "styles": ["examples/demo-remote-support/src/styles.scss"],
             "polyfills": ["es-module-shims"]
           },
           "configurations": {

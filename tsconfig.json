@@ -40,22 +40,22 @@
       "path": "./projects/agentic-ui/tsconfig.spec.json"
     },
     {
-      "path": "./projects/demo-monolith/tsconfig.app.json"
+      "path": "./examples/demo-monolith/tsconfig.app.json"
     },
     {
-      "path": "./projects/demo-monolith/tsconfig.spec.json"
+      "path": "./examples/demo-monolith/tsconfig.spec.json"
     },
     {
-      "path": "./projects/demo-shell/tsconfig.app.json"
+      "path": "./examples/demo-shell/tsconfig.app.json"
     },
     {
-      "path": "./projects/demo-shell/tsconfig.spec.json"
+      "path": "./examples/demo-shell/tsconfig.spec.json"
     },
     {
-      "path": "./projects/demo-remote-bookings/tsconfig.app.json"
+      "path": "./examples/demo-remote-bookings/tsconfig.app.json"
     },
     {
-      "path": "./projects/demo-remote-bookings/tsconfig.spec.json"
+      "path": "./examples/demo-remote-bookings/tsconfig.spec.json"
     }
   ]
 }

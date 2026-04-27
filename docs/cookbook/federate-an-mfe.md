@@ -10,13 +10,13 @@ npx ng generate @angular-architects/native-federation:init --project=demo-shell 
 ng add @maverick/agentic-ui --project=demo-shell --skip-install=true
 ```
 
-Edit `projects/demo-shell/public/federation.manifest.json`:
+Edit `examples/demo-shell/public/federation.manifest.json`:
 
 ```json
 { "demo-remote-bookings": "http://localhost:4201/remoteEntry.json" }
 ```
 
-Edit `projects/demo-shell/src/app/app.config.ts`:
+Edit `examples/demo-shell/src/app/app.config.ts`:
 
 ```ts
 import { provideEnvironmentInitializer, EnvironmentInjector, inject, runInInjectionContext } from '@angular/core';
@@ -76,11 +76,11 @@ export const capability = defineCapabilityModule({
 });
 ```
 
-Update `projects/demo-remote-bookings/federation.config.js`:
+Update `examples/demo-remote-bookings/federation.config.js`:
 
 ```js
 exposes: {
-  './Capability': './projects/demo-remote-bookings/src/app/capability/capability.ts',
+  './Capability': './examples/demo-remote-bookings/src/app/capability/capability.ts',
 },
 ```
 
@@ -88,7 +88,7 @@ exposes: {
 
 ```bash
 # Terminal 1 — agent server
-cd projects/demo-server && npm run dev
+cd examples/demo-server && npm run dev
 
 # Terminal 2 — remote
 npx ng serve demo-remote-bookings  # http://localhost:4201

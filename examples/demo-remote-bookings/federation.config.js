@@ -4,7 +4,7 @@ module.exports = withNativeFederation({
   name: 'demo-remote-bookings',
 
   exposes: {
-    './Capability': './projects/demo-remote-bookings/src/app/capability.ts',
+    './Capability': './examples/demo-remote-bookings/src/app/capability.ts',
   },
 
   shared: {

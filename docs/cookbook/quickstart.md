@@ -89,4 +89,4 @@ cd projects/my-agent-server
 npm install && npm run dev
 ```
 
-Boots a Hono server on `:4111` exposing the `EchoAgent` (no LLM key required) at `POST /agents/echo/run`. Swap in a real agent (Mastra, LangGraph, Gemini, OpenAI Agent SDK) by implementing the `ServerAgent` interface — see `projects/demo-server/src/gemini-agent.ts` for a working example.
+Boots a Hono server on `:4111` exposing the `EchoAgent` (no LLM key required) at `POST /agents/echo/run`. Swap in a real agent (Mastra, LangGraph, Gemini, OpenAI Agent SDK) by implementing the `ServerAgent` interface — see `examples/demo-server/src/gemini-agent.ts` for a working example.
