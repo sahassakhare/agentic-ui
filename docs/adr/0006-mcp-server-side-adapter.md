@@ -1,6 +1,6 @@
 # ADR-006: MCP server-side adapter — `@maverick/agentic-ui-mcp`
 
-**Status**: Proposed.
+**Status**: Accepted (implementing).
 
 **Drives**: Roadmap Tier 1.1 ([`ROADMAP.md`](../../ROADMAP.md#11--mcp-server-side-adapter)).
 
@@ -84,23 +84,57 @@ export function createMcpServer(opts: CreateMcpServerOptions): McpServerHandle;
 Documented on `ToolDef` (one line of new TypeScript optionality, no breakage):
 
 ```ts
-type ToolResult = {
-  // ...domain fields the LLM consumes...
+// Standardised on @maverick/agentic-ui as `ToolResultRenderHints` —
+// purely additive, every field optional, consumers ignore unrecognised fields.
 
+interface ToolResultRenderHints {
   /** Generative-UI hint for `<mvk-widget-container>`. Existing. */
-  components?: ReadonlyArray<{ name: string; props: unknown }>;
+  readonly components?: ReadonlyArray<{ readonly name: string; readonly props: unknown }>;
 
   /** NEW: markdown rendering for hosts that don't render Angular widgets. */
-  markdown?: string;
+  readonly markdown?: string;
 
   /** NEW: image URL inline-renderable in markdown chats. */
-  image_url?: string;
-};
+  readonly image_url?: string;
+
+  /** RESERVED for ADR-007 (MCP UI): pre-rendered static HTML. Not yet activated. */
+  readonly html?: string;
+
+  /** RESERVED for ADR-007 (MCP UI): sandboxed live-widget URL. Not yet activated. */
+  readonly iframe_url?: string;
+}
 ```
 
-Same handler, three output shapes — host picks what it can render. The
+Same handler, multiple output shapes — host picks what it can render. The
 chat shell ignores `markdown` (renders the typed widget); Claude Desktop
-shows the markdown table; an image-rendering host gets the image.
+shows the markdown table; an image-rendering host gets the image. The
+`html` / `iframe_url` fields are reserved so consumers writing
+forward-compatible tools today aren't blocked when ADR-007 lands.
+
+## Production-grade scope
+
+This ADR ships a **library-grade** package — the API is stable,
+tested, and works against today's MCP hosts. It does **not** ship
+multi-tenant operational infrastructure, which is consumer-side and
+matches how the rest of v1 of `@maverick/agentic-ui` is positioned.
+
+| Aspect | What ADR-006 ships | What's consumer's responsibility |
+|---|---|---|
+| Public API | Stable, JSDoc'd, semver-bound | — |
+| Schema conversion (Zod → MCP) | Round-trip tested | — |
+| Stdio transport | Single-call wiring; works in Claude Desktop / Cursor / Zed | — |
+| HTTP/SSE transport | Single-call wiring; CORS allowlist; bearer token gate as sample code | TLS termination, real auth provider integration |
+| Error mapping | Full MCP error code coverage | — |
+| Result formatter | Markdown/image/json precedence | — |
+| `beforeCall` / `afterCall` hooks | The seam; documented patterns | Telemetry sink wiring, OAuth flow, JWT validation, token-bucket rate limiting |
+| Multi-tenant (one server, N users) | Out of scope | Consumer wraps with auth + per-user MCP server instances OR uses the embeddable `handleRequest()` path |
+| MCP spec version | Pinned `@modelcontextprotocol/sdk@^1`, supported version documented in cookbook | Spec-version negotiation if/when MCP 2.0 lands |
+| Observability per call | Hook seam; reference Langfuse/OTel snippets in cookbook | Production trace/metric pipeline |
+
+These boundaries are written into the cookbook entry up-front so
+adopters know exactly what they own. Same maturity tier as
+`<mvk-chat-shell>` is today: ship-able, used in real contexts,
+operational layer is opt-in / consumer-side.
 
 ## Implementation plan
 

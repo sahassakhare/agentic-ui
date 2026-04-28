@@ -36,6 +36,10 @@
     "file": "federate-an-mfe.md"
   },
   {
+    "title": "Expose tools as MCP server",
+    "file": "mcp-server.md"
+  },
+  {
     "title": "Domain MFEs as standalone apps + capability providers",
     "file": "domain-mfe-standalone-and-federated.md"
   },

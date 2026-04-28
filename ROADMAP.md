@@ -57,7 +57,7 @@ gantt
 
 ## 1.1 — MCP server-side adapter
 
-> **Detailed plan**: [ADR-006 — MCP server-side adapter](./docs/adr/0006-mcp-server-side-adapter.md). Covers public API, six-phase implementation plan, acceptance criteria, alternatives considered, and out-of-scope items.
+> **Status: Shipped** — `@maverick/agentic-ui-mcp` v0.1.0. See [ADR-006](./docs/adr/0006-mcp-server-side-adapter.md), the [CHANGELOG](./projects/agentic-ui-mcp/CHANGELOG.md), and the [cookbook entry](./docs/cookbook/mcp-server.md). Working sample under `examples/demo-mcp-server/`.
 
 ### Industry context
 
