@@ -74,7 +74,31 @@ tsc mcp-server.ts
 
 The fundamental property: **one tool definition, multiple consumer surfaces**.
 
+> ⚠️ **Authoring tools for Node-only consumption.**
+> The `agenticTool({...})` factory is re-exported from
+> `@maverick/agentic-ui`'s public-api barrel. Importing **anything** from
+> that barrel (even a free function) pulls in Angular's static
+> initializers (`PlatformLocation`, `ɵɵngDeclareFactory`, etc.) which
+> require `@angular/compiler` at runtime. That's fine inside an Angular
+> app — fatal in pure Node like Claude Desktop's MCP server host.
+>
+> **Symptom:** Claude Desktop shows
+> `MCP <name>: Server disconnected` and the log file
+> `~/Library/Logs/Claude/mcp-server-<name>.log` contains
+> `JIT compilation failed for injectable [class PlatformLocation]`.
+>
+> **Fix:** in your MCP server entry, build `ToolDef` literals directly
+> instead of calling `agenticTool`. The factory adds zero runtime
+> behaviour beyond returning the same object with type inference, so
+> the literal works identically. **Type-only imports are erased at
+> compile time** and don't pull Angular into runtime — `import type
+> { ToolDef, ToolResultRenderHints } from '@maverick/agentic-ui'` is
+> safe.
+
+### When the same tool is shared with `<mvk-chat-shell>` (Angular app)
+
 ```ts
+// In your Angular project — agenticTool is fine here.
 import { agenticTool } from '@maverick/agentic-ui';
 
 export const bookFlightTool = agenticTool({
@@ -84,13 +108,8 @@ export const bookFlightTool = agenticTool({
   handler: async ({ from, to, date }) => {
     const booking = await yourBookingService.book({ from, to, date });
     return {
-      // domain fields — every consumer reads these
       ...booking,
-
-      // <mvk-chat-shell> renders this Angular component
       components: [{ name: 'flightCard', props: booking }],
-
-      // markdown-only hosts (Claude Desktop) render this
       markdown:
         `**Booked** ${booking.bookingId}\n\n` +
         `| From | To | Date |\n|---|---|---|\n` +
@@ -99,6 +118,33 @@ export const bookFlightTool = agenticTool({
   },
 });
 ```
+
+### When the tool lives in a Node-only MCP server
+
+Same shape, declared as a literal so no Angular DI runs:
+
+```ts
+// In your MCP server — agenticTool would crash here. Use a literal.
+import type { ToolDef, ToolResultRenderHints } from '@maverick/agentic-ui';
+import { z } from 'zod';
+
+export const bookFlightTool: ToolDef = {
+  name: 'bookFlight',
+  description: 'Book a flight.',
+  schema: z.object({ from: z.string(), to: z.string(), date: z.string() }),
+  handler: async (args) => {
+    const { from, to, date } = args as { from: string; to: string; date: string };
+    const booking = await yourBookingService.book({ from, to, date });
+    return {
+      ...booking,
+      components: [{ name: 'flightCard', props: booking }],
+      markdown: `**Booked** ${booking.bookingId}\n\n…`,
+    } satisfies ToolResultRenderHints & typeof booking;
+  },
+};
+```
+
+**Same shape, identical wire behaviour, no runtime difference for the MCP host.** Sharing one tool across both surfaces — Angular app + standalone MCP server — typically means putting the tool definition in a small framework-agnostic package that both consumers import.
 
 | Consumer | Reads |
 |---|---|
