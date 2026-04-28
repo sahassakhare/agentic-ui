@@ -48,7 +48,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 #### MCP server-side adapter (companion package)
 
-- **`ToolResultRenderHints` interface** — new type in `@maverick/agentic-ui` exposing the canonical render-hint shape: `components` (existing), `markdown`, `image_url`, plus reserved `html` and `iframe_url` for the eventual ADR-007 (MCP UI integration). Purely additive — no breakage to any existing tool. See [ADR-006](../../docs/adr/0006-mcp-server-side-adapter.md).
+- **`ToolResultRenderHints` interface** — new type in `@maverick/agentic-ui` exposing the canonical render-hint shape: `components` (existing), `markdown`, `image_url`, **`html`** (active — MCP UI hosts iframe-render it), plus reserved `iframe_url` for a future patch. Purely additive — no breakage to any existing tool. See [ADR-006](../../docs/adr/0006-mcp-server-side-adapter.md).
 - Companion package **`@maverick/agentic-ui-mcp`** ships separately, exposes any `ToolDef[]` as a Model Context Protocol server (Claude Desktop / Cursor / Zed / Continue / Windsurf). See its [CHANGELOG](../agentic-ui-mcp/CHANGELOG.md) and the [cookbook entry](../../docs/cookbook/mcp-server.md).
 
 #### Federation scaling

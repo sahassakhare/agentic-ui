@@ -60,9 +60,14 @@ const bookFlightTool: ToolDef = {
       bookingId: string; from: string; to: string; date: string; status: string;
     } = {
       bookingId, from, to, date, status: 'confirmed',
-      // Render hints. <mvk-chat-shell> would render the `components`
-      // entry; markdown-only hosts (Claude Desktop) get the markdown table.
+
+      // ── Render hints, in precedence order ────────────────────────
+      //
+      // <mvk-chat-shell> renders `components` (Angular component);
+      // MCP UI hosts (Claude Desktop, Cursor) render `html`;
+      // markdown-only hosts render `markdown`.
       components: [{ name: 'flightCard', props: { bookingId, from, to, date, status: 'confirmed' } }],
+      html: renderFlightCardHtml({ bookingId, from, to, date }),
       markdown:
         `**Booking confirmed** — \`${bookingId}\`\n\n` +
         `| | |\n|---|---|\n| From | ${from} |\n| To | ${to} |\n| Date | ${date} |\n| Status | confirmed |`,
@@ -70,6 +75,35 @@ const bookFlightTool: ToolDef = {
     return result;
   },
 };
+
+/**
+ * Server-render a self-contained HTML flight card. Mirrors the
+ * styling of `FlightCardComponent` from the Angular demos so the
+ * MCP UI rendering is visually consistent with what the chat shell
+ * shows. All CSS inlined; no external assets.
+ */
+function renderFlightCardHtml(p: { bookingId: string; from: string; to: string; date: string }): string {
+  return `
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:1rem;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#0f172a;background:#f8fafc;">
+  <article style="padding:1rem 1.2rem;border:1px solid #d1d5db;border-radius:0.6rem;background:#fff;border-left:4px solid #2563eb;max-width:480px;">
+    <header style="display:flex;gap:0.6rem;align-items:center;margin-bottom:0.5rem;">
+      <span style="font-size:0.7em;padding:2px 6px;border-radius:4px;background:#dbeafe;color:#1e3a8a;text-transform:uppercase;letter-spacing:0.04em;font-weight:600;">flight</span>
+      <span style="font-weight:600;font-size:1.05rem;">${escapeHtml(p.from)} → ${escapeHtml(p.to)}</span>
+      <span style="margin-left:auto;font-size:0.75em;padding:2px 8px;border-radius:999px;background:#d1fae5;color:#065f46;">confirmed</span>
+    </header>
+    <p style="margin:0.4rem 0 0.2rem;color:#4b5563;">${escapeHtml(p.date)}</p>
+    <p style="margin:0;color:#6b7280;font-size:0.85em;">Booking: <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px;">${escapeHtml(p.bookingId)}</code></p>
+  </article>
+</body></html>`.trim();
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!),
+  );
+}
 
 // ── Loyalty ───────────────────────────────────────────────────────────────
 

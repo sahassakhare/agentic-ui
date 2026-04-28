@@ -63,20 +63,45 @@ export interface ToolResultRenderHints {
   readonly image_url?: string;
 
   /**
-   * Reserved for ADR-007 (MCP UI integration). Pre-rendered static
-   * HTML that compatible hosts iframe-embed for visual fidelity
-   * without interactivity. Not yet activated by any consumer in the
-   * library; declaring it here lets forward-looking tool authors
-   * include the field today without a future breaking change.
+   * Pre-rendered static HTML for hosts that support the **MCP UI**
+   * extension (`io.modelcontextprotocol/ui` capability with
+   * `text/html;profile=mcp-app`). Claude Desktop, Cursor, and other
+   * MCP UI–aware hosts iframe-embed the HTML in a sandbox; hosts
+   * without UI support fall back to the resource's text representation.
    *
-   * @experimental Reserved field — not yet processed.
+   * @remarks
+   * **Highest-precedence render hint** in `@maverick/agentic-ui-mcp`'s
+   * formatter — when `html` is present, the MCP server emits an
+   * `text/html;profile=mcp-app` resource block and ignores `markdown` /
+   * `image_url`. Use it for rich tool results: styled cards, charts,
+   * server-rendered Angular components.
+   *
+   * **Sandboxing**: the HTML runs in the host's iframe sandbox.
+   * Standard `<style>`, inline CSS, and most JS work; cross-origin
+   * iframe rules apply (no top-window access, no localStorage on the
+   * host's origin). Keep payloads self-contained — link to external
+   * stylesheets via absolute URLs.
+   *
+   * @example
+   * ```ts
+   * return {
+   *   bookingId: 'BK-001',
+   *   from, to, date,
+   *   html: `
+   *     <article style="font-family: system-ui; padding: 1rem; border: 1px solid #d1d5db; border-radius: 0.5rem;">
+   *       <h2 style="margin: 0">${from} → ${to}</h2>
+   *       <p>Booking confirmed: <code>${bookingId}</code></p>
+   *     </article>
+   *   `,
+   * };
+   * ```
    */
   readonly html?: string;
 
   /**
-   * Reserved for ADR-007 (MCP UI integration). Sandboxed live-widget
-   * URL — the host iframe-embeds this URL for full Angular
-   * component fidelity inside an isolated frame. Not yet activated.
+   * Reserved for a future patch — sandboxed live-widget URL the host
+   * would iframe-embed for full Angular component interactivity inside
+   * an isolated frame. Not yet activated.
    *
    * @experimental Reserved field — not yet processed.
    */

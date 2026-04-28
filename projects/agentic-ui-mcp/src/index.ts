@@ -9,6 +9,6 @@
  */
 export * from './types.js';
 export * from './create-mcp-server.js';
-export { formatToolResult, type McpContentBlock } from './result-formatter.js';
+export { formatToolResult, MCP_UI_HTML_MIME, type McpContentBlock } from './result-formatter.js';
 export { zodToMcpSchema, type McpInputSchema } from './zod-to-mcp-schema.js';
 export { syntheticToolContext } from './synthetic-tool-context.js';

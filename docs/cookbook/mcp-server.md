@@ -235,9 +235,98 @@ After restarting Claude Desktop, try:
 | *"How many points do I have?"* | `checkPoints` | Bullet list with balance and tier |
 | *"Open a support ticket — refund pending"* | `openTicket` | Ticket id + priority breakdown |
 
+## MCP UI — render rich HTML in Claude Desktop / Cursor
+
+Hosts that announce the `io.modelcontextprotocol/ui` capability (Claude
+Desktop and Cursor as of mid-2026) iframe-render `text/html;profile=mcp-app`
+resource blocks in a sandbox. The adapter activates this whenever your
+tool result includes an `html` field.
+
+```ts
+import type { ToolDef, ToolResultRenderHints } from '@maverick/agentic-ui';
+
+const bookFlightTool: ToolDef = {
+  name: 'bookFlight',
+  description: 'Book a flight.',
+  schema: z.object({ from: z.string(), to: z.string(), date: z.string() }),
+  handler: async (args) => {
+    const { from, to, date } = args as { from: string; to: string; date: string };
+    const bookingId = `BK-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    return {
+      bookingId, from, to, date, status: 'confirmed',
+
+      // Highest-precedence render hint — MCP UI hosts iframe-render
+      // this in a sandbox.
+      html: `
+        <article style="font-family: system-ui; padding: 1rem;
+                        border: 1px solid #d1d5db; border-radius: 0.5rem;
+                        background: white; border-left: 4px solid #2563eb;">
+          <h2 style="margin: 0 0 0.5rem;">${from} → ${to}</h2>
+          <p style="margin: 0.4rem 0; color: #4b5563;">${date}</p>
+          <p style="margin: 0; color: #6b7280; font-size: 0.85em;">
+            Booking: <code>${bookingId}</code>
+          </p>
+        </article>
+      `,
+
+      // Fallback for hosts WITHOUT MCP UI support — markdown-only chats.
+      markdown: `**Booking confirmed** — \`${bookingId}\``,
+    } satisfies ToolResultRenderHints & {
+      bookingId: string; from: string; to: string; date: string; status: string;
+    };
+  },
+};
+```
+
+### Precedence
+
+When multiple render-hint fields are present, the formatter picks
+**one** in this order:
+
+| Priority | Field | Block emitted | Where it renders |
+|---|---|---|---|
+| 1 | `html` | `resource` (`text/html;profile=mcp-app`) | Claude Desktop, Cursor (sandboxed iframe). Hosts without MCP UI fall back to the resource's `text` |
+| 2 | `markdown` (+ optional `image_url`) | `text` | All MCP hosts |
+| 3 | `image_url` alone | `text` with `![](url)` | Markdown-rendering hosts |
+| 4 | (nothing) | `text` with JSON-stringified domain data | Last-resort plain-text |
+
+### MCP UI sandboxing constraints
+
+The HTML runs in the host's iframe sandbox. What works:
+
+- Inline `<style>` and `style="..."` attributes
+- Most JS (limited to the iframe scope; no top-window access)
+- `<link rel="stylesheet" href="https://...">` for absolute URLs
+- `<img src="https://...">` for inline images
+
+What doesn't work:
+
+- Access to the host's `localStorage` or cookies (different origin)
+- Navigation to external links unless the host opts in
+- Imports from `file://`, relative paths, or the host's bundled assets
+
+Keep payloads self-contained — inline the styles you need. If the
+output is large, consider compressing visually (small cards, not full
+pages) since the host renders inline.
+
+### Trying MCP UI in the demo
+
+The included `examples/demo-mcp-server` already returns an `html` field
+on `bookFlight`. Run:
+
+```bash
+cd examples/demo-mcp-server
+npm run build
+# restart Claude Desktop and try "Book a flight from LAX to JFK on May 5"
+```
+
+Hosts that support MCP UI render a styled flight card; hosts that don't
+fall back to the markdown table — same handler, two faithful renderings.
+
 ## What's NOT in this adapter (and why)
 
-- **No Angular widget rendering.** Markdown hosts can't run Angular components. The render-hint convention gives you a markdown fallback per tool. Higher-fidelity rendering (server-side Angular → static HTML, sandboxed iframe widgets) is the subject of [ADR-007](../adr/0006-mcp-server-side-adapter.md#out-of-scope-for-this-adr) (MCP UI integration), planned as a follow-up.
+- **No Angular widget rendering as MCP UI.** The `html` channel takes pre-rendered HTML, not live Angular components. To bridge Angular components to MCP UI, the consumer renders to HTML server-side (e.g., via `@angular/platform-server`) and includes the result in `html`. A future helper to do this from a registered `ComponentDef` is on the roadmap (Tier 2.x).
+- **No live-widget iframe URL.** The `iframe_url` field is reserved on `ToolResultRenderHints` for a future patch — sandboxed live components served by URL. Not yet activated.
 - **No multi-tenant auth.** One stdio MCP server is one user; the HTTP transport doesn't bake in user-extraction logic. For a hosted multi-tenant deployment, run one MCP server per user OR use the embeddable `handleRequest()` path inside your own auth-aware HTTP layer.
 - **No MCP `resources` or `prompts` exposure.** The adapter handles `tools/list` + `tools/call`. Resources and prompts will be added if a consumer asks; the seam exists.
 

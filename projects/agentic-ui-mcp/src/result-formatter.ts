@@ -2,23 +2,43 @@ import type { ToolResultRenderHints } from '@maverick/agentic-ui';
 
 /**
  * One element of an MCP `tools/call` response's `content` array.
- * Mirrors the MCP SDK's text-block shape — we deliberately constrain
- * to text-only output so every block is portable across every MCP host.
+ * Two block types are emitted today:
+ *
+ * - **`text`** — markdown / plain text / JSON-stringified domain data.
+ *   Renders in every MCP host (Claude Desktop, Cursor, Continue, etc.).
+ * - **`resource`** with `mimeType: 'text/html;profile=mcp-app'` — the
+ *   MCP UI standard (announced by Claude Desktop's
+ *   `io.modelcontextprotocol/ui` capability). Hosts that recognise it
+ *   render the HTML in a sandboxed iframe; hosts that don't fall back
+ *   to the resource's `text` field as plain text.
  *
  * @remarks
- * Why text-only:
- *  - The MCP `image` block requires a base64 `data` blob; converting an
- *    `image_url` to base64 means a server-side fetch + memory cost.
- *  - The MCP `resource` block requires either inline `text` or `blob`;
- *    a bare URL doesn't fit. Hosts that render markdown render image
- *    URLs natively via standard `![alt](url)` syntax — so the simpler
- *    portable choice is to embed image URLs INTO a markdown text block.
- *
- * Future block types (image-by-base64, resource references) are easy
- * to add when a consumer needs them; for now text covers every host
- * the library targets.
+ * The `image` block is intentionally not used — converting an
+ * `image_url` to a base64 blob means a server-side fetch with memory
+ * cost. Hosts that render markdown render image URLs natively via
+ * `![](url)` syntax inside a `text` block.
  */
-export type McpContentBlock = { readonly type: 'text'; readonly text: string };
+export type McpContentBlock =
+  | { readonly type: 'text'; readonly text: string }
+  | {
+      readonly type: 'resource';
+      readonly resource: {
+        readonly uri: string;
+        readonly mimeType: string;
+        readonly text: string;
+      };
+    };
+
+/**
+ * The MCP UI mime type, as announced by Claude Desktop's
+ * `io.modelcontextprotocol/ui` capability and emitted as a `resource`
+ * block when a tool result includes an `html` render hint. Hosts that
+ * recognise it render the HTML in a sandboxed iframe; hosts that don't
+ * fall back to the resource's `text` field as plain text.
+ *
+ * @see https://modelcontextprotocol.io/specification (MCP UI extension)
+ */
+export const MCP_UI_HTML_MIME = 'text/html;profile=mcp-app';
 
 /**
  * Format a tool handler's return value into MCP `content` blocks.
@@ -27,18 +47,20 @@ export type McpContentBlock = { readonly type: 'text'; readonly text: string };
  * Precedence — the *first* matching condition wins so callers know
  * exactly which surface they're targeting:
  *
- *   1. **`markdown`** present  → single `text/markdown` content block.
- *   2. **`image_url`** present → `image` resource block.
- *   3. Otherwise               → JSON-stringified domain result as `text`.
+ *   1. **`html`** present  → MCP UI `resource` block (`text/html;profile=mcp-app`).
+ *      Highest fidelity — Claude Desktop / Cursor / any MCP UI–aware
+ *      host renders the HTML in a sandboxed iframe.
+ *   2. **`markdown`** present  → single text block; `image_url`
+ *      appended as markdown image syntax if also present.
+ *   3. **`image_url`** alone  → markdown image embed (`![](url)`).
+ *   4. Otherwise  → JSON-stringified domain data as text.
  *
  * The `components` field is **not** rendered — it's the
- * `<mvk-widget-container>` channel and means nothing to a markdown-only
- * MCP host. The MCP server adapter ignores it.
+ * `<mvk-widget-container>` channel and means nothing to an MCP host.
+ * The MCP server adapter ignores it.
  *
- * The reserved `html` / `iframe_url` fields (declared in
- * `ToolResultRenderHints` for forward compatibility but not yet
- * activated under ADR-006) are also ignored here. They become
- * supported when ADR-007 (MCP UI integration) lands.
+ * The `iframe_url` field is reserved for a future patch (sandboxed
+ * live-widget URL); it isn't processed yet.
  *
  * @param result Whatever the tool's `handler(args, ctx)` returned.
  * @returns Array of MCP content blocks; never empty.
@@ -52,6 +74,23 @@ export function formatToolResult(result: unknown): readonly McpContentBlock[] {
   // record otherwise.
   const hints = isObject(result) ? (result as ToolResultRenderHints & Record<string, unknown>) : undefined;
 
+  // 1. MCP UI — sandboxed HTML.
+  if (hints?.html && typeof hints.html === 'string') {
+    return [{
+      type: 'resource',
+      resource: {
+        // The `uri` is the host's display id for this resource — must be
+        // unique per result. We mint one tied to the tool's render so the
+        // host can cache or replay if it wants. Using the `mcp-ui:` scheme
+        // makes it self-describing in logs.
+        uri: `mcp-ui://result-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        mimeType: MCP_UI_HTML_MIME,
+        text: hints.html,
+      },
+    }];
+  }
+
+  // 2. Markdown (with optional inline image).
   if (hints?.markdown && typeof hints.markdown === 'string') {
     // If both markdown and image_url are present, append the image at
     // the end so the markdown narrative comes first.
@@ -61,16 +100,14 @@ export function formatToolResult(result: unknown): readonly McpContentBlock[] {
     return [{ type: 'text', text: hints.markdown }];
   }
 
+  // 3. Image URL alone — embed via standard markdown image syntax.
   if (hints?.image_url && typeof hints.image_url === 'string') {
-    // Embed the image URL via standard markdown image syntax — this
-    // renders inline in Claude Desktop, Cursor, Continue, and any
-    // markdown-aware MCP host.
     return [{ type: 'text', text: `![](${hints.image_url})` }];
   }
 
-  // Default: stringified JSON. Strip render-hint fields the LLM doesn't
-  // need — `components`, `html`, `iframe_url` are rendering concerns,
-  // not domain data.
+  // 4. Default: stringified JSON. Strip render-hint fields the LLM
+  //    doesn't need — `components`, `html`, `iframe_url` are rendering
+  //    concerns, not domain data.
   const filtered = isObject(result) ? stripRenderHints(result as Record<string, unknown>) : result;
   return [{
     type: 'text',
