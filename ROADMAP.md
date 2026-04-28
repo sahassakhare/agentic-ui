@@ -57,6 +57,8 @@ gantt
 
 ## 1.1 — MCP server-side adapter
 
+> **Detailed plan**: [ADR-006 — MCP server-side adapter](./docs/adr/0006-mcp-server-side-adapter.md). Covers public API, six-phase implementation plan, acceptance criteria, alternatives considered, and out-of-scope items.
+
 ### Industry context
 
 The Model Context Protocol is the de-facto interop layer for agentic
