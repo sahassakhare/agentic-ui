@@ -23,6 +23,9 @@
       "@maverick/agentic-ui": [
         "./dist/agentic-ui"
       ],
+      "@maverick/demo-ediscovery-shared": [
+        "./examples/demo-ediscovery-shared/dist/index"
+      ],
     }
   },
   "angularCompilerOptions": {

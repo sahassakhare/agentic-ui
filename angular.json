@@ -235,6 +235,52 @@
         "test": { "builder": "@angular/build:unit-test" }
       }
     },
+    "demo-ediscovery-shell": {
+      "projectType": "application",
+      "schematics": { "@schematics/angular:component": { "style": "scss" } },
+      "root": "examples/demo-ediscovery-shell",
+      "sourceRoot": "examples/demo-ediscovery-shell/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "examples/demo-ediscovery-shell/src/main.ts",
+            "tsConfig": "examples/demo-ediscovery-shell/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [{ "glob": "**/*", "input": "examples/demo-ediscovery-shell/public" }],
+            "styles": ["examples/demo-ediscovery-shell/src/styles.scss"]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                { "type": "initial", "maximumWarning": "600kB", "maximumError": "1MB" },
+                { "type": "anyComponentStyle", "maximumWarning": "8kB", "maximumError": "16kB" }
+              ],
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "examples/demo-ediscovery-shell/src/environments/environment.ts",
+                  "with": "examples/demo-ediscovery-shell/src/environments/environment.prod.ts"
+                }
+              ]
+            },
+            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": { "port": 4300 },
+          "configurations": {
+            "production": { "buildTarget": "demo-ediscovery-shell:build:production" },
+            "development": { "buildTarget": "demo-ediscovery-shell:build:development" }
+          },
+          "defaultConfiguration": "development"
+        },
+        "test": { "builder": "@angular/build:unit-test" }
+      }
+    },
     "demo-shell": {
       "projectType": "application",
       "schematics": {
