@@ -102,6 +102,50 @@ export function getDocument(id: string): Document | undefined {
   return store.documents.find((d) => d.id === id);
 }
 
+export function updateDocument(id: string, patch: Partial<Document>): Document | undefined {
+  const idx = store.documents.findIndex((d) => d.id === id);
+  if (idx === -1) return undefined;
+  const updated = { ...store.documents[idx]!, ...patch } as Document;
+  store.documents[idx] = updated;
+  return updated;
+}
+
+/**
+ * Naive full-text search across `contentSnippet`, `fileName`, and
+ * `authoredBy`. Demo-grade — a real eDiscovery vendor wires this to
+ * a Lucene/Elasticsearch index or a vector store. Phase 4's search
+ * remote shows the `DataSourceRegistry` pattern that swaps the
+ * implementation without touching tool handlers.
+ */
+export function searchDocuments(
+  matterId: string,
+  query: string,
+  opts?: {
+    readonly custodianIds?: readonly string[];
+    readonly tags?: readonly string[];
+    readonly limit?: number;
+  },
+): readonly Document[] {
+  const q = query.trim().toLowerCase();
+  const limit = opts?.limit ?? 25;
+  const custodianFilter = opts?.custodianIds?.length ? new Set(opts.custodianIds) : null;
+  const tagFilter = opts?.tags?.length ? new Set(opts.tags) : null;
+
+  return store.documents
+    .filter((d) => d.matterId === matterId)
+    .filter((d) => !custodianFilter || custodianFilter.has(d.custodianId))
+    .filter((d) => !tagFilter || d.tags.some((t) => tagFilter.has(t)))
+    .filter((d) => {
+      if (!q) return true;
+      return (
+        d.contentSnippet.toLowerCase().includes(q) ||
+        d.fileName.toLowerCase().includes(q) ||
+        (d.authoredBy?.toLowerCase().includes(q) ?? false)
+      );
+    })
+    .slice(0, limit);
+}
+
 export function appendAudit(event: AuditEvent): void {
   store.auditLog.push(event);
 }
@@ -173,6 +217,41 @@ function seedDefault(s: MockStore): void {
       hash: 'sha256:c2d5a193…', authoredBy: "James O'Brien", authoredAt: '2025-03-22T11:00:00Z',
       contentSnippet: 'Privileged & Confidential — Attorney-Client Communication\n\nMemo regarding our analysis of the SEC inquiry…',
       tags: ['privileged', 'review-needed'], privilegeReason: 'attorney-client', redactions: [],
+    },
+    {
+      id: 'DOC-7891237', matterId, custodianId: 'CUST-001',
+      fileName: 'phoenix-architecture-q1.pptx', fileType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', fileSize: 412_009,
+      hash: 'sha256:d8e2b417…', authoredBy: 'Sarah Chen', authoredAt: '2025-01-22T09:14:00Z',
+      contentSnippet: 'Project Phoenix architecture review Q1. Slide deck covering data plane redesign, on-call rotations, and service-level objectives...',
+      tags: ['responsive'], redactions: [],
+    },
+    {
+      id: 'DOC-7891238', matterId, custodianId: 'CUST-002',
+      fileName: 'cfo-meeting-notes-2025-02-12.eml', fileType: 'message/rfc822', fileSize: 9_421,
+      hash: 'sha256:e1c4f309…', authoredBy: 'Marcus Webb', authoredAt: '2025-02-12T18:42:00Z',
+      contentSnippet: 'From: Marcus Webb\nTo: CFO\nSubject: Meeting notes — Project Phoenix budget overrun\n\nPer our discussion, we should not file the revised forecast until...',
+      tags: ['hot', 'review-needed'], redactions: [],
+    },
+    {
+      id: 'DOC-7891239', matterId, custodianId: 'CUST-001',
+      fileName: 'slack-export-engineering-2025-Q1.json', fileType: 'application/json', fileSize: 1_204_500,
+      hash: 'sha256:f3a9d827…', authoredBy: 'Sarah Chen', authoredAt: '2025-04-01T08:00:00Z',
+      contentSnippet: 'Engineering channel export covering Project Phoenix discussion, code review threads, and incident retrospectives for Jan–Mar 2025.',
+      tags: [], redactions: [],
+    },
+    {
+      id: 'DOC-7891240', matterId, custodianId: 'CUST-004',
+      fileName: 'litigation-strategy-draft.docx', fileType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', fileSize: 51_322,
+      hash: 'sha256:0a1b2c3d…', authoredBy: "James O'Brien", authoredAt: '2025-04-08T16:55:00Z',
+      contentSnippet: 'WORK PRODUCT — DRAFT — DO NOT DISTRIBUTE\n\nLitigation strategy memo prepared in anticipation of SEC enforcement proceedings...',
+      tags: ['privileged'], privilegeReason: 'work-product', redactions: [],
+    },
+    {
+      id: 'DOC-7891241', matterId, custodianId: 'CUST-002',
+      fileName: 'q4-restatement-workbook.xlsx', fileType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', fileSize: 256_780,
+      hash: 'sha256:9e8d7c6b…', authoredBy: 'Marcus Webb', authoredAt: '2025-03-03T11:24:00Z',
+      contentSnippet: 'Restatement working papers — Q4 2024. Revenue adjustments by region; reconciliation tab covers Project Phoenix bookings.',
+      tags: ['responsive', 'review-needed'], redactions: [],
     },
   );
 

@@ -243,13 +243,45 @@
       "prefix": "app",
       "architect": {
         "build": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {},
+          "configurations": {
+            "production": {
+              "target": "demo-ediscovery-shell:esbuild:production",
+              "fileReplacements": [
+                {
+                  "replace": "examples/demo-ediscovery-shell/src/environments/environment.ts",
+                  "with": "examples/demo-ediscovery-shell/src/environments/environment.prod.ts"
+                }
+              ]
+            },
+            "development": {
+              "target": "demo-ediscovery-shell:esbuild:development",
+              "dev": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "target": "demo-ediscovery-shell:serve-original:development",
+            "rebuildDelay": 500,
+            "dev": true,
+            "cacheExternalArtifacts": false,
+            "port": 0
+          }
+        },
+        "test": { "builder": "@angular/build:unit-test" },
+        "esbuild": {
           "builder": "@angular/build:application",
           "options": {
             "browser": "examples/demo-ediscovery-shell/src/main.ts",
             "tsConfig": "examples/demo-ediscovery-shell/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": [{ "glob": "**/*", "input": "examples/demo-ediscovery-shell/public" }],
-            "styles": ["examples/demo-ediscovery-shell/src/styles.scss"]
+            "styles": ["examples/demo-ediscovery-shell/src/styles.scss"],
+            "polyfills": ["es-module-shims"]
           },
           "configurations": {
             "production": {
@@ -269,16 +301,75 @@
           },
           "defaultConfiguration": "production"
         },
-        "serve": {
+        "serve-original": {
           "builder": "@angular/build:dev-server",
-          "options": { "port": 4300 },
           "configurations": {
-            "production": { "buildTarget": "demo-ediscovery-shell:build:production" },
-            "development": { "buildTarget": "demo-ediscovery-shell:build:development" }
+            "production": { "buildTarget": "demo-ediscovery-shell:esbuild:production" },
+            "development": { "buildTarget": "demo-ediscovery-shell:esbuild:development" }
           },
-          "defaultConfiguration": "development"
+          "defaultConfiguration": "development",
+          "options": { "port": 4300 }
+        }
+      }
+    },
+    "demo-ediscovery-review": {
+      "projectType": "application",
+      "schematics": { "@schematics/angular:component": { "style": "scss" } },
+      "root": "examples/demo-ediscovery-review",
+      "sourceRoot": "examples/demo-ediscovery-review/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {},
+          "configurations": {
+            "production": { "target": "demo-ediscovery-review:esbuild:production" },
+            "development": { "target": "demo-ediscovery-review:esbuild:development", "dev": true }
+          },
+          "defaultConfiguration": "production"
         },
-        "test": { "builder": "@angular/build:unit-test" }
+        "serve": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "target": "demo-ediscovery-review:serve-original:development",
+            "rebuildDelay": 500,
+            "dev": true,
+            "cacheExternalArtifacts": false,
+            "port": 0
+          }
+        },
+        "test": { "builder": "@angular/build:unit-test" },
+        "esbuild": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "examples/demo-ediscovery-review/src/main.ts",
+            "tsConfig": "examples/demo-ediscovery-review/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [{ "glob": "**/*", "input": "examples/demo-ediscovery-review/public" }],
+            "styles": ["examples/demo-ediscovery-review/src/styles.scss"],
+            "polyfills": ["es-module-shims"]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                { "type": "initial", "maximumWarning": "600kB", "maximumError": "1MB" },
+                { "type": "anyComponentStyle", "maximumWarning": "8kB", "maximumError": "16kB" }
+              ],
+              "outputHashing": "all"
+            },
+            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve-original": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": { "buildTarget": "demo-ediscovery-review:esbuild:production" },
+            "development": { "buildTarget": "demo-ediscovery-review:esbuild:development" }
+          },
+          "defaultConfiguration": "development",
+          "options": { "port": 4302 }
+        }
       }
     },
     "demo-shell": {

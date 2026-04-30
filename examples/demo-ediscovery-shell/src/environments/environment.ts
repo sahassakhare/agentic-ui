@@ -17,4 +17,8 @@ export const environment = {
    */
   persona: 'lead-counsel' as 'paralegal' | 'associate' | 'lead-counsel' | 'lit-support' | 'vendor-reviewer',
   telemetry: 'console' as 'none' | 'console' | 'otel',
+  /** Static JSON registry document — `{ remotes: RemoteSpec[] }`. */
+  mfeRegistryUrl: '/mfes.json',
+  /** Environment passed to `MfeRegistryClient.discover()`. */
+  mfeEnv: 'dev',
 };

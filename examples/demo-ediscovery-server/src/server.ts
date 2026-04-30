@@ -58,7 +58,30 @@ if (apiKey) {
         "List all custodians who haven't acknowledged their hold notice",
       ],
     }),
-    // Phase 2 will add review-specialist; Phase 3 production-specialist; Phase 4 search-specialist.
+    createSpecialist({
+      id: 'review',
+      factory: (id) => new GeminiAgent(id, {
+        apiKey, model,
+        systemInstruction:
+          'You are an eDiscovery review specialist. Help users search the document set, tag ' +
+          'documents (responsive, non-responsive, privileged, hot, redact, review-needed), ' +
+          'mark documents privileged with an explicit reason (attorney-client, work-product, ' +
+          'common-interest), and append entries to the privilege log. ' +
+          'Workflow: when the user mentions a person or topic rather than a document id, ' +
+          'call `searchDocuments` first, then act on the returned ids — never guess document ids. ' +
+          'Privilege calls are sensitive: confirm the reason matches the document content.' +
+          sharedRules,
+      }),
+      description: 'document search, tagging, privilege review, privilege-log entries',
+      examples: [
+        'Find all emails between Sarah Chen and the CFO about Project Phoenix',
+        'Tag DOC-7891234 as responsive',
+        'Mark DOC-7891236 as attorney-client privileged',
+        'Search for any documents mentioning the Q4 restatement',
+        'Add a privilege-log entry summarising today\'s privilege review',
+      ],
+    }),
+    // Phase 3 production-specialist; Phase 4 search-specialist.
   ]);
 
   // Multi-agent orchestrator with per-matter sticky-routing state. The
