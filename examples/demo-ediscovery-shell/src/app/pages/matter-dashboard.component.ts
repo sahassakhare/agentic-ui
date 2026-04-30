@@ -1,155 +1,381 @@
-import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { DecimalPipe } from '@angular/common';
+import { listAuditEvents, listDocuments } from '@maverick/demo-ediscovery-shared';
+import { environment } from '../../environments/environment';
 import { MatterStore } from '../services/matter.store';
+import { IconComponent } from '../ui/icon.component';
+import { KpiCardComponent } from '../ui/kpi-card.component';
+import { StatusBadgeComponent, type StatusTone } from '../ui/status-badge.component';
+import { TagChipComponent } from '../ui/tag-chip.component';
+import { EmptyStateComponent } from '../ui/empty-state.component';
 
 /**
- * Matter snapshot — top-level dashboard. Reads from `MatterStore` so
- * tool handlers that mutate state (Phase 1+) reflect here automatically.
+ * Matter dashboard. The default landing page for any user — gives a
+ * single-screen view of where the matter stands across collection,
+ * review, and audit dimensions.
  *
- * Phase 0 ships the read-only snapshot; Phase 5 will add the audit-trail
- * pane and Phase 6's MCP integration won't change this view at all
- * (paralegals see the same data through Claude Desktop).
+ * Reads from `MatterStore` signals (custodians + holds) so tool calls
+ * mutate the dashboard live, and from the framework-agnostic mock-data
+ * accessors for documents + audit events.
  */
 @Component({
   selector: 'app-matter-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [DecimalPipe, RouterLink, IconComponent, KpiCardComponent, StatusBadgeComponent, TagChipComponent, EmptyStateComponent],
   template: `
-    <h1>Matter snapshot</h1>
-    <p class="muted">Read-only view. Use the chat panel to add custodians, place holds, and search documents.</p>
+    <section class="page-head">
+      <div>
+        <p class="crumb">Matter</p>
+        <h1>Matter snapshot</h1>
+        <p class="muted">Real-time view of collection, review, and chain-of-custody activity. Use the coordinator on the right to drive any action.</p>
+      </div>
+      <div class="head-actions">
+        <span class="pill"><span class="dot"></span> {{ matterStatus }}</span>
+        <span class="pill range">Bates range <code>{{ bates }}</code></span>
+      </div>
+    </section>
 
-    <div class="grid">
-      <article class="kpi">
-        <h3>Custodians</h3>
-        <p class="value">{{ custodianCount() }}</p>
-        <p class="sub">{{ custodiansOnHold() }} under legal hold</p>
-      </article>
-      <article class="kpi">
-        <h3>Documents</h3>
-        <p class="value">{{ documentCount() }}</p>
-        <p class="sub">across {{ collectionsComplete() }} completed collections</p>
-      </article>
-      <article class="kpi">
-        <h3>Active holds</h3>
-        <p class="value">{{ activeHoldCount() }}</p>
-        <p class="sub">{{ holdAcknowledgedCount() }} acknowledged</p>
-      </article>
+    <!-- KPI grid -->
+    <section class="kpi-grid">
+      <mvk-kpi-card label="Custodians" [value]="custodianCount()" icon="users"
+                    [sub]="custodiansOnHold() + ' under legal hold'"
+                    [deltaPct]="custodianCount() > 0 ? 12.5 : null" deltaLabel="onboarded this month" />
+      <mvk-kpi-card label="Documents" [value]="documentCount() | number" icon="documents" tone="info"
+                    [sub]="reviewedCount() + ' reviewed · ' + (documentCount() - reviewedCount()) + ' pending'" />
+      <mvk-kpi-card label="Active holds" [value]="activeHoldCount()" icon="shield" tone="warn"
+                    [sub]="holdAcknowledgedCount() + ' acknowledged · ' + holdPendingCount() + ' pending ack'" />
+      <mvk-kpi-card label="Audit events" [value]="auditCount() | number" icon="audit" tone="ok"
+                    sub="immutable chain-of-custody trail" />
+    </section>
+
+    <div class="two-col">
+      <section class="panel">
+        <header class="panel-h">
+          <div>
+            <h2>Custodians</h2>
+            <p class="muted">{{ custodianCount() }} on this matter · {{ collectionsComplete() }} collections complete</p>
+          </div>
+          <a routerLink="/custodians" class="link"><svg-icon name="chevron-right" [size]="14" /> View all</a>
+        </header>
+
+        @if (custodians().length === 0) {
+          <mvk-empty-state title="No custodians yet" icon="users"
+            message="Add the first custodian and place a legal hold to start the matter."
+            hint="Add Sarah Chen from Engineering as a custodian on this matter" />
+        } @else {
+          <table>
+            <thead>
+              <tr>
+                <th>Custodian</th>
+                <th>Department</th>
+                <th>Hold</th>
+                <th>Collection</th>
+                <th class="num">Documents</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of custodians(); track c.id) {
+                <tr>
+                  <td>
+                    <div class="who">
+                      <span class="avatar small" [attr.data-tone]="avatarTone(c.id)">{{ initials(c.name) }}</span>
+                      <div>
+                        <strong>{{ c.name }}</strong>
+                        <small>{{ c.email }}</small>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="dept">{{ c.department }}</span></td>
+                  <td>
+                    @if (c.hasLegalHold) {
+                      <mvk-status-badge tone="warn">active</mvk-status-badge>
+                    } @else {
+                      <span class="muted">—</span>
+                    }
+                  </td>
+                  <td><mvk-status-badge [tone]="collectionTone(c.collectionStatus)">{{ c.collectionStatus }}</mvk-status-badge></td>
+                  <td class="num">{{ c.documentCount | number }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+
+      <section class="panel side">
+        <header class="panel-h">
+          <h2>Hold acknowledgements</h2>
+          <p class="muted">{{ holdAcknowledgedCount() }} of {{ activeHoldCount() }} acknowledged</p>
+        </header>
+
+        <div class="ack-bar">
+          <div class="track"><div class="fill" [style.width.%]="ackPct()"></div></div>
+          <span class="num">{{ ackPct() }}%</span>
+        </div>
+
+        @if (legalHolds().length === 0) {
+          <p class="empty">No legal holds.</p>
+        } @else {
+          <ul class="hold-list">
+            @for (hold of legalHolds(); track hold.id) {
+              <li>
+                <header>
+                  <code>{{ hold.id }}</code>
+                  @if (hold.releasedAt) {
+                    <mvk-status-badge tone="neutral">released</mvk-status-badge>
+                  } @else if (hold.acknowledgedAt) {
+                    <mvk-status-badge tone="ok">acknowledged</mvk-status-badge>
+                  } @else {
+                    <mvk-status-badge tone="warn">pending ack</mvk-status-badge>
+                  }
+                </header>
+                <p>{{ hold.scope }}</p>
+                <p class="meta"><svg-icon name="users" [size]="12" /> {{ hold.custodianIds.length }} custodian(s) · issued {{ shortDate(hold.issuedAt) }}</p>
+              </li>
+            }
+          </ul>
+        }
+      </section>
     </div>
 
-    <h2>Custodians</h2>
-    @if (custodians().length === 0) {
-      <p class="muted">No custodians yet. Try: <em>"Add Sarah Chen as a custodian on the Acme matter"</em>.</p>
-    } @else {
-      <table>
-        <thead>
-          <tr>
-            <th>Custodian</th>
-            <th>Department</th>
-            <th>Hold</th>
-            <th>Collection</th>
-            <th>Documents</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (c of custodians(); track c.id) {
-            <tr>
-              <td>
-                <strong>{{ c.name }}</strong>
-                <small class="muted">{{ c.email }}</small>
-              </td>
-              <td>{{ c.department }}</td>
-              <td>
-                <span class="hold" [class.active]="c.hasLegalHold">
-                  {{ c.hasLegalHold ? 'Active' : '—' }}
-                </span>
-              </td>
-              <td>
-                <span class="status" [attr.data-status]="c.collectionStatus">
-                  {{ c.collectionStatus }}
-                </span>
-              </td>
-              <td class="num">{{ c.documentCount | number }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    }
+    <div class="two-col">
+      <section class="panel">
+        <header class="panel-h">
+          <div>
+            <h2>Tag distribution</h2>
+            <p class="muted">Across all {{ documentCount() }} documents</p>
+          </div>
+          <a routerLink="/documents" class="link"><svg-icon name="chevron-right" [size]="14" /> Open documents</a>
+        </header>
 
-    <h2>Active legal holds</h2>
-    @if (legalHolds().length === 0) {
-      <p class="muted">No legal holds.</p>
-    } @else {
-      @for (hold of legalHolds(); track hold.id) {
-        <article class="hold-card">
-          <header>
-            <strong>{{ hold.id }}</strong>
-            <span class="muted">{{ hold.custodianIds.length }} custodian(s)</span>
-            @if (hold.acknowledgedAt) {
-              <span class="badge ok">acknowledged</span>
-            } @else {
-              <span class="badge warn">pending acknowledgement</span>
+        @if (tagBreakdown().length === 0) {
+          <mvk-empty-state title="No tags applied yet" icon="tag"
+            message="Use search + tag tools to start triaging the document set."
+            hint="Tag DOC-7891234 as responsive" />
+        } @else {
+          <ul class="tag-bars">
+            @for (entry of tagBreakdown(); track entry.tag) {
+              <li>
+                <mvk-tag-chip [tag]="entry.tag" />
+                <span class="bar"><span class="fill" [style.width.%]="entry.pct"></span></span>
+                <span class="num">{{ entry.count }}</span>
+              </li>
             }
-          </header>
-          <p>{{ hold.scope }}</p>
-        </article>
-      }
-    }
+          </ul>
+        }
+      </section>
+
+      <section class="panel side">
+        <header class="panel-h">
+          <div>
+            <h2>Recent activity</h2>
+            <p class="muted">Live audit-trail tail · {{ auditCount() }} total events</p>
+          </div>
+          <a routerLink="/audit" class="link"><svg-icon name="chevron-right" [size]="14" /> View full trail</a>
+        </header>
+
+        @if (recentEvents().length === 0) {
+          <p class="empty">No activity yet.</p>
+        } @else {
+          <ol class="feed">
+            @for (e of recentEvents(); track e.id) {
+              <li>
+                <span class="dot" [attr.data-action]="actionFamily(e.action)"></span>
+                <div class="content">
+                  <p><strong>{{ formatAction(e.action) }}</strong> <code>{{ e.target.id }}</code></p>
+                  <p class="meta">{{ e.actor }} · {{ shortDate(e.timestamp) }}</p>
+                </div>
+              </li>
+            }
+          </ol>
+        }
+      </section>
+    </div>
   `,
   styles: `
-    :host { display: block; }
-    h1 { margin: 0 0 0.4rem; font-size: 1.4rem; }
-    h2 { margin: 1.6rem 0 0.6rem; font-size: 1.05rem; color: #1e293b; }
-    .muted { color: #64748b; font-size: 0.9rem; }
+    :host { display: block; max-width: 1280px; margin: 0 auto; }
 
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem; margin: 1rem 0 0.4rem; }
-    .kpi { padding: 0.9rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 0.5rem; }
-    .kpi h3 { margin: 0; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
-    .kpi .value { margin: 0.3rem 0 0.1rem; font-size: 1.6rem; font-weight: 700; color: #0f172a; }
-    .kpi .sub { margin: 0; font-size: 0.78rem; color: #64748b; }
+    .page-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      gap: var(--s-4); margin-bottom: var(--s-6);
+    }
+    .crumb { margin: 0; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-brand); font-weight: 600; }
+    h1 { margin: 0.2rem 0 0.3rem; font-size: var(--fs-2xl); font-weight: 600; letter-spacing: -0.02em; }
+    h2 { margin: 0; font-size: var(--fs-md); color: var(--c-text); font-weight: 600; }
+    .muted { color: var(--c-text-mute); font-size: var(--fs-sm); margin: 0; }
+    .head-actions { display: flex; gap: var(--s-2); flex-wrap: wrap; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 0.25rem;
+      padding: 4px 10px;
+      background: var(--c-surface-0); border: 1px solid var(--c-border);
+      border-radius: var(--r-pill); font-size: var(--fs-xs); color: var(--c-text-2);
+    }
+    .pill .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--c-ok); }
+    .pill.range code { font-family: ui-monospace, monospace; color: var(--c-text); margin-left: 4px; }
 
-    table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e8f0; border-radius: 0.5rem; overflow: hidden; font-size: 0.88rem; }
-    th, td { padding: 0.55rem 0.8rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
-    th { background: #f1f5f9; font-weight: 500; color: #475569; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--s-4); margin-bottom: var(--s-6);
+    }
+
+    .two-col {
+      display: grid; grid-template-columns: 1.5fr 1fr; gap: var(--s-4);
+      margin-bottom: var(--s-6);
+    }
+    @media (max-width: 1100px) { .two-col { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--c-surface-0); border: 1px solid var(--c-border);
+      border-radius: var(--r-lg); padding: var(--s-5);
+      box-shadow: var(--sh-1);
+    }
+    .panel-h {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: var(--s-3); margin-bottom: var(--s-4);
+    }
+    .panel-h .muted { font-size: var(--fs-sm); margin-top: 2px; }
+    .link {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: var(--fs-sm); color: var(--c-brand); font-weight: 500;
+    }
+    .link:hover { text-decoration: none; color: var(--c-brand-strong); }
+
+    table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+    th, td { padding: 0.6rem 0.7rem; text-align: left; border-bottom: 1px solid var(--c-divider); }
+    th {
+      font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.05em;
+      color: var(--c-text-mute); font-weight: 500;
+      background: var(--c-surface-1);
+    }
     tr:last-child td { border-bottom: none; }
-    td.num { font-variant-numeric: tabular-nums; }
-    td small { display: block; }
+    tr:hover td { background: var(--c-surface-1); }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .who { display: flex; align-items: center; gap: var(--s-3); }
+    .who strong { display: block; color: var(--c-text); }
+    .who small { display: block; color: var(--c-text-mute); font-size: 0.7rem; }
+    .avatar.small {
+      width: 28px; height: 28px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--c-surface-2); color: var(--c-text-2);
+      border-radius: var(--r-pill);
+      font-size: 0.7rem; font-weight: 600;
+    }
+    .avatar.small[data-tone="0"] { background: #e0e7ff; color: #3730a3; }
+    .avatar.small[data-tone="1"] { background: #fce7f3; color: #9f1239; }
+    .avatar.small[data-tone="2"] { background: #d1fae5; color: #065f46; }
+    .avatar.small[data-tone="3"] { background: #fef3c7; color: #92400e; }
+    .avatar.small[data-tone="4"] { background: #dbeafe; color: #1e40af; }
+    .dept { color: var(--c-text-2); font-size: var(--fs-sm); }
 
-    .hold { font-size: 0.75rem; padding: 1px 6px; border-radius: 4px; background: #f1f5f9; color: #64748b; }
-    .hold.active { background: #fef3c7; color: #92400e; }
+    .ack-bar { display: flex; align-items: center; gap: var(--s-3); margin-bottom: var(--s-4); }
+    .track { flex: 1; height: 8px; background: var(--c-surface-2); border-radius: var(--r-pill); overflow: hidden; }
+    .fill { height: 100%; background: linear-gradient(90deg, var(--c-ok), #34d399); border-radius: var(--r-pill); }
+    .ack-bar .num { font-size: var(--fs-sm); color: var(--c-text); font-weight: 600; font-variant-numeric: tabular-nums; min-width: 40px; }
 
-    .status { font-size: 0.75rem; padding: 1px 8px; border-radius: 999px; text-transform: capitalize; }
-    .status[data-status="complete"] { background: #d1fae5; color: #065f46; }
-    .status[data-status="in-progress"] { background: #dbeafe; color: #1e3a8a; }
-    .status[data-status="pending"] { background: #fee2e2; color: #991b1b; }
+    .hold-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-3); }
+    .hold-list li {
+      padding: var(--s-3); background: var(--c-surface-1);
+      border: 1px solid var(--c-border); border-radius: var(--r-md);
+      border-left: 3px solid var(--c-warn);
+    }
+    .hold-list header { display: flex; align-items: center; gap: var(--s-2); margin-bottom: var(--s-2); }
+    .hold-list code { font-family: ui-monospace, monospace; font-size: var(--fs-xs); color: var(--c-text-mute); }
+    .hold-list p { margin: 0; font-size: var(--fs-sm); color: var(--c-text-2); line-height: 1.45; }
+    .hold-list .meta { color: var(--c-text-faint); font-size: var(--fs-xs); margin-top: 4px; display: inline-flex; align-items: center; gap: 4px; }
 
-    .hold-card { padding: 0.8rem 1rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 0.5rem; margin-bottom: 0.6rem; border-left: 4px solid #d97706; }
-    .hold-card header { display: flex; gap: 0.6rem; align-items: center; margin-bottom: 0.4rem; }
-    .hold-card p { margin: 0; color: #475569; font-size: 0.85rem; }
-    .badge { font-size: 0.7em; padding: 1px 8px; border-radius: 999px; }
-    .badge.ok { background: #d1fae5; color: #065f46; }
-    .badge.warn { background: #fef3c7; color: #92400e; }
+    .empty { padding: var(--s-4); text-align: center; color: var(--c-text-faint); font-size: var(--fs-sm); margin: 0; }
+
+    .tag-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+    .tag-bars li { display: grid; grid-template-columns: 130px 1fr 32px; align-items: center; gap: var(--s-3); }
+    .tag-bars .bar { height: 6px; background: var(--c-surface-2); border-radius: var(--r-pill); overflow: hidden; }
+    .tag-bars .bar .fill { height: 100%; background: var(--c-brand); border-radius: var(--r-pill); }
+    .tag-bars .num { font-size: var(--fs-xs); color: var(--c-text-2); text-align: right; font-variant-numeric: tabular-nums; }
+
+    .feed { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-3); position: relative; }
+    .feed::before {
+      content: ''; position: absolute; left: 5px; top: 4px; bottom: 4px;
+      width: 2px; background: var(--c-divider);
+    }
+    .feed li { display: flex; gap: var(--s-3); position: relative; }
+    .feed .dot {
+      width: 12px; height: 12px; border-radius: 999px;
+      background: var(--c-surface-2); border: 2px solid var(--c-text-faint);
+      flex-shrink: 0; margin-top: 4px; position: relative; z-index: 1;
+    }
+    .feed .dot[data-action="hold"]      { background: var(--c-warn-soft); border-color: var(--c-warn); }
+    .feed .dot[data-action="custodian"] { background: var(--c-info-soft); border-color: var(--c-info); }
+    .feed .dot[data-action="document"]  { background: var(--c-brand-tint); border-color: var(--c-brand); }
+    .feed .dot[data-action="privilege"] { background: var(--c-bad-soft); border-color: var(--c-bad); }
+    .feed .content p { margin: 0; font-size: var(--fs-sm); color: var(--c-text); }
+    .feed .content code { font-family: ui-monospace, monospace; font-size: 0.75rem; color: var(--c-text-mute); margin-left: 4px; }
+    .feed .meta { color: var(--c-text-faint); font-size: var(--fs-xs); margin-top: 2px; }
   `,
-  imports: [DecimalPipe],
 })
 export class MatterDashboardComponent {
   private readonly store = inject(MatterStore);
+  protected readonly matterStatus = 'Active';
+  protected readonly bates = 'ACME-0000001 to ACME-9999999';
 
   protected readonly custodians = this.store.custodians;
   protected readonly legalHolds = this.store.legalHolds;
 
   protected readonly custodianCount = computed(() => this.custodians().length);
-  protected readonly custodiansOnHold = computed(
-    () => this.custodians().filter((c) => c.hasLegalHold).length,
+  protected readonly custodiansOnHold = computed(() => this.custodians().filter((c) => c.hasLegalHold).length);
+  protected readonly collectionsComplete = computed(() => this.custodians().filter((c) => c.collectionStatus === 'complete').length);
+  protected readonly documentCount = computed(() => listDocuments(environment.matterId).length);
+  protected readonly reviewedCount = computed(() => listDocuments(environment.matterId).filter((d) => d.tags.length > 0).length);
+  protected readonly auditCount = computed(() => listAuditEvents(environment.matterId, 1000).length);
+
+  protected readonly activeHoldCount = computed(() => this.legalHolds().filter((h) => !h.releasedAt).length);
+  protected readonly holdAcknowledgedCount = computed(() => this.legalHolds().filter((h) => h.acknowledgedAt && !h.releasedAt).length);
+  protected readonly holdPendingCount = computed(() => this.legalHolds().filter((h) => !h.acknowledgedAt && !h.releasedAt).length);
+  protected readonly ackPct = computed(() => {
+    const active = this.activeHoldCount();
+    return active === 0 ? 0 : Math.round((this.holdAcknowledgedCount() / active) * 100);
+  });
+
+  protected readonly tagBreakdown = computed(() => {
+    const docs = listDocuments(environment.matterId);
+    const counts = new Map<string, number>();
+    for (const d of docs) for (const t of d.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
+    const total = docs.length;
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([tag, count]) => ({ tag, count, pct: total === 0 ? 0 : Math.round((count / total) * 100) }));
+  });
+
+  protected readonly recentEvents = computed(() =>
+    listAuditEvents(environment.matterId, 8).slice().reverse(),
   );
-  protected readonly documentCount = computed(
-    () => this.custodians().reduce((sum, c) => sum + c.documentCount, 0),
-  );
-  protected readonly collectionsComplete = computed(
-    () => this.custodians().filter((c) => c.collectionStatus === 'complete').length,
-  );
-  protected readonly activeHoldCount = computed(
-    () => this.legalHolds().filter((h) => !h.releasedAt).length,
-  );
-  protected readonly holdAcknowledgedCount = computed(
-    () => this.legalHolds().filter((h) => h.acknowledgedAt && !h.releasedAt).length,
-  );
+
+  protected initials(name: string): string {
+    return name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2).toUpperCase();
+  }
+  protected avatarTone(id: string): string {
+    let h = 0;
+    for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return String(h % 5);
+  }
+  protected collectionTone(s: string): StatusTone {
+    if (s === 'complete') return 'ok';
+    if (s === 'in-progress') return 'info';
+    return 'warn';
+  }
+  protected actionFamily(action: string): string {
+    if (action.startsWith('hold')) return 'hold';
+    if (action.startsWith('custodian')) return 'custodian';
+    if (action.includes('priv')) return 'privilege';
+    if (action.startsWith('document') || action.startsWith('privilege')) return 'document';
+    return '';
+  }
+  protected formatAction(action: string): string {
+    return action.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  protected shortDate(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
 }
