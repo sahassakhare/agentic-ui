@@ -1064,6 +1064,355 @@ def slide_production_chain(prs):
     return s
 
 
+def slide_full_picture(prs):
+    """NEW v4: complete-picture architecture diagram. Shows every layer
+    end-to-end with directional communication arrows so the audience
+    can trace one user prompt from the browser to the LLM and back."""
+    s = add(prs)
+    slide_chrome(s, "05 · ARCHITECTURE",
+                 "End-to-end picture — one prompt, all layers",
+                 "Architects")
+
+    text_box(s, Inches(0.7), Inches(1.85), W - Inches(1.4), Inches(0.4),
+             "User types a prompt → arrows show every hop until widgets land back in the chat.",
+             size=11, color=MUTED)
+
+    # Three vertical bands: Browser  |  Server  |  External
+    bx = Inches(0.7); by = Inches(2.4)
+    band_w = (W - Inches(1.4)) / 3 - Inches(0.1)
+    band_h = Inches(4.4)
+
+    # Band 1 — Browser host
+    rounded(s, bx, by, band_w, band_h, SURFACE, line=BORDER, radius=0.02)
+    text_box(s, bx + Inches(0.15), by + Inches(0.1), band_w - Inches(0.3),
+             Inches(0.3), "BROWSER · ANGULAR HOST", size=9, bold=True, color=MUTED)
+
+    # User node
+    chip_node(s, bx + Inches(0.4), by + Inches(0.55), band_w - Inches(0.8),
+              Inches(0.45), "User prompt",
+              fill=ACCENT_TINT, fg=ACCENT, border=ACCENT, size=11)
+    # Chat shell
+    chip_node(s, bx + Inches(0.4), by + Inches(1.15), band_w - Inches(0.8),
+              Inches(0.45), "<mvk-chat-shell>",
+              fill=BRAND, fg=SURFACE, size=11)
+    # injectAgenticChat / runUntilSettled
+    chip_node(s, bx + Inches(0.4), by + Inches(1.75), band_w - Inches(0.8),
+              Inches(0.45), "injectAgenticChat()",
+              fill=BRAND_DEEP, fg=SURFACE, size=10)
+    # Tool filter
+    chip_node(s, bx + Inches(0.4), by + Inches(2.35), band_w - Inches(0.8),
+              Inches(0.45), "keywordToolFilter (top-12)",
+              fill=ACCENT, fg=SURFACE, size=10)
+    # Backend adapter
+    chip_node(s, bx + Inches(0.4), by + Inches(2.95), band_w - Inches(0.8),
+              Inches(0.45), "AgUiBackend",
+              fill=BRAND, fg=SURFACE, size=10)
+    # ToolRegistry / ComponentRegistry
+    chip_node(s, bx + Inches(0.4), by + Inches(3.55), band_w - Inches(0.8),
+              Inches(0.45), "ToolRegistry · ComponentRegistry",
+              fill=INFO, fg=SURFACE, size=9)
+
+    # Band 2 — Server
+    bx2 = bx + band_w + Inches(0.15)
+    rounded(s, bx2, by, band_w, band_h, SURFACE, line=BORDER, radius=0.02)
+    text_box(s, bx2 + Inches(0.15), by + Inches(0.1), band_w - Inches(0.3),
+             Inches(0.3), "AGENT SERVER · NODE", size=9, bold=True, color=MUTED)
+
+    chip_node(s, bx2 + Inches(0.4), by + Inches(0.85), band_w - Inches(0.8),
+              Inches(0.45), "/agents/coordinator/run",
+              fill=BRAND, fg=SURFACE, size=10)
+    chip_node(s, bx2 + Inches(0.4), by + Inches(1.45), band_w - Inches(0.8),
+              Inches(0.45), "OrchestratorAgent (router)",
+              fill=BRAND_DEEP, fg=SURFACE, size=10)
+    chip_node(s, bx2 + Inches(0.4), by + Inches(2.05), band_w - Inches(0.8),
+              Inches(0.45), "Specialist (review/production/…)",
+              fill=BRAND_DEEP, fg=SURFACE, size=9)
+    chip_node(s, bx2 + Inches(0.4), by + Inches(2.65), band_w - Inches(0.8),
+              Inches(0.45), "GeminiAgent · system prompt",
+              fill=INFO, fg=SURFACE, size=10)
+    chip_node(s, bx2 + Inches(0.4), by + Inches(3.25), band_w - Inches(0.8),
+              Inches(0.45), "ThreadStateStore (sticky)",
+              fill=ACCENT, fg=SURFACE, size=10)
+
+    # Band 3 — LLM provider
+    bx3 = bx2 + band_w + Inches(0.15)
+    rounded(s, bx3, by, band_w, band_h, SURFACE, line=BORDER, radius=0.02)
+    text_box(s, bx3 + Inches(0.15), by + Inches(0.1), band_w - Inches(0.3),
+             Inches(0.3), "LLM PROVIDER · GEMINI", size=9, bold=True, color=MUTED)
+
+    chip_node(s, bx3 + Inches(0.4), by + Inches(1.0), band_w - Inches(0.8),
+              Inches(0.45), "gemini-2.5-flash",
+              fill=BRAND, fg=SURFACE, size=11)
+    chip_node(s, bx3 + Inches(0.4), by + Inches(1.7), band_w - Inches(0.8),
+              Inches(0.45), "Tool-call schema",
+              fill=BRAND_DEEP, fg=SURFACE, size=10)
+    chip_node(s, bx3 + Inches(0.4), by + Inches(2.4), band_w - Inches(0.8),
+              Inches(0.45), "Streamed completion",
+              fill=BRAND_DEEP, fg=SURFACE, size=10)
+    chip_node(s, bx3 + Inches(0.4), by + Inches(3.1), band_w - Inches(0.8),
+              Inches(0.45), "Generative-UI components",
+              fill=ACCENT, fg=SURFACE, size=10)
+
+    # Arrows — request path (down-and-across)
+    # User → ChatShell
+    arrow(s, bx + band_w / 2, by + Inches(1.0),
+          bx + band_w / 2, by + Inches(1.15),
+          color=ACCENT, weight=2)
+    # ChatShell → injectAgenticChat
+    arrow(s, bx + band_w / 2, by + Inches(1.6),
+          bx + band_w / 2, by + Inches(1.75),
+          color=BRAND, weight=1.5)
+    # → ToolFilter
+    arrow(s, bx + band_w / 2, by + Inches(2.2),
+          bx + band_w / 2, by + Inches(2.35),
+          color=BRAND, weight=1.5)
+    # ToolFilter ↔ ToolRegistry (read)
+    arrow(s, bx + band_w / 2 + Inches(0.4), by + Inches(2.575),
+          bx + band_w / 2 + Inches(0.4), by + Inches(3.55),
+          color=INFO, weight=1, dashed=True)
+    # → AgUiBackend
+    arrow(s, bx + band_w / 2, by + Inches(2.8),
+          bx + band_w / 2, by + Inches(2.95),
+          color=BRAND, weight=1.5)
+    # AgUiBackend → server route
+    arrow(s, bx + band_w - Inches(0.05), by + Inches(3.175),
+          bx2 + Inches(0.4), by + Inches(0.95 + 0.225),
+          color=BRAND, weight=2)
+    # Server → orchestrator → specialist → Gemini chain
+    arrow(s, bx2 + band_w / 2, by + Inches(1.3),
+          bx2 + band_w / 2, by + Inches(1.45),
+          color=BRAND_DEEP, weight=1.5)
+    arrow(s, bx2 + band_w / 2, by + Inches(1.9),
+          bx2 + band_w / 2, by + Inches(2.05),
+          color=BRAND_DEEP, weight=1.5)
+    arrow(s, bx2 + band_w / 2, by + Inches(2.5),
+          bx2 + band_w / 2, by + Inches(2.65),
+          color=INFO, weight=1.5)
+    # Specialist → GeminiAPI
+    arrow(s, bx2 + band_w - Inches(0.05), by + Inches(2.875),
+          bx3 + Inches(0.4), by + Inches(1.075),
+          color=INFO, weight=2)
+
+    # Return path (right-to-left, dashed) — LLM → server → browser
+    arrow(s, bx3 + Inches(0.4), by + Inches(3.325),
+          bx2 + band_w - Inches(0.05), by + Inches(2.875),
+          color=ACCENT, weight=1.5, dashed=True)
+    arrow(s, bx2 + Inches(0.4), by + Inches(2.275),
+          bx + band_w - Inches(0.05), by + Inches(3.175),
+          color=ACCENT, weight=1.5, dashed=True)
+
+    # Legend
+    ly = by + band_h + Inches(0.15)
+    rounded(s, Inches(0.7), ly, W - Inches(1.4), Inches(0.45),
+            SURFACE_2, line=BORDER, radius=0.02)
+    text_box(s, Inches(0.95), ly + Inches(0.13), Inches(2), Inches(0.25),
+             "LEGEND", size=9, bold=True, color=MUTED)
+    # Solid arrows
+    rect(s, Inches(2.2), ly + Inches(0.22), Inches(0.5), Inches(0.025), BRAND)
+    text_box(s, Inches(2.8), ly + Inches(0.13), Inches(2.5), Inches(0.3),
+             "Request path", size=10, color=TEXT_2)
+    # Dashed arrows
+    rect(s, Inches(5.0), ly + Inches(0.22), Inches(0.15), Inches(0.025), ACCENT)
+    rect(s, Inches(5.2), ly + Inches(0.22), Inches(0.15), Inches(0.025), ACCENT)
+    rect(s, Inches(5.4), ly + Inches(0.22), Inches(0.15), Inches(0.025), ACCENT)
+    text_box(s, Inches(5.65), ly + Inches(0.13), Inches(2.5), Inches(0.3),
+             "Response · widgets · text deltas", size=10, color=TEXT_2)
+    # Tool registry read
+    rect(s, Inches(9.0), ly + Inches(0.22), Inches(0.15), Inches(0.025), INFO)
+    rect(s, Inches(9.2), ly + Inches(0.22), Inches(0.15), Inches(0.025), INFO)
+    text_box(s, Inches(9.45), ly + Inches(0.13), Inches(3.0), Inches(0.3),
+             "Registry read · DI cross-cut", size=10, color=TEXT_2)
+
+    add_speaker_notes(s,
+        "Single-slide architecture summary. Trace one prompt: User → ChatShell → ToolFilter (reads ToolRegistry) → AgUiBackend → server route → Orchestrator → Specialist → Gemini → events stream back.",
+        "Use this slide as the framing for the rest of the architecture deck.")
+    return s
+
+
+def slide_protocol_picker(prs):
+    """NEW v4: AG-UI vs Hashbrown — when and where, use cases.
+    Anchored on the eDiscovery demo's actual choice (AG-UI)."""
+    s = add(prs)
+    slide_chrome(s, "02–03 · PROTOCOLS",
+                 "AG-UI vs Hashbrown — when and where",
+                 "Architects")
+
+    # Top callout — what the eDiscovery demo uses today
+    rounded(s, Inches(0.7), Inches(1.8), W - Inches(1.4), Inches(0.85),
+            BRAND_TINT, line=BORDER, radius=0.02)
+    rect(s, Inches(0.7), Inches(1.8), Inches(0.05), Inches(0.85), BRAND)
+    text_box(s, Inches(0.95), Inches(1.92), Inches(2.0), Inches(0.3),
+             "THIS DEMO USES", size=9, bold=True, color=BRAND)
+    text_box(s, Inches(0.95), Inches(2.18), Inches(11), Inches(0.5),
+             "AG-UI for the eDiscovery reference — picked for streaming SSE, "
+             "explicit lifecycle events, and audit-grade event records.",
+             size=14, color=TEXT)
+
+    # Two-column comparison
+    col_w = (W - Inches(1.4) - Inches(0.4)) / 2
+    cy = Inches(2.95)
+
+    # AG-UI column
+    rounded(s, Inches(0.7), cy, col_w, Inches(3.6),
+            SURFACE, line=BORDER, radius=0.02)
+    rect(s, Inches(0.7), cy, Inches(0.05), Inches(3.6), BRAND)
+    text_box(s, Inches(0.95), cy + Inches(0.15), Inches(3), Inches(0.3),
+             "AG-UI", size=18, bold=True, color=BRAND)
+    text_box(s, Inches(0.95), cy + Inches(0.55), col_w - Inches(0.5), Inches(0.3),
+             "by CopilotKit · streaming · lifecycle-typed", size=10,
+             color=MUTED)
+    text_box(s, Inches(0.95), cy + Inches(0.95), col_w - Inches(0.5), Inches(0.3),
+             "PICK WHEN…", size=9, bold=True, color=BRAND)
+    bullets(s, Inches(0.95), cy + Inches(1.25), col_w - Inches(0.5), Inches(2.3), [
+        "Audit and compliance bars (legal-tech, healthcare, finance)",
+        "Server-side tool catalog managed by a separate team",
+        "Mature multi-agent orchestrator (sticky routing)",
+        "SSE traverses your existing CDN / proxy stack",
+        "Need to trace runs end-to-end through OTel",
+    ], size=11, gap=6, marker_color=BRAND)
+
+    # Hashbrown column
+    bx = Inches(0.7) + col_w + Inches(0.4)
+    rounded(s, bx, cy, col_w, Inches(3.6),
+            SURFACE, line=BORDER, radius=0.02)
+    rect(s, bx, cy, Inches(0.05), Inches(3.6), ACCENT)
+    text_box(s, bx + Inches(0.25), cy + Inches(0.15), Inches(3), Inches(0.3),
+             "HASHBROWN", size=18, bold=True, color=ACCENT)
+    text_box(s, bx + Inches(0.25), cy + Inches(0.55), col_w - Inches(0.5),
+             Inches(0.3),
+             "by Liquid Frontiers · ui-stream native · multi-provider",
+             size=10, color=MUTED)
+    text_box(s, bx + Inches(0.25), cy + Inches(0.95), col_w - Inches(0.5),
+             Inches(0.3),
+             "PICK WHEN…", size=9, bold=True, color=ACCENT)
+    bullets(s, bx + Inches(0.25), cy + Inches(1.25), col_w - Inches(0.5),
+            Inches(2.3), [
+        "Rapid prototyping — generative UI in a day",
+        "Multi-provider eval (OpenAI / Anthropic / Google switch)",
+        "UI-generation is the dominant agent output (not tool calls)",
+        "Lighter event surface — fewer adapter checks",
+        "Audit grade can be deferred to a later sprint",
+    ], size=11, gap=6, marker_color=ACCENT)
+
+    # Bottom note — both via the same AgenticBackend
+    text_box(s, Inches(0.7), H - Inches(0.85), W - Inches(1.4), Inches(0.3),
+             "Both implement the same `AgenticBackend` interface — swapping protocols leaves the chat shell, registries, and widgets untouched.",
+             size=11, bold=True, color=BRAND, align=PP_ALIGN.CENTER)
+
+    add_speaker_notes(s,
+        "Direct answer to the most common architecture question.",
+        "We picked AG-UI for the eDiscovery demo — audit grade matters here. A retail chatbot demo would pick Hashbrown.",
+        "The library lets a team start with one and migrate later — no chat-shell rewrite.")
+    return s
+
+
+def slide_run_sequence_step1(prs):
+    """NEW v4: step-reveal sequence (frame 1 of 4)."""
+    return _build_run_sequence_slide(prs, frame=1)
+
+
+def slide_run_sequence_step2(prs):
+    return _build_run_sequence_slide(prs, frame=2)
+
+
+def slide_run_sequence_step3(prs):
+    return _build_run_sequence_slide(prs, frame=3)
+
+
+def slide_run_sequence_step4(prs):
+    return _build_run_sequence_slide(prs, frame=4)
+
+
+def _build_run_sequence_slide(prs, *, frame: int):
+    """Step-reveal sequence — one slide per frame so PowerPoint's
+    auto-advance / click-through gives the appearance of animation
+    without relying on python-pptx's flaky animation XML support.
+
+    Frame 1: user prompt fires
+    Frame 2: orchestrator routes to specialist
+    Frame 3: specialist calls tool, tool result lands
+    Frame 4: widget renders + audit event chains
+    """
+    s = add(prs)
+    slide_chrome(s, "06 · CASE STUDY",
+                 f"Run sequence — step {frame} of 4",
+                 "Developers")
+
+    text_box(s, Inches(0.7), Inches(1.85), W - Inches(1.4), Inches(0.4),
+             "Click through frames 1 → 4 to see one chat turn play out across "
+             "five actors. Each frame highlights the active arrow.",
+             size=11, color=MUTED)
+
+    # Five actors with vertical lifelines
+    actor_y_top = Inches(2.55); actor_y_bot = Inches(6.45)
+    actors = [
+        ("User",         Inches(1.7),  ACCENT,  ['user']),
+        ("ChatShell",    Inches(4.0),  BRAND,   ['chat-shell']),
+        ("Coordinator",  Inches(6.4),  BRAND,   ['coordinator']),
+        ("Specialist",   Inches(8.7),  INFO,    ['specialist']),
+        ("ToolRegistry", Inches(11.5), BRAND_DEEP, ['registry']),
+    ]
+    for label, x, color, _ in actors:
+        actor_lifeline(s, x, actor_y_top, actor_y_bot, label, color=color)
+
+    # Messages — each tagged with the frame at which it appears.
+    rows = [
+        # frame 1 — request leaves user
+        (Inches(2.95), 0, 1, "prompt", ACCENT, 1),
+        (Inches(3.4),  1, 4, "filter ToolRegistry → top 12", BRAND_DEEP, 1),
+        (Inches(3.85), 4, 1, "12 ToolDefs", BRAND_DEEP, 1),
+        # frame 2 — chat shell sends to coordinator + routing
+        (Inches(4.3),  1, 2, "POST /agents/coordinator/run (SSE)", BRAND, 2),
+        (Inches(4.75), 2, 3, "classify → 'production' specialist", BRAND, 2),
+        # frame 3 — specialist calls tool
+        (Inches(5.2),  3, 1, "tool_call: generateChainOfCustodyReport", INFO, 3),
+        (Inches(5.65), 1, 1, "execute handler → audit hash chained", INFO, 3),
+        # frame 4 — result + widget
+        (Inches(6.1),  1, 3, "tool_result", ACCENT, 4),
+        (Inches(6.55), 3, 1, "widget_render: chainOfCustodyReport", ACCENT, 4),
+        (Inches(7.0),  1, 0, "rendered card visible", ACCENT, 4),
+    ]
+    for y, src, dst, label, color, msg_frame in rows:
+        active = msg_frame <= frame
+        msg_color = color if active else FAINT
+        weight = 1.5 if active else 1.0
+        x1 = actors[src][1]; x2 = actors[dst][1]
+        if src == dst:
+            arrow(s, x1, y, x1 + Inches(0.6), y, color=msg_color, weight=weight)
+            arrow(s, x1 + Inches(0.6), y, x1 + Inches(0.6), y + Inches(0.18),
+                  color=msg_color, weight=weight)
+            arrow(s, x1 + Inches(0.6), y + Inches(0.18), x1 + Inches(0.05),
+                  y + Inches(0.18), color=msg_color, weight=weight)
+            text_box(s, x1 + Inches(0.7), y - Inches(0.05),
+                     Inches(4), Inches(0.3), label, size=9,
+                     color=msg_color if active else FAINT, bold=active)
+        else:
+            arrow(s, x1, y, x2, y, color=msg_color, weight=weight,
+                  dashed=not active)
+            mid_x = (x1 + x2) / 2
+            text_box(s, mid_x - Inches(2.2), y - Inches(0.32),
+                     Inches(4.4), Inches(0.3), label, size=9,
+                     color=msg_color if active else FAINT,
+                     bold=active, align=PP_ALIGN.CENTER)
+
+    # Frame caption (highlights what's new this frame)
+    captions = {
+        1: "Frame 1 — user prompt fires. Tool filter scores 17 tools, sends top 12 to Gemini.",
+        2: "Frame 2 — orchestrator classifies and routes the run to the production specialist.",
+        3: "Frame 3 — specialist returns a tool call. Handler runs; audit event lands in the chain.",
+        4: "Frame 4 — widget renders below the assistant message. Round-trip complete.",
+    }
+    rounded(s, Inches(0.7), H - Inches(0.95), W - Inches(1.4),
+            Inches(0.45), ACCENT_TINT, line=ACCENT, radius=0.04)
+    text_box(s, Inches(0.95), H - Inches(0.85), W - Inches(1.7),
+             Inches(0.3), captions[frame], size=12, bold=True, color=BRAND_DEEP)
+
+    add_speaker_notes(s,
+        f"Step {frame} of 4. Click forward to advance. The four slides build up the same diagram so the audience sees the message flow accumulate.",
+        "Use F5 to start full-screen → space-bar to advance.")
+    return s
+
+
 def slide_one_handler_three_surfaces(prs):
     """NEW: 'one handler, multiple surfaces' visualisation."""
     s = add(prs)
@@ -1873,14 +2222,16 @@ def main():
         (slide_hashbrown_background,        "3 · Hashbrown",          False),
         (slide_hashbrown_features,          "3 · Hashbrown",          False),
         (slide_hashbrown_vs_agui,           "3 · Hashbrown",          False),
+        (slide_protocol_picker,             "3 · Protocols",          False),  # NEW v4 — when/where
         # Section 4 — A2UI
         (slide_a2ui,                        "4 · A2UI",               False),
         # Section 5 — the library
         (slide_lib_problem,                 "5 · The library",        False),
         (slide_lib_architecture,            "5 · The library",        False),  # rebuilt graphic
-        (slide_lib_registries_v2,           "5 · The library",        False),  # NEW hub-and-spoke
-        (slide_capability_handoff,          "5 · The library",        False),  # NEW sequence
-        (slide_one_handler_three_surfaces,  "5 · The library",        False),  # NEW
+        (slide_full_picture,                "5 · The library",        False),  # NEW v4 — full data-flow
+        (slide_lib_registries_v2,           "5 · The library",        False),
+        (slide_capability_handoff,          "5 · The library",        False),
+        (slide_one_handler_three_surfaces,  "5 · The library",        False),
         (slide_lib_backend,                 "5 · The library",        False),
         (slide_lib_mfe,                     "5 · The library",        False),
         (slide_lib_mcp,                     "5 · The library",        False),
@@ -1889,7 +2240,12 @@ def main():
         # Section 6 — examples
         (slide_examples_overview,           "6 · Examples",           False),
         (slide_example_ediscovery,          "6 · Examples",           False),
-        (slide_production_chain,            "6 · Examples",           False),  # NEW Phase 3 chain
+        (slide_production_chain,            "6 · Examples",           False),
+        # Step-reveal sequence — four overlay slides for animated effect
+        (slide_run_sequence_step1,          "6 · Examples",           False),  # NEW v4 step-reveal
+        (slide_run_sequence_step2,          "6 · Examples",           False),
+        (slide_run_sequence_step3,          "6 · Examples",           False),
+        (slide_run_sequence_step4,          "6 · Examples",           False),
         # Section 7 — decisions
         (slide_when_to_use_what,            "7 · Decisions",          False),
         # Section 8 — benefits
