@@ -1,6 +1,6 @@
 # Plan: enterprise eDiscovery example application
 
-> **Status**: **Phases 0–7 shipped** · Phase 8 (library `RegistryEntry.scopes`) optional / deferred.
+> **Status**: **All 8 phases shipped.**
 >
 > | Phase | Theme | Commit |
 > |-------|-------|--------|
@@ -12,6 +12,7 @@
 > | 5 | Chain of custody + tamper-evident audit | [`2c0a2c6`](../../#) |
 > | 6 | MCP server for analyst workstations | [`47af4cd`](../../#) |
 > | 7 | Persona permission shim | [`074e509`](../../#) |
+> | 8 | Library `RegistryBase.setScopePolicy` | [`b4ea0a9`](../../#) |
 >
 > Apps shipped under `examples/`: `demo-ediscovery-{shared,server,shell,review,production,search,mcp}`. Open `:4300` for the host shell.
 >
@@ -348,17 +349,17 @@ A *manual* permission scope implementation using existing primitives, ahead of t
 
 **Acceptance** ✅: switching role in the dropdown visibly changes the count badge; sensitive ops hidden from non-counsel roles.
 
-### Phase 8 — Library `RegistryEntry.scopes` (optional) (~3 days)
+### Phase 8 — Library `RegistryEntry.scopes` (optional) (~3 days) ✅ shipped
 
-Promote the consumer-side shim into a first-class library feature, validating the architecture in the architecture doc.
+Promoted the consumer-side shim into a first-class library feature on `RegistryBase` so all 13 registries share the seam, not just `ToolRegistry`.
 
-- [ ] Add `RegistryEntry.scopes?: readonly string[]` field
-- [ ] Add `RegistryBase` policy hook: `setScopePolicy(policy: (entry, scopes) => boolean)` — registry consults the policy on every `register()` and `get()`
-- [ ] Migrate `demo-ediscovery-shell/`'s manual filter to the new API
-- [ ] Update [`registries-vs-industry.md`](../architecture/registries-vs-industry.md) — move scopes from "gap" to "shipped"
-- [ ] ADR-008: permission scopes design + integration with the existing `conflictPolicy` / `onDispose` patterns
+- [x] `RegistryEntry.scopes?: readonly string[]` field added
+- [x] `RegistryBase.setScopePolicy(policy)` hook — filters every `list()` / `get()` / `signal()` read; `permissiveScopePolicy` (default) and `activeScopePolicy(getter)` ship as convenience exports. `getRaw` / `listRaw` bypass for tooling.
+- [x] `demo-ediscovery-shell/` migrated — `personaToolFilter` deleted (~30 LOC); `installPersonaScopePolicy()` initialiser wires `ToolRegistry.setScopePolicy(...)` against `PersonaService.canInvoke`. Sidebar tool counter, chat-rail capability badge, and persona-menu badges all read through the same filter automatically.
+- [x] [`registries-vs-industry.md`](../architecture/registries-vs-industry.md) updated — permission-scopes row marked ✅ shipped.
+- [x] [ADR-008](../adr/0008-registry-scope-policy.md) — Accepted (shipped). Documents filter-on-read rationale, before/after diff, trade-offs, risks.
 
-**Acceptance**: removes ~40 lines of consumer-side filter logic in `demo-ediscovery-shell/`. All existing tests pass. Documented diff between the consumer-side shim (Phase 7) and the library-side feature.
+**Acceptance** ✅: Phase 8 removed ~30 LOC of consumer filter logic; all 93 library unit tests pass (76 → 93, +17 covering scopes); the eDiscovery shell reads through the new API uniformly across every reader.
 
 ## Effort estimate summary
 
