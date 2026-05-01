@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { listAuditEvents, type AuditEvent } from '@maverick/demo-ediscovery-shared';
+import { listAuditEvents, verifyAuditChain, type AuditEvent } from '@maverick/demo-ediscovery-shared';
 import { environment } from '../../../environments/environment';
 import { MatterStore } from '../../services/matter.store';
 import { IconComponent } from '../../ui/icon.component';
@@ -35,10 +35,32 @@ const FAMILY_LABELS: Record<ActionFamily, string> = {
       <div>
         <p class="crumb">Compliance</p>
         <h1>Audit trail</h1>
-        <p class="muted">Chain-of-custody log — every tool call, tag, hold change, and persona action lands here. Drives the Phase 5 production-grade chain-of-custody report.</p>
+        <p class="muted">Chain-of-custody log — every tool call, tag, hold change, and persona action lands here. Each entry stamps a tamper-evident chain hash; integrity is verified live below.</p>
       </div>
       <div class="head-actions">
         <span class="counter">{{ filtered().length }} / {{ all().length }} events</span>
+      </div>
+    </section>
+
+    <section class="integrity" [attr.data-state]="chain().broken.length === 0 && chain().chained > 0 ? 'verified' : (chain().chained === 0 ? 'empty' : 'broken')">
+      <div class="badge">
+        @if (chain().broken.length === 0 && chain().chained > 0) {
+          <svg-icon name="check" [size]="16" />
+          <strong>Chain verified</strong>
+          <span>{{ chain().verified }} of {{ chain().chained }} hashes recompute</span>
+        } @else if (chain().chained === 0) {
+          <svg-icon name="alert-triangle" [size]="16" />
+          <strong>No chain yet</strong>
+          <span>Run a tool call to start the chain</span>
+        } @else {
+          <svg-icon name="alert-triangle" [size]="16" />
+          <strong>Chain integrity broken</strong>
+          <span>{{ chain().broken.length }} mismatch(es) — investigate before delivery</span>
+        }
+      </div>
+      <div class="head">
+        <span class="lbl">Chain head</span>
+        <code>{{ chain().head ?? '—' }}</code>
       </div>
     </section>
 
@@ -112,6 +134,27 @@ const FAMILY_LABELS: Record<ActionFamily, string> = {
     h1 { margin: 0.2rem 0 0.3rem; font-size: var(--fs-2xl); font-weight: 600; letter-spacing: -0.02em; }
     .muted { color: var(--c-text-mute); margin: 0; font-size: var(--fs-sm); max-width: 580px; }
     .counter { font-size: var(--fs-xs); color: var(--c-text-mute); font-variant-numeric: tabular-nums; }
+
+    .integrity {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: var(--s-3); padding: var(--s-3) var(--s-4);
+      background: var(--c-surface-0);
+      border: 1px solid var(--c-border);
+      border-left: 4px solid var(--c-ok);
+      border-radius: var(--r-md);
+      margin-bottom: var(--s-3);
+    }
+    .integrity[data-state="broken"] { border-left-color: var(--c-bad); background: var(--c-bad-soft); }
+    .integrity[data-state="empty"]  { border-left-color: var(--c-text-faint); }
+    .integrity .badge { display: inline-flex; align-items: center; gap: var(--s-2); }
+    .integrity .badge svg-icon { color: var(--c-ok); }
+    .integrity[data-state="broken"] .badge svg-icon { color: var(--c-bad); }
+    .integrity[data-state="empty"]  .badge svg-icon { color: var(--c-text-faint); }
+    .integrity .badge strong { color: var(--c-text); font-size: var(--fs-sm); }
+    .integrity .badge span { color: var(--c-text-mute); font-size: var(--fs-xs); }
+    .integrity .head { display: flex; align-items: baseline; gap: 0.4rem; }
+    .integrity .head .lbl { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-text-faint); font-weight: 600; }
+    .integrity .head code { font-family: ui-monospace, monospace; font-size: 0.8rem; color: var(--c-text); padding: 1px 6px; background: var(--c-surface-2); border-radius: 3px; }
 
     .filters {
       background: var(--c-surface-0); border: 1px solid var(--c-border);
@@ -216,6 +259,13 @@ export class AuditComponent {
     this.store.custodians();
     this.store.legalHolds();
     return listAuditEvents(this.matterId, 1000).slice().reverse();
+  });
+
+  /** Chain verification — recomputes when state mutates. */
+  protected readonly chain = computed(() => {
+    this.store.custodians();
+    this.store.legalHolds();
+    return verifyAuditChain(this.matterId);
   });
 
   protected readonly filtered = computed(() => {

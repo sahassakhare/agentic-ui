@@ -6,6 +6,7 @@ import type {
   Matter,
   ProductionSet,
 } from './types.js';
+import { computeChainHash } from './hash.js';
 
 /**
  * In-memory mock data. Process-wide singleton — the agent server, the
@@ -169,8 +170,32 @@ export function searchDocuments(
     .slice(0, limit);
 }
 
+/**
+ * Append an event to the matter's audit log, stamping the
+ * tamper-evident chain hash in the process.
+ *
+ * @remarks
+ * Looks up the matter's most recent prior event to compute the
+ * `prevHash` link, then derives this event's `chainHash` so the
+ * chain-of-custody report can verify integrity at any point. If
+ * the caller already supplied a `chainHash` (e.g. replaying from
+ * an external store) we trust it.
+ */
 export function appendAudit(event: AuditEvent): void {
-  store.auditLog.push(event);
+  if (event.chainHash) {
+    store.auditLog.push(event);
+    return;
+  }
+  let prevHash: string | undefined;
+  for (let i = store.auditLog.length - 1; i >= 0; i--) {
+    const prev = store.auditLog[i]!;
+    if (prev.matterId === event.matterId) {
+      prevHash = prev.chainHash;
+      break;
+    }
+  }
+  const chainHash = computeChainHash(event, prevHash);
+  store.auditLog.push({ ...event, prevHash, chainHash });
 }
 
 export function listAuditEvents(matterId: string, limit = 100): readonly AuditEvent[] {

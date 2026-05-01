@@ -12,3 +12,4 @@ export * from './mock-data.js';
 export * from './ids.js';
 export * from './bates.js';
 export * from './search.js';
+export * from './audit-chain.js';

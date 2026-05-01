@@ -118,4 +118,13 @@ export interface AuditEvent {
   /** User-provided justification — required for sensitive actions in real deployments. */
   readonly reason?: string;
   readonly timestamp: string;
+  /**
+   * Tamper-evident chain hash — computed from the previous event's hash
+   * plus this event's content. Phase 5 adds this; older entries seeded
+   * before the chain was wired carry `undefined` and are flagged in the
+   * chain-of-custody report.
+   */
+  readonly chainHash?: string;
+  /** Hash of the previous event in the matter's chain, if any. */
+  readonly prevHash?: string;
 }

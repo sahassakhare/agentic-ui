@@ -4,8 +4,10 @@ import type { ToolDef } from '@maverick/agentic-ui';
 import { assignBatesNumbersTool } from './tools/assign-bates-numbers.tool';
 import { createProductionSetTool } from './tools/create-production-set.tool';
 import { exportProductionSetTool } from './tools/export-production-set.tool';
+import { generateChainOfCustodyReportTool } from './tools/generate-chain-of-custody-report.tool';
 import { redactDocumentTool } from './tools/redact-document.tool';
 import { batesPreviewWidget } from './widgets/bates-preview.widget';
+import { chainOfCustodyReportWidget } from './widgets/chain-of-custody-report.widget';
 import { productionSummaryWidget } from './widgets/production-summary.widget';
 import { redactionEditorWidget } from './widgets/redaction-editor.widget';
 
@@ -38,10 +40,12 @@ export const capability = defineCapabilityModule({
     assignBatesNumbersTool as ToolDef,
     redactDocumentTool as ToolDef,
     exportProductionSetTool as ToolDef,
+    generateChainOfCustodyReportTool as ToolDef,
   ],
   components: [
     productionSummaryWidget,
     batesPreviewWidget,
     redactionEditorWidget,
+    chainOfCustodyReportWidget,
   ],
 });
