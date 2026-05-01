@@ -15,8 +15,10 @@ from pathlib import Path
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
 from pptx.dml.color import RGBColor
-from pptx.enum.shapes import MSO_SHAPE
+from pptx.enum.shapes import MSO_SHAPE, MSO_CONNECTOR
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.oxml.ns import qn
+from lxml import etree
 
 OUT = Path(__file__).parent / "agentic-ui-overview.pptx"
 
@@ -175,6 +177,107 @@ def add_speaker_notes(slide, *blocks):
     notes.text = blocks[0] if blocks else ""
     for b in blocks[1:]:
         p = notes.add_paragraph(); p.text = b
+
+
+# ── Diagram primitives ──────────────────────────────────────────────────────
+
+def arrow(slide, x1, y1, x2, y2, *, color=BRAND, weight=1.5, dashed=False, head_w=6, head_l=8):
+    """Connector with an optional arrowhead at (x2, y2).
+
+    Coordinates are EMU. Pass `head_w=0` to draw a plain line (used for
+    sequence-diagram lifelines where the dashed line has no terminator).
+    """
+    line = slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, x1, y1, x2, y2)
+    line.line.color.rgb = color
+    line.line.width = Pt(weight)
+    ln = line.line._get_or_add_ln()
+    if head_w > 0:
+        etree.SubElement(ln, qn('a:tailEnd'),
+                         {'type': 'triangle', 'w': 'med', 'len': 'med'})
+    if dashed:
+        etree.SubElement(ln, qn('a:prstDash'), {'val': 'dash'})
+    return line
+
+
+def chip_node(slide, x, y, w, h, label, *, fill=BRAND_TINT, fg=BRAND_DEEP,
+              border=None, size=11, bold=True):
+    """A labeled node — used as building block for diagrams."""
+    shape = rounded(slide, x, y, w, h, fill, line=border, radius=0.08)
+    tb = slide.shapes.add_textbox(x, y, w, h)
+    tf = tb.text_frame
+    tf.word_wrap = True
+    tf.margin_left = tf.margin_right = Emu(0)
+    tf.margin_top = tf.margin_bottom = Emu(0)
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    p = tf.paragraphs[0]; p.alignment = PP_ALIGN.CENTER
+    r = p.add_run(); r.text = label
+    r.font.name = "Calibri"; r.font.size = Pt(size); r.font.bold = bold
+    r.font.color.rgb = fg
+    return shape
+
+
+def labeled_box(slide, x, y, w, h, title, body, *,
+                accent=BRAND, fill=SURFACE, title_size=12, body_size=10):
+    """A diagram tile — accent stripe on top, title in colour, body below."""
+    rounded(slide, x, y, w, h, fill, line=BORDER, radius=0.04)
+    rect(slide, x, y, w, Inches(0.05), accent)
+    text_box(slide, x + Inches(0.12), y + Inches(0.12), w - Inches(0.24),
+             Inches(0.32), title, size=title_size, bold=True, color=accent)
+    text_box(slide, x + Inches(0.12), y + Inches(0.45), w - Inches(0.24),
+             h - Inches(0.55), body, size=body_size, color=TEXT_2)
+
+
+def lane(slide, x, y, w, h, label, *, color=BRAND, lane_label_w=Inches(1.2)):
+    """A horizontal swimlane — used in sequence diagrams."""
+    rect(slide, x, y, lane_label_w, h, color)
+    text_box(slide, x, y, lane_label_w, h, label,
+             size=11, bold=True, color=SURFACE,
+             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+    rounded(slide, x + lane_label_w, y, w - lane_label_w, h, SURFACE,
+            line=BORDER, radius=0.02)
+
+
+def numbered_step(slide, x, y, w, h, n, title, body, *, accent=BRAND):
+    """A numbered card — used in sequence/lifecycle diagrams."""
+    rounded(slide, x, y, w, h, SURFACE, line=BORDER, radius=0.04)
+    rect(slide, x, y, Inches(0.06), h, accent)
+    # Number badge
+    badge_size = Inches(0.42)
+    rounded(slide, x + Inches(0.18), y + Inches(0.15), badge_size, badge_size,
+            accent, radius=0.5)
+    text_box(slide, x + Inches(0.18), y + Inches(0.15), badge_size, badge_size,
+             str(n), size=14, bold=True, color=SURFACE,
+             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+    text_box(slide, x + Inches(0.72), y + Inches(0.16), w - Inches(0.85),
+             Inches(0.32), title, size=13, bold=True, color=TEXT)
+    text_box(slide, x + Inches(0.72), y + Inches(0.5), w - Inches(0.85),
+             h - Inches(0.6), body, size=10, color=TEXT_2)
+
+
+def event_pill(slide, x, y, w, label, *, color=BRAND):
+    """Tiny pill for an event in a timeline."""
+    h = Inches(0.32)
+    rounded(slide, x, y, w, h, color, radius=0.5)
+    tb = slide.shapes.add_textbox(x, y, w, h)
+    tf = tb.text_frame
+    tf.margin_left = tf.margin_right = Emu(0)
+    tf.margin_top = tf.margin_bottom = Emu(0)
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    p = tf.paragraphs[0]; p.alignment = PP_ALIGN.CENTER
+    r = p.add_run(); r.text = label
+    r.font.name = "Menlo"; r.font.size = Pt(9); r.font.bold = True
+    r.font.color.rgb = SURFACE
+
+
+def actor_lifeline(slide, x, y_top, y_bottom, label, *, color=BRAND):
+    """Sequence-diagram actor head + dashed lifeline going down."""
+    head_w = Inches(1.5); head_h = Inches(0.5)
+    rounded(slide, x - head_w / 2, y_top, head_w, head_h, color, radius=0.2)
+    text_box(slide, x - head_w / 2, y_top, head_w, head_h, label,
+             size=10, bold=True, color=SURFACE,
+             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+    arrow(slide, x, y_top + head_h, x, y_bottom, color=BORDER,
+          weight=1, dashed=True, head_w=0, head_l=0)
 
 
 # ── Slide builders ──────────────────────────────────────────────────────────
@@ -623,34 +726,491 @@ def slide_lib_architecture(prs):
     s = add(prs)
     slide_chrome(s, "5 · THE LIBRARY", "Architecture at a glance", "Architects")
 
-    # Layered stack visualisation
-    layers = [
-        ("UI layer",     "ChatShell · WidgetContainer · FormRenderer",  BRAND),
-        ("Agentic core", "injectAgenticChat() · runUntilSettled · resource()", BRAND_DEEP),
-        ("Registry layer", "13 registries — Tool, Component, Action, Form, …", INFO),
-        ("Backend adapters", "AgUiBackend · HashbrownBackend · A2uiBackend",   OK),
-        ("Federation runtime", "Native Federation + Module Federation",       WARN),
-        ("Remotes / MCP", "CapabilityModule · MfeRegistryClient · MCP server", BAD),
+    # ── Browser host container ─────────────────────────────────────────────
+    host_x, host_y = Inches(0.7), Inches(1.7)
+    host_w, host_h = Inches(8.5), Inches(5.0)
+    rounded(s, host_x, host_y, host_w, host_h, SURFACE_2, line=BORDER, radius=0.02)
+    text_box(s, host_x + Inches(0.2), host_y + Inches(0.1), Inches(4),
+             Inches(0.3), "BROWSER HOST", size=10, bold=True, color=MUTED)
+
+    # UI layer (top of host)
+    ui_y = host_y + Inches(0.5)
+    ui_w = Inches(2.4); ui_h = Inches(0.6); gap = Inches(0.15)
+    chip_node(s, host_x + Inches(0.3), ui_y, ui_w, ui_h,
+              "<mvk-chat-shell>", fill=BRAND, fg=SURFACE)
+    chip_node(s, host_x + Inches(0.3) + ui_w + gap, ui_y, ui_w, ui_h,
+              "Sidebar nav", fill=BRAND, fg=SURFACE)
+    chip_node(s, host_x + Inches(0.3) + 2 * (ui_w + gap), ui_y, ui_w, ui_h,
+              "Routed pages", fill=BRAND, fg=SURFACE)
+
+    # Registry hub
+    reg_y = ui_y + ui_h + Inches(0.45)
+    reg_w = host_w - Inches(0.6); reg_h = Inches(1.2)
+    rounded(s, host_x + Inches(0.3), reg_y, reg_w, reg_h,
+            BRAND_TINT, line=BRAND_DEEP, radius=0.03)
+    text_box(s, host_x + Inches(0.4), reg_y + Inches(0.1),
+             reg_w - Inches(0.2), Inches(0.3),
+             "REGISTRY LAYER · 13 typed registries · signal-backed", size=10,
+             bold=True, color=BRAND_DEEP)
+    # Inner registry chips
+    chips = [("Tool", BRAND), ("Component", BRAND), ("Capability", INFO),
+             ("Backend", INFO), ("Action", OK), ("Form", OK),
+             ("Intent", OK), ("DataSource", WARN), ("Validation", WARN),
+             ("Persistence", BAD), ("Layout", BAD), ("Schema", BAD)]
+    chip_w = (reg_w - Inches(0.4)) / 6
+    for i, (lbl, c) in enumerate(chips):
+        col = i % 6; row = i // 6
+        cx = host_x + Inches(0.4) + col * chip_w
+        cy = reg_y + Inches(0.45) + row * Inches(0.32)
+        chip_node(s, cx, cy, chip_w - Inches(0.05), Inches(0.28),
+                  lbl, fill=SURFACE, fg=c, border=BORDER, size=9)
+
+    # Backend adapters (bottom of host)
+    ad_y = reg_y + reg_h + Inches(0.45)
+    ad_w = (host_w - Inches(0.9)) / 3
+    backends = [("AgUiBackend", BRAND), ("HashbrownBackend", OK), ("A2uiBackend", WARN)]
+    for i, (name, c) in enumerate(backends):
+        ax = host_x + Inches(0.3) + i * (ad_w + Inches(0.15))
+        chip_node(s, ax, ad_y, ad_w, Inches(0.5), name,
+                  fill=SURFACE, fg=c, border=c, size=11)
+
+    # Footer caption inside host
+    text_box(s, host_x + Inches(0.3), ad_y + Inches(0.7), host_w - Inches(0.6),
+             Inches(0.4),
+             "All pushed events also flow into AgenticTelemetrySink / AgenticLogger.",
+             size=9, color=MUTED, align=PP_ALIGN.CENTER)
+
+    # ── Right column: external systems ─────────────────────────────────────
+    rx = host_x + host_w + Inches(0.3)
+    rw = W - rx - Inches(0.7)
+    # Federation runtime
+    fed_y = host_y
+    rounded(s, rx, fed_y, rw, Inches(1.6), SURFACE, line=BORDER, radius=0.04)
+    rect(s, rx, fed_y, Inches(0.06), Inches(1.6), BRAND_DEEP)
+    text_box(s, rx + Inches(0.2), fed_y + Inches(0.15), rw - Inches(0.3),
+             Inches(0.3), "Federation runtime", size=11, bold=True, color=BRAND_DEEP)
+    text_box(s, rx + Inches(0.2), fed_y + Inches(0.5), rw - Inches(0.3),
+             Inches(1.0),
+             "Native Federation\n· esbuild-native\n· @angular-architects\n\n"
+             "Module Federation\n· webpack peer", size=9, color=TEXT_2)
+
+    # Agent server
+    ag_y = fed_y + Inches(1.75)
+    rounded(s, rx, ag_y, rw, Inches(1.4), SURFACE, line=BORDER, radius=0.04)
+    rect(s, rx, ag_y, Inches(0.06), Inches(1.4), OK)
+    text_box(s, rx + Inches(0.2), ag_y + Inches(0.15), rw - Inches(0.3),
+             Inches(0.3), "Agent server", size=11, bold=True, color=OK)
+    text_box(s, rx + Inches(0.2), ag_y + Inches(0.5), rw - Inches(0.3),
+             Inches(0.9),
+             "Mastra · Gemini · OpenAI\nAG-UI SSE route\nThreadStateStore",
+             size=9, color=TEXT_2)
+
+    # MCP server
+    mcp_y = ag_y + Inches(1.55)
+    rounded(s, rx, mcp_y, rw, Inches(1.1), SURFACE, line=BORDER, radius=0.04)
+    rect(s, rx, mcp_y, Inches(0.06), Inches(1.1), WARN)
+    text_box(s, rx + Inches(0.2), mcp_y + Inches(0.1), rw - Inches(0.3),
+             Inches(0.3), "MCP server", size=11, bold=True, color=WARN)
+    text_box(s, rx + Inches(0.2), mcp_y + Inches(0.42), rw - Inches(0.3),
+             Inches(0.7),
+             "Same ToolDef\nClaude Desktop / Cursor\nText/html;profile=mcp-app",
+             size=9, color=TEXT_2)
+
+    # Arrows: backend → external
+    arrow(s, host_x + Inches(0.3) + ad_w + Inches(0.07),
+          ad_y + Inches(0.25),
+          rx, ag_y + Inches(0.7), color=OK, weight=1.5)
+    arrow(s, host_x + Inches(0.3) + 2 * (ad_w + Inches(0.15)) + ad_w / 2,
+          ad_y + Inches(0.5),
+          rx, mcp_y + Inches(0.55), color=WARN, weight=1.5, dashed=True)
+    # Arrow: federation → registry
+    arrow(s, rx, fed_y + Inches(0.8),
+          host_x + host_w - Inches(0.05), reg_y + Inches(0.6),
+          color=BRAND_DEEP, weight=1.5)
+
+    # Bottom caption
+    text_box(s, Inches(0.7), Inches(7.05), W - Inches(1.4), Inches(0.3),
+             "One library · three protocols · two federation paths · MCP for analyst desktops",
+             size=11, bold=True, color=BRAND_DEEP, align=PP_ALIGN.CENTER)
+
+    add_speaker_notes(s,
+        "Topology view. The host browser is the centre — registries are the only shared state.",
+        "Federation runtime feeds remotes' capabilities INTO the registry layer; backend adapters ship runs OUT to the agent server / MCP.",
+        "Telemetry crosscuts every layer; the OTel exporter ships in /otel and is opt-in.")
+    return s
+
+
+def slide_capability_handoff(prs):
+    """NEW: sequence diagram of MFE capability handoff."""
+    s = add(prs)
+    slide_chrome(s, "5 · THE LIBRARY", "Capability handoff — sequence diagram", "Architects")
+
+    # Five lifelines
+    actors = [
+        ("Host shell",  Inches(1.7),  BRAND),
+        ("MfeRegistry", Inches(4.0),  INFO),
+        ("Federation",  Inches(6.4),  BRAND_DEEP),
+        ("Remote",      Inches(8.8),  OK),
+        ("Registries",  Inches(11.4), WARN),
     ]
+    top = Inches(1.85); bot = Inches(6.6)
+    for label, x, color in actors:
+        actor_lifeline(s, x, top, bot, label, color=color)
 
-    layer_w = W - Inches(1.4)
-    layer_h = Inches(0.75)
-    y = Inches(1.85)
-    for title, body, color in layers:
-        rounded(s, Inches(0.7), y, layer_w, layer_h, SURFACE, line=BORDER, radius=0.04)
-        rect(s, Inches(0.7), y, Inches(0.16), layer_h, color)
-        text_box(s, Inches(1.0), y + Inches(0.12), Inches(2.4),
-                 Inches(0.3), title, size=12, bold=True, color=color)
-        text_box(s, Inches(3.5), y + Inches(0.18), layer_w - Inches(3.0),
-                 Inches(0.4), body, size=11, color=TEXT_2)
-        y += layer_h + Inches(0.08)
+    # Messages — y rows for each step
+    rows = [
+        (Inches(2.65), 0, 1, "discover(env)", BRAND),
+        (Inches(3.05), 1, 0, "RemoteSpec[]", INFO),
+        (Inches(3.55), 0, 2, "loadRemoteCapabilities({remote, loader})", BRAND_DEEP),
+        (Inches(3.95), 2, 3, "import './Capability'", BRAND_DEEP),
+        (Inches(4.35), 3, 4, "module.apply(injector)", OK),
+        (Inches(4.85), 4, 4, "registerAll(tools, components)", WARN),
+        (Inches(5.35), 0, 4, "next chat turn → ToolRegistry.signal()", BRAND),
+        (Inches(5.85), 0, 0, "user prompt fires; agent sees new tools", BRAND),
+    ]
+    for y, src, dst, label, color in rows:
+        x1 = actors[src][1]; x2 = actors[dst][1]
+        if src == dst:
+            # self-call: short loop
+            arrow(s, x1, y, x1 + Inches(0.6), y, color=color, weight=1.2)
+            arrow(s, x1 + Inches(0.6), y, x1 + Inches(0.6), y + Inches(0.2),
+                  color=color, weight=1.2)
+            arrow(s, x1 + Inches(0.6), y + Inches(0.2), x1 + Inches(0.05),
+                  y + Inches(0.2), color=color, weight=1.2)
+            text_box(s, x1 + Inches(0.7), y - Inches(0.05),
+                     Inches(3), Inches(0.3), label, size=9, color=color, bold=True)
+        else:
+            arrow(s, x1, y, x2, y, color=color, weight=1.2)
+            mid_x = (x1 + x2) / 2
+            text_box(s, mid_x - Inches(2), y - Inches(0.32),
+                     Inches(4), Inches(0.3), label, size=9, color=color,
+                     bold=True, align=PP_ALIGN.CENTER)
 
-    text_box(s, Inches(0.7), Inches(6.7), W - Inches(1.4), Inches(0.4),
-             "Cross-cutting: AgenticTelemetrySink · AgenticLogger — every layer pushes events; OTel exporter via /otel.",
+    # Caption
+    text_box(s, Inches(0.7), Inches(6.85), W - Inches(1.4), Inches(0.4),
+             "Each remote is another row in this sequence — registries are the single seam every remote writes through.",
              size=11, color=MUTED, align=PP_ALIGN.CENTER)
     add_speaker_notes(s,
-        "Six layers, one library. Ergonomic seam between every pair.",
-        "The chat shell never knows which protocol is in use; the protocol adapter never knows about MFEs; the federation runtime is orthogonal.")
+        "Sequence diagram for federation handoff. Five actors, eight messages.",
+        "Note the last message — ToolRegistry's signal notifies the chat shell on the next turn, mid-session, with no reload.")
+    return s
+
+
+def slide_production_chain(prs):
+    """NEW: Phase 3 production chain — sequence flow."""
+    s = add(prs)
+    slide_chrome(s, "6 · EXAMPLES", "eDiscovery — production chain (Phase 3)",
+                 "Developers")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.4),
+             "One prompt drives a 4-step chained tool call · each step renders its own widget · ActionRegistry navigates on click.",
+             size=12, color=TEXT_2)
+
+    # Four numbered steps in a row
+    step_w = (W - Inches(1.4) - Inches(0.6)) / 4
+    step_h = Inches(2.3)
+    step_y = Inches(2.2)
+    steps = [
+        (1, "createProductionSet", "scope filter · format · Bates pattern\nValidation: pattern conformance",
+         "→ productionSummary widget\n   status: draft", BRAND),
+        (2, "redactDocument*", "page · bbox · reason\n(* optional, repeatable)",
+         "→ redactionEditor widget\n   canvas overlay", BRAND_DEEP),
+        (3, "assignBatesNumbers", "stamp sequential ids per pattern\nstart = 1 (default)",
+         "→ batesPreview + summary\n   status: review", WARN),
+        (4, "exportProductionSet", "deliver: true (irreversible)\nrequires audit reason",
+         "→ productionSummary\n   status: delivered", OK),
+    ]
+    for i, (n, name, body, returns, color) in enumerate(steps):
+        x = Inches(0.7) + i * (step_w + Inches(0.2))
+        rounded(s, x, step_y, step_w, step_h, SURFACE, line=BORDER, radius=0.04)
+        rect(s, x, step_y, step_w, Inches(0.05), color)
+        # Numbered badge
+        rounded(s, x + Inches(0.2), step_y + Inches(0.18), Inches(0.4),
+                Inches(0.4), color, radius=0.5)
+        text_box(s, x + Inches(0.2), step_y + Inches(0.18), Inches(0.4),
+                 Inches(0.4), str(n), size=14, bold=True, color=SURFACE,
+                 align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+        text_box(s, x + Inches(0.7), step_y + Inches(0.2),
+                 step_w - Inches(0.85), Inches(0.32), name,
+                 size=11, bold=True, color=color, font="Menlo")
+        text_box(s, x + Inches(0.2), step_y + Inches(0.7),
+                 step_w - Inches(0.4), Inches(0.7),
+                 body, size=10, color=TEXT_2)
+        # Returns block
+        rounded(s, x + Inches(0.2), step_y + Inches(1.55),
+                step_w - Inches(0.4), Inches(0.65), SURFACE_2,
+                line=BORDER, radius=0.03)
+        text_box(s, x + Inches(0.3), step_y + Inches(1.6),
+                 step_w - Inches(0.5), Inches(0.6),
+                 returns, size=9, color=color, bold=True)
+        # Connector arrow to next step
+        if i < 3:
+            arrow(s, x + step_w, step_y + step_h / 2,
+                  x + step_w + Inches(0.18), step_y + step_h / 2,
+                  color=color, weight=2)
+
+    # Side band: artefacts touched
+    band_y = step_y + step_h + Inches(0.3)
+    band_h = Inches(1.4)
+    rounded(s, Inches(0.7), band_y, W - Inches(1.4), band_h, SURFACE_2,
+            line=BORDER, radius=0.02)
+    text_box(s, Inches(0.95), band_y + Inches(0.12), Inches(4), Inches(0.3),
+             "Library seams exercised", size=11, bold=True, color=BRAND_DEEP)
+
+    seams = [
+        ("ToolRegistry", "4 tools registered via federation", BRAND),
+        ("ComponentRegistry", "3 widgets contributed by remote", BRAND),
+        ("FormRegistry", "productionConfigForm — schema-driven", OK),
+        ("ValidationRegistry", "Bates pattern conformance check", WARN),
+        ("ActionRegistry", "openProduction — click-to-navigate", BRAND_DEEP),
+        ("Audit log", "every step appends an event", BAD),
+    ]
+    chip_x = Inches(0.95)
+    chip_y = band_y + Inches(0.55)
+    for i, (name, desc, c) in enumerate(seams):
+        col = i % 3; row = i // 3
+        cx = Inches(0.95) + col * Inches(4.1)
+        cy = band_y + Inches(0.5) + row * Inches(0.35)
+        chip_node(s, cx, cy, Inches(1.5), Inches(0.28), name,
+                  fill=SURFACE, fg=c, border=c, size=9)
+        text_box(s, cx + Inches(1.55), cy + Inches(0.04),
+                 Inches(2.5), Inches(0.3), desc, size=9, color=TEXT_2)
+
+    add_speaker_notes(s,
+        "This is THE slide for the eDiscovery case study — shows the chained-tool-call pattern with widget feedback at every step.",
+        "Six seams in one workflow. That's why we needed registries — each seam is independently extensible.")
+    return s
+
+
+def slide_one_handler_three_surfaces(prs):
+    """NEW: 'one handler, multiple surfaces' visualisation."""
+    s = add(prs)
+    slide_chrome(s, "5 · THE LIBRARY", "One handler, three surfaces", "Architects")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.5),
+             "The same ToolDef literal powers the chat shell, the MCP server (Claude Desktop / Cursor), and the standalone-mode UI inside each remote — without any code duplication.",
+             size=13, color=TEXT_2)
+
+    # Central handler
+    cx, cy = W / 2, Inches(4.4)
+    handler_w, handler_h = Inches(3.6), Inches(1.3)
+    rounded(s, cx - handler_w / 2, cy - handler_h / 2, handler_w, handler_h,
+            BRAND, radius=0.04)
+    text_box(s, cx - handler_w / 2, cy - handler_h / 2, handler_w, Inches(0.4),
+             "ToolDef", size=10, bold=True, color=BRAND_TINT,
+             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+    text_box(s, cx - handler_w / 2, cy - handler_h / 2 + Inches(0.4),
+             handler_w, Inches(0.5),
+             "agenticTool({ name, schema, handler })",
+             size=12, bold=True, color=SURFACE,
+             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE, font="Menlo")
+    text_box(s, cx - handler_w / 2, cy - handler_h / 2 + Inches(0.85),
+             handler_w, Inches(0.4),
+             "single source of truth · framework-agnostic",
+             size=10, color=BRAND_TINT,
+             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+
+    # Three surfaces
+    surfaces = [
+        ("<mvk-chat-shell>", "Browser · Angular host\nuser ↔ LLM in-app",
+         BRAND_DEEP, Inches(2.2), Inches(2.6)),
+        ("MCP server", "Claude Desktop · Cursor · Zed\nanalyst workstations",
+         WARN, cx - Inches(1.1), Inches(2.6)),
+        ("Standalone UI", "Visit :4302 / :4303 directly\ntechnical sanity check",
+         OK, W - Inches(4.4), Inches(2.6)),
+    ]
+    for label, desc, color, x, y in surfaces:
+        rounded(s, x, y, Inches(2.2), Inches(1.4), SURFACE,
+                line=color, radius=0.04)
+        rect(s, x, y, Inches(2.2), Inches(0.05), color)
+        text_box(s, x + Inches(0.1), y + Inches(0.15), Inches(2.0),
+                 Inches(0.4), label, size=12, bold=True, color=color,
+                 align=PP_ALIGN.CENTER)
+        text_box(s, x + Inches(0.1), y + Inches(0.55), Inches(2.0),
+                 Inches(0.8), desc, size=10, color=TEXT_2,
+                 align=PP_ALIGN.CENTER)
+        # Arrow from surface DOWN to handler
+        arrow(s, x + Inches(1.1), y + Inches(1.4),
+              cx + (x - cx + Inches(1.1) - cx) * 0.05,  # slight fan-in
+              cy - handler_h / 2 - Inches(0.05),
+              color=color, weight=1.5)
+
+    # Three downstream emitters
+    downstream = [
+        ("Tool result · widgets · markdown", BAD, Inches(2.0), Inches(6.3)),
+        ("MCP UI blocks (text/html)",        BAD, cx - Inches(1.7), Inches(6.3)),
+        ("Same handler, same audit entry",   BAD, W - Inches(4.6), Inches(6.3)),
+    ]
+    for label, color, x, y in downstream:
+        rounded(s, x, y, Inches(2.6), Inches(0.5), BRAND_TINT, radius=0.04)
+        text_box(s, x, y, Inches(2.6), Inches(0.5), label, size=10,
+                 color=BRAND_DEEP, bold=True, align=PP_ALIGN.CENTER,
+                 anchor=MSO_ANCHOR.MIDDLE)
+        # Arrow from handler down to each
+        arrow(s, cx + (x + Inches(1.3) - cx) * 0.05,
+              cy + handler_h / 2 + Inches(0.05),
+              x + Inches(1.3), y, color=color, weight=1.2, dashed=True)
+
+    add_speaker_notes(s,
+        "This slide is the architectural payoff. Three surfaces from one handler — that's why ToolDef is framework-agnostic data.",
+        "Demo the eDiscovery review tool: same code path, three viewers see the same custodian card.")
+    return s
+
+
+def slide_lib_registries_v2(prs):
+    """NEW: hub-and-spoke registry visualisation, replacing the 3-column slide."""
+    s = add(prs)
+    slide_chrome(s, "5 · THE LIBRARY", "13 registries — hub & spokes", "Architects")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.4),
+             "All 13 implement one Registry<TDef> interface — same MFE-aware teardown, same signal contract, same conformance test surface.",
+             size=12, color=TEXT_2)
+
+    # Central hub
+    cx, cy = W / 2, Inches(4.5)
+    hub_r = Inches(1.0)
+    rounded(s, cx - hub_r, cy - hub_r * 0.5, hub_r * 2, hub_r,
+            BRAND_DEEP, radius=0.5)
+    text_box(s, cx - hub_r, cy - hub_r * 0.5, hub_r * 2, hub_r,
+             "Registry<TDef>", size=12, bold=True, color=SURFACE_2,
+             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+
+    # 13 spokes laid out in two arcs (top + bottom)
+    import math
+    nodes = [
+        # Tier 1 - core (M1-M3)
+        ("Tool",       BRAND, "core"),
+        ("Component",  BRAND, "core"),
+        ("Capability", BRAND, "core"),
+        ("Backend",    BRAND, "core"),
+        ("Mfe",        BRAND, "core"),
+        # Tier 2 - extended (M4-M5)
+        ("Action",     OK, "extended"),
+        ("Intent",     OK, "extended"),
+        ("Form",       OK, "extended"),
+        ("DataSource", OK, "extended"),
+        # Tier 3 - seams (M4-M5)
+        ("Validation", WARN, "seam"),
+        ("Persistence",WARN, "seam"),
+        ("Layout",     WARN, "seam"),
+        ("Schema",     WARN, "seam"),
+    ]
+    # Position 5 above and 8 below (tier 2+3) to keep tiers grouped
+    above = nodes[:5]
+    below = nodes[5:]
+    radius_x = Inches(4.2); radius_y = Inches(2.1)
+
+    # Above arc (top half) — spread across angles 200-340 (left-up around to right-up)
+    for i, (name, color, _) in enumerate(above):
+        # angle in degrees, sweep from 220 to 320 over 5 nodes
+        a = math.radians(220 + i * (100 / max(1, len(above) - 1)))
+        nx = cx + radius_x * math.cos(a) / Inches(1) * Inches(1)
+        ny = cy + radius_y * math.sin(a) / Inches(1) * Inches(1)
+        chip_node(s, nx - Inches(0.6), ny - Inches(0.18), Inches(1.2),
+                  Inches(0.36), name, fill=SURFACE, fg=color, border=color, size=11)
+        arrow(s, cx, cy, nx - Inches(0.6) + Inches(1.2) / 2 if nx < cx else nx - Inches(0.6),
+              ny, color=color, weight=1)
+
+    # Below arc — angles 20-160 spread across 8 nodes
+    for i, (name, color, _) in enumerate(below):
+        a = math.radians(20 + i * (140 / max(1, len(below) - 1)))
+        nx = cx + radius_x * math.cos(a) / Inches(1) * Inches(1)
+        ny = cy + radius_y * math.sin(a) / Inches(1) * Inches(1)
+        chip_node(s, nx - Inches(0.6), ny - Inches(0.18), Inches(1.2),
+                  Inches(0.36), name, fill=SURFACE, fg=color, border=color, size=11)
+        arrow(s, cx, cy + Inches(0.05), nx - Inches(0.6) + Inches(0.6),
+              ny, color=color, weight=1)
+
+    # Tier legend
+    leg_y = Inches(7.0)
+    legend = [
+        ("Core (M1–M3)", BRAND, Inches(0.7)),
+        ("Extended (M4–M5)", OK, Inches(4.5)),
+        ("Seams", WARN, Inches(8.3)),
+    ]
+    for label, color, x in legend:
+        rounded(s, x, leg_y - Inches(0.12), Inches(0.18), Inches(0.18),
+                color, radius=0.5)
+        text_box(s, x + Inches(0.25), leg_y - Inches(0.18), Inches(3),
+                 Inches(0.3), label, size=11, bold=True, color=color)
+
+    add_speaker_notes(s,
+        "Hub-and-spoke shows the architectural unity — the base class is the hub, every registry is a spoke with the same shape.",
+        "Tier 1 is required for any agentic UI; tiers 2 and 3 are opt-in.")
+    return s
+
+
+def slide_agui_event_timeline(prs):
+    """NEW: AG-UI event timeline — replaces the bullet-list of events."""
+    s = add(prs)
+    slide_chrome(s, "2 · AG-UI", "Event timeline — one chat turn", "Developers")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.4),
+             "Time flows left → right. Pills are the events on the wire; vertical position groups them by class.",
+             size=11, color=MUTED)
+
+    # Time axis
+    axis_y = Inches(6.4)
+    arrow(s, Inches(0.9), axis_y, W - Inches(0.9), axis_y,
+          color=BORDER, weight=1.2)
+    for tick_x, tick_label in [
+        (Inches(1.5), "0 ms"), (Inches(4.0), "1.2 s"),
+        (Inches(8.0), "3.4 s"), (Inches(12.0), "5.1 s"),
+    ]:
+        rect(s, tick_x, axis_y - Inches(0.05), Inches(0.02), Inches(0.1), MUTED)
+        text_box(s, tick_x - Inches(0.5), axis_y + Inches(0.1), Inches(1),
+                 Inches(0.3), tick_label, size=9, color=MUTED,
+                 align=PP_ALIGN.CENTER)
+
+    # Lifecycle row (top)
+    lc_y = Inches(2.3)
+    text_box(s, Inches(0.7), lc_y - Inches(0.05), Inches(1.6),
+             Inches(0.3), "LIFECYCLE", size=9, bold=True, color=BRAND)
+    event_pill(s, Inches(1.5),  lc_y, Inches(1.5), "RUN_STARTED", color=BRAND)
+    event_pill(s, Inches(11.4), lc_y, Inches(1.5), "RUN_FINISHED", color=BRAND)
+
+    # Text row
+    tx_y = Inches(3.0)
+    text_box(s, Inches(0.7), tx_y - Inches(0.05), Inches(1.6),
+             Inches(0.3), "TEXT", size=9, bold=True, color=INFO)
+    event_pill(s, Inches(2.0),  tx_y, Inches(1.4), "MESSAGE_START", color=INFO)
+    for i, x in enumerate([Inches(2.5 + i * 0.4) for i in range(4)]):
+        event_pill(s, x + Inches(1.1), tx_y, Inches(0.4), "Δ", color=INFO)
+    event_pill(s, Inches(5.5),  tx_y, Inches(1.4), "MESSAGE_END",   color=INFO)
+
+    # Tool-call row
+    tc_y = Inches(3.7)
+    text_box(s, Inches(0.7), tc_y - Inches(0.05), Inches(1.6),
+             Inches(0.3), "TOOL CALL", size=9, bold=True, color=OK)
+    event_pill(s, Inches(7.0), tc_y, Inches(1.5), "CALL_START", color=OK)
+    event_pill(s, Inches(8.6), tc_y, Inches(1.0), "ARGS",       color=OK)
+    event_pill(s, Inches(9.7), tc_y, Inches(1.4), "CALL_END",   color=OK)
+    event_pill(s, Inches(11.2),tc_y, Inches(1.5), "RESULT",     color=OK)
+
+    # Generative row
+    gu_y = Inches(4.4)
+    text_box(s, Inches(0.7), gu_y - Inches(0.05), Inches(1.6),
+             Inches(0.3), "GENERATIVE UI", size=9, bold=True, color=WARN)
+    event_pill(s, Inches(11.1), gu_y, Inches(1.7), "WIDGET_RENDER", color=WARN)
+
+    # Post-tool text
+    pt_y = Inches(5.1)
+    text_box(s, Inches(0.7), pt_y - Inches(0.05), Inches(1.6),
+             Inches(0.3), "POST-TOOL TEXT", size=9, bold=True, color=INFO)
+    event_pill(s, Inches(11.7), pt_y, Inches(1.2), "MESSAGE", color=INFO)
+
+    # Vertical guides at tick positions
+    for x in (Inches(1.5), Inches(4.0), Inches(8.0), Inches(12.0)):
+        arrow(s, x, lc_y - Inches(0.1), x, axis_y,
+              color=BORDER, weight=0.5, dashed=True, head_w=0, head_l=0)
+
+    # Caption
+    text_box(s, Inches(0.7), Inches(7.0), W - Inches(1.4), Inches(0.4),
+             "Adapter @maverick/agentic-ui/ag-ui maps each event 1:1 onto the AgenticEvent union.",
+             size=11, color=MUTED, align=PP_ALIGN.CENTER, bold=True)
+    add_speaker_notes(s,
+        "Real-shape timeline — every event a stable record. This is what makes AG-UI audit-friendly.",
+        "Note widget_render is synthesised from show-component tool-call result; it doesn't exist on the wire.")
     return s
 
 
@@ -1178,70 +1738,60 @@ def main():
     prs.slide_width = W
     prs.slide_height = H
 
-    builders = [
-        slide_cover,
-        slide_agenda,
-        # Section 1
-        slide_shift,
-        slide_why_now,
-        slide_three_protocols,
+    # Each entry: (builder, section-label, dark?). Dark slides get no footer.
+    # The graphics-heavy v2 slides (slide_lib_architecture, slide_capability_handoff,
+    # slide_one_handler_three_surfaces, slide_lib_registries_v2, slide_agui_event_timeline,
+    # slide_production_chain) replace bullet-list versions for stronger visual impact.
+    program = [
+        (slide_cover,                       "Cover",                  True),
+        (slide_agenda,                      "Agenda",                 False),
+        # Section 1 — the shift
+        (slide_shift,                       "1 · The shift",          False),
+        (slide_why_now,                     "1 · The shift",          False),
+        (slide_three_protocols,             "1 · The shift",          False),
         # Section 2 — AG-UI
-        slide_agui_background,
-        slide_agui_events,
-        slide_agui_capabilities,
+        (slide_agui_background,             "2 · AG-UI",              False),
+        (slide_agui_event_timeline,         "2 · AG-UI",              False),  # NEW graphic
+        (slide_agui_capabilities,           "2 · AG-UI",              False),
         # Section 3 — Hashbrown
-        slide_hashbrown_background,
-        slide_hashbrown_features,
-        slide_hashbrown_vs_agui,
+        (slide_hashbrown_background,        "3 · Hashbrown",          False),
+        (slide_hashbrown_features,          "3 · Hashbrown",          False),
+        (slide_hashbrown_vs_agui,           "3 · Hashbrown",          False),
         # Section 4 — A2UI
-        slide_a2ui,
-        # Section 5 — The library
-        slide_lib_problem,
-        slide_lib_architecture,
-        slide_lib_registries,
-        slide_lib_backend,
-        slide_lib_mfe,
-        slide_lib_mcp,
-        slide_lib_telemetry,
-        slide_lib_schematics,
-        # Section 6 — Examples
-        slide_examples_overview,
-        slide_example_ediscovery,
-        # Section 7 — Decisions
-        slide_when_to_use_what,
-        # Section 8 — Benefits
-        slide_benefits_execs,
-        slide_benefits_architects,
-        slide_benefits_devs,
-        # Section 9 — Roadmap
-        slide_roadmap,
-        # Section 10 — CTA + resources
-        slide_cta,
-        slide_resources,
+        (slide_a2ui,                        "4 · A2UI",               False),
+        # Section 5 — the library
+        (slide_lib_problem,                 "5 · The library",        False),
+        (slide_lib_architecture,            "5 · The library",        False),  # rebuilt graphic
+        (slide_lib_registries_v2,           "5 · The library",        False),  # NEW hub-and-spoke
+        (slide_capability_handoff,          "5 · The library",        False),  # NEW sequence
+        (slide_one_handler_three_surfaces,  "5 · The library",        False),  # NEW
+        (slide_lib_backend,                 "5 · The library",        False),
+        (slide_lib_mfe,                     "5 · The library",        False),
+        (slide_lib_mcp,                     "5 · The library",        False),
+        (slide_lib_telemetry,               "5 · The library",        False),
+        (slide_lib_schematics,              "5 · The library",        False),
+        # Section 6 — examples
+        (slide_examples_overview,           "6 · Examples",           False),
+        (slide_example_ediscovery,          "6 · Examples",           False),
+        (slide_production_chain,            "6 · Examples",           False),  # NEW Phase 3 chain
+        # Section 7 — decisions
+        (slide_when_to_use_what,            "7 · Decisions",          False),
+        # Section 8 — benefits
+        (slide_benefits_execs,              "8 · Benefits",           False),
+        (slide_benefits_architects,         "8 · Benefits",           False),
+        (slide_benefits_devs,               "8 · Benefits",           False),
+        # Section 9 — roadmap
+        (slide_roadmap,                     "9 · Roadmap",            False),
+        # Section 10 — close
+        (slide_cta,                         "10 · Call to action",    True),
+        (slide_resources,                   "Resources",              False),
     ]
 
-    sections = {
-        0:  "Cover", 1: "Agenda",
-        2:  "1 · The shift",   3: "1 · The shift",   4: "1 · The shift",
-        5:  "2 · AG-UI",       6: "2 · AG-UI",       7: "2 · AG-UI",
-        8:  "3 · Hashbrown",   9: "3 · Hashbrown",   10: "3 · Hashbrown",
-        11: "4 · A2UI",
-        12: "5 · The library", 13: "5 · The library", 14: "5 · The library",
-        15: "5 · The library", 16: "5 · The library", 17: "5 · The library",
-        18: "5 · The library", 19: "5 · The library",
-        20: "6 · Examples",    21: "6 · Examples",
-        22: "7 · Decisions",
-        23: "8 · Benefits",    24: "8 · Benefits",   25: "8 · Benefits",
-        26: "9 · Roadmap",
-        27: "10 · Call to action",
-        28: "Resources",
-    }
-
-    total = len(builders)
-    for i, b in enumerate(builders):
-        slide = b(prs)
-        if i not in (0, 27):                      # skip footer on cover/CTA dark slides
-            slide_footer(slide, i + 1, total, sections.get(i, ""))
+    total = len(program)
+    for i, (builder, section, dark) in enumerate(program):
+        slide = builder(prs)
+        if not dark:
+            slide_footer(slide, i + 1, total, section)
 
     prs.save(OUT)
     print(f"Wrote {OUT}  ({total} slides)")
