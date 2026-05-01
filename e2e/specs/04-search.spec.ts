@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test-fixtures';
 import { chatShell, isCoordinatorLLMReady } from '../support/chat';
 import { sidebar } from '../support/sidebar';
 

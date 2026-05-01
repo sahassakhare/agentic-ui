@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/test-fixtures';
 import { sidebar } from '../support/sidebar';
 import { personaMenu } from '../support/persona';
 
