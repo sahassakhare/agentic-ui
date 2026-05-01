@@ -14,13 +14,16 @@ export interface PersonaProfile {
 
 /**
  * Allow-lists are the demo's permission contract. Each persona names
- * the tools it MAY invoke; `personaToolFilter` drops the rest before
- * the keyword scorer ever sees them.
+ * the tools it MAY invoke; the host's `installPersonaScopePolicy`
+ * (in `app.config.ts`) wires this into `ToolRegistry.setScopePolicy`
+ * so every read — chat shell, sidebar tool counter, chat-rail
+ * capability badge — sees the same filtered view.
  *
  * @remarks
- * Phase 8's library work ships `RegistryEntry.scopes` so the same
- * shape lives next to each tool, not on a consumer-side allow-list.
- * Until then the explicit names here are the source of truth.
+ * The library's `RegistryEntry.scopes` field can carry these names
+ * on each tool literal too. We keep the host-side allow-list because
+ * the role taxonomy is firm-specific — federated remotes don't know
+ * the names. The scope policy reads `entry.name` against this map.
  *
  * Tool naming convention: every tool name is a stable identifier so
  * an allow-list survives the addition of new specialists / remotes.

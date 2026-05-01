@@ -18,7 +18,7 @@ import {
   provideAgenticUi,
   provideAgUiBackend,
   provideStaticJsonMfeRegistry,
-  TOOL_FILTER,
+  provideToolFilter,
   ToolRegistry,
   type CapabilityModule,
 } from '@maverick/agentic-ui';
@@ -28,7 +28,6 @@ import { routes } from './app.routes';
 import { buildTools, registerForms, widgets } from './agentic/agentic';
 import { registerNavigationActions } from './agentic/navigation-actions';
 import { PersonaService } from './services/persona.service';
-import { personaToolFilter } from './services/persona-tool-filter';
 
 function telemetryProvider() {
   switch (environment.telemetry) {
@@ -55,6 +54,30 @@ function bootAgenticCapabilities() {
     registerForms(env);
     registerNavigationActions(env);
     inject(ToolRegistry).registerAll(buildTools(env));
+  });
+}
+
+/**
+ * Phase 8 — install the persona-driven scope policy on `ToolRegistry`.
+ *
+ * The library's `setScopePolicy` filters every `list()` / `get()` /
+ * `signal()` read against an active scope, and the policy is just a
+ * predicate over each `RegistryEntry`. We close over the host's
+ * `PersonaService.canInvoke()` which already encodes the role
+ * allow-lists. The chat shell, the sidebar's tool counter, the chat
+ * rail's capability badge — all read through the same filter.
+ *
+ * @remarks
+ * This runs AFTER `bootAgenticCapabilities` (initializer order is
+ * declaration order) so every tool is already registered. The
+ * keyword filter still applies on top via `provideToolFilter` so the
+ * per-turn budget is bounded inside the role-allowed set.
+ */
+function installPersonaScopePolicy() {
+  return provideAppInitializer(() => {
+    const persona = inject(PersonaService);
+    const tools = inject(ToolRegistry);
+    tools.setScopePolicy((entry) => persona.canInvoke(persona.active(), entry.name));
   });
 }
 
@@ -151,26 +174,13 @@ export const appConfig: ApplicationConfig = {
     provideAgUiBackend({ url: environment.agentUrl }),
     provideStaticJsonMfeRegistry({ url: environment.mfeRegistryUrl }),
     telemetryProvider(),
-    // Phase 7 — composed tool filter. Order matters:
-    //   1. `personaToolFilter` drops tools the active persona may not
-    //      invoke (governance — the role allow-list is non-negotiable).
-    //   2. `keywordToolFilter` scores the survivors against the user's
-    //      last message, returns the top 12, back-fills to 5 when the
-    //      score is too sparse (efficiency — keeps the LLM context bounded).
-    //
-    // Bypassing `provideToolFilter` to register at TOOL_FILTER directly
-    // — we need `useFactory` so `inject(PersonaService)` resolves at
-    // construction time. Phase 8's `RegistryEntry.scopes` work folds
-    // step 1 into `RegistryBase` so this composition becomes implicit.
-    {
-      provide: TOOL_FILTER,
-      useFactory: () =>
-        personaToolFilter(
-          inject(PersonaService),
-          keywordToolFilter({ maxTools: 12, floor: 5 }),
-        ),
-    },
+    // Phase 8 — `setScopePolicy` on ToolRegistry handles the persona
+    // filter (in installPersonaScopePolicy below). The chat shell sees
+    // the already-filtered tools through ToolRegistry.signal(), so the
+    // tool filter only carries the per-turn keyword budget now.
+    provideToolFilter(keywordToolFilter({ maxTools: 12, floor: 5 })),
     bootAgenticCapabilities(),
+    installPersonaScopePolicy(),
     loadDemoRemotes(),
   ],
 };

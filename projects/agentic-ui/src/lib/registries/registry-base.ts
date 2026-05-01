@@ -3,6 +3,57 @@ import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
 import type { RegistryEntry } from '../types/registry-defs';
 
 /**
+ * Hook that decides whether an entry is visible at the moment of a
+ * `list()` / `get()` / `signal()` read. Set via
+ * {@link RegistryBase.setScopePolicy}.
+ *
+ * The policy CLOSES OVER whatever live state it depends on — typically
+ * an Angular `signal()` carrying the active persona / scope id. Each
+ * `signal()` reader that touches the registry's filtered output will
+ * recompute when the captured signal changes, because the policy is
+ * called inside a `computed`.
+ *
+ * Returning `true` shows the entry; returning `false` hides it. An
+ * entry without a `scopes` field is considered scope-less and the
+ * policy is responsible for deciding the default ('hide if scoped'
+ * vs 'show if no scope'). The default policy ships as
+ * {@link permissiveScopePolicy} which shows everything.
+ *
+ * @remarks
+ * **Why filter on read, not register.** A federated MFE may contribute
+ * an entry whose scope is broader than the current user — e.g. a
+ * tool tagged `['lead-counsel']` from a remote loaded for everyone.
+ * Filtering at register-time would lose that entry permanently for
+ * other users; filtering on read keeps the remote portable.
+ */
+export type RegistryScopePolicy = (entry: RegistryEntry) => boolean;
+
+/** Default policy — every entry is visible. */
+export const permissiveScopePolicy: RegistryScopePolicy = () => true;
+
+/**
+ * Convenience policy — reads the active scope from a getter (typically
+ * `() => personaService.active()`) and checks it against each entry's
+ * `scopes` list. Entries without a `scopes` field stay visible
+ * (scope-less means "any active scope can see this").
+ *
+ * @example
+ * ```ts
+ * inject(ToolRegistry).setScopePolicy(
+ *   activeScopePolicy(() => persona.active()),
+ * );
+ * ```
+ */
+export function activeScopePolicy(getActiveScope: () => string | null | undefined): RegistryScopePolicy {
+  return (entry) => {
+    if (!entry.scopes || entry.scopes.length === 0) return true;
+    const active = getActiveScope();
+    if (!active) return false;
+    return entry.scopes.includes(active);
+  };
+}
+
+/**
  * What to do when `register()` is called with a name that's already taken.
  *
  * - `'replace'` *(default — backward-compatible with pre-conflict-policy
@@ -46,7 +97,44 @@ export abstract class RegistryBase<TDef extends RegistryEntry> implements Regist
    */
   conflictPolicy: ConflictPolicy = 'replace';
 
-  readonly signal: Signal<readonly TDef[]> = computed(() => this.entries());
+  /**
+   * Active scope policy — re-runs on every `list()` / `get()` /
+   * `signal()` read. Defaults to {@link permissiveScopePolicy} (show
+   * everything). Apps install their own via {@link setScopePolicy}.
+   */
+  private readonly scopePolicy = signal<RegistryScopePolicy>(permissiveScopePolicy);
+
+  /**
+   * Replace the scope policy. Triggers re-evaluation of the filtered
+   * signal so any subscribers see the new view immediately.
+   *
+   * @example
+   * ```ts
+   * // app.config.ts — applied once at boot
+   * provideAppInitializer(() => {
+   *   inject(ToolRegistry).setScopePolicy(
+   *     activeScopePolicy(() => inject(PersonaService).active()),
+   *   );
+   * });
+   * ```
+   */
+  setScopePolicy(policy: RegistryScopePolicy): void {
+    this.scopePolicy.set(policy);
+    this.telemetry.emit('agentic.registry.scope_policy_set', {
+      'registry.name': this.registryName,
+    });
+  }
+
+  /**
+   * Filtered, signal-aware view. Public callers should prefer this —
+   * `entries()` is the raw, unfiltered list (kept private so the
+   * scope policy is the single point of truth). Each read takes a
+   * snapshot of `entries()` and applies the current policy.
+   */
+  readonly signal: Signal<readonly TDef[]> = computed(() => {
+    const policy = this.scopePolicy();
+    return this.entries().filter((e) => policy(e));
+  });
 
   /** Discriminator used by telemetry: 'tool', 'component', 'backend', etc. */
   protected abstract readonly registryName: string;
@@ -147,11 +235,35 @@ export abstract class RegistryBase<TDef extends RegistryEntry> implements Regist
     return () => disposers.forEach((d) => d());
   }
 
+  /**
+   * Return an entry by name, honouring the current scope policy. An
+   * entry hidden by the policy reads as `undefined` — same as if it
+   * weren't registered. Use {@link RegistryBase.getRaw} when you
+   * need the entry regardless of scope.
+   */
   get(name: string): TDef | undefined {
+    const policy = this.scopePolicy();
+    const found = this.entries().find((e) => e.name === name);
+    return found && policy(found) ? found : undefined;
+  }
+
+  /**
+   * Bypass the scope policy. Used internally by `register()` to detect
+   * collisions and by tooling that needs to see the full registry.
+   * Apps should prefer `get()` so the scope filter applies uniformly.
+   */
+  getRaw(name: string): TDef | undefined {
     return this.entries().find((e) => e.name === name);
   }
 
+  /** Filtered list — honours the active scope policy. */
   list(): readonly TDef[] {
+    const policy = this.scopePolicy();
+    return this.entries().filter((e) => policy(e));
+  }
+
+  /** Unfiltered list — every registered entry, scope-blind. */
+  listRaw(): readonly TDef[] {
     return this.entries();
   }
 

@@ -208,4 +208,80 @@ describe('RegistryBase onDispose lifecycle hook', () => {
     expect(secondCalled).toBe(true);
     expect(registry.list()).toEqual([]);
   });
+
+  // ─── Scope policy (Phase 8) ──────────────────────────────────────────
+
+  describe('scope policy', () => {
+    function scoped(name: string, scopes: readonly string[] | undefined): ToolDef {
+      return { ...makeTool(name), scopes } as ToolDef;
+    }
+
+    it('default policy shows every entry', () => {
+      registry.register(makeTool('alpha'));
+      registry.register(scoped('beta', ['lead-counsel']));
+      expect(registry.list().map((t) => t.name).sort()).toEqual(['alpha', 'beta']);
+    });
+
+    it('hides entries the policy rejects', () => {
+      registry.register(scoped('public', undefined));
+      registry.register(scoped('counsel', ['lead-counsel']));
+      registry.register(scoped('paralegal', ['paralegal']));
+      registry.setScopePolicy((entry) =>
+        !entry.scopes || entry.scopes.includes('paralegal'));
+      expect(registry.list().map((t) => t.name).sort()).toEqual(['paralegal', 'public']);
+    });
+
+    it('get() honours the policy — hidden entries read as undefined', () => {
+      registry.register(scoped('counsel-only', ['lead-counsel']));
+      registry.setScopePolicy((entry) =>
+        !entry.scopes || entry.scopes.includes('paralegal'));
+      expect(registry.get('counsel-only')).toBeUndefined();
+    });
+
+    it('getRaw / listRaw bypass the policy', () => {
+      registry.register(scoped('counsel-only', ['lead-counsel']));
+      registry.setScopePolicy(() => false);
+      expect(registry.list()).toEqual([]);
+      expect(registry.listRaw()).toHaveLength(1);
+      expect(registry.getRaw('counsel-only')?.name).toBe('counsel-only');
+    });
+
+    it('register() detects collisions against hidden entries (raw entries)', () => {
+      registry.conflictPolicy = 'throw';
+      registry.register(scoped('hidden', ['ghost-scope']));
+      registry.setScopePolicy(() => false);   // hide everything
+      // Hidden but still present — collision should still fire.
+      expect(() => registry.register(scoped('hidden', undefined))).toThrow(/already registered/);
+    });
+
+    it('signal recomputes when the policy changes', () => {
+      registry.register(scoped('alpha', undefined));
+      registry.register(scoped('beta', ['lead-counsel']));
+      const sig = registry.signal;
+      expect(sig().map((t) => t.name).sort()).toEqual(['alpha', 'beta']);
+      registry.setScopePolicy((entry) =>
+        !entry.scopes || entry.scopes.includes('paralegal'));
+      expect(sig().map((t) => t.name)).toEqual(['alpha']);
+    });
+
+    it('activeScopePolicy: scope-less entries are visible', async () => {
+      const { activeScopePolicy } = await import('./registry-base');
+      registry.register(scoped('public', undefined));
+      registry.register(scoped('counsel', ['lead-counsel']));
+      registry.setScopePolicy(activeScopePolicy(() => 'paralegal'));
+      expect(registry.list().map((t) => t.name)).toEqual(['public']);
+    });
+
+    it('activeScopePolicy: matching active scope shows the entry', async () => {
+      const { activeScopePolicy } = await import('./registry-base');
+      registry.register(scoped('counsel', ['lead-counsel']));
+      registry.register(scoped('paralegal', ['paralegal']));
+      let active = 'paralegal';
+      registry.setScopePolicy(activeScopePolicy(() => active));
+      expect(registry.list().map((t) => t.name)).toEqual(['paralegal']);
+      active = 'lead-counsel';
+      registry.setScopePolicy(activeScopePolicy(() => active));
+      expect(registry.list().map((t) => t.name)).toEqual(['counsel']);
+    });
+  });
 });

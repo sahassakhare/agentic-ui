@@ -20,6 +20,28 @@ export interface RegistryEntry {
   /** Where the entry came from. Defaults to `'host'` when omitted. */
   readonly source?: CapabilitySource;
   /**
+   * Optional governance tags. The values are opaque strings the
+   * consumer's `RegistryBase.setScopePolicy(...)` decides how to
+   * interpret — typically role names ('paralegal', 'lead-counsel'),
+   * environment markers ('production'), or feature gates.
+   *
+   * When unset, the policy treats the entry as visible in every
+   * scope (no opinion). When set, the policy decides whether the
+   * active scope intersects with this list.
+   *
+   * @example
+   * ```ts
+   * agenticTool({
+   *   name: 'releaseLegalHold',
+   *   description: '…',
+   *   schema: z.object({ holdId: z.string(), reason: z.string() }),
+   *   handler,
+   *   scopes: ['lead-counsel'],   // Only counsel may release a hold
+   * })
+   * ```
+   */
+  readonly scopes?: readonly string[];
+  /**
    * Optional cleanup hook called when this entry is removed — by an
    * explicit disposer, by `removeBySource()` (e.g. when an MFE unloads),
    * or because a registration with the same name replaced it under a

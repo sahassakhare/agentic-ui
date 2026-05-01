@@ -18,7 +18,8 @@ export type TelemetryEventName =
   | 'agentic.registry.remove'
   | 'agentic.registry.dropped'
   | 'agentic.registry.namespaced'
-  | 'agentic.registry.dispose_failed';
+  | 'agentic.registry.dispose_failed'
+  | 'agentic.registry.scope_policy_set';
 
 export interface AgenticTelemetrySink {
   startSpan(name: TelemetryEventName, attributes?: Readonly<Record<string, unknown>>): TelemetrySpan;
