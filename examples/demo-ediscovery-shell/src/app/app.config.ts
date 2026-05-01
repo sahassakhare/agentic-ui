@@ -18,7 +18,7 @@ import {
   provideAgenticUi,
   provideAgUiBackend,
   provideStaticJsonMfeRegistry,
-  provideToolFilter,
+  TOOL_FILTER,
   ToolRegistry,
   type CapabilityModule,
 } from '@maverick/agentic-ui';
@@ -27,6 +27,8 @@ import { environment } from '../environments/environment';
 import { routes } from './app.routes';
 import { buildTools, registerForms, widgets } from './agentic/agentic';
 import { registerNavigationActions } from './agentic/navigation-actions';
+import { PersonaService } from './services/persona.service';
+import { personaToolFilter } from './services/persona-tool-filter';
 
 function telemetryProvider() {
   switch (environment.telemetry) {
@@ -149,14 +151,25 @@ export const appConfig: ApplicationConfig = {
     provideAgUiBackend({ url: environment.agentUrl }),
     provideStaticJsonMfeRegistry({ url: environment.mfeRegistryUrl }),
     telemetryProvider(),
-    // Phase 4 activates per-turn tool filtering. With four federated
-    // remotes the registry holds 17 tools; sending all of them to the
-    // LLM every turn wastes context and confuses routing.
-    // `keywordToolFilter` scores each tool's name+description against
-    // the user's last message, returns the top 12, and back-fills to
-    // 5 when the score is too sparse so the agent has *something* to
-    // call when the user asks something unforeseen.
-    provideToolFilter(keywordToolFilter({ maxTools: 12, floor: 5 })),
+    // Phase 7 — composed tool filter. Order matters:
+    //   1. `personaToolFilter` drops tools the active persona may not
+    //      invoke (governance — the role allow-list is non-negotiable).
+    //   2. `keywordToolFilter` scores the survivors against the user's
+    //      last message, returns the top 12, back-fills to 5 when the
+    //      score is too sparse (efficiency — keeps the LLM context bounded).
+    //
+    // Bypassing `provideToolFilter` to register at TOOL_FILTER directly
+    // — we need `useFactory` so `inject(PersonaService)` resolves at
+    // construction time. Phase 8's `RegistryEntry.scopes` work folds
+    // step 1 into `RegistryBase` so this composition becomes implicit.
+    {
+      provide: TOOL_FILTER,
+      useFactory: () =>
+        personaToolFilter(
+          inject(PersonaService),
+          keywordToolFilter({ maxTools: 12, floor: 5 }),
+        ),
+    },
     bootAgenticCapabilities(),
     loadDemoRemotes(),
   ],

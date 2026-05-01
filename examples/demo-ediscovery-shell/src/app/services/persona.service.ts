@@ -12,6 +12,19 @@ export interface PersonaProfile {
   readonly allowedTools: readonly string[];
 }
 
+/**
+ * Allow-lists are the demo's permission contract. Each persona names
+ * the tools it MAY invoke; `personaToolFilter` drops the rest before
+ * the keyword scorer ever sees them.
+ *
+ * @remarks
+ * Phase 8's library work ships `RegistryEntry.scopes` so the same
+ * shape lives next to each tool, not on a consumer-side allow-list.
+ * Until then the explicit names here are the source of truth.
+ *
+ * Tool naming convention: every tool name is a stable identifier so
+ * an allow-list survives the addition of new specialists / remotes.
+ */
 export const PERSONAS: readonly PersonaProfile[] = [
   {
     id: 'lead-counsel',
@@ -24,29 +37,55 @@ export const PERSONAS: readonly PersonaProfile[] = [
     id: 'associate',
     label: 'Associate',
     initials: 'AS',
-    description: 'Junior counsel — review + draft productions',
-    allowedTools: ['searchDocuments', 'tagDocument', 'markPrivileged', 'addToPrivilegeLog', 'listCustodians', 'acknowledgeLegalHold'],
+    description: 'Review + draft productions; no hold lifecycle, no delivery',
+    allowedTools: [
+      // Read / search
+      'searchDocuments', 'listCustodians',
+      'semanticSearch', 'filterByDateRange', 'filterByCustodians', 'runTARClassifier',
+      // Review
+      'tagDocument', 'markPrivileged', 'addToPrivilegeLog',
+      // Hold acknowledgement (not issue / release)
+      'acknowledgeLegalHold',
+      // Draft productions (no exportProductionSet — that's lead counsel only)
+      'createProductionSet', 'assignBatesNumbers', 'redactDocument',
+      'generateChainOfCustodyReport',
+    ],
   },
   {
     id: 'paralegal',
     label: 'Paralegal',
     initials: 'PL',
-    description: 'Read + tag; no privilege calls or hold release',
-    allowedTools: ['searchDocuments', 'tagDocument', 'listCustodians'],
+    description: 'Read + tag + TAR; no privilege rulings, no hold ops, no productions',
+    allowedTools: [
+      'searchDocuments', 'listCustodians',
+      'semanticSearch', 'filterByDateRange', 'filterByCustodians', 'runTARClassifier',
+      'tagDocument',
+      // Privilege-log SNAPSHOT — paralegals can record but not RULE on privilege
+      'addToPrivilegeLog',
+    ],
   },
   {
     id: 'lit-support',
     label: 'Lit-Support',
     initials: 'LS',
-    description: 'Custodian onboarding + collection',
-    allowedTools: ['addCustodian', 'listCustodians', 'placeLegalHold', 'acknowledgeLegalHold'],
+    description: 'Custodian onboarding + collection + hold lifecycle',
+    allowedTools: [
+      'addCustodian', 'listCustodians',
+      'placeLegalHold', 'acknowledgeLegalHold',
+      // Limited search — useful for verifying collections completed
+      'filterByCustodians', 'filterByDateRange',
+    ],
   },
   {
     id: 'vendor-reviewer',
     label: 'Vendor Reviewer',
     initials: 'VR',
-    description: 'External — read + tag, scoped to assigned set',
-    allowedTools: ['searchDocuments', 'tagDocument'],
+    description: 'External — read + tag only; cannot mark privileged or run TAR',
+    allowedTools: [
+      'searchDocuments',
+      'filterByDateRange', 'filterByCustodians',
+      'tagDocument',
+    ],
   },
 ];
 

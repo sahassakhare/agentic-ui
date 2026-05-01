@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ToolRegistry } from '@maverick/agentic-ui';
 import { listAuditEvents, listLegalHolds } from '@maverick/demo-ediscovery-shared';
 import { environment } from '../../environments/environment';
 import { IconComponent } from '../ui/icon.component';
@@ -63,12 +64,14 @@ import { PERSONAS, PersonaService, type Persona } from '../services/persona.serv
                     <strong>{{ p.label }}</strong>
                     <span>{{ p.description }}</span>
                   </span>
+                  <span class="tool-count">{{ allowedFor(p.id) }} / {{ totalTools() }}</span>
                   @if (active() === p.id) { <svg-icon name="check" [size]="14" /> }
                 </button>
               }
               <p class="menu-foot">
-                Drives the tool filter wired in Phase 7. Switching role hides
-                tools the persona can't invoke from the next agent turn.
+                Persona-scoped <strong>tool filter</strong> active. The agent
+                only sees the count above (further narrowed to the top 12 by
+                keyword overlap) on each turn.
               </p>
             </div>
           }
@@ -183,21 +186,40 @@ import { PERSONAS, PersonaService, type Persona } from '../services/persona.serv
     .menu-item .meta strong { font-size: var(--fs-sm); color: var(--c-text); font-weight: 600; }
     .menu-item .meta span { font-size: 0.7rem; color: var(--c-text-mute); }
     .menu-item svg-icon { color: var(--c-brand); }
+    .tool-count {
+      padding: 1px 8px; border-radius: var(--r-pill);
+      background: var(--c-surface-2); color: var(--c-text-2);
+      font-size: 0.65rem; font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .menu-item.selected .tool-count { background: var(--c-brand-soft); color: var(--c-brand-strong); }
     .menu-foot {
       margin: var(--s-2) 0 0; padding: var(--s-2) var(--s-3);
       font-size: 0.7rem; color: var(--c-text-faint); line-height: 1.4;
       border-top: 1px solid var(--c-divider);
     }
+    .menu-foot strong { color: var(--c-text-2); }
   `,
 })
 export class HeaderComponent {
   protected readonly matterId = environment.matterId;
   protected readonly personaService = inject(PersonaService);
+  private readonly toolRegistry = inject(ToolRegistry);
 
   protected readonly active = this.personaService.active;
   protected readonly activeProfile = computed(() => this.personaService.profile(this.active()));
   protected readonly personas = PERSONAS;
   protected readonly personaOpen = signal(false);
+
+  /** Live total — recomputes when remotes load capabilities. */
+  protected readonly totalTools = computed(() => this.toolRegistry.signal().length);
+
+  /** How many of the registered tools the given persona may invoke. */
+  protected allowedFor(p: Persona): number {
+    const tools = this.toolRegistry.signal();
+    return tools.filter((t) => this.personaService.canInvoke(p, t.name)).length;
+  }
 
   /** Notification pip — drives off pending hold acknowledgements + recent audit events. */
   protected readonly pendingCount = computed(() => {
