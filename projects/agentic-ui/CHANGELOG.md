@@ -58,11 +58,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 #### Registry governance
 - **`ConflictPolicy` type + `RegistryBase.conflictPolicy` field** — strategy on duplicate-name registration. `'replace'` (default — backward-compatible), `'throw'` (fail-loud), `'first-wins'` (keep existing), `'namespace'` (auto-prefix new entry with its remote source). Set per-registry via `inject(ToolRegistry).conflictPolicy = 'throw'`.
 - **`RegistryEntry.onDispose?`** — optional cleanup hook fired when an entry is removed (explicit disposer, `removeBySource()`, or replacement under `'replace'` policy). Errors caught and routed to telemetry — one bad hook can't poison a teardown sweep.
-- New telemetry event names: `agentic.registry.dropped`, `agentic.registry.namespaced`, `agentic.registry.dispose_failed`.
+- **`RegistryEntry.scopes?: readonly string[]` + `RegistryBase.setScopePolicy(policy)`** — opaque governance tags per entry plus a hook that filters every `list()` / `get()` / `signal()` read. `permissiveScopePolicy` (default — every entry visible) and `activeScopePolicy(getActive)` (closes over a getter, checks `getActive()` against `entry.scopes`) ship as convenience exports. `getRaw` / `listRaw` bypass for tooling and `register()`'s collision detection. Filter on **read**, not register, so federated remotes contributing scope-tagged entries stay portable across users with different active scopes. See [ADR-008](../../docs/adr/0008-registry-scope-policy.md).
+- New telemetry event names: `agentic.registry.dropped`, `agentic.registry.namespaced`, `agentic.registry.dispose_failed`, `agentic.registry.scope_policy_set`.
 
 ### Tests
 
-- **76 → 85 tests** (+9). New tests cover all four conflict policies and the `onDispose` lifecycle (explicit disposer, `removeBySource` sweep, replacement-fires-displaced-disposer, throwing-onDispose-doesn't-poison-sweep).
+- **76 → 93 tests** (+17). New tests cover all four conflict policies, the `onDispose` lifecycle (explicit disposer, `removeBySource` sweep, replacement-fires-displaced-disposer, throwing-onDispose-doesn't-poison-sweep), plus eight new tests for the scope-policy primitive (default-permissive, hides on policy reject, `get()` honours policy, `getRaw`/`listRaw` bypass, `register()` collides against hidden entries, signal recompute on policy change, `activeScopePolicy` over a getter — both with and without scope-less entries).
 
 ### Documentation
 
@@ -74,8 +75,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - [Integrate into an existing Angular app](../../docs/cookbook/integrate-into-existing-angular-app.md) — 4-phase guide with sequence + flow diagrams.
   - [Domain MFEs as standalone apps + capability providers](../../docs/cookbook/domain-mfe-standalone-and-federated.md).
   - [Schematics reference](../../docs/cookbook/schematics.md).
-- New architecture doc: [Registries vs. industry](../../docs/architecture/registries-vs-industry.md) — comparison against agent SDKs (CopilotKit, LangChain, Vercel AI) and plugin platforms (VS Code, Backstage); governance integration map onto `RegistryBase`.
+- New architecture doc: [Registries vs. industry](../../docs/architecture/registries-vs-industry.md) — comparison against agent SDKs (CopilotKit, LangChain, Vercel AI) and plugin platforms (VS Code, Backstage); governance integration map onto `RegistryBase`. **Permission scopes row moved from "gap" to ✅ shipped.**
 - ADR-002 updated to reference `conflictPolicy` and `onDispose`.
+- [ADR-008 — Registry scope policy](../../docs/adr/0008-registry-scope-policy.md): design rationale for `setScopePolicy`, the filter-on-read decision, before/after migration of the eDiscovery shell, trade-offs, and risks. Status: Accepted (shipped).
 - Every code-generating schematic template now ships with JSDoc explaining the contract.
 
 ### Examples
@@ -83,6 +85,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - New `examples/demo-feature-tour` (port 4206) — single-host showcase for the four extended registries (Action / Form / DataSource / Intent).
 - All demos relocated `projects/demo-*` → `examples/demo-*`. `projects/` now holds only the publishable libraries. (No consumer-facing impact; affects `git clone` users only.)
 - The three MFE remotes (`demo-remote-bookings`, `demo-remote-loyalty`, `demo-remote-support`) gained functional standalone UIs at their own ports (`:4201` / `:4203` / `:4205`) that reuse the same handlers and widget components the host's chat consumes — proving each remote is a complete domain artefact, not a chat-only shim.
+- **🏛 eDiscovery flagship reference application** (Phases 0–8 of the [eDiscovery plan](../../docs/plans/ediscovery-app-plan.md)) under `examples/demo-ediscovery-{shared,server,shell,review,production,search,mcp}/`:
+  - 18 tools across 4 specialists (`collection`, `review`, `production`, `search`) under one `OrchestratorAgent` with sticky-by-thread routing.
+  - 3 federated MFE remotes (review, production, search) plus an MCP server (`@maverick/demo-ediscovery-mcp`) for analyst workstations.
+  - All 13 registries exercised: tools, components, capabilities, backends, MFE registry, actions (click-to-navigate), forms (`productionConfigForm`), data sources (`documentIndex`), validation (Bates pattern), persistence (sessionStorage persona), schema transformer (Zod schemas everywhere).
+  - Tamper-evident audit chain (`appendAudit` auto-stamps `chainHash` + `prevHash`); `generateChainOfCustodyReport` tool + widget render the chain with hash recompute on hover.
+  - Persona-scoped tool surface — 5 personas with allow-listed tools, wired through the new `RegistryBase.setScopePolicy()` API.
+  - Production-build ~44 KB initial transfer (gzip 15 KB); each route lazy-loaded as its own chunk.
 
 ### Companion library
 
