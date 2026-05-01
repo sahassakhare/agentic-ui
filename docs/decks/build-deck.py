@@ -1921,15 +1921,16 @@ def slide_example_ediscovery(prs):
              "library feature against a recognisable, regulated, complex domain.",
              size=14, color=TEXT_2)
 
-    # Four headline stat cards across the top
-    sw = (W - Inches(1.4) - Inches(0.6)) / 4
+    # Five headline stat cards across the top
+    sw = (W - Inches(1.4) - Inches(0.8)) / 5
     sy = Inches(2.6)
     sh = Inches(1.3)
     stats = [
-        ("17",   "tools across 4 specialists",   BRAND),
-        ("3",    "federated MFE remotes",        BRAND),
-        ("13",   "library registries exercised", BRAND),
-        ("5–7",  "weeks for one contributor",    ACCENT),
+        ("8",    "phases shipped",               BRAND),
+        ("18",   "tools · 4 specialists",        BRAND),
+        ("3 + 1","MFE remotes + MCP server",     BRAND),
+        ("13",   "registries exercised",         BRAND),
+        ("✓",    "tamper-evident audit",         ACCENT),
     ]
     for i, (val, cap, col) in enumerate(stats):
         sx = Inches(0.7) + i * (sw + Inches(0.2))
@@ -1946,8 +1947,10 @@ def slide_example_ediscovery(prs):
         "Document review with privilege workflow",
         "Production assembly: create → bates → export",
         "Search + TAR classifier across the matter",
-        "Live audit trail with chain-of-custody view",
-    ], size=12, gap=6, marker_color=BRAND)
+        "Tamper-evident chain-of-custody report",
+        "MCP server for Claude Desktop / Cursor / Zed",
+        "Persona-scoped tool surface (5 roles)",
+    ], size=11, gap=4, marker_color=BRAND)
 
     rx = bx + bw + Inches(0.4)
     text_box(s, rx, by, bw, Inches(0.32),
@@ -2058,38 +2061,70 @@ def slide_benefits_devs(prs):
 # ── Roadmap + CTA ───────────────────────────────────────────────────────────
 
 def slide_roadmap(prs):
+    """Library milestones (M1–M5) cross-referenced with the eDiscovery
+    flagship phases that validated each one."""
     s = add(prs)
-    slide_chrome(s, "9 · ROADMAP", "Phased delivery — M1 to v1.0", "Architects")
+    slide_chrome(s, "10 · ROADMAP", "Library milestones · validated by eDiscovery",
+                 "Architects")
+
+    text_box(s, Inches(0.7), Inches(1.85), W - Inches(1.4), Inches(0.4),
+             "Each library milestone has a corresponding eDiscovery phase that exercised it under enterprise load.",
+             size=11, color=MUTED)
 
     rows = [
-        ("M1", "AG-UI parity",       "ToolRegistry, ComponentRegistry, BackendRegistry, ChatShell, /testing", OK),
-        ("M2", "Schematics",         "ng-add, tool, widget, backend, agent-server, snapshot tests",            OK),
-        ("M3", "MFE + A2UI + MCP",   "CapabilityRegistry, MfeRegistry, A2uiBackend, both federation paths",   OK),
-        ("M4", "Hashbrown + Extended", "ActionRegistry, IntentRegistry, FormRegistry, ValidationRegistry",    INFO),
-        ("M5", "Polish + governance","DataSource/Persistence/Layout/SchemaTransformer · MCP · v1.0 release",   WARN),
+        ("M1", "AG-UI parity + ChatShell + /testing",
+         "ToolRegistry, ComponentRegistry, BackendRegistry",
+         "P0–P1", OK),
+        ("M2", "Schematics + ng-add",
+         "tool, widget, backend, agent-server, snapshot tests",
+         "—",  OK),
+        ("M3", "MFE federation + A2UI + MCP server adapter",
+         "CapabilityRegistry, MfeRegistry, both federation paths",
+         "P2, P6", OK),
+        ("M4", "Extended registries + Validation + DataSource",
+         "Action, Intent, Form, Validation, DataSource",
+         "P2–P4", OK),
+        ("M5", "Compliance + scope governance",
+         "Tamper-evident audit chain, RegistryBase.setScopePolicy",
+         "P5, P7–P8", OK),
     ]
-    rounded(s, Inches(0.7), Inches(1.7), W - Inches(1.4), Inches(5.4),
+    rounded(s, Inches(0.7), Inches(2.45), W - Inches(1.4), Inches(4.6),
             SURFACE, line=BORDER, radius=0.02)
-    rect(s, Inches(0.7), Inches(1.7), W - Inches(1.4), Inches(0.45), SURFACE_2)
-    text_box(s, Inches(0.95), Inches(1.78), Inches(0.6), Inches(0.4),
-             "M", size=11, bold=True, color=MUTED)
-    text_box(s, Inches(1.7), Inches(1.78), Inches(3.0), Inches(0.4),
-             "Theme", size=11, bold=True, color=MUTED)
-    text_box(s, Inches(5.0), Inches(1.78), Inches(7.0), Inches(0.4),
-             "Ships", size=11, bold=True, color=MUTED)
-    y = Inches(2.3)
-    for m, theme, ships, color in rows:
+    rect(s, Inches(0.7), Inches(2.45), W - Inches(1.4), Inches(0.45), SURFACE_2)
+    text_box(s, Inches(0.95), Inches(2.53), Inches(0.6), Inches(0.4),
+             "M",      size=10, bold=True, color=MUTED)
+    text_box(s, Inches(1.7), Inches(2.53), Inches(3.5), Inches(0.4),
+             "Theme",  size=10, bold=True, color=MUTED)
+    text_box(s, Inches(5.5), Inches(2.53), Inches(5.0), Inches(0.4),
+             "Ships",  size=10, bold=True, color=MUTED)
+    text_box(s, Inches(11.0), Inches(2.53), Inches(1.4), Inches(0.4),
+             "Validated by", size=10, bold=True, color=MUTED)
+    y = Inches(3.05)
+    for m, theme, ships, validated, color in rows:
         rounded(s, Inches(0.95), y + Inches(0.05), Inches(0.6), Inches(0.6),
                 color, radius=0.5)
         text_box(s, Inches(0.95), y + Inches(0.05), Inches(0.6), Inches(0.6),
                  m, size=14, bold=True, color=SURFACE,
                  align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
-        text_box(s, Inches(1.7), y + Inches(0.18), Inches(3.2), Inches(0.5),
-                 theme, size=13, bold=True, color=TEXT)
-        text_box(s, Inches(5.0), y + Inches(0.18), Inches(7.5), Inches(0.5),
-                 ships, size=11, color=TEXT_2)
-        y += Inches(0.86)
-    add_speaker_notes(s, "Show this slide to architects evaluating maturity. M1-M3 shipped; M4-M5 in flight.")
+        text_box(s, Inches(1.7), y + Inches(0.13), Inches(3.7), Inches(0.32),
+                 theme,    size=12, bold=True, color=TEXT)
+        text_box(s, Inches(1.7), y + Inches(0.46), Inches(3.7), Inches(0.32),
+                 "",       size=9, color=MUTED)
+        text_box(s, Inches(5.5), y + Inches(0.18), Inches(5.4), Inches(0.5),
+                 ships,    size=11, color=TEXT_2)
+        chip_node(s, Inches(11.0), y + Inches(0.18), Inches(1.5), Inches(0.34),
+                  validated, fg=color,
+                  fill=ACCENT_TINT if color == OK else SURFACE_2,
+                  border=color, size=10)
+        y += Inches(0.78)
+
+    text_box(s, Inches(0.7), Inches(7.1), W - Inches(1.4), Inches(0.32),
+             "All five milestones shipped. The eDiscovery flagship is the proof-shape under load.",
+             size=11, bold=True, color=OK, align=PP_ALIGN.CENTER)
+
+    add_speaker_notes(s,
+        "Updated for v5 — every milestone is now shipped (was M1-M3 done / M4-M5 in flight).",
+        "The 'validated by' column ties library work to the eDiscovery phase that put it under load.")
     return s
 
 
@@ -2196,6 +2231,332 @@ def slide_resources(prs):
     return s
 
 
+# ── v5 — compliance, governance, MCP reach (Phases 5-8) ───────────────────
+
+def slide_chain_of_custody(prs):
+    """Phase 5 story — tamper-evident audit chain. The diagram shows
+    three audit events linked by hash, with one "broken" event high-
+    lighted to demonstrate what verification catches."""
+    s = add(prs)
+    slide_chrome(s, "06 · COMPLIANCE",
+                 "Chain of custody — every action, every actor, hashed",
+                 "Senior executives")
+
+    text_box(s, Inches(0.7), Inches(1.85), W - Inches(1.4), Inches(0.5),
+             "Phase 5. Each tool call writes one audit event; each event "
+             "links to the previous via a chain hash. Tampering anywhere "
+             "in the chain breaks verification.",
+             size=14, color=TEXT_2)
+
+    # Three event blocks linked by chain hashes
+    blk_w = Inches(3.6)
+    blk_h = Inches(2.0)
+    blk_y = Inches(2.7)
+    gap = Inches(0.3)
+    start_x = Inches(0.7)
+
+    blocks = [
+        ("Event #1 — issued",
+         "actor:  eleanor.vance@firm\n"
+         "action: hold.issued\n"
+         "target: HOLD-001\n"
+         "ts:     2026-02-16T14:00Z",
+         "0000…", "a3f8d2", OK),
+        ("Event #2 — tagged",
+         "actor:  paralegal-1@firm\n"
+         "action: document.tag.added\n"
+         "target: DOC-7891234\n"
+         "ts:     2026-04-21T09:14Z",
+         "a3f8d2", "b7e1f4", OK),
+        ("Event #3 — exported",
+         "actor:  associate-2@firm\n"
+         "action: production.delivered\n"
+         "target: PROD-A1B2\n"
+         "ts:     2026-04-30T16:55Z",
+         "b7e1f4", "c2d5a1", OK),
+    ]
+    for i, (title, body, prev, this_h, color) in enumerate(blocks):
+        x = start_x + i * (blk_w + gap)
+        rounded(s, x, blk_y, blk_w, blk_h, SURFACE, line=BORDER, radius=0.04)
+        rect(s, x, blk_y, blk_w, Inches(0.05), color)
+        text_box(s, x + Inches(0.2), blk_y + Inches(0.15),
+                 blk_w - Inches(0.4), Inches(0.32),
+                 title, size=12, bold=True, color=color)
+        text_box(s, x + Inches(0.2), blk_y + Inches(0.55),
+                 blk_w - Inches(0.4), Inches(0.95),
+                 body, size=10, color=TEXT_2, font="Menlo")
+        # Hash row at bottom
+        rect(s, x + Inches(0.2), blk_y + blk_h - Inches(0.45),
+             blk_w - Inches(0.4), Inches(0.012), DIVIDER)
+        text_box(s, x + Inches(0.2), blk_y + blk_h - Inches(0.4),
+                 Inches(1.4), Inches(0.3),
+                 f"prev: {prev}", size=8, color=MUTED, font="Menlo")
+        text_box(s, x + blk_w - Inches(1.6), blk_y + blk_h - Inches(0.4),
+                 Inches(1.4), Inches(0.3),
+                 f"chain: {this_h}", size=8, color=color, font="Menlo", bold=True)
+        # Arrow to next block
+        if i < 2:
+            arrow(s, x + blk_w, blk_y + blk_h / 2,
+                  x + blk_w + gap, blk_y + blk_h / 2,
+                  color=ACCENT, weight=2)
+
+    # Verification badge below
+    badge_y = Inches(5.0)
+    rounded(s, Inches(0.7), badge_y, W - Inches(1.4), Inches(0.85),
+            ACCENT_TINT, line=BORDER, radius=0.04)
+    rect(s, Inches(0.7), badge_y, Inches(0.06), Inches(0.85), OK)
+    text_box(s, Inches(0.95), badge_y + Inches(0.13),
+             W - Inches(1.7), Inches(0.32),
+             "✓  CHAIN VERIFIED — 3 of 3 hashes recompute · head c2d5a1",
+             size=14, bold=True, color=OK)
+    text_box(s, Inches(0.95), badge_y + Inches(0.45),
+             W - Inches(1.7), Inches(0.32),
+             "If any event were edited or deleted, the next event's `prev` link would fail to recompute "
+             "and the integrity badge on the Audit Trail page would flip to broken.",
+             size=10, color=TEXT_2)
+
+    # Why exec band
+    why_y = Inches(6.1)
+    text_box(s, Inches(0.7), why_y, Inches(2.5), Inches(0.32),
+             "WHY THIS MATTERS", size=10, bold=True, color=ACCENT)
+    rect(s, Inches(0.7), why_y + Inches(0.36), Inches(11.9),
+         Inches(0.012), BORDER)
+    text_box(s, Inches(0.7), why_y + Inches(0.5), W - Inches(1.4), Inches(0.45),
+             "Defensibility is the unit of trust opposing counsel and regulators measure. "
+             "The chain is built into every tool call — Claude Desktop and the web app both "
+             "contribute to the same chain. No second system to reconcile.",
+             size=11, color=TEXT_2)
+
+    add_speaker_notes(s,
+        "Hash function is FNV-1a in the demo (deterministic for testing); SHA-256 + HSM-backed HMAC is the prod swap.",
+        "Phase 5 ships 1 tool (generateChainOfCustodyReport), 1 widget, the chainHash field, and the integrity badge on the Audit Trail page.",
+        "The defensibility story lands here for execs — chain integrity = a deliverable for opposing counsel.")
+    return s
+
+
+def slide_mcp_reach(prs):
+    """Phase 6 story — MCP reach into analyst workstations.
+    Diagram: same ToolDef literals → web app + Claude Desktop, with a
+    single audit log under both surfaces."""
+    s = add(prs)
+    slide_chrome(s, "07 · MCP REACH",
+                 "One toolset. Three surfaces. One audit log.",
+                 "Architects")
+
+    text_box(s, Inches(0.7), Inches(1.85), W - Inches(1.4), Inches(0.5),
+             "Phase 6. Paralegals run privilege review from Claude Desktop / Cursor / "
+             "Zed without opening the web app — same handlers, same audit chain (Phase 5).",
+             size=14, color=TEXT_2)
+
+    # Center: the shared ToolDef
+    cx, cy = W / 2, Inches(4.4)
+    th, tw = Inches(1.1), Inches(3.4)
+    rounded(s, cx - tw / 2, cy - th / 2, tw, th, BRAND, radius=0.06)
+    text_box(s, cx - tw / 2, cy - th / 2, tw, Inches(0.35),
+             "SHARED", size=10, bold=True, color=BRAND_TINT,
+             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+    text_box(s, cx - tw / 2, cy - th / 2 + Inches(0.3), tw, Inches(0.5),
+             "ToolDef[]",
+             size=22, bold=True, color=SURFACE,
+             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE, font="Menlo")
+    text_box(s, cx - tw / 2, cy - th / 2 + Inches(0.75), tw, Inches(0.3),
+             "5 review tools · framework-agnostic literals",
+             size=10, color=BRAND_TINT,
+             align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.MIDDLE)
+
+    # Top three surfaces
+    surf_y = Inches(2.65)
+    surfaces = [
+        ("Web app", "<mvk-chat-shell> @ :4300\nNgComponentOutlet widgets",
+         BRAND_DEEP, Inches(0.9)),
+        ("Claude Desktop", "Stdio MCP server\ntext/html;profile=mcp-app",
+         ACCENT, cx - Inches(2.0)),
+        ("Cursor / Zed", "Same MCP server\nMCP-UI HTML cards",
+         INFO, W - Inches(4.9)),
+    ]
+    for label, desc, color, x in surfaces:
+        rounded(s, x, surf_y, Inches(4.0), Inches(1.0), SURFACE,
+                line=color, radius=0.04)
+        rect(s, x, surf_y, Inches(4.0), Inches(0.06), color)
+        text_box(s, x + Inches(0.2), surf_y + Inches(0.15),
+                 Inches(3.8), Inches(0.32),
+                 label, size=13, bold=True, color=color)
+        text_box(s, x + Inches(0.2), surf_y + Inches(0.5),
+                 Inches(3.8), Inches(0.55),
+                 desc, size=10, color=TEXT_2)
+        # Arrow down to ToolDef
+        arrow(s, x + Inches(2.0), surf_y + Inches(1.0),
+              cx + (x + Inches(2.0) - cx) * 0.15, cy - th / 2 - Inches(0.05),
+              color=color, weight=1.4)
+
+    # Bottom: shared audit chain
+    audit_y = Inches(5.4)
+    rounded(s, Inches(0.7), audit_y, W - Inches(1.4), Inches(1.1),
+            ACCENT_TINT, line=BORDER, radius=0.04)
+    rect(s, Inches(0.7), audit_y, Inches(0.06), Inches(1.1), ACCENT)
+    text_box(s, Inches(0.95), audit_y + Inches(0.15),
+             W - Inches(1.7), Inches(0.35),
+             "ONE AUDIT CHAIN — Phase 5 hash links every event regardless of surface",
+             size=12, bold=True, color=ACCENT)
+    text_box(s, Inches(0.95), audit_y + Inches(0.55),
+             W - Inches(1.7), Inches(0.5),
+             "appendAudit(...) auto-stamps chainHash + prevHash. The chain-of-custody "
+             "report covers Claude-Desktop-driven mutations and web-app-driven mutations as one.",
+             size=10, color=TEXT_2)
+    # Arrow from ToolDef DOWN to audit
+    arrow(s, cx, cy + th / 2, cx, audit_y, color=ACCENT,
+          weight=1.5, dashed=True)
+
+    # Why band
+    why_y = Inches(6.7)
+    text_box(s, Inches(0.7), why_y, Inches(11), Inches(0.32),
+             "WHERE IT MATTERS — analysts who already live in Claude Desktop don't switch contexts to do privilege review.",
+             size=11, bold=True, color=ACCENT)
+
+    add_speaker_notes(s,
+        "ToolDef literals are framework-agnostic — no Angular at MCP runtime.",
+        "Per-user attribution via env vars (MVK_USER, MVK_MATTER) is the cookbook pattern for spawning one MCP server per user.",
+        "Show this slide right after the chain-of-custody slide — the punchline lands when execs see two surfaces feeding one chain.")
+    return s
+
+
+def slide_persona_scope_policy(prs):
+    """Phase 7+8 story — persona scopes from consumer-side shim
+    (P7) → first-class library API (P8). Shows the simplification."""
+    s = add(prs)
+    slide_chrome(s, "08 · GOVERNANCE",
+                 "Persona scopes — from consumer shim to library primitive",
+                 "Architects")
+
+    text_box(s, Inches(0.7), Inches(1.85), W - Inches(1.4), Inches(0.5),
+             "Phases 7 → 8. The role allow-list moved from chat-shell-only "
+             "filter to a registry-base policy that filters every read.",
+             size=14, color=TEXT_2)
+
+    # Two-column: Phase 7 vs Phase 8
+    col_w = (W - Inches(1.4) - Inches(0.4)) / 2
+
+    # Phase 7
+    p7_x = Inches(0.7)
+    p7_y = Inches(2.55)
+    rounded(s, p7_x, p7_y, col_w, Inches(3.4), SURFACE, line=BORDER, radius=0.04)
+    rect(s, p7_x, p7_y, col_w, Inches(0.06), MUTED)
+    text_box(s, p7_x + Inches(0.2), p7_y + Inches(0.18),
+             col_w - Inches(0.4), Inches(0.32),
+             "PHASE 7 · CONSUMER-SIDE SHIM", size=11, bold=True, color=MUTED)
+    text_box(s, p7_x + Inches(0.2), p7_y + Inches(0.55),
+             col_w - Inches(0.4), Inches(0.4),
+             "TOOL_FILTER + useFactory composition",
+             size=12, bold=True, color=TEXT)
+    code_block(s, p7_x + Inches(0.2), p7_y + Inches(1.0),
+               col_w - Inches(0.4), Inches(2.2), [
+        "{ provide: TOOL_FILTER,",
+        "  useFactory: () =>",
+        "    personaToolFilter(",
+        "      inject(PersonaService),",
+        "      keywordToolFilter({",
+        "        maxTools: 12,",
+        "        floor: 5,",
+        "      }),",
+        "    ),",
+        "}",
+    ])
+
+    # Phase 8
+    p8_x = p7_x + col_w + Inches(0.4)
+    rounded(s, p8_x, p7_y, col_w, Inches(3.4), SURFACE, line=BORDER, radius=0.04)
+    rect(s, p8_x, p7_y, col_w, Inches(0.06), OK)
+    text_box(s, p8_x + Inches(0.2), p7_y + Inches(0.18),
+             col_w - Inches(0.4), Inches(0.32),
+             "PHASE 8 · LIBRARY API", size=11, bold=True, color=OK)
+    text_box(s, p8_x + Inches(0.2), p7_y + Inches(0.55),
+             col_w - Inches(0.4), Inches(0.4),
+             "RegistryBase.setScopePolicy",
+             size=12, bold=True, color=TEXT)
+    code_block(s, p8_x + Inches(0.2), p7_y + Inches(1.0),
+               col_w - Inches(0.4), Inches(2.2), [
+        "// app.config.ts",
+        "provideAppInitializer(() => {",
+        "  const persona = inject(PersonaService);",
+        "  inject(ToolRegistry).setScopePolicy(",
+        "    (entry) =>",
+        "      persona.canInvoke(",
+        "        persona.active(),",
+        "        entry.name,",
+        "      ),",
+        "  );",
+        "});",
+    ])
+
+    # Bottom row: stat cards
+    sc_y = Inches(6.15)
+    sc_w = (W - Inches(1.4) - Inches(0.6)) / 4
+    stats = [
+        ("13", "registries gain scope filtering", BRAND),
+        ("~30", "lines of consumer code deleted", OK),
+        ("1", "policy installs once at boot", BRAND),
+        ("✓", "every reader sees the same view", ACCENT),
+    ]
+    for i, (val, cap, col) in enumerate(stats):
+        sx = Inches(0.7) + i * (sc_w + Inches(0.2))
+        stat_card(s, sx, sc_y, sc_w, Inches(1.05), val, cap, color=col)
+
+    add_speaker_notes(s,
+        "Phase 7 shipped a chat-shell-only filter. Phase 8 lifts it to RegistryBase so 13 registries share the seam.",
+        "The diff was about -30 LOC in the consumer for a one-line setScopePolicy call.",
+        "ADR-008 documents the trade-offs: filter on read (not register) so federated remotes stay portable.")
+    return s
+
+
+def slide_compliance_summary(prs):
+    """v5 — single-pane summary of Phases 5+6+7+8 for execs who skip the diagrams."""
+    s = add(prs)
+    slide_chrome(s, "09 · ENTERPRISE READINESS",
+                 "Four phases, four governance primitives",
+                 "Senior executives")
+
+    text_box(s, Inches(0.7), Inches(1.85), W - Inches(1.4), Inches(0.4),
+             "Each row pairs a regulated-domain need with the library primitive that addresses it — already shipped.",
+             size=12, color=TEXT_2)
+
+    rows = [
+        ("Tamper-evident audit",
+         "Chain hash on every event · live integrity verifier",
+         "Phase 5 · `appendAudit` + `verifyAuditChain`", OK),
+        ("Analyst-desktop reach",
+         "Same toolset in Claude Desktop / Cursor · same audit log",
+         "Phase 6 · `@maverick/agentic-ui-mcp`", ACCENT),
+        ("Persona-scoped tool surface",
+         "Hide tools the role can't invoke before the LLM ever sees them",
+         "Phase 7 · consumer-side filter, then…", BRAND),
+        ("Registry-wide scope policy",
+         "13 registries (Tool / Action / Form / DataSource / …) share one filter",
+         "Phase 8 · `RegistryBase.setScopePolicy(policy)`", BRAND_DEEP),
+    ]
+
+    rh = Inches(0.95)
+    y = Inches(2.55)
+    for need, what, ref, color in rows:
+        rounded(s, Inches(0.7), y, W - Inches(1.4), rh - Inches(0.08),
+                SURFACE, line=BORDER, radius=0.04)
+        rect(s, Inches(0.7), y, Inches(0.06), rh - Inches(0.08), color)
+        text_box(s, Inches(0.95), y + Inches(0.13),
+                 Inches(3.8), Inches(0.4),
+                 need, size=14, bold=True, color=color)
+        text_box(s, Inches(0.95), y + Inches(0.5),
+                 Inches(3.8), Inches(0.32),
+                 ref, size=9, color=MUTED, font="Menlo")
+        text_box(s, Inches(4.9), y + Inches(0.27),
+                 W - Inches(5.6), Inches(0.5),
+                 what, size=12, color=TEXT_2)
+        y += rh
+
+    add_speaker_notes(s,
+        "Closing the compliance section — read top-to-bottom, each row stands on its own.",
+        "Use this slide if you're tight on time and skipping the chain-of-custody / MCP / scope-policy graphics.")
+    return s
+
+
 # ── Compose ─────────────────────────────────────────────────────────────────
 
 def main():
@@ -2246,6 +2607,11 @@ def main():
         (slide_run_sequence_step2,          "6 · Examples",           False),
         (slide_run_sequence_step3,          "6 · Examples",           False),
         (slide_run_sequence_step4,          "6 · Examples",           False),
+        # Section 6b — compliance + governance (NEW v5, Phases 5-8)
+        (slide_chain_of_custody,            "6 · Compliance",         False),  # NEW v5 P5
+        (slide_mcp_reach,                   "7 · MCP reach",          False),  # NEW v5 P6
+        (slide_persona_scope_policy,        "8 · Governance",         False),  # NEW v5 P7+8
+        (slide_compliance_summary,          "9 · Enterprise readiness", False),  # NEW v5 wrap-up
         # Section 7 — decisions
         (slide_when_to_use_what,            "7 · Decisions",          False),
         # Section 8 — benefits
