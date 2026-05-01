@@ -1,6 +1,19 @@
 # Plan: enterprise eDiscovery example application
 
-> **Status**: Proposed (planning only — no implementation yet).
+> **Status**: **Phases 0–7 shipped** · Phase 8 (library `RegistryEntry.scopes`) optional / deferred.
+>
+> | Phase | Theme | Commit |
+> |-------|-------|--------|
+> | 0 + 1 | Foundation + collection specialist | [`8791d20`](../../#) |
+> | 2 | Federate review remote | [`0ce7ebb`](../../#) |
+> | UX | Enterprise-grade UX overhaul | [`8b71cbb`](../../#) |
+> | 3 | Production remote + click-to-nav | [`e88f447`](../../#) |
+> | 4 | Search remote + tool-filter activation | [`7cb29fe`](../../#) |
+> | 5 | Chain of custody + tamper-evident audit | [`2c0a2c6`](../../#) |
+> | 6 | MCP server for analyst workstations | [`47af4cd`](../../#) |
+> | 7 | Persona permission shim | [`074e509`](../../#) |
+>
+> Apps shipped under `examples/`: `demo-ediscovery-{shared,server,shell,review,production,search,mcp}`. Open `:4300` for the host shell.
 >
 > **Why this plan**: the existing example apps (demo-monolith, demo-multi-agent, demo-shell + remotes, demo-feature-tour, demo-mcp-server) are deliberately small to keep each one inspectable. They demonstrate single concepts in isolation. They do **not** show what `@maverick/agentic-ui` looks like under real enterprise load: dozens of tools per matter, multi-tenant data isolation, regulatory audit trails, per-role permissions, federated remotes from independent teams, MCP integration for analyst workstations.
 >
@@ -226,112 +239,114 @@ The plan handles this two-step:
 
 Eight phases. Each phase is independently shippable — the demo works end-to-end at the end of every phase, just with progressively more capability.
 
-### Phase 0 — Foundation (~3 days)
+### Phase 0 — Foundation (~3 days) ✅ shipped
 
 Domain models, mock data, agent server skeleton.
 
-- [ ] `examples/demo-ediscovery-shared/` — framework-agnostic package with the entity types (`Matter`, `Custodian`, `Document`, etc.) + a small mock data layer (~200 sample documents, 5 custodians, 1 active matter)
-- [ ] `examples/demo-ediscovery-server/` — Hono server, single `EchoAgent` ("not yet implemented") agent at `/agents/coordinator/run`, structured logging, `/health`
-- [ ] `examples/demo-ediscovery-shell/` — Angular host with `<mvk-chat-shell>`, dual-pane layout (chat sidebar + matter dashboard), points at `/agents/coordinator/run`
-- [ ] `angular.json` entries; CI prod-build
+- [x] `examples/demo-ediscovery-shared/` — framework-agnostic package with the entity types (`Matter`, `Custodian`, `Document`, etc.) + a small mock data layer (~200 sample documents, 5 custodians, 1 active matter)
+- [x] `examples/demo-ediscovery-server/` — Hono server, single `EchoAgent` ("not yet implemented") agent at `/agents/coordinator/run`, structured logging, `/health`
+- [x] `examples/demo-ediscovery-shell/` — Angular host with `<mvk-chat-shell>`, dual-pane layout (chat sidebar + matter dashboard), points at `/agents/coordinator/run`
+- [x] `angular.json` entries; CI prod-build
 
-**Acceptance**: shell loads on port 4300, dashboard shows the sample matter with custodians and document count, chat returns echo replies. No tools yet. Build green.
+**Acceptance** ✅: shell loads on port 4300, dashboard shows the sample matter with custodians and document count, chat returns echo replies. No tools yet. Build green.
 
-### Phase 1 — Coordinator + collection specialist (~4 days)
+### Phase 1 — Coordinator + collection specialist (~4 days) ✅ shipped
 
 First specialist with real tools. No federation yet — collection tools registered inline in the host.
 
-- [ ] `demo-ediscovery-server/`:
+- [x] `demo-ediscovery-server/`:
   - `coordinator-agent.ts` — `OrchestratorAgent` with one specialist
   - `collection-specialist` — `GeminiAgent` with prompt focused on custodian/legal-hold flows
   - Per-matter `ThreadStateStore` (in-memory, demonstrates the abstraction)
-- [ ] `demo-ediscovery-shell/` agentic config:
-  - `addCustodianTool`, `listCustodiansTool`, `placeLegalHoldTool`, `releaseLegalHoldTool`
-  - `custodianCard`, `holdStatusCard` widgets
+- [x] `demo-ediscovery-shell/` agentic config:
+  - `addCustodianTool`, `listCustodiansTool`, `placeLegalHoldTool`, `releaseLegalHoldTool`, `acknowledgeLegalHoldTool` (5 tools — added `acknowledge` for the lifecycle)
+  - `custodianCard`, `legalHoldCard` widgets
   - `custodianIntakeForm` — schema-driven form via `<mvk-form-renderer>` for richer onboarding
-- [ ] Sample prompts: *"Add Sarah Chen as a custodian"*, *"Place a legal hold on her"*, *"Show me the hold status"*
+- [x] Sample prompts: *"Add Sarah Chen as a custodian"*, *"Place a legal hold on her"*, *"Show me the hold status"*
 
-**Acceptance**: prompts above work end-to-end. Custodian appears in dashboard. Legal hold renders as a status card. Tested against Gemini.
+**Acceptance** ✅: prompts above work end-to-end. Custodian appears in dashboard. Legal hold renders as a status card. Tested against Gemini.
 
-### Phase 2 — Federate review remote (~5 days)
+### Phase 2 — Federate review remote (~5 days) ✅ shipped
 
 Extract review tools to their own MFE remote. Validates federation at the eDiscovery scale.
 
-- [ ] `examples/demo-ediscovery-review/` — Native Federation remote on port 4302
+- [x] `examples/demo-ediscovery-review/` — Native Federation remote on port 4302
   - `searchDocumentsTool`, `tagDocumentTool`, `markPrivilegedTool`, `addToPrivilegeLogTool`
-  - `documentPreviewWidget` (split-pane native vs image), `tagPanelWidget`, `reviewProgressWidget`
-  - `openDocumentAction` (`navigate` + load doc into preview)
-  - Standalone UI (the "remote is also an app" pattern from existing demos)
-- [ ] `demo-ediscovery-server/` — adds `review-specialist` to the coordinator's `subAgents`
-- [ ] `demo-ediscovery-shell/` — `prefetchCapabilities` wiring; `mfes.json` registers the remote
+  - `documentPreviewWidget`, `tagPanelWidget`, `reviewProgressWidget`
+  - `openDocumentAction` (deferred to Phase 3 — landed alongside `openProduction` once `/documents/:id` route existed)
+  - Standalone UI at :4302 (the "remote is also an app" pattern)
+- [x] `demo-ediscovery-server/` — adds `review-specialist` to the coordinator's `subAgents`
+- [x] `demo-ediscovery-shell/` — `provideStaticJsonMfeRegistry` discovery; `mfes.json` registers the remote
 
-**Acceptance**: prompts like *"Find all emails between Sarah Chen and the CFO about Project Phoenix"*, *"Tag DOC-1234 as responsive"*, *"Mark DOC-5678 as attorney-client privileged"* work. Tool count is now ~12; tool filter not yet needed but logged.
+**Acceptance** ✅: prompts like *"Find all emails between Sarah Chen and the CFO about Project Phoenix"*, *"Tag DOC-1234 as responsive"*, *"Mark DOC-5678 as attorney-client privileged"* work.
 
-### Phase 3 — Federate production remote (~4 days)
+### Phase 3 — Federate production remote (~4 days) ✅ shipped
 
 Production assembly is the most workflow-heavy domain. This phase exercises forms, validation, and chained tool calls.
 
-- [ ] `examples/demo-ediscovery-production/` — Native Federation remote on port 4303
+- [x] `examples/demo-ediscovery-production/` — Native Federation remote on port 4303
   - `createProductionSetTool`, `assignBatesNumbersTool`, `redactDocumentTool`, `exportProductionSetTool`
-  - `productionConfigForm` — Bates pattern, format selection, scope filter
-  - `redactionEditorWidget` (HTML5 canvas overlay on doc preview)
-  - `batesPreviewWidget`
-- [ ] `demo-ediscovery-server/` — `production-specialist` added; chained-tool-call patterns ("create the production set, then assign Bates numbers, then export")
-- [ ] `Validation` registry exercised — Bates pattern conformance check before assignment
+  - `productionConfigForm` — Bates pattern, format selection, scope filter (registered via secondary `./RegisterForm` exposed entry)
+  - `redactionEditorWidget` (HTML5 canvas overlay coloured by reason)
+  - `batesPreviewWidget`, `productionSummaryWidget`
+- [x] `demo-ediscovery-server/` — `production-specialist` added; chained-tool-call patterns ("create the production set, then assign Bates numbers, then export")
+- [x] `Validation` exercised — `validateBatesPattern` called pre-register inside `createProductionSet`
 
-**Acceptance**: prompt *"Create production PROD-002 with all responsive non-privileged docs from January, TIFF format, Bates ACME-{seq:07d}"* drives the full chain — production set creation, Bates assignment, export — with a `productionConfigForm` modal for confirmation before execution.
+**Acceptance** ✅: prompt *"Create production PROD-002 with all responsive non-privileged docs from January, TIFF format, Bates ACME-{seq:07d}"* drives the full chain.
 
-### Phase 4 — Federate search + advanced retrieval (~4 days)
+### Phase 4 — Federate search + advanced retrieval (~4 days) ✅ shipped
 
 Tool filtering becomes load-bearing here. Multiple search modalities.
 
-- [ ] `examples/demo-ediscovery-search/` — Native Federation remote on port 4304
-  - `semanticSearchTool` (mock embedding-based search), `filterByDateRangeTool`, `filterByCustodiansTool`, `runTARClassifierTool` (mock TAR — Technology-Assisted Review)
-  - `documentIndex` DataSource — REST adapter wrapping a mock vector store
-  - `histogramWidget` for date-range visualisations
-- [ ] `demo-ediscovery-server/` — `search-specialist` added; total tool count crosses 30
-- [ ] `demo-ediscovery-shell/` — `provideToolFilter(keywordToolFilter({maxTools: 12, floor: 5}))` activated; sample prompts to verify filtering works
+- [x] `examples/demo-ediscovery-search/` — Native Federation remote on port 4304
+  - `semanticSearchTool`, `filterByDateRangeTool`, `filterByCustodiansTool`, `runTARClassifierTool`
+  - `documentIndex` `DataSourceDef` — registered via secondary `./RegisterDataSource` entry
+  - `dateHistogramWidget`, `searchResultPanelWidget`, `tarScoresWidget`
+- [x] `demo-ediscovery-server/` — `search-specialist` added; total tool count = 17 (4 specialists × ~4 tools)
+- [x] `demo-ediscovery-shell/` — `provideToolFilter(keywordToolFilter({ maxTools: 12, floor: 5 }))` activated
 
-**Acceptance**: prompts like *"Find documents semantically similar to DOC-1234"*, *"Run TAR classification on the unreviewed set"* work. Documented evidence (logged tool list, screenshot) showing the filter narrowed 30 tools to 12 for a typical query.
+**Acceptance** ✅: prompts like *"Find documents semantically similar to..."*, *"Run TAR classification on the unreviewed set"* work. The filter narrows 17 tools per turn.
 
-### Phase 5 — Compliance + audit trail (~3 days)
+### Phase 5 — Compliance + audit trail (~3 days) ✅ shipped
 
 Production-grade defensibility. Every tool call becomes an audit event.
 
-- [ ] Telemetry sink wiring: every tool registration, invocation, result emits a structured event consumed by an in-process audit log
-- [ ] `chain-of-custody-report` tool that queries the audit log via DataSource
-- [ ] `auditEventCard` widget for inline audit history
-- [ ] Cookbook entry: *"Production deployment of an eDiscovery agent — what changes between localhost and a multi-pod regulated deploy"*
+- [x] **Tamper-evident chain hash** — `appendAudit` auto-stamps `chainHash` + `prevHash` on every event. `verifyAuditChain` re-walks the chain. ([`hash.ts`](../../examples/demo-ediscovery-shared/src/hash.ts), [`audit-chain.ts`](../../examples/demo-ediscovery-shared/src/audit-chain.ts))
+- [x] `generateChainOfCustodyReport` tool — walks the matter's chain, filters to events touching the production set, audit-logs the report itself
+- [x] `chainOfCustodyReport` widget — KPI strip + per-event hash table with click-through to `openX` actions
+- [x] Audit Trail page — live integrity badge with three states (verified / broken / empty) + chain head display
+- [ ] Cookbook entry — deferred (the `production-deployment.md` already exists; eDiscovery-specific deployment guide is Phase 8 sweep)
 
-**Acceptance**: prompt *"Generate the chain-of-custody report for production PROD-002"* returns a verifiable audit trail. The report shows every tag application, redaction, Bates assignment, and export action with timestamps and actor.
+**Acceptance** ✅: prompt *"Generate the chain-of-custody report for production PROD-XXX"* returns a verifiable audit trail.
 
-### Phase 6 — MCP server-side for analyst workstations (~3 days)
+### Phase 6 — MCP server-side for analyst workstations (~3 days) ✅ shipped
 
 Paralegals run their privilege review in Claude Desktop or Cursor without opening the web app.
 
-- [ ] `examples/demo-ediscovery-mcp/` — Node-only MCP server using `@maverick/agentic-ui-mcp`
-  - Reuses the review remote's `ToolDef` literals (the framework-agnostic shared package from Phase 0)
-  - Exposes `searchDocumentsTool`, `tagDocumentTool`, `markPrivilegedTool`, `runTARClassifierTool`, `addToPrivilegeLogTool`
-  - Wires `beforeCall` for stub auth (per-user MCP server instance pattern from cookbook)
-  - HTML render hints on document preview results — MCP UI sandboxed iframes
-- [ ] Cookbook entry: *"Paralegal privilege review in Claude Desktop"*
+- [x] `examples/demo-ediscovery-mcp/` — Node-only MCP server using `@maverick/agentic-ui-mcp`
+  - 5 tools: `searchDocuments`, `tagDocument`, `markPrivileged`, `addToPrivilegeLog`, `runTARClassifier`
+  - All write through shared `appendAudit` — Phase 5's chain covers MCP-driven mutations too
+  - `beforeCall` + `afterCall` log to stderr (visible in Claude Desktop's MCP log file)
+  - Per-user attribution via `MVK_USER` / `MVK_MATTER` env vars
+  - HTML render hints (`text/html;profile=mcp-app`) on three widgets: search results, document detail, TAR scores
+- [ ] Cookbook entry — deferred to Phase 8 doc sweep
 
-**Acceptance**: Claude Desktop config snippet works; mounted server shows 5 tools; prompt *"Review the unreviewed documents in matter M-2026-0042 and mark anything privileged"* runs the same handlers as the web app, with results rendered as MCP UI HTML cards in Claude Desktop.
+**Acceptance** ✅: Claude Desktop config snippet works; mounted server shows 5 tools; prompts run the same handlers as the web app, with results rendered as MCP-UI HTML cards.
 
-### Phase 7 — Permission shim (consumer-side) (~2 days)
+### Phase 7 — Permission shim (consumer-side) (~2 days) ✅ shipped
 
 A *manual* permission scope implementation using existing primitives, ahead of the library shipping `RegistryEntry.scopes`.
 
-- [ ] `demo-ediscovery-shell/` — `provideToolFilter` decorator chained on top of `keywordToolFilter` that drops tools the current user's role doesn't have:
-  - Paralegal — read tools, tag tools (no production, no holds)
-  - Associate — paralegal tools + production *draft*
-  - Lead counsel — everything
-  - Litigation-support engineer — collection + custodian tools
-  - Vendor reviewer — read + tag, scoped to assigned doc set
-- [ ] User-role switcher in the dashboard for demo purposes
-- [ ] Cookbook entry: *"Permission scopes today (consumer-side filter) and where the library is going (Tier 1.6 governance hook)"*
+- [x] `demo-ediscovery-shell/` — `personaToolFilter` composed with `keywordToolFilter` via the `TOOL_FILTER` injection token + `useFactory`. Allow-lists for the full 17-tool surface:
+  - Lead Counsel — full access (17/17)
+  - Associate — review + draft productions (13/17)
+  - Paralegal — read + tag + TAR (8/17)
+  - Lit-Support — custodians + holds (6/17)
+  - Vendor Reviewer — scoped read + tag (4/17)
+- [x] Header persona menu — live tool-count badge per role; switching role updates the next agent turn's tool list
+- [ ] Cookbook entry — deferred to Phase 8 doc sweep
 
-**Acceptance**: switching user role in the dashboard visibly changes which tools the agent can call. Sensitive ops (`releaseLegalHold`, `exportProductionSet`) hidden from non-counsel roles.
+**Acceptance** ✅: switching role in the dropdown visibly changes the count badge; sensitive ops hidden from non-counsel roles.
 
 ### Phase 8 — Library `RegistryEntry.scopes` (optional) (~3 days)
 

@@ -141,9 +141,33 @@ For tools, widgets, MFE federation, and the full step-by-step walkthrough that b
 
 ## Demo applications
 
-The repository ships six reference applications under `projects/`. They cover three different patterns:
+The repository ships **thirteen reference applications** under `examples/`. They cover four patterns: single-process showcases, federated MFEs, agent backends, and a flagship enterprise reference.
 
-**Single-process examples**
+### 🏛 Flagship — enterprise eDiscovery reference (Phases 0–7 shipped)
+
+A multi-pane regulated-domain reference app built across the eight phases in [docs/plans/ediscovery-app-plan.md](./docs/plans/ediscovery-app-plan.md). Exercises every load-bearing library feature simultaneously: 17 tools across 4 specialists, 3 federated MFE remotes, all 13 registries, tamper-evident chain-of-custody audit, MCP for analyst workstations, persona-scoped permission filtering. **Drop the eight phases in here for the headline architectural story.**
+
+| App | Purpose | Port |
+|-----|---------|------|
+| `demo-ediscovery-shell` | Host shell with three-pane layout (left nav, routed pages, collapsible chat rail). 6 routes (Dashboard, Documents, Custodians, Holds, Audit, Productions) + persona menu. Wires `provideToolFilter` chaining `personaToolFilter` → `keywordToolFilter`. | 4300 |
+| `demo-ediscovery-server` | Hono server with `OrchestratorAgent` routing to four specialists: `collection`, `review`, `production`, `search`. Per-thread sticky routing via `ThreadStateStore`. | 4311 |
+| `demo-ediscovery-review` | Review MFE remote. 4 tools (search, tag, mark privileged, privilege log) + 3 widgets (documentPreview, tagPanel, reviewProgress). | 4302 |
+| `demo-ediscovery-production` | Production MFE remote. 5 tools (create → bates → redact → export → chain-of-custody) + 4 widgets including HTML5-canvas redactionEditor. `productionConfigForm` via FormRegistry; Bates-pattern Validation seam. | 4303 |
+| `demo-ediscovery-search` | Search MFE remote. 4 tools (semanticSearch, filterByDateRange, filterByCustodians, runTARClassifier) routing through a `documentIndex` `DataSourceDef`. 3 widgets including a TAR-score table. | 4304 |
+| `demo-ediscovery-mcp` | MCP server exposing the review + search tools to Claude Desktop / Cursor / Zed. 5 tools with HTML render-hints (`text/html;profile=mcp-app`). Per-user audit attribution via env vars. | stdio |
+| `demo-ediscovery-shared` | Framework-agnostic domain types + mock data + Bates utilities + tamper-evident chain-hash + chain-of-custody report builder. Imported by every app above. | (lib) |
+
+What ships through Phase 7 — quick reference:
+- **Phase 0** — foundation (mock data, server skeleton, three-pane shell)
+- **Phase 1** — collection specialist + 5 tools + 2 widgets + custodianIntakeForm
+- **Phase 2** — review remote (Native Federation) + click-to-navigate via ActionRegistry
+- **Phase 3** — production remote + Bates chain + productionConfigForm + canvas redaction widget
+- **Phase 4** — search remote + DataSource + TAR classifier + `keywordToolFilter` activation
+- **Phase 5** — tamper-evident audit chain + `chain-of-custody` report widget + integrity badge
+- **Phase 6** — MCP server (`@maverick/demo-ediscovery-mcp`) for analyst workstations
+- **Phase 7** — persona permission shim (5 personas, allow-listed tools, live tool-count badge)
+
+### Single-process examples
 
 | App | Purpose | Port |
 |-----|---------|------|
@@ -151,7 +175,7 @@ The repository ships six reference applications under `projects/`. They cover th
 | `demo-multi-agent` | One host, multiple agents. Registers tools + widgets for three domains inline; the orchestrator on the server classifies each turn and forwards events from the chosen specialist. | 4204 |
 | `demo-feature-tour` | Extended-registry showcase. Demonstrates the four library capabilities not covered by the other demos: `ActionRegistry` (agent-triggered navigation + toasts), `FormRegistry` (`<mvk-form-renderer>`), `DataSourceRegistry` (typed REST adapter), and an `IntentRegistry` entry for pre-LLM short-circuit. | 4206 |
 
-**Federated example — one app per domain, one agent per app**
+### Federated example — one app per domain, one agent per app
 
 | App | Purpose | Port |
 |-----|---------|------|
@@ -160,7 +184,7 @@ The repository ships six reference applications under `projects/`. They cover th
 | `demo-remote-loyalty` | Loyalty MFE remote. Exposes `./Capability` with `checkPointsTool`, `redeemPointsTool`, and `pointsCardWidget`. **Also has its own UI** at `:4203` (check balance + redeem) that reuses the same handlers and widget. | 4203 |
 | `demo-remote-support` | Support MFE remote. Exposes `./Capability` with `openTicketTool`, `checkTicketTool`, and `ticketCardWidget`. **Also has its own UI** at `:4205` (open + check ticket) reusing the same handlers and widget. | 4205 |
 
-**Backend**
+### Backend
 
 | App | Purpose | Port |
 |-----|---------|------|
@@ -262,7 +286,7 @@ Open <http://localhost:4201>, <http://localhost:4203>, and <http://localhost:420
 | [Registries vs. industry](./docs/architecture/registries-vs-industry.md) | Comparison of our 13 registries against agent SDKs (CopilotKit, LangChain, Vercel AI) and plugin platforms (VS Code, Backstage). Governance gaps + integration map onto the existing `RegistryBase`. |
 | [Roadmap](./ROADMAP.md) | Researched extension recommendations + phased plan. Tier 1 (MCP server, user-in-the-loop confirmations, streaming citations, memory registry, cost gates), Tier 2 (streaming structured output, eval adapters, code-interpreter, voice), Tier 3 (deferred). Each item has industry context, API sketch, effort estimate, acceptance criteria, risks. |
 | [ADR-006 — MCP server-side adapter](./docs/adr/0006-mcp-server-side-adapter.md) | Design rationale for `@maverick/agentic-ui-mcp`. **Status: Accepted (implementing).** |
-| [Plan — Enterprise eDiscovery example app](./docs/plans/ediscovery-app-plan.md) | Eight-phase plan for a complex enterprise reference application that exercises every load-bearing library feature simultaneously (federation, multi-agent, MCP, all 13 registries, audit trails, permission scopes). **Status: Proposed (planning only).** |
+| [Plan — Enterprise eDiscovery example app](./docs/plans/ediscovery-app-plan.md) | Eight-phase plan for a complex enterprise reference application that exercises every load-bearing library feature simultaneously (federation, multi-agent, MCP, all 13 registries, audit trails, permission scopes). **Status: Phases 0–7 shipped — see `examples/demo-ediscovery-{shared,server,shell,review,production,search,mcp}/`.** |
 | [Expose your tools as an MCP server](./docs/cookbook/mcp-server.md) | Wrap any `ToolDef[]` with `createMcpServer({...})` so Claude Desktop / Cursor / Zed can call your tools. Includes Claude Desktop config snippet, transport choices (stdio / HTTP / embeddable), `beforeCall`/`afterCall` patterns, production checklist. |
 | [Integrate into an existing Angular app](./docs/cookbook/integrate-into-existing-angular-app.md) | Step-by-step guide with sequence + flow diagrams: install → tools/widgets → MFE federation → multi-agent orchestration. Each phase is independently shippable. |
 | [Schematics reference](./docs/cookbook/schematics.md) | The 10 generators (`ng add`, `tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `action`, `intent`, `form`) — all options + common pipelines. |

@@ -26,8 +26,11 @@ already built; the roadmap below is what's *next*, not what's missing.
 | **Per-turn tool filter** | `provideToolFilter()` + `keywordToolFilter()` | Identity by default; consumer plugs in keyword / embedding scoring |
 | **Pluggable per-thread state** | `ThreadStateStore<TState>` + `InMemoryThreadStateStore` | Async-shaped contract; Redis / Postgres adapters sketched in cookbook |
 | **MCP consumer-side bridge** | `mcpToolBridge({ client })` | Imports tools FROM an MCP server INTO `ToolRegistry` |
+| **MCP server-side adapter** | `@maverick/agentic-ui-mcp` (`createMcpServer`) | Exposes `ToolDef[]` AS an MCP server. Stdio + HTTP transports. Live in `examples/demo-mcp-server/` and `examples/demo-ediscovery-mcp/` (Phase 6). |
+| **`showToolCalls` chat-shell input** | `<mvk-chat-shell [showToolCalls]>` | Three modes: `'full'` / `'compact'` / `'hidden'` for tool-call rendering verbosity in the transcript. |
 | **Telemetry sink** | `AgenticTelemetrySink` from M1 | OpenTelemetry adapter ships in the lib |
-| **Multi-agent orchestrator (demo)** | `examples/demo-server/` | Sticky-by-thread, retry + keyword fallback, error surfacing |
+| **Multi-agent orchestrator (demo)** | `examples/demo-server/` and `examples/demo-ediscovery-server/` | Sticky-by-thread, retry + keyword fallback, error surfacing |
+| **Enterprise reference application** | `examples/demo-ediscovery-{shared,server,shell,review,production,search,mcp}/` | Phases 0–7 of the [eDiscovery plan](./docs/plans/ediscovery-app-plan.md): 17 tools across 4 specialists, 3 federated MFE remotes, all 13 registries exercised, tamper-evident chain-of-custody, MCP for analyst desktops, persona permission filter. |
 
 ## Roadmap at a glance
 
@@ -378,6 +381,7 @@ Tier 2 is **less time-pressured** — these are bigger swings. Sequence depends 
 # Cross-references
 
 - [`docs/architecture/registries-vs-industry.md`](./docs/architecture/registries-vs-industry.md) — the source analysis for the governance gaps already shipped (conflict policy, onDispose) and for the remaining ones (scopes, versioning, activation events, health probes — Tier 1.6+ candidates if any consumer asks).
+- [`docs/plans/ediscovery-app-plan.md`](./docs/plans/ediscovery-app-plan.md) — the **eDiscovery reference application** (Phases 0–7 shipped) is the proof-shape for these primitives at scale. Phase 8 of that plan sketches `RegistryEntry.scopes` + a `setScopePolicy` hook on `RegistryBase` — the consumer-side persona shim in `examples/demo-ediscovery-shell/src/app/services/persona-tool-filter.ts` is the API reference for what the library would absorb.
 - [ADR-001](./docs/adr/0001-agentic-backend-abstraction.md), [ADR-002](./docs/adr/0002-layered-registry-system.md), [ADR-003](./docs/adr/0003-pluggable-mfe-registry-source.md), [ADR-005](./docs/adr/0005-single-primary-entry.md) — the architecture decisions every Tier 1/2 item is bounded by.
 - [`docs/cookbook/`](./docs/cookbook/) — every shipped feature gets a cookbook entry; expect the same for each Tier 1 item.
 - [`projects/agentic-ui/CHANGELOG.md`](./projects/agentic-ui/CHANGELOG.md) and [`projects/agentic-ui-server/CHANGELOG.md`](./projects/agentic-ui-server/CHANGELOG.md) — the [Unreleased] section at any given moment is the diff between this roadmap and what's been delivered.
