@@ -147,6 +147,6 @@ export class SidebarComponent {
     { path: '/custodians', label: 'Custodians', icon: 'users' },
     { path: '/holds', label: 'Legal Holds', icon: 'shield' },
     { path: '/audit', label: 'Audit Trail', icon: 'audit' },
-    { path: '/productions', label: 'Productions', icon: 'archive', disabled: true },
+    { path: '/productions', label: 'Productions', icon: 'archive' },
   ];
 }

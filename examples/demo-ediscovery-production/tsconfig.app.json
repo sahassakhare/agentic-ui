@@ -5,9 +5,7 @@
     "types": []
   },
   "include": [
-    "src/**/*.ts",
-    "../../dist/agentic-ui",
-    "../demo-ediscovery-shared/dist/index"
+    "src/**/*.ts"
   ],
   "exclude": [
     "src/**/*.spec.ts"

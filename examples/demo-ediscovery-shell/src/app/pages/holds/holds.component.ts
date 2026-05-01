@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, viewChildren, type ElementRef } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { listCustodians } from '@maverick/demo-ediscovery-shared';
 import { environment } from '../../../environments/environment';
 import { MatterStore } from '../../services/matter.store';
@@ -54,7 +56,7 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
     } @else {
       <div class="grid">
         @for (hold of holds(); track hold.id) {
-          <article class="hold" [attr.data-state]="state(hold)">
+          <article class="hold" [attr.data-state]="state(hold)" [attr.data-id]="hold.id" [class.focused]="focusedId() === hold.id" #holdCard>
             <header>
               <div class="title">
                 <code>{{ hold.id }}</code>
@@ -143,6 +145,8 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
     }
     .hold[data-state="acknowledged"] { border-left-color: var(--c-ok); }
     .hold[data-state="released"] { border-left-color: var(--c-text-faint); opacity: 0.85; }
+    .hold.focused { box-shadow: 0 0 0 2px var(--c-brand), var(--sh-2); animation: pulse 1.4s ease-out 1; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 6px rgba(79,70,229,0.18), var(--sh-2); } 100% { box-shadow: 0 0 0 2px var(--c-brand), var(--sh-2); } }
 
     .hold > header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--s-2); }
     .title { display: inline-flex; align-items: center; gap: var(--s-2); }
@@ -203,6 +207,26 @@ export class HoldsComponent {
     const set = new Set<string>();
     for (const h of this.active()) for (const id of h.custodianIds) set.add(id);
     return set.size;
+  });
+
+  /** Deep-link support — `?id=HOLD-001` highlights and scrolls to the
+      matching card. Card animation runs once on focus change. */
+  private readonly route = inject(ActivatedRoute);
+  private readonly idParam = toSignal(this.route.queryParamMap, { initialValue: null });
+  protected readonly focusedId = computed(() => this.idParam()?.get('id') ?? null);
+  private readonly holdCards = viewChildren<ElementRef<HTMLElement>>('holdCard');
+  private readonly _scrollToFocused = effect(() => {
+    const id = this.focusedId();
+    if (!id) return;
+    queueMicrotask(() => {
+      const cards = this.holdCards();
+      for (const ref of cards) {
+        if (ref.nativeElement.dataset['id'] === id) {
+          ref.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          break;
+        }
+      }
+    });
   });
 
   state(h: { acknowledgedAt?: string; releasedAt?: string }): string {

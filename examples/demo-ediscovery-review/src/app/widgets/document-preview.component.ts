@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ActionRegistry, type ActionContext } from '@maverick/agentic-ui';
 
 /**
  * Generative-UI widget rendered when a review tool returns a document.
@@ -6,12 +7,18 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
  * right column shows a content snippet preview. Production-grade
  * eDiscovery would render the full native and image renditions side
  * by side; this is the demo-equivalent surface area.
+ *
+ * Click → dispatches the host's `openDocument` action (registered in
+ * the host's `ActionRegistry`). The widget knows nothing about the
+ * host's routes — the action layer is the seam.
  */
 @Component({
   selector: 'app-document-preview',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <article class="card" [class.privileged]="isPrivileged()">
+    <article class="card" [class.privileged]="isPrivileged()"
+             role="button" tabindex="0"
+             (click)="open()" (keydown.enter)="open()" (keydown.space)="open()">
       <header>
         <span class="badge type">{{ extension() }}</span>
         <strong>{{ fileName() }}</strong>
@@ -43,8 +50,17 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
     </article>
   `,
   styles: `
-    .card { padding: 0.7rem 0.9rem; border: 1px solid #d1d5db; border-radius: 0.5rem; background: #fff; margin-top: 0.5rem; font: 0.86rem system-ui; border-left: 4px solid #6366f1; }
+    .card {
+      padding: 0.7rem 0.9rem; border: 1px solid #d1d5db;
+      border-radius: 0.5rem; background: #fff; margin-top: 0.5rem;
+      font: 0.86rem system-ui; border-left: 4px solid #6366f1;
+      cursor: pointer; transition: background 120ms ease-out, border-color 120ms ease-out, transform 120ms ease-out;
+    }
+    .card:hover { background: #f5f3ff; border-color: #c7d2fe; }
+    .card:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }
+    .card:active { transform: translateY(1px); }
     .card.privileged { border-left-color: #b91c1c; }
+    .card.privileged:hover { background: #fef2f2; border-color: #fecaca; }
     header { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
     .grid { display: grid; grid-template-columns: minmax(140px, 0.7fr) 1.3fr; gap: 0.7rem; }
     .meta { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.6rem; font-size: 0.8em; color: #475569; align-content: start; }
@@ -81,4 +97,26 @@ export class DocumentPreviewComponent {
     const dot = f.lastIndexOf('.');
     return dot === -1 ? 'file' : f.slice(dot + 1);
   });
+
+  private readonly actions = inject(ActionRegistry);
+
+  /**
+   * Click handler — dispatches `openDocument` against the host's
+   * `ActionRegistry`. When the standalone remote at :4302 is loaded
+   * directly (no host), `actions.get('openDocument')` returns
+   * `undefined` and the click is a silent no-op, which is correct
+   * behavior for that mode.
+   */
+  open(): void {
+    const action = this.actions.get('openDocument');
+    if (!action) return;
+    const id = `widget-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const ctx: ActionContext = {
+      threadId: 'widget',
+      runId: id,
+      actionId: id,
+      signal: new AbortController().signal,
+    };
+    void action.effect({ documentId: this.documentId() }, ctx);
+  }
 }

@@ -94,6 +94,29 @@ export function updateLegalHold(id: string, patch: Partial<LegalHold>): LegalHol
   return updated;
 }
 
+// ─── Production sets ──────────────────────────────────────────────────────
+
+export function listProductionSets(matterId: string): readonly ProductionSet[] {
+  return store.productionSets.filter((p) => p.matterId === matterId);
+}
+
+export function getProductionSet(id: string): ProductionSet | undefined {
+  return store.productionSets.find((p) => p.id === id);
+}
+
+export function addProductionSet(set: ProductionSet): ProductionSet {
+  store.productionSets.push(set);
+  return set;
+}
+
+export function updateProductionSet(id: string, patch: Partial<ProductionSet>): ProductionSet | undefined {
+  const idx = store.productionSets.findIndex((p) => p.id === id);
+  if (idx === -1) return undefined;
+  const updated = { ...store.productionSets[idx]!, ...patch } as ProductionSet;
+  store.productionSets[idx] = updated;
+  return updated;
+}
+
 export function listDocuments(matterId: string): readonly Document[] {
   return store.documents.filter((d) => d.matterId === matterId);
 }

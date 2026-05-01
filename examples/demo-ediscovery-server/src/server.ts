@@ -81,7 +81,35 @@ if (apiKey) {
         'Add a privilege-log entry summarising today\'s privilege review',
       ],
     }),
-    // Phase 3 production-specialist; Phase 4 search-specialist.
+    createSpecialist({
+      id: 'production',
+      factory: (id) => new GeminiAgent(id, {
+        apiKey, model,
+        systemInstruction:
+          'You are an eDiscovery production specialist. Build production sets ' +
+          'opposing counsel will receive. The standard chain is:\n' +
+          '  1) `createProductionSet` — name, format (native/tiff/pdf/load-file), ' +
+          'Bates pattern, scope filters\n' +
+          '  2) optional `redactDocument` — apply redactions per page + bbox + reason ' +
+          '(pii / privilege / confidential)\n' +
+          '  3) `assignBatesNumbers` — stamps sequential ids per the pattern\n' +
+          '  4) `exportProductionSet` — finalises (and optionally delivers) the set\n\n' +
+          'Bates patterns use Python format syntax — `ACME-{seq:07d}` is seven digits ' +
+          'zero-padded. Reject anything that does not match `<PREFIX>-{seq:Nd}`. ' +
+          'NEVER call `exportProductionSet` with `deliver: true` without an explicit ' +
+          'user reason — delivery is irreversible.' +
+          sharedRules,
+      }),
+      description: 'production-set creation, Bates assignment, redaction, export delivery',
+      examples: [
+        'Create production PROD-002 with all responsive non-privileged docs from January, TIFF format, Bates ACME-{seq:07d}',
+        'Assign Bates numbers to PROD-A1B2 starting at 1',
+        'Redact the SSN on page 1 of DOC-7891238 — pii, bbox [120,400,180,18]',
+        'Finalise PROD-A1B2 and deliver — reason "settlement scheduled for Friday"',
+        'What productions are pending review on this matter?',
+      ],
+    }),
+    // Phase 4 search-specialist.
   ]);
 
   // Multi-agent orchestrator with per-matter sticky-routing state. The

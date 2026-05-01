@@ -14,8 +14,9 @@ import { PersonaService } from '../services/persona.service';
   selector: 'app-chat-rail',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ChatShellComponent, IconComponent],
+  host: { '[class.collapsed]': 'collapsed()' },
   template: `
-    <aside class="rail" [class.collapsed]="collapsed()">
+    <aside class="rail">
       @if (collapsed()) {
         <button type="button" class="reopen" (click)="toggle()" aria-label="Open coordinator">
           <svg-icon name="message" [size]="20" />
@@ -34,6 +35,11 @@ import { PersonaService } from '../services/persona.service';
             <span class="caps" [attr.title]="capsTitle()">
               <svg-icon name="bolt" [size]="13" /> {{ toolCount() }}
             </span>
+            <button type="button" class="icon-btn" (click)="cycleVerbosity()"
+                    [attr.title]="'Tool-call detail: ' + verbosity() + ' (click to cycle)'"
+                    aria-label="Cycle tool-call detail">
+              <svg-icon [name]="verbosity() === 'full' ? 'eye' : verbosity() === 'compact' ? 'spark' : 'close'" [size]="14" />
+            </button>
             <button type="button" class="icon-btn" (click)="toggle()" aria-label="Collapse">
               <svg-icon name="chevron-right" [size]="16" />
             </button>
@@ -52,20 +58,30 @@ import { PersonaService } from '../services/persona.service';
             <li>"Show pending hold acknowledgements"</li>
           </ul>
         </div>
-        <div class="chat-host"><mvk-chat-shell /></div>
+        <div class="chat-host"><mvk-chat-shell [showToolCalls]="verbosity()" /></div>
       }
     </aside>
   `,
   styles: `
-    .rail {
-      width: var(--chat-w); flex-shrink: 0;
-      background: var(--c-surface-0);
-      border-left: 1px solid var(--c-border);
-      display: flex; flex-direction: column;
+    /* Host must declare its own size + flex layout so it stretches to
+       the full height of the .shell row and gives <aside class="rail">
+       a real flex container to fill. Without this the host defaults to
+       display:inline and the rail collapses to its content height. */
+    :host {
+      display: flex;
+      flex-direction: column;
+      width: var(--chat-w);
+      flex-shrink: 0;
       min-height: 0;
       transition: width var(--t-med);
     }
-    .rail.collapsed { width: 56px; }
+    :host(.collapsed) { width: 56px; }
+    .rail {
+      flex: 1; min-height: 0;
+      background: var(--c-surface-0);
+      border-left: 1px solid var(--c-border);
+      display: flex; flex-direction: column;
+    }
     .reopen {
       flex: 1; background: transparent; border: 0; cursor: pointer;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -157,4 +173,19 @@ export class ChatRailComponent {
 
   protected readonly collapsed = signal(false);
   toggle(): void { this.collapsed.update((v) => !v); }
+
+  /**
+   * Tool-call rendering mode forwarded into the library's chat shell.
+   * Cycles `compact` → `hidden` → `full` so a viewer can quickly
+   * compare the three transcript styles. Defaults to `compact`: tool
+   * names are visible (so the user knows the agent acted) but the
+   * args/result JSON is hidden — the widget below the bubble is the
+   * visible result.
+   */
+  protected readonly verbosity = signal<'full' | 'compact' | 'hidden'>('compact');
+  cycleVerbosity(): void {
+    this.verbosity.update((v) =>
+      v === 'compact' ? 'hidden' : v === 'hidden' ? 'full' : 'compact',
+    );
+  }
 }

@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
 import {
   appendAudit,
   getCustodian,
@@ -456,6 +458,15 @@ export class DocumentsComponent {
   protected readonly openId = signal<string | null>(null);
   /** Bumps when we mutate so computed lists rerun (mock-data isn't a signal). */
   private readonly refresh = signal(0);
+
+  /** Deep-link support: navigation actions push `?id=DOC-...`; this
+      effect mirrors the param into `openId` so the drawer pops open. */
+  private readonly route = inject(ActivatedRoute);
+  private readonly idParam = toSignal(this.route.queryParamMap, { initialValue: null });
+  private readonly _syncFromQuery = effect(() => {
+    const id = this.idParam()?.get('id');
+    if (id) this.openId.set(id);
+  });
 
   protected readonly results = computed(() => {
     const f = this.filters();

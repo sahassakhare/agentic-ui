@@ -43,11 +43,21 @@ import { WidgetContainerComponent } from './widget-container.component';
         <div class="msg" [class]="m.role">
           @if (m.content) { {{ m.content }} }
           @for (tc of m.toolCalls; track tc.toolCallId) {
-            <div class="msg tool" style="margin-top:0.4rem">
-              → {{ tc.name }}({{ stringify(tc.args) }})
-              @if (tc.result !== undefined) { ⇒ {{ stringify(tc.result) }} }
-              @if (tc.error) { ✗ {{ tc.error.message }} }
-            </div>
+            @if (showToolCalls() !== 'hidden') {
+              <div class="msg tool" style="margin-top:0.4rem">
+                @switch (showToolCalls()) {
+                  @case ('compact') {
+                    → {{ tc.name }}
+                    @if (tc.error) { ✗ {{ tc.error.message }} }
+                  }
+                  @default {
+                    → {{ tc.name }}({{ stringify(tc.args) }})
+                    @if (tc.result !== undefined) { ⇒ {{ stringify(tc.result) }} }
+                    @if (tc.error) { ✗ {{ tc.error.message }} }
+                  }
+                }
+              </div>
+            }
           }
           @if (m.widgets.length) {
             <div class="widgets">
@@ -78,6 +88,23 @@ import { WidgetContainerComponent } from './widget-container.component';
 export class ChatShellComponent {
   readonly placeholder = input<string>('Ask the agent…');
   readonly maxLocalTurns = input<number>(10);
+
+  /**
+   * Controls how tool calls render inside the assistant message bubble.
+   *
+   *  - `'full'` *(default)* — emits `→ name(args) ⇒ result` with both the
+   *    args and the result serialised to JSON. Useful for debugging
+   *    handler shapes; can clutter the transcript when results carry
+   *    bulky payloads or render through generative-UI widgets.
+   *  - `'compact'` — emits just `→ name` (plus an `✗ error` line on
+   *    failure). The widget below the bubble is the visible result.
+   *  - `'hidden'` — suppresses the tool-call block entirely. Use when
+   *    every tool result has a corresponding widget and the agent
+   *    summarises in text.
+   *
+   * @default 'full'
+   */
+  readonly showToolCalls = input<'full' | 'compact' | 'hidden'>('full');
 
   protected readonly chat: AgenticChatRef = injectAgenticChat({ maxLocalTurns: this.maxLocalTurns() });
   protected readonly draft = signal<string>('');

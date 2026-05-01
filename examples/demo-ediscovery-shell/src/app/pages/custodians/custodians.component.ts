@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { listAuditEvents, listDocuments, listLegalHolds } from '@maverick/demo-ediscovery-shared';
 import { environment } from '../../../environments/environment';
 import { MatterStore } from '../../services/matter.store';
@@ -303,6 +305,15 @@ export class CustodiansComponent {
 
   protected readonly list = this.store.custodians;
   protected readonly active = signal<string | null>(null);
+
+  /** Sync `?id=…` from the URL into the active selection so the
+      `openCustodian` action and direct deep-links both work. */
+  private readonly route = inject(ActivatedRoute);
+  private readonly idParam = toSignal(this.route.queryParamMap, { initialValue: null });
+  private readonly _syncFromQuery = effect(() => {
+    const id = this.idParam()?.get('id');
+    if (id) this.active.set(id);
+  });
 
   protected readonly selected = computed(() => {
     const id = this.active();

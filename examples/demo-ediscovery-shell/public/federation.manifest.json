@@ -1,3 +1,4 @@
 {
-  "demo-ediscovery-review": "http://localhost:4302/remoteEntry.json"
+  "demo-ediscovery-review":     "http://localhost:4302/remoteEntry.json",
+  "demo-ediscovery-production": "http://localhost:4303/remoteEntry.json"
 }

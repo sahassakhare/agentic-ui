@@ -24,6 +24,7 @@ import {
 import { environment } from '../environments/environment';
 import { routes } from './app.routes';
 import { buildTools, registerForms, widgets } from './agentic/agentic';
+import { registerNavigationActions } from './agentic/navigation-actions';
 
 function telemetryProvider() {
   switch (environment.telemetry) {
@@ -48,6 +49,7 @@ function bootAgenticCapabilities() {
   return provideAppInitializer(() => {
     const env = inject(EnvironmentInjector);
     registerForms(env);
+    registerNavigationActions(env);
     inject(ToolRegistry).registerAll(buildTools(env));
   });
 }
@@ -74,28 +76,42 @@ function loadDemoRemotes() {
       console.info(`[demo-ediscovery-shell] Discovered ${remotes.length} remote(s) for env=${environment.mfeEnv}`);
       await Promise.allSettled(
         remotes.map((remote) =>
-          runInInjectionContext(injector, () =>
-            loadRemoteCapabilities({
-              remote,
-              loader: async () => {
-                const mod = await loadRemoteModule<{ capability: CapabilityModule }>({
+          runInInjectionContext(injector, async () => {
+            try {
+              const loaded = await loadRemoteCapabilities({
+                remote,
+                loader: async () => {
+                  const mod = await loadRemoteModule<{ capability: CapabilityModule }>({
+                    remoteName: remote.remoteName,
+                    exposedModule: './Capability',
+                  });
+                  return { capability: mod.capability };
+                },
+              });
+              console.info(
+                `[demo-ediscovery-shell] Loaded ${loaded.remote.remoteName} ` +
+                `(${loaded.module.tools.length} tool(s), ${loaded.module.components.length} widget(s))`,
+              );
+
+              // Optional second exposed entry for forms that need an injector
+              // at registration time. Best-effort — a remote that doesn't
+              // expose `./RegisterForm` simply skips it.
+              try {
+                const formMod = await loadRemoteModule<{ registerForms?: (env: EnvironmentInjector) => void }>({
                   remoteName: remote.remoteName,
-                  exposedModule: './Capability',
+                  exposedModule: './RegisterForm',
                 });
-                return { capability: mod.capability };
-              },
-            }).then(
-              (loaded) => {
-                console.info(
-                  `[demo-ediscovery-shell] Loaded ${loaded.remote.remoteName} ` +
-                  `(${loaded.module.tools.length} tool(s), ${loaded.module.components.length} widget(s))`,
-                );
-              },
-              (err) => {
-                console.warn(`[demo-ediscovery-shell] Failed to load remote "${remote.remoteName}"`, err);
-              },
-            ),
-          ),
+                if (typeof formMod.registerForms === 'function') {
+                  formMod.registerForms(injector);
+                  console.info(`[demo-ediscovery-shell] Registered forms for ${remote.remoteName}`);
+                }
+              } catch {
+                // Remote doesn't expose ./RegisterForm — silent.
+              }
+            } catch (err) {
+              console.warn(`[demo-ediscovery-shell] Failed to load remote "${remote.remoteName}"`, err);
+            }
+          }),
         ),
       );
     });
