@@ -22,21 +22,29 @@ from lxml import etree
 
 OUT = Path(__file__).parent / "agentic-ui-overview.pptx"
 
-# ── Brand tokens ────────────────────────────────────────────────────────────
-BRAND        = RGBColor(0x4F, 0x46, 0xE5)   # indigo
-BRAND_DEEP   = RGBColor(0x31, 0x27, 0xA3)
-BRAND_TINT   = RGBColor(0xEE, 0xF2, 0xFF)
+# ── Brand tokens (v3 — professional refresh) ────────────────────────────────
+# Restrained palette in the spirit of strategy / consulting decks: deep
+# navy primary, a single warm-amber accent, broad grayscale ramp. Colour
+# is reserved for status (ok / warn / bad) and structural emphasis;
+# decoration is grayscale only.
+BRAND        = RGBColor(0x1E, 0x3A, 0x5F)   # deep navy
+BRAND_DEEP   = RGBColor(0x12, 0x24, 0x3D)
+BRAND_TINT   = RGBColor(0xEC, 0xF1, 0xF6)
+ACCENT       = RGBColor(0xC4, 0x82, 0x21)   # warm amber — emphasis only
+ACCENT_TINT  = RGBColor(0xFA, 0xF0, 0xDD)
 SURFACE      = RGBColor(0xFF, 0xFF, 0xFF)
-SURFACE_2    = RGBColor(0xF1, 0xF5, 0xF9)
-TEXT         = RGBColor(0x0F, 0x17, 0x2A)
-TEXT_2       = RGBColor(0x33, 0x41, 0x55)
-MUTED        = RGBColor(0x64, 0x74, 0x8B)
-FAINT        = RGBColor(0x94, 0xA3, 0xB8)
-BORDER       = RGBColor(0xE2, 0xE8, 0xF0)
-OK           = RGBColor(0x05, 0x96, 0x69)
-WARN         = RGBColor(0xD9, 0x77, 0x06)
-BAD          = RGBColor(0xDC, 0x26, 0x26)
-INFO         = RGBColor(0x02, 0x84, 0xC7)
+SURFACE_2    = RGBColor(0xF7, 0xF7, 0xF5)   # warm off-white
+SURFACE_3    = RGBColor(0xEE, 0xEE, 0xEA)
+TEXT         = RGBColor(0x14, 0x18, 0x21)
+TEXT_2       = RGBColor(0x36, 0x3D, 0x49)
+MUTED        = RGBColor(0x6B, 0x73, 0x80)
+FAINT        = RGBColor(0xA2, 0xAA, 0xB6)
+BORDER       = RGBColor(0xE3, 0xE5, 0xE9)
+DIVIDER      = RGBColor(0xEC, 0xEE, 0xF2)
+OK           = RGBColor(0x2F, 0x6F, 0x4F)   # forest green
+WARN         = RGBColor(0xC4, 0x82, 0x21)   # amber (= ACCENT)
+BAD          = RGBColor(0xA8, 0x33, 0x2A)   # muted red
+INFO         = RGBColor(0x35, 0x6B, 0x88)   # slate blue
 
 W, H = Inches(13.333), Inches(7.5)            # 16:9 widescreen
 
@@ -150,26 +158,42 @@ def chip(slide, x, y, label, *, fg=BRAND_DEEP, bg=BRAND_TINT, size=10, w=None):
 
 
 def slide_chrome(slide, eyebrow, title, audience_tag=None):
-    """Standard top chrome — left brand stripe, eyebrow, title, audience pill."""
-    rect(slide, Inches(0), Inches(0), Inches(0.18), H, BRAND)
-    text_box(slide, Inches(0.6), Inches(0.45), W - Inches(1.2), Inches(0.3),
-             eyebrow, size=11, bold=True, color=BRAND)
-    text_box(slide, Inches(0.6), Inches(0.75), W - Inches(3.8), Inches(0.6),
-             title, size=28, bold=True, color=TEXT)
+    """Top chrome (v3) — eyebrow row, large title, thin divider rule.
+
+    Removed the brand stripe; restraint matters more for senior
+    audiences than visual identity. Audience tag now sits inline with
+    the eyebrow so the title gets full width.
+    """
+    # Eyebrow row
+    text_box(slide, Inches(0.7), Inches(0.5), Inches(8), Inches(0.3),
+             eyebrow, size=10, bold=True, color=MUTED)
     if audience_tag:
-        chip(slide, W - Inches(2.6), Inches(0.55),
-             audience_tag, fg=BRAND_DEEP, bg=BRAND_TINT, size=10, w=Inches(2.0))
+        text_box(slide, W - Inches(3.7), Inches(0.5), Inches(3.0), Inches(0.3),
+                 "FOR " + audience_tag.upper(), size=10, bold=True,
+                 color=ACCENT, align=PP_ALIGN.RIGHT)
+    # Title
+    text_box(slide, Inches(0.7), Inches(0.85), W - Inches(1.4), Inches(0.7),
+             title, size=30, bold=True, color=TEXT)
+    # Divider rule under the title
+    rect(slide, Inches(0.7), Inches(1.5), Inches(1.0), Inches(0.025), BRAND)
 
 
 def slide_footer(slide, idx, total, section):
-    rect(slide, Inches(0), H - Inches(0.4), W, Inches(0.4), SURFACE_2)
-    text_box(slide, Inches(0.6), H - Inches(0.32), Inches(6), Inches(0.28),
-             section, size=10, color=MUTED)
-    text_box(slide, W - Inches(2), H - Inches(0.32), Inches(1.4), Inches(0.28),
-             f"{idx} / {total}", size=10, color=MUTED, align=PP_ALIGN.RIGHT)
-    text_box(slide, Inches(0.6), H - Inches(0.32), W - Inches(1.2), Inches(0.28),
-             "@maverick/agentic-ui · Confidential",
-             size=10, color=FAINT, align=PP_ALIGN.CENTER)
+    """Footer (v3) — single thin rule, page number on the right, section
+    label on the left, no full-width band. Less visual weight."""
+    # Hairline rule
+    rect(slide, Inches(0.7), H - Inches(0.45), W - Inches(1.4),
+         Inches(0.012), BORDER)
+    text_box(slide, Inches(0.7), H - Inches(0.4), Inches(6), Inches(0.28),
+             section, size=9, color=MUTED)
+    text_box(slide, Inches(0.7), H - Inches(0.4), W - Inches(1.4),
+             Inches(0.28),
+             "Maverick — Agentic UI for Angular",
+             size=9, color=FAINT, align=PP_ALIGN.CENTER)
+    text_box(slide, W - Inches(2.1), H - Inches(0.4), Inches(1.4),
+             Inches(0.28),
+             f"{idx:02d} / {total:02d}", size=9, color=MUTED,
+             align=PP_ALIGN.RIGHT)
 
 
 def add_speaker_notes(slide, *blocks):
@@ -269,6 +293,57 @@ def event_pill(slide, x, y, w, label, *, color=BRAND):
     r.font.color.rgb = SURFACE
 
 
+def big_number(slide, x, y, w, h, value, caption, *, color=BRAND, size=64):
+    """Large numeral with caption — strategy-deck staple. Reserves
+    the slide's top-of-mind real estate for one striking metric."""
+    text_box(slide, x, y, w, Inches(h.emu / 914400 * 0.6), str(value),
+             size=size, bold=True, color=color, align=PP_ALIGN.LEFT,
+             anchor=MSO_ANCHOR.TOP)
+    text_box(slide, x, y + Inches(size / 64),
+             w, h - Inches(size / 64), caption,
+             size=12, color=MUTED, align=PP_ALIGN.LEFT)
+
+
+def stat_card(slide, x, y, w, h, value, caption, *, color=BRAND):
+    """Compact stat card — bordered, big number above caption."""
+    rounded(slide, x, y, w, h, SURFACE, line=BORDER, radius=0.04)
+    text_box(slide, x + Inches(0.15), y + Inches(0.18),
+             w - Inches(0.3), Inches(0.7),
+             str(value), size=32, bold=True, color=color,
+             align=PP_ALIGN.LEFT)
+    text_box(slide, x + Inches(0.15), y + h - Inches(0.45),
+             w - Inches(0.3), Inches(0.3),
+             caption, size=10, color=MUTED)
+
+
+def quote_block(slide, x, y, w, h, body, attribution=None, *, color=BRAND):
+    """Pull-quote callout — vertical accent rule + italic body."""
+    rect(slide, x, y, Inches(0.04), h, color)
+    text_box(slide, x + Inches(0.3), y + Inches(0.05),
+             w - Inches(0.4), h - Inches(0.5),
+             body, size=16, color=TEXT, anchor=MSO_ANCHOR.MIDDLE)
+    if attribution:
+        text_box(slide, x + Inches(0.3), y + h - Inches(0.4),
+                 w - Inches(0.4), Inches(0.3),
+                 "— " + attribution, size=11, color=MUTED)
+
+
+def key_facts(slide, x, y, w, h, rows):
+    """A clean two-column key-facts strip — label / value pairs.
+    Used instead of bullet lists for executive summaries."""
+    rh = h.emu / max(1, len(rows))
+    for i, (label, value) in enumerate(rows):
+        ty = y + Inches(rh / 914400) * i
+        if i > 0:
+            rect(slide, x, ty, w, Inches(0.012), DIVIDER)
+        text_box(slide, x + Inches(0.1), ty + Inches(0.15),
+                 Inches(3.5), Inches(0.4),
+                 label, size=10, bold=True, color=MUTED)
+        text_box(slide, x + Inches(3.7), ty + Inches(0.15),
+                 w - Inches(3.9), Inches(0.4),
+                 value, size=12, color=TEXT)
+
+
 def actor_lifeline(slide, x, y_top, y_bottom, label, *, color=BRAND):
     """Sequence-diagram actor head + dashed lifeline going down."""
     head_w = Inches(1.5); head_h = Inches(0.5)
@@ -283,43 +358,50 @@ def actor_lifeline(slide, x, y_top, y_bottom, label, *, color=BRAND):
 # ── Slide builders ──────────────────────────────────────────────────────────
 
 def slide_cover(prs):
+    """Cover (v3) — restrained, navy-on-white, big serene type. Two
+    horizontal rules anchor the composition. No gradients."""
     s = add(prs)
-    rect(s, Inches(0), Inches(0), W, H, RGBColor(0x0F, 0x17, 0x2A))
-    # Diagonal gradient feel via overlay rectangle
-    rect(s, Inches(8), Inches(0), Inches(5.5), H, RGBColor(0x1E, 0x1B, 0x4B))
-    rounded(s, Inches(0.8), Inches(0.8), Inches(0.6), Inches(0.6), BRAND, radius=0.2)
-    text_box(s, Inches(0.92), Inches(0.87), Inches(0.45), Inches(0.46),
-             "M", size=24, bold=True, color=SURFACE, align=PP_ALIGN.CENTER)
-    text_box(s, Inches(1.6), Inches(0.85), Inches(6), Inches(0.5),
-             "MAVERICK", size=16, bold=True, color=SURFACE)
-    text_box(s, Inches(1.6), Inches(1.13), Inches(6), Inches(0.4),
-             "AGENTIC UI", size=11, bold=True, color=BRAND_TINT)
+    # Subtle warm-white bg
+    rect(s, Inches(0), Inches(0), W, H, SURFACE_2)
+    # Top wordmark row
+    text_box(s, Inches(0.7), Inches(0.6), Inches(8), Inches(0.32),
+             "MAVERICK", size=11, bold=True, color=BRAND)
+    text_box(s, W - Inches(4.5), Inches(0.6), Inches(3.8), Inches(0.32),
+             "AGENTIC UI · OVERVIEW DECK",
+             size=10, color=MUTED, align=PP_ALIGN.RIGHT)
+    rect(s, Inches(0.7), Inches(1.0), W - Inches(1.4), Inches(0.018), BRAND)
 
-    text_box(s, Inches(0.8), Inches(2.6), Inches(11), Inches(1.5),
-             "Agentic UI for Angular —",
-             size=44, bold=True, color=SURFACE)
-    text_box(s, Inches(0.8), Inches(3.4), Inches(11), Inches(1.0),
-             "AG-UI · Hashbrown · A2UI",
-             size=44, bold=True, color=BRAND_TINT)
+    # Title block
+    text_box(s, Inches(0.7), Inches(2.6), W - Inches(1.4), Inches(1.2),
+             "Agentic UI for Angular",
+             size=54, bold=True, color=TEXT)
+    text_box(s, Inches(0.7), Inches(3.5), W - Inches(1.4), Inches(0.6),
+             "AG-UI · Hashbrown · A2UI · MCP",
+             size=32, color=BRAND)
 
-    text_box(s, Inches(0.8), Inches(4.7), Inches(11), Inches(0.6),
+    # Subtitle / value prop
+    text_box(s, Inches(0.7), Inches(4.45), Inches(9), Inches(0.5),
              "One library. Three protocols. Microfrontend-native.",
-             size=18, color=RGBColor(0xC7, 0xD2, 0xFE))
+             size=16, color=TEXT_2)
 
-    chip(s, Inches(0.8), Inches(5.7), "Senior executives", fg=SURFACE,
-         bg=RGBColor(0x4F, 0x46, 0xE5), size=10, w=Inches(2.0))
-    chip(s, Inches(2.95), Inches(5.7), "Solution architects", fg=SURFACE,
-         bg=RGBColor(0x4F, 0x46, 0xE5), size=10, w=Inches(2.1))
-    chip(s, Inches(5.2), Inches(5.7), "Developers", fg=SURFACE,
-         bg=RGBColor(0x4F, 0x46, 0xE5), size=10, w=Inches(1.6))
+    # Audience footer block — restrained text rows, not pills
+    y = Inches(6.1)
+    rect(s, Inches(0.7), y, W - Inches(1.4), Inches(0.018), BORDER)
+    text_box(s, Inches(0.7), y + Inches(0.15), Inches(3), Inches(0.3),
+             "PREPARED FOR", size=9, bold=True, color=MUTED)
+    text_box(s, Inches(0.7), y + Inches(0.4), W - Inches(1.4), Inches(0.4),
+             "Senior executives  ·  Solution architects  ·  Developers",
+             size=14, color=TEXT)
 
-    text_box(s, Inches(0.8), Inches(6.6), Inches(11), Inches(0.4),
-             "An overview deck — features · examples · benefits · capabilities · roadmap",
-             size=12, color=FAINT)
+    # Date / version line
+    text_box(s, Inches(0.7), H - Inches(0.6), W - Inches(1.4), Inches(0.3),
+             "Q2 2026 release  ·  v1.0  ·  Confidential",
+             size=10, color=FAINT)
+
     add_speaker_notes(s,
-        "Cover. The deck is structured for three audiences — pick the slides marked for your viewers and skip the rest.",
-        "30-minute version: cover, 1, 2, 3, 6, 11, 13, 16, 17, 19, 21, 22, 23 (case study), 25 (matrix), 26-28 (benefits), 29 (CTA).",
-        "60-minute version: include AG-UI/Hashbrown/A2UI deep dives and the registry tour.")
+        "Cover. Restrained on purpose — strategy/consulting deck convention.",
+        "30-minute path: cover, 1, 2, 3, 6, 11, 13, 16, 17, 19, 21, 22, 23, 25, 26-28, 29.",
+        "60-minute path: include the AG-UI / Hashbrown deep dives and the registry tour.")
     return s
 
 
@@ -1479,50 +1561,61 @@ def slide_examples_overview(prs):
 
 
 def slide_example_ediscovery(prs):
+    """eDiscovery case-study slide (v3) — strategy-deck stat-card layout
+    with restrained typography. Lead with the four headline metrics."""
     s = add(prs)
-    slide_chrome(s, "6 · EXAMPLES", "Case study — eDiscovery reference app", "Senior executives")
+    slide_chrome(s, "06 · CASE STUDY", "An enterprise reference app",
+                 "Senior executives")
 
-    text_box(s, Inches(0.7), Inches(1.7), W - Inches(1.4), Inches(0.5),
-             "Multi-pane enterprise app: matter dashboard · documents · custodians · holds · audit trail · MCP-powered analyst tools.",
+    text_box(s, Inches(0.7), Inches(1.85), W - Inches(1.4), Inches(0.5),
+             "A federated eDiscovery shell — the demo we use to validate every "
+             "library feature against a recognisable, regulated, complex domain.",
              size=14, color=TEXT_2)
 
-    rounded(s, Inches(0.7), Inches(2.4), Inches(8.0), Inches(4.6),
-            SURFACE, line=BORDER, radius=0.02)
-    text_box(s, Inches(0.95), Inches(2.55), Inches(7.5), Inches(0.4),
-             "What ships in the demo", size=14, bold=True, color=BRAND_DEEP)
-    bullets(s, Inches(0.95), Inches(3.0), Inches(7.5), Inches(4.0), [
-        "5 collection tools (custodian intake, legal-hold lifecycle)",
-        "4 review tools (search, tag, mark privileged, privilege log)",
-        "Federated review remote — Native Federation",
-        "Multi-agent orchestrator: collection + review specialists",
-        "Three-pane UI: sidebar nav · routed pages · collapsible chat rail",
-        "Documents page with sortable table + filters + slide-in drawer",
-        "Audit trail page with action-family filters + JSON state-diff",
-        "Click-to-navigate: tool-result widgets dispatch openX actions",
-        "5 personas with allow-listed tools (Phase 7 permission shim)",
-    ], size=11, gap=4)
-
-    rounded(s, Inches(8.85), Inches(2.4), Inches(3.85), Inches(4.6),
-            BRAND_TINT, line=BORDER, radius=0.04)
-    text_box(s, Inches(9.0), Inches(2.55), Inches(3.55), Inches(0.4),
-             "By the numbers", size=13, bold=True, color=BRAND_DEEP)
-    nums = [
-        ("28 days",  "for one contributor (Phases 0–7)"),
-        ("9 tools",  "across 2 specialists"),
-        ("44 KB",    "initial transfer (gzip 15 KB)"),
-        ("13 spans", "instrumented per turn"),
-        ("5 routes", "lazy-loaded · ~3-9 KB each"),
+    # Four headline stat cards across the top
+    sw = (W - Inches(1.4) - Inches(0.6)) / 4
+    sy = Inches(2.6)
+    sh = Inches(1.3)
+    stats = [
+        ("17",   "tools across 4 specialists",   BRAND),
+        ("3",    "federated MFE remotes",        BRAND),
+        ("13",   "library registries exercised", BRAND),
+        ("5–7",  "weeks for one contributor",    ACCENT),
     ]
-    y = Inches(3.0)
-    for big, small in nums:
-        text_box(s, Inches(9.0), y, Inches(3.55), Inches(0.4),
-                 big, size=18, bold=True, color=BRAND_DEEP)
-        text_box(s, Inches(9.0), y + Inches(0.4), Inches(3.55), Inches(0.4),
-                 small, size=10, color=MUTED)
-        y += Inches(0.78)
+    for i, (val, cap, col) in enumerate(stats):
+        sx = Inches(0.7) + i * (sw + Inches(0.2))
+        stat_card(s, sx, sy, sw, sh, val, cap, color=col)
+
+    # Body — two columns: scope + library seams
+    bx = Inches(0.7); by = Inches(4.2); bw = (W - Inches(1.4) - Inches(0.4)) / 2
+
+    text_box(s, bx, by, bw, Inches(0.32),
+             "WHAT THE DEMO SHIPS", size=10, bold=True, color=ACCENT)
+    rect(s, bx, by + Inches(0.36), bw, Inches(0.012), BORDER)
+    bullets(s, bx, by + Inches(0.5), bw, Inches(2.5), [
+        "Custodian intake · legal-hold lifecycle",
+        "Document review with privilege workflow",
+        "Production assembly: create → bates → export",
+        "Search + TAR classifier across the matter",
+        "Live audit trail with chain-of-custody view",
+    ], size=12, gap=6, marker_color=BRAND)
+
+    rx = bx + bw + Inches(0.4)
+    text_box(s, rx, by, bw, Inches(0.32),
+             "LIBRARY SEAMS PUT TO WORK", size=10, bold=True, color=ACCENT)
+    rect(s, rx, by + Inches(0.36), bw, Inches(0.012), BORDER)
+    bullets(s, rx, by + Inches(0.5), bw, Inches(2.5), [
+        "ToolRegistry · ComponentRegistry · CapabilityRegistry",
+        "ActionRegistry — click-through navigation from widgets",
+        "FormRegistry — productionConfigForm",
+        "ValidationRegistry — Bates pattern conformance",
+        "DataSourceRegistry — pluggable documentIndex",
+        "Telemetry — every tool call audit-logged",
+    ], size=12, gap=6, marker_color=BRAND)
+
     add_speaker_notes(s,
-        "The eDiscovery demo is the headline. Production-grade patterns, not a prototype.",
-        "Acceptable for demos to senior counsel, security review boards, and engineering leadership.")
+        "The eDiscovery reference is the headline asset.",
+        "Open with the four stat cards — those are the talking points executives remember.")
     return s
 
 
@@ -1652,39 +1745,62 @@ def slide_roadmap(prs):
 
 
 def slide_cta(prs):
+    """CTA (v3) — high-contrast navy slab with restrained typography."""
     s = add(prs)
-    rect(s, Inches(0), Inches(0), W, H, RGBColor(0x0F, 0x17, 0x2A))
-    rect(s, Inches(8), Inches(0), Inches(5.5), H, RGBColor(0x1E, 0x1B, 0x4B))
+    rect(s, Inches(0), Inches(0), W, H, BRAND_DEEP)
 
-    text_box(s, Inches(0.8), Inches(0.85), Inches(11), Inches(0.5),
-             "10 · CALL TO ACTION", size=11, bold=True, color=BRAND_TINT)
-    text_box(s, Inches(0.8), Inches(1.4), Inches(11), Inches(1.0),
-             "Where you can plug in", size=40, bold=True, color=SURFACE)
+    # Eyebrow
+    text_box(s, Inches(0.7), Inches(0.6), Inches(8), Inches(0.32),
+             "10 · CALL TO ACTION", size=11, bold=True, color=ACCENT)
+    rect(s, Inches(0.7), Inches(1.0), Inches(1.0), Inches(0.025), ACCENT)
 
+    # Title
+    text_box(s, Inches(0.7), Inches(1.6), W - Inches(1.4), Inches(1.0),
+             "Where you can plug in",
+             size=42, bold=True, color=SURFACE)
+    text_box(s, Inches(0.7), Inches(2.5), W - Inches(1.4), Inches(0.5),
+             "Three concrete next steps — pick the row that matches your role.",
+             size=14, color=RGBColor(0xCB, 0xD0, 0xD9))
+
+    # Three rows — each as a thin row with hairline divider
     rows = [
-        ("Senior executives", "Authorise a 2-week pilot — agentic chat in your most-used internal app.",
-         "Faster than buying."),
-        ("Architects",        "Read ADR-006 (MCP) + ADR-007 (eDiscovery). Spike a remote in your repo.",
+        ("01",
+         "EXECUTIVES",
+         "Authorise a two-week pilot.",
+         "Agentic chat retro-fit into your most-used internal app, MIT licensed."),
+        ("02",
+         "ARCHITECTS",
+         "Read ADR-006 (MCP) + ADR-007 (eDiscovery). Spike a remote in your repo.",
          "Conformance suite + cookbook ship in /testing."),
-        ("Developers",        "ng add @maverick/agentic-ui. ng g …:tool. ng serve. Done.",
-         "30 minutes from clone to working chat."),
+        ("03",
+         "DEVELOPERS",
+         "ng add @maverick/agentic-ui. ng g …:tool. ng serve.",
+         "30 minutes from clone to running chat — schematics scaffold the rest."),
     ]
-    y = Inches(2.6)
-    for who, do, why in rows:
-        rounded(s, Inches(0.8), y, Inches(11.5), Inches(1.2),
-                RGBColor(0x1E, 0x1B, 0x4B), radius=0.04)
-        text_box(s, Inches(1.0), y + Inches(0.18), Inches(2.4), Inches(0.4),
-                 who, size=12, bold=True, color=BRAND_TINT)
-        text_box(s, Inches(3.5), y + Inches(0.13), Inches(7.0), Inches(0.5),
-                 do, size=14, bold=True, color=SURFACE)
-        text_box(s, Inches(3.5), y + Inches(0.6), Inches(7.0), Inches(0.4),
-                 why, size=11, color=RGBColor(0xC7, 0xD2, 0xFE))
-        y += Inches(1.4)
+    y = Inches(3.4)
+    for num, who, action, why in rows:
+        rect(s, Inches(0.7), y, W - Inches(1.4), Inches(0.012),
+             RGBColor(0x35, 0x42, 0x5A))
+        text_box(s, Inches(0.7), y + Inches(0.2), Inches(0.7), Inches(0.4),
+                 num, size=24, bold=True, color=ACCENT)
+        text_box(s, Inches(1.5), y + Inches(0.27), Inches(2.4), Inches(0.3),
+                 who, size=10, bold=True, color=ACCENT)
+        text_box(s, Inches(4.0), y + Inches(0.18), W - Inches(4.7), Inches(0.4),
+                 action, size=15, bold=True, color=SURFACE)
+        text_box(s, Inches(4.0), y + Inches(0.6), W - Inches(4.7), Inches(0.4),
+                 why, size=11, color=RGBColor(0xCB, 0xD0, 0xD9))
+        y += Inches(1.05)
 
-    text_box(s, Inches(0.8), H - Inches(0.85), Inches(11), Inches(0.4),
-             "Repository · examples · cookbook · ADRs included.   Questions? Reach the team.",
-             size=11, color=FAINT, align=PP_ALIGN.CENTER)
-    add_speaker_notes(s, "Closing slide. Three asks per audience. Short, concrete, low-friction.")
+    # Closing rule + caption
+    rect(s, Inches(0.7), y + Inches(0.05), W - Inches(1.4), Inches(0.012),
+         RGBColor(0x35, 0x42, 0x5A))
+    text_box(s, Inches(0.7), H - Inches(0.6), W - Inches(1.4), Inches(0.3),
+             "Repository · examples · cookbook · ADRs included     "
+             "Questions? Reach the team.",
+             size=10, color=RGBColor(0x8C, 0x96, 0xA8), align=PP_ALIGN.CENTER)
+    add_speaker_notes(s,
+        "Close. Three asks, one per audience.",
+        "Tone matches the deck — restrained, navy, no decoration.")
     return s
 
 
