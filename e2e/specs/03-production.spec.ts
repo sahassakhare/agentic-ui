@@ -37,10 +37,17 @@ test('create production with Bates pattern → productionSummary renders', async
   await expect(summary).toContainText('TIFF', { ignoreCase: true });
   await expect(summary).toContainText('ACME-{seq:07d}');
 
-  // Capture the production id for the next test in the chain.
-  const m = ((await summary.textContent()) ?? '').match(/PROD-[A-Z0-9]+/);
-  expect(m).not.toBeNull();
-  productionId = m![0];
+  // Capture the *actual* generated id from the widget's metadata
+  // table, not the user-typed name. The widget header reads
+  // `<strong>{{ name() }}</strong>` (which often contains "PROD-002"
+  // because that's what the user said) — we want the id from
+  // `<dl><dt>ID</dt><dd><code>{{ productionId() }}</code></dd>`.
+  const idCode = summary.locator('dl code').first();
+  await expect(idCode).toBeVisible();
+  const captured = (await idCode.textContent())?.trim() ?? '';
+  // nextProductionSetId() format: PROD-<3 alnum><3 base36> = 6 trailing chars
+  expect(captured).toMatch(/^PROD-[A-Z0-9]{6,}$/);
+  productionId = captured;
 });
 
 test('Productions page reflects the new draft / review production', async ({ page }) => {

@@ -68,6 +68,10 @@ test('switching to Vendor Reviewer drops the sidebar tool counter live', async (
 test('persona selection persists across navigation', async ({ page }) => {
   await page.goto('/');
   await sidebar(page).waitForRemotes(3);
+  // Don't wait for `networkidle` — ng-serve keeps a livereload websocket
+  // open indefinitely, so it never fires. The waitForRemotes() above is
+  // the right "app is hydrated" signal: 3 federated remotes registered
+  // means the bootstrap path is done.
   const persona = personaMenu(page);
 
   await persona.select('Paralegal');

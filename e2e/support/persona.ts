@@ -40,7 +40,11 @@ export function personaMenu(page: Page): PersonaMenu {
     async select(label: Persona) {
       await this.open();
       const item = menu.locator('.menu-item', { hasText: label }).first();
-      await item.click();
+      // Brief stability gap — the menu can re-render mid-click during
+      // ng serve livereload, detaching the element. A frame's worth of
+      // settle time + Playwright's auto-retry covers it.
+      await page.waitForTimeout(150);
+      await item.click({ timeout: 10_000 });
       await expect(menu).not.toBeVisible({ timeout: 5_000 });
     },
 

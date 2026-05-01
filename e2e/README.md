@@ -97,6 +97,15 @@ npm run test:e2e -- -g "add a custodian"
 
 ## Known limitations
 
+- **Gemini free-tier daily quota.** `gemini-3-flash` is capped at
+  **20 requests/day** on the free tier. The 9 LLM-driven tests can
+  burn through that in ~2 full suite runs (each `chat.ask()` =
+  1 request, plus orchestrator routing turns). When the quota is
+  exhausted every LLM spec fails with a 429 RESOURCE_EXHAUSTED in
+  the chat transcript — the suite isn't broken, the API is. Either
+  upgrade to a paid tier (`gemini-2.5-flash` paid is much higher),
+  wait for the daily reset, or run only the LLM-free specs:
+  `npm run test:e2e -- specs/00-smoke.spec.ts specs/05-persona-scope.spec.ts`.
 - **LLM nondeterminism.** Gemini sometimes runs partial chains, asks
   for confirmation, or restates the prompt back. Specs assert on
   the *first* widget that lands, not on the chat text. If a test

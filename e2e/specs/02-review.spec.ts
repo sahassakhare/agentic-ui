@@ -21,20 +21,24 @@ test.beforeAll(async ({ request }) => {
   test.skip(!ok, 'Coordinator falls back to echo without GOOGLE_GENERATIVE_AI_API_KEY');
 });
 
-test('search documents → documentPreview widget renders ranked results', async ({ page }) => {
+test('search documents → documentPreview / searchResultPanel widget renders', async ({ page }) => {
   await page.goto('/');
   await sidebar(page).waitForRemotes(3);
   const chat = chatShell(page);
 
-  await chat.ask('Find documents about Project Phoenix');
-  await chat.waitForAssistant({ timeoutMs: 90_000 });
+  // Directive prompt — the orchestrator's review specialist starts
+  // with "call searchDocuments first" so this nudges deterministic tool use.
+  await chat.ask('Search the document index for documents mentioning Project Phoenix');
+  await chat.waitForAssistant({ timeoutMs: 120_000 });
 
-  // The review specialist may call either searchDocuments (review remote)
-  // or semanticSearch (search remote) depending on routing; both render
-  // a card with the matching docs. We accept either widget shape.
-  const docPreview = chat.transcript.locator('app-document-preview');
-  const searchPanel = chat.transcript.locator('app-search-result-panel');
-  await expect(docPreview.first().or(searchPanel.first())).toBeVisible({ timeout: 60_000 });
+  // The review specialist calls searchDocuments (renders app-document-preview)
+  // OR the search specialist takes the prompt and calls semanticSearch
+  // (renders app-search-result-panel). Both are valid; we accept either.
+  // CSS comma selector — locator.or() doesn't compose with filter chains.
+  const widget = chat.transcript.locator(
+    'app-document-preview, app-search-result-panel',
+  ).first();
+  await expect(widget).toBeVisible({ timeout: 90_000 });
 
   const cardText = (await chat.transcript.textContent()) ?? '';
   expect(cardText.toLowerCase()).toContain('phoenix');
