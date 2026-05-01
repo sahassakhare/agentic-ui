@@ -109,7 +109,32 @@ if (apiKey) {
         'What productions are pending review on this matter?',
       ],
     }),
-    // Phase 4 search-specialist.
+    createSpecialist({
+      id: 'search',
+      factory: (id) => new GeminiAgent(id, {
+        apiKey, model,
+        systemInstruction:
+          'You are an eDiscovery search specialist. Help users find documents ' +
+          'across the matter using:\n' +
+          '  • `semanticSearch` — natural-language ranking by similarity\n' +
+          '  • `filterByDateRange` — narrow to an authoring window (returns a histogram)\n' +
+          '  • `filterByCustodians` — resolve names/departments to CUST-ids before ranking\n' +
+          '  • `runTARClassifier` — score un-tagged docs for responsive/privileged/hot\n\n' +
+          'Workflow: when the user mentions people, call `filterByCustodians` first ' +
+          'to resolve to ids — never guess CUST-ids. When the user gives a time ' +
+          'window, call `filterByDateRange` first to scope the matter. When the user ' +
+          'asks for "documents about X", `semanticSearch` is the entry point.' +
+          sharedRules,
+      }),
+      description: 'document search, custodian/date filters, TAR classification',
+      examples: [
+        'Find documents semantically similar to Project Phoenix budget overrun',
+        'Show all documents authored in Q1 2025',
+        'Resolve Sarah Chen and Marcus Webb to custodian ids',
+        'Run TAR classification on the un-tagged set for topic Project Phoenix',
+        'Search Engineering custodians for documents about the data plane redesign',
+      ],
+    }),
   ]);
 
   // Multi-agent orchestrator with per-matter sticky-routing state. The

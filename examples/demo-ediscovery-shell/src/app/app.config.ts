@@ -10,6 +10,7 @@ import {
 import { provideRouter } from '@angular/router';
 import { loadRemoteModule } from '@angular-architects/native-federation';
 import {
+  keywordToolFilter,
   loadRemoteCapabilities,
   MfeRegistryClient,
   provideAgenticTelemetry,
@@ -17,6 +18,7 @@ import {
   provideAgenticUi,
   provideAgUiBackend,
   provideStaticJsonMfeRegistry,
+  provideToolFilter,
   ToolRegistry,
   type CapabilityModule,
 } from '@maverick/agentic-ui';
@@ -64,6 +66,32 @@ function bootAgenticCapabilities() {
  * Failures are logged but never block boot — losing one remote shouldn't
  * brick the host. The collection specialist (Phase 1) keeps working.
  */
+/**
+ * Best-effort loader for a remote's optional secondary exposed module
+ * (e.g. `./RegisterForm`, `./RegisterDataSource`). If the module
+ * exists and exports the named function, call it with the host's
+ * injector. Silent on missing modules — many remotes won't expose
+ * either.
+ */
+async function tryLoadOptional(
+  remoteName: string,
+  exposedModule: string,
+  fnName: string,
+  injector: EnvironmentInjector,
+  successLog: (name: string) => string,
+): Promise<void> {
+  try {
+    const mod = await loadRemoteModule<Record<string, unknown>>({ remoteName, exposedModule });
+    const fn = mod[fnName];
+    if (typeof fn === 'function') {
+      (fn as (env: EnvironmentInjector) => void)(injector);
+      console.info(`[demo-ediscovery-shell] ${successLog(remoteName)}`);
+    }
+  } catch {
+    // Silent — the remote doesn't expose this entry.
+  }
+}
+
 function loadDemoRemotes() {
   return provideAppInitializer(() => {
     const injector = inject(EnvironmentInjector);
@@ -93,21 +121,15 @@ function loadDemoRemotes() {
                 `(${loaded.module.tools.length} tool(s), ${loaded.module.components.length} widget(s))`,
               );
 
-              // Optional second exposed entry for forms that need an injector
-              // at registration time. Best-effort — a remote that doesn't
-              // expose `./RegisterForm` simply skips it.
-              try {
-                const formMod = await loadRemoteModule<{ registerForms?: (env: EnvironmentInjector) => void }>({
-                  remoteName: remote.remoteName,
-                  exposedModule: './RegisterForm',
-                });
-                if (typeof formMod.registerForms === 'function') {
-                  formMod.registerForms(injector);
-                  console.info(`[demo-ediscovery-shell] Registered forms for ${remote.remoteName}`);
-                }
-              } catch {
-                // Remote doesn't expose ./RegisterForm — silent.
-              }
+              // Optional secondary exposed entries — best-effort. Each
+              // remote may declare extras in its federation.config.js;
+              // a remote that doesn't expose a given key simply skips.
+              await tryLoadOptional(remote.remoteName, './RegisterForm',
+                'registerForms', injector,
+                (n) => `Registered forms for ${n}`);
+              await tryLoadOptional(remote.remoteName, './RegisterDataSource',
+                'registerDataSources', injector,
+                (n) => `Registered data sources for ${n}`);
             } catch (err) {
               console.warn(`[demo-ediscovery-shell] Failed to load remote "${remote.remoteName}"`, err);
             }
@@ -127,6 +149,14 @@ export const appConfig: ApplicationConfig = {
     provideAgUiBackend({ url: environment.agentUrl }),
     provideStaticJsonMfeRegistry({ url: environment.mfeRegistryUrl }),
     telemetryProvider(),
+    // Phase 4 activates per-turn tool filtering. With four federated
+    // remotes the registry holds 17 tools; sending all of them to the
+    // LLM every turn wastes context and confuses routing.
+    // `keywordToolFilter` scores each tool's name+description against
+    // the user's last message, returns the top 12, and back-fills to
+    // 5 when the score is too sparse so the agent has *something* to
+    // call when the user asks something unforeseen.
+    provideToolFilter(keywordToolFilter({ maxTools: 12, floor: 5 })),
     bootAgenticCapabilities(),
     loadDemoRemotes(),
   ],

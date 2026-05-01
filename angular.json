@@ -312,6 +312,66 @@
         }
       }
     },
+    "demo-ediscovery-search": {
+      "projectType": "application",
+      "schematics": { "@schematics/angular:component": { "style": "scss" } },
+      "root": "examples/demo-ediscovery-search",
+      "sourceRoot": "examples/demo-ediscovery-search/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {},
+          "configurations": {
+            "production": { "target": "demo-ediscovery-search:esbuild:production" },
+            "development": { "target": "demo-ediscovery-search:esbuild:development", "dev": true }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "target": "demo-ediscovery-search:serve-original:development",
+            "rebuildDelay": 500,
+            "dev": true,
+            "cacheExternalArtifacts": false,
+            "port": 0
+          }
+        },
+        "test": { "builder": "@angular/build:unit-test" },
+        "esbuild": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "examples/demo-ediscovery-search/src/main.ts",
+            "tsConfig": "examples/demo-ediscovery-search/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [{ "glob": "**/*", "input": "examples/demo-ediscovery-search/public" }],
+            "styles": ["examples/demo-ediscovery-search/src/styles.scss"],
+            "polyfills": ["es-module-shims"]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                { "type": "initial", "maximumWarning": "600kB", "maximumError": "1MB" },
+                { "type": "anyComponentStyle", "maximumWarning": "8kB", "maximumError": "16kB" }
+              ],
+              "outputHashing": "all"
+            },
+            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve-original": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": { "buildTarget": "demo-ediscovery-search:esbuild:production" },
+            "development": { "buildTarget": "demo-ediscovery-search:esbuild:development" }
+          },
+          "defaultConfiguration": "development",
+          "options": { "port": 4304 }
+        }
+      }
+    },
     "demo-ediscovery-production": {
       "projectType": "application",
       "schematics": { "@schematics/angular:component": { "style": "scss" } },
