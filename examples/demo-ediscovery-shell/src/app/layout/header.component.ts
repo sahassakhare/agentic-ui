@@ -212,13 +212,27 @@ export class HeaderComponent {
   protected readonly personas = PERSONAS;
   protected readonly personaOpen = signal(false);
 
-  /** Live total — recomputes when remotes load capabilities. */
-  protected readonly totalTools = computed(() => this.toolRegistry.signal().length);
+  /**
+   * Live total of *every* registered tool — recomputes when remotes
+   * load and when persona switches.
+   *
+   * `signal()` returns the *filtered* view (via the scope policy);
+   * we touch it to subscribe so the count refreshes whenever the
+   * registry mutates, then call `listRaw()` for the unfiltered total
+   * — otherwise the menu's "X / Y" denominator would itself be
+   * persona-scoped, which is exactly the wrong reading.
+   */
+  protected readonly totalTools = computed(() => {
+    this.toolRegistry.signal();        // subscribe to mutations
+    this.active();                     // refresh on persona switch
+    return this.toolRegistry.listRaw().length;
+  });
 
   /** How many of the registered tools the given persona may invoke. */
   protected allowedFor(p: Persona): number {
-    const tools = this.toolRegistry.signal();
-    return tools.filter((t) => this.personaService.canInvoke(p, t.name)).length;
+    return this.toolRegistry
+      .listRaw()
+      .filter((t) => this.personaService.canInvoke(p, t.name)).length;
   }
 
   /** Notification pip — drives off pending hold acknowledgements + recent audit events. */
