@@ -44,6 +44,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [1.1.0] — 2026-05-01
+
+This minor release lands the **MCP server-side adapter**, **federation scaling primitives**, and **three registry-governance hooks** (`conflictPolicy`, `onDispose`, and the new `setScopePolicy`). All additions are opt-in and backward-compatible — existing 1.0.0 consumers see zero behaviour change without explicit provider changes.
+
+The release is anchored by the **eDiscovery flagship reference application** (`examples/demo-ediscovery-*`) which exercises every feature listed below at enterprise load — 18 tools across 4 specialists, 3 federated MFE remotes plus an MCP server, all 13 registries, tamper-evident audit chain, persona-scoped tool surface.
+
 ### Added
 
 #### MCP server-side adapter (companion package)
@@ -101,5 +109,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Notes
 
-- All additions are **opt-in and backward-compatible**. Existing consumers see zero behaviour change without explicit provider changes.
-- Versioning: this changeset is a minor release (next published version → `1.1.0`). No breaking changes.
+- All additions are **opt-in and backward-compatible**. Existing 1.0.0 consumers see zero behaviour change without explicit provider changes.
+- Minor release per SemVer — no breaking API changes vs 1.0.0.
