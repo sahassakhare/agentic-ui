@@ -29,12 +29,13 @@ export const redactDocumentTool = agenticTool({
   schema: z.object({
     documentId: z.string().describe("Document id, e.g. 'DOC-7891234'"),
     page: z.number().int().min(1).describe('1-indexed page number'),
-    bbox: z.tuple([
-      z.number().describe('x (points)'),
-      z.number().describe('y (points)'),
-      z.number().describe('width (points)'),
-      z.number().describe('height (points)'),
-    ]).describe('Bounding box: [x, y, width, height] in document points'),
+    // NB: an array of exactly 4 numbers, not a Zod tuple. Gemini's
+    // tool-call schema is OpenAPI-3.0 strict and rejects positional
+    // `items` arrays (which `z.tuple()` produces). Using a flat
+    // `z.array(z.number())` keeps the shape compatible while still
+    // documenting the slot order in the description.
+    bbox: z.array(z.number()).min(4).max(4)
+      .describe('Bounding box: [x, y, width, height] in document points (exactly 4 numbers, in this order)'),
     reason: z.enum(REASONS).describe('Reason category'),
     note: z.string().optional().describe('Optional reviewer note for the audit log'),
   }),
@@ -49,7 +50,9 @@ export const redactDocumentTool = agenticTool({
 
     const span: RedactionSpan = {
       page,
-      bbox: bbox as readonly [number, number, number, number],
+      // Zod's min(4).max(4) guarantees exactly 4 numbers at runtime;
+      // the double cast is the supported way to narrow array → tuple.
+      bbox: bbox as unknown as readonly [number, number, number, number],
       reason,
       appliedBy: ACTOR,
       appliedAt: isoNow(),
