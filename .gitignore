@@ -61,3 +61,8 @@ PLAN.md
 # next to it at build time are not.
 /docs/compodoc/
 /docs/compodoc-includes/*.md
+
+# Playwright artefacts — JUnit XML lands in e2e/results/ for CI consumers.
+/test-results/
+/playwright-report/
+/e2e/results/
