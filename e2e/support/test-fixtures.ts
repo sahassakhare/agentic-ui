@@ -1,42 +1,39 @@
 /**
- * Project test fixture — extends Playwright's `test` so every spec
+ * Project test base — extends Playwright's `test` so every spec
  * automatically attaches the chat-shell transcript to the HTML report
  * after each test runs (pass or fail).
  *
  * Why: when the LLM produces unexpected output, the report's
  * screenshots can be hard to read; a plain-text dump of every
  * assistant turn is easier to scan. The attachment is conditional —
- * tests that never render `<mvk-chat-shell>` (e.g. smoke specs) get
- * nothing attached.
+ * tests that never render `<mvk-chat-shell>` (e.g. smoke specs) or
+ * leave the transcript empty get nothing attached.
  *
  * Usage: import { test, expect } from '../support/test-fixtures'
  * (instead of '@playwright/test').
  */
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 
-async function dumpTranscript(page: Page): Promise<string | null> {
+export const test = base.extend({});
+
+test.afterEach(async ({ page }, testInfo) => {
+  if (page.isClosed()) return;
   try {
     const shell = page.locator('mvk-chat-shell .transcript');
-    if ((await shell.count()) === 0) return null;
-    const text = (await shell.textContent({ timeout: 1_000 })) ?? '';
-    return text.trim().length === 0 ? null : text;
+    if ((await shell.count()) === 0) return;
+    const text = (await shell.textContent({ timeout: 2_000 })) ?? '';
+    if (text.trim().length === 0) return;
+    await testInfo.attach('chat-transcript.txt', {
+      body: text,
+      contentType: 'text/plain',
+    });
   } catch {
-    return null;
+    // page closed mid-teardown — nothing to capture.
   }
-}
-
-export const test = base.extend({
-  page: async ({ page }, use, testInfo) => {
-    await use(page);
-    if (page.isClosed()) return;
-    const transcript = await dumpTranscript(page);
-    if (transcript !== null) {
-      await testInfo.attach('chat-transcript.txt', {
-        body: transcript,
-        contentType: 'text/plain',
-      });
-    }
-  },
+  // Gemini free tier is tight on per-minute (5 RPM on 2.5-flash) and
+  // per-day caps. A 12s pause between LLM-driven tests keeps us under
+  // even the 5-RPM cap (5 tests * 12s = 60s rolling window).
+  await new Promise((r) => setTimeout(r, 12_000));
 });
 
 export { expect };

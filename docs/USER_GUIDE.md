@@ -282,6 +282,480 @@ kill $(lsof -ti:4111)   # or 4200, 4201
 
 ---
 
+## Use cases
+
+This library is opinionated for one shape of work — agent-driven UI in Angular — but within that shape it covers a handful of distinct scenarios that real apps need. The matrix lists them; each subsection below walks through the wiring with a code skeleton and links to a cookbook entry for depth.
+
+| # | Use case | What the library does | Cookbook |
+|---|---|---|---|
+| 1 | [Generative UI — agent picks the component](#1-generative-ui--agent-picks-the-component) | `ComponentRegistry` + `<maverick-widget-container>` mount Angular components by name with Zod-validated props | [quickstart](./cookbook/quickstart.md) |
+| 2 | [Tool calling with state mutation](#2-tool-calling-with-state-mutation) | `ToolRegistry` handlers, `tool-call-*` events, abort signals | [extended-registries-feature-tour](./cookbook/extended-registries-feature-tour.md) |
+| 3 | [Federating MFE remotes](#3-federating-mfe-remotes) | `defineCapabilityModule` + `loadRemoteCapabilities`; native + webpack federation | [federate-an-mfe](./cookbook/federate-an-mfe.md) |
+| 4 | [Per-persona entitlement](#4-per-persona-entitlement) | `RegistryBase.setScopePolicy(...)` filters every read | this guide (below) |
+| 5 | [Backend swap (AG-UI ↔ Hashbrown ↔ A2UI)](#5-backend-swap-ag-ui--hashbrown--a2ui) | `AgenticBackend` interface — chat shell never sees the protocol | [swap-backend](./cookbook/swap-backend.md) |
+| 6 | [Multi-agent orchestration with sticky routing](#6-multi-agent-orchestration-with-sticky-routing) | `OrchestratorAgent` + per-thread sticky state | [multi-agent-orchestration](./cookbook/multi-agent-orchestration.md) |
+| 7 | [Per-turn tool budget at scale](#7-per-turn-tool-budget-at-scale) | `provideToolFilter` + `keywordToolFilter` for 17+ tool inventories | [federation-at-scale](./cookbook/federation-at-scale.md) |
+| 8 | [MCP — same tools power analyst desktops](#8-mcp--same-tools-power-analyst-desktops) | `@maverick/agentic-ui-mcp` exposes ToolDefs as an MCP server | [mcp-server](./cookbook/mcp-server.md) |
+| 9 | [Observability — distributed tracing per chat turn](#9-observability--distributed-tracing-per-chat-turn) | `AgenticTelemetrySink` + `@maverick/agentic-ui/otel` | [observability](./cookbook/observability.md) |
+| 10 | [Audit trail / chain-of-custody](#10-audit-trail--chain-of-custody) | Pattern (not core lib): `prevHash` / `chainHash` auto-stamping in your data layer | [paralegal-mcp-review](./cookbook/paralegal-mcp-review.md) |
+
+---
+
+### 1. Generative UI — agent picks the component
+
+> **Scenario.** A user asks "show me the flight options". You don't want the agent to return prose — you want a `<flight-card>` UI component with the actual booking shape. The agent decides *which* component to render and *what* props to pass.
+
+**Library responsibility.**
+- `ComponentRegistry` stores `{ name, component: Type<unknown>, propsSchema: Zod }` entries.
+- The backend adapter maps the protocol's render event (`show-component` tool result in AG-UI, native widget stream in Hashbrown) into a `widget-render` event on `AgenticBackend`.
+- `<maverick-widget-container>` resolves the name via `ComponentRegistry.get(...)` and uses `*ngComponentOutlet` to mount it; props are Zod-validated before assignment.
+
+**Wiring.**
+
+```ts
+// flight-card.widget.ts
+import { agenticWidget } from '@maverick/agentic-ui';
+import { z } from 'zod';
+import { FlightCardComponent } from './flight-card.component';
+
+export const flightCard = agenticWidget({
+  name: 'flight-card',
+  component: FlightCardComponent,
+  propsSchema: z.object({
+    flightId: z.string(),
+    from: z.string().length(3),
+    to: z.string().length(3),
+    price: z.number().positive(),
+  }),
+});
+
+// app.config.ts
+provideAgenticUi({
+  widgets: [flightCard],
+  // ...
+});
+```
+
+The agent emits `widget-render` with `{ name: 'flight-card', props: {...} }`; if `props` doesn't validate, the container shows an error placeholder instead of crashing.
+
+---
+
+### 2. Tool calling with state mutation
+
+> **Scenario.** The agent should run `bookFlight({ flightId })` against your backend, get a result back, and the chat continues with the booking confirmation. Bonus: the user can hit Esc and abort mid-execution.
+
+**Library responsibility.**
+- `ToolRegistry` stores `{ name, description, schema, handler }` entries; the LLM sees `name + description + schema`.
+- `runUntilSettled` (inside the chat-shell's `injectAgenticChat()`) calls your `handler(args, ctx)` when the LLM picks a tool, threads the result back into the next turn, and stops when the agent emits `text-end`.
+- `ctx.signal: AbortSignal` lets handlers bail cleanly when the user aborts.
+
+**Wiring.**
+
+```ts
+import { agenticTool } from '@maverick/agentic-ui';
+import { z } from 'zod';
+
+export const bookFlight = agenticTool({
+  name: 'bookFlight',
+  description: 'Book a flight for the user. Returns a confirmation id.',
+  schema: z.object({ flightId: z.string() }),
+  handler: async ({ flightId }, ctx) => {
+    ctx.signal.throwIfAborted();
+    const res = await fetch('/api/bookings', {
+      method: 'POST',
+      body: JSON.stringify({ flightId }),
+      signal: ctx.signal,
+    });
+    if (!res.ok) throw new Error(`booking failed: ${res.status}`);
+    return await res.json();        // becomes the `tool-call-result` payload
+  },
+});
+```
+
+For tools owned by an MFE remote, set `executeIn: 'remote'` so the handler resolves services from the *remote's* injector (see use case 3).
+
+---
+
+### 3. Federating MFE remotes
+
+> **Scenario.** The bookings team owns their own tools, widgets, and routes; they ship independently and the host loads their bundle at runtime. Their tool inventory shows up in the agent's tool list within the same chat turn it loaded.
+
+**Library responsibility.**
+- `defineCapabilityModule({ tools, widgets, prompts })` is what the remote exports.
+- `loadRemoteCapabilities({ remoteName, loader })` (Native Federation) or `loadRemoteCapabilitiesMF(...)` (webpack) imports the remote, reads its capability module, and pushes its tools / widgets into the host's registries with `source: 'remote:<name>'`.
+- On unload, `removeBySource('remote:<name>')` runs across every registry; in-flight runs continue, but the next turn's tool list excludes the removed capabilities.
+
+**Wiring (in the remote).**
+
+```ts
+// remote: bookings/src/app/capability.ts
+import { defineCapabilityModule } from '@maverick/agentic-ui/mfe';
+import { bookFlight, cancelFlight } from './tools';
+import { flightCard } from './widgets';
+
+export default defineCapabilityModule({
+  tools: [bookFlight, cancelFlight],
+  widgets: [flightCard],
+});
+```
+
+**Wiring (in the host).**
+
+```ts
+// host: app.config.ts
+provideAgenticUi({
+  mfe: {
+    federation: 'native',
+    remotes: [
+      { remoteName: 'bookings', remoteEntry: '/remoteEntry.json' },
+    ],
+  },
+});
+```
+
+For deployments that already have an MFE registry service (e.g. Spring Boot), use `provideSpringBootMfeRegistry({ url })` and the remotes list comes from discovery.
+
+---
+
+### 4. Per-persona entitlement
+
+> **Scenario.** An eDiscovery app has four roles — Lead Counsel, Associate, Paralegal, Vendor Reviewer. Lead Counsel needs every tool the agent can call. Vendor Reviewer is an external contractor and must only see read + tag tools — never `markPrivileged`, never `createProductionSet`, never `redactDocument`. The agent should not even *consider* tools the active user can't invoke (so an LLM hallucination can't bypass the rule), and the host shouldn't paint a generative-UI widget the role isn't entitled to see.
+>
+> The library handles this through `RegistryBase.setScopePolicy(...)` — added in 1.1.0. The app supplies the policy; the registry layer enforces on every read.
+
+#### Three layers of responsibility
+
+| Layer | Who enforces | What it does |
+|---|---|---|
+| Library | `ToolRegistry`, `ComponentRegistry`, every other registry | Filters `list()` / `get()` / `signal()` reads through your scope policy. Tools the persona can't invoke never reach the LLM's tool list; widgets it can't see don't resolve in `<maverick-widget-container>`. |
+| Application | Your `PersonaService` (or whatever names your roles + allow-lists) | Decides which entries each role is allowed to read. The library calls your predicate with each `RegistryEntry`; you return `true` / `false`. |
+| Agent server | Your tool handlers, before any side-effect | Re-verifies entitlement from the trusted session (JWT, cookie, etc.). Client-claimed personas are an UX hint, not a security boundary — a motivated client could bypass the browser. |
+
+#### Implementing it with the library — step by step
+
+The walkthrough below mirrors what the eDiscovery demo does in [`examples/demo-ediscovery-shell/src/app/app.config.ts`](../examples/demo-ediscovery-shell/src/app/app.config.ts).
+
+##### Step a — Define your personas + allow-lists
+
+The library is policy-agnostic — it doesn't care how you express roles. A simple service is plenty:
+
+```ts
+// src/app/services/persona.service.ts
+import { Injectable, signal } from '@angular/core';
+
+const ALLOW_LIST: Record<string, readonly string[]> = {
+  'lead-counsel':   ['*'],
+  'associate':      ['searchDocuments', 'markPrivileged', 'addCustodian',
+                     'placeLegalHold', 'semanticSearch', 'filterByDateRange',
+                     'filterByCustodians', 'runTARClassifier'],
+  'paralegal':      ['searchDocuments', 'addCustodian', 'placeLegalHold',
+                     'semanticSearch', 'filterByDateRange'],
+  'vendor-reviewer':['searchDocuments', 'tagDocument'],
+};
+
+@Injectable({ providedIn: 'root' })
+export class PersonaService {
+  readonly active = signal<keyof typeof ALLOW_LIST>('lead-counsel');
+
+  canInvoke(scope: string, toolName: string): boolean {
+    const allow = ALLOW_LIST[scope] ?? [];
+    return allow.includes('*') || allow.includes(toolName);
+  }
+}
+```
+
+Two things to notice:
+- `active` is a signal — when the user switches persona via your UI, it changes, and the next read of `ToolRegistry.list()` re-runs the policy with the new role.
+- `canInvoke` takes the scope **and** the tool name. The library will hand you the registry entry; you decide.
+
+##### Step b — Wire the policy into the library
+
+One call per registry you want filtered. For the eDiscovery demo, only `ToolRegistry` is scoped — but `ComponentRegistry`, `ActionRegistry`, etc. accept the same predicate:
+
+```ts
+// src/app/app.config.ts
+import { provideAppInitializer, inject } from '@angular/core';
+import { ToolRegistry } from '@maverick/agentic-ui';
+import { PersonaService } from './services/persona.service';
+
+function installPersonaScopePolicy() {
+  return provideAppInitializer(() => {
+    const persona = inject(PersonaService);
+    const tools   = inject(ToolRegistry);
+    // The predicate runs on every read — list(), get(), signal().
+    // Return true to surface the entry, false to hide it.
+    tools.setScopePolicy((entry) =>
+      persona.canInvoke(persona.active(), entry.name));
+  });
+}
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideAgenticUi({ /* ... */ }),
+    bootAgenticCapabilities(),     // registers tools FIRST
+    installPersonaScopePolicy(),   // then installs the filter
+  ],
+};
+```
+
+Order matters: install the policy *after* tools are registered (use `provideAppInitializer`'s declaration order, or run the policy install last). Otherwise the policy fires before the registry has anything to filter.
+
+##### Step c — That's it for the input side
+
+The library now does the rest:
+- The chat shell calls `ToolRegistry.list()` when building each turn — only allow-listed tools reach the LLM.
+- The sidebar's "18 tools" counter reads the same filtered signal — switching personas in the UI drops the count live.
+- The orchestrator's `keywordToolFilter` (if you use one) runs **on top** of the scoped set, so the per-turn budget is bounded inside the persona's allow-list.
+
+##### Step d — Optional: also scope the output side
+
+If your generative-UI widgets are sensitive (e.g., a Vendor Reviewer shouldn't see a `chainOfCustodyReport` even if the LLM asks for it), wire `ComponentRegistry` the same way:
+
+```ts
+const components = inject(ComponentRegistry);
+components.setScopePolicy((entry) =>
+  persona.canSeeWidget(persona.active(), entry.name));
+```
+
+Now `<maverick-widget-container>` resolves through the filtered registry — a `widget-render` event for a forbidden component name returns `undefined` and silently no-ops, with a `console.warn` in dev mode.
+
+##### Step e — Server-side verification (don't skip this)
+
+The browser is not a trust boundary. Even with the registry filtered, a forged HTTP request straight to your tool handler would still execute side-effects. In every server-side tool handler:
+
+```ts
+// In your agent server's tool handler
+async function markPrivileged({ docId }, ctx) {
+  if (!ctx.session.permissions.has('markPrivileged')) {
+    throw new Error('forbidden');     // bubbles back as a tool-call error
+  }
+  // ...mutate document...
+}
+```
+
+The library's `ToolRegistry` filtering keeps the LLM honest and the UI tidy. Server-side checks keep the data safe.
+
+#### Verifying it works
+
+The eDiscovery demo's E2E suite has a Playwright spec for this — [`e2e/specs/05-persona-scope.spec.ts`](../e2e/specs/05-persona-scope.spec.ts) — that:
+
+1. Reads each persona's tool-count badge and asserts strict ordering (Lead Counsel > Associate > Paralegal > Vendor Reviewer).
+2. Switches to Vendor Reviewer in the header dropdown and asserts the sidebar's tool counter drops live within 5s of the persona change.
+3. Persists the persona choice in `sessionStorage` and reloads — the role survives navigation.
+
+Run it with `npm run test:e2e -- specs/05-persona-scope.spec.ts`. No LLM key needed — it's a pure UI test.
+
+#### Where this fits in the bigger picture
+
+- **ADR**: [`docs/adr/0008-registry-scope-policy.md`](./adr/0008-registry-scope-policy.md) — design rationale for putting the seam on `RegistryBase` (vs. a chat-shell-only filter, which was the Phase 7 first cut).
+- **API reference**: [`projects/agentic-ui/src/lib/registries/registry-base.ts`](../projects/agentic-ui/src/lib/registries/registry-base.ts) — `setScopePolicy`, `permissiveScopePolicy`, `activeScopePolicy`, `getRaw`, `listRaw`.
+
+> **Heads up.** `getRaw()` and `listRaw()` bypass the policy on purpose — for governance UIs that need to *show* the unfiltered set ("here's everything that exists; you have access to these"). Don't use them in handlers that perform actions.
+
+---
+
+### 5. Backend swap (AG-UI ↔ Hashbrown ↔ A2UI)
+
+> **Scenario.** You ship v1 against AG-UI (server-side LLM, SSE streaming). v2 you want Hashbrown for client-side LLM tasks, and on a separate page you want A2UI for agent-driven UI mutations. Three protocols, but the chat shell shouldn't change.
+
+**Library responsibility.**
+- The `AgenticBackend` interface is the only seam the chat shell sees. All three protocols implement `run(input): AsyncIterable<AgenticEvent>`.
+- Each adapter translates the protocol's events into the shared `AgenticEvent` union (`text-delta`, `tool-call-*`, `widget-render`, `ui-action`).
+- `BackendRegistry` lets you register multiple at once and switch via UI.
+
+**Wiring — picking one at boot.**
+
+```ts
+import { provideAgUiBackend } from '@maverick/agentic-ui/ag-ui';
+
+provideAgenticUi({
+  backend: provideAgUiBackend({ url: '/api/ag-ui' }),
+  // later: swap to provideHashbrownBackend({...}) — no chat-shell changes
+});
+```
+
+**Wiring — runtime switch (debug / preview).**
+
+```ts
+import { BackendRegistry } from '@maverick/agentic-ui';
+const backends = inject(BackendRegistry);
+backends.register({ id: 'ag-ui',     factory: () => agUiBackend,    label: 'AG-UI · SSE' });
+backends.register({ id: 'hashbrown', factory: () => hashbrownBackend, label: 'Hashbrown · client' });
+// the chat shell renders a backend pill; user picks one, chat re-binds
+```
+
+The chat shell's tools sidebar / widget rail feature-detect via `backend.capabilities.{clientTools, generativeUi, uiActions}` — adapters with `clientTools=false` hide the tools UI automatically.
+
+---
+
+### 6. Multi-agent orchestration with sticky routing
+
+> **Scenario.** One chat panel for the whole eDiscovery matter. The user asks about custodians (collection specialist), then about a privilege flag (review specialist), then about Bates assignment (production specialist) — all without losing context. Routing decisions stay sticky for follow-up turns so the user can say "what about that one?" without naming the specialist.
+
+**Library responsibility.**
+- `OrchestratorAgent` (server-side, in `@maverick/agentic-ui-server`) classifies each user turn against your specialists' descriptions + examples, then runs the chosen specialist.
+- A per-thread `ThreadStateStore` (in-memory by default; Redis adapter in cookbook) remembers the last specialist and replays it on the next turn unless the classifier explicitly switches.
+- The "Routed to **review** specialist." banner in the demo is a cheap UX hint, not state — it's just the orchestrator emitting a text-delta when routing changes.
+
+**Wiring (server side).**
+
+```ts
+import { OrchestratorAgent, GeminiAgent } from '@maverick/agentic-ui-server';
+
+const coordinator = new OrchestratorAgent('coordinator', {
+  apiKey, model: 'gemini-2.0-flash',
+  subAgents: [
+    { id: 'collection',  factory: (id) => new GeminiAgent(id, { /* tools: addCustodian, placeLegalHold */ }),
+      description: 'custodians, legal holds, collection status',
+      examples: ['Add Sarah as a custodian', 'Place a hold on Project Phoenix'] },
+    { id: 'review',      factory: (id) => new GeminiAgent(id, { /* tools: searchDocuments, markPrivileged */ }),
+      description: 'document search, privilege flags, tagging',
+      examples: ['Find docs about Project Phoenix', 'Mark DOC-789 as attorney-client'] },
+    // ... production, search ...
+  ],
+});
+```
+
+The orchestrator handles the routing loop. From the host's perspective, it's still one `AgenticBackend` — the chat shell never knows there are 4 agents under it.
+
+---
+
+### 7. Per-turn tool budget at scale
+
+> **Scenario.** You have 50+ tools across three federated remotes. Sending all of them to the LLM every turn blows your context budget and slows responses. You want the agent to see only the 12 most-relevant tools per turn — selected by keyword match against the user's prompt — but always include 5 "core" tools that should be available regardless.
+
+**Library responsibility.**
+- `provideToolFilter(filter)` registers a filter that runs *between* `ToolRegistry.list()` and the LLM.
+- `keywordToolFilter({ maxTools, floor })` is a stock implementation: extract keywords from the latest user message, score each tool by description-match, return the top `maxTools` plus the `floor` highest-priority ones unconditionally.
+- Composes with `setScopePolicy` from use case 4: the persona scope filters first (governance), then the keyword filter narrows further (efficiency).
+
+**Wiring.**
+
+```ts
+import { provideToolFilter, keywordToolFilter } from '@maverick/agentic-ui';
+
+provideAgenticUi({
+  // ...
+  providers: [
+    provideToolFilter(keywordToolFilter({ maxTools: 12, floor: 5 })),
+    // and (if using persona scope policy):
+    installPersonaScopePolicy(),
+  ],
+});
+```
+
+For 17+ tool inventories like the eDiscovery demo, this typically narrows each turn to ~10 tools and cuts prompt size by 70%. Custom filter? Implement `ToolFilter = (tools, ctx) => readonly ToolDef[]` and pass to `provideToolFilter`.
+
+---
+
+### 8. MCP — same tools power analyst desktops
+
+> **Scenario.** Your tool definitions are valuable IP — you want them callable not just from your in-browser chat shell, but also from Claude Desktop, Cursor, and Zed via the Model Context Protocol. One source of truth, three surfaces.
+
+**Library responsibility.**
+- `@maverick/agentic-ui-mcp` is a separate package that wraps `ToolDef` instances as an MCP server.
+- `createMcpServer({ tools, transport })` produces a Hono-mountable server that speaks MCP over stdio, SSE, or the `text/html;profile=mcp-app` HTTP profile.
+- Same Zod schemas, same handlers — only the transport differs.
+
+**Wiring.**
+
+```ts
+import { createMcpServer } from '@maverick/agentic-ui-mcp';
+import { searchDocuments, markPrivileged, tagDocument } from './tools';
+
+// In your agent server (or a separate Node process):
+const mcp = createMcpServer({
+  name: 'ediscovery-paralegal',
+  version: '1.0.0',
+  tools: [searchDocuments, markPrivileged, tagDocument],
+});
+
+app.route('/mcp', mcp);
+```
+
+In Claude Desktop's `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "ediscovery": { "command": "node", "args": ["dist/mcp-stdio.js"] }
+  }
+}
+```
+
+The paralegal MCP cookbook walks through a privilege-review flow where the same tools that drive the in-browser chat also let an analyst do the work from Claude Desktop. Persona scope still applies via your `setScopePolicy` because MCP also reads through `ToolRegistry`.
+
+---
+
+### 9. Observability — distributed tracing per chat turn
+
+> **Scenario.** A user reports "the agent is slow on production runs". You need to see — in one trace — the chat-shell run, the SSE handshake, the orchestrator's classification, the specialist's LLM call, every tool call, and where the time went. With W3C trace-context propagating across the SSE boundary so client + server stitch into one trace.
+
+**Library responsibility.**
+- `AgenticTelemetrySink` is a no-op interface by default; the library emits at every meaningful boundary (`agentic.run`, `agentic.tool_call`, `agentic.widget_render`, `agentic.federation.load`).
+- `@maverick/agentic-ui/otel` ships the OpenTelemetry-backed sink; opt-in via `provideAgenticTelemetry(...)`.
+- The AG-UI adapter inserts `traceparent` into request headers; the server-side route extracts it and continues the trace inside Mastra/Hono.
+
+**Wiring.**
+
+```ts
+import { provideAgenticTelemetry } from '@maverick/agentic-ui/otel';
+
+provideAgenticUi({
+  // ...
+  telemetry: provideAgenticTelemetry({
+    serviceName: 'demo-shell',
+    exporter: 'otlp-http',
+    endpoint: 'http://otel-collector:4318/v1/traces',
+    sampler: { kind: 'ratio', ratio: 0.1 },         // 10% in prod
+    instrumentations: { runs: true, toolCalls: true, federation: true },
+    redaction: { argsAllowList: ['flightId', 'docId'] },  // don't ship PII to traces
+  }),
+});
+```
+
+Defaults are conservative: tool args / message bodies are never captured as span attributes — only sizes and stable hashes. Opt in field-by-field.
+
+---
+
+### 10. Audit trail / chain-of-custody
+
+> **Scenario.** A regulated domain (eDiscovery, finance, healthcare). Every state-mutating tool call needs to land in an immutable audit log: who did what, when, what the previous state was, with a hash chain so any tamper attempt breaks the chain visibly.
+
+**Library responsibility.**
+This is *not* core to `@maverick/agentic-ui` — auditing is application-layer work. But the library makes the right hooks visible:
+- Every tool's `handler(args, ctx)` knows the actor (`ctx.session`) and the persona (via your scope policy from use case 4).
+- The `AgenticTelemetrySink` from use case 9 emits a `tool-call` span you can fan out to your audit sink alongside OTel.
+- The eDiscovery demo's mock data layer shows the recommended **prevHash / chainHash** pattern: every `appendAudit(event)` auto-stamps `prevHash` (last entry's hash) and `chainHash` (hash of `event + prevHash`). Replay verifies the chain.
+
+**Wiring (sketch — implement against your data layer).**
+
+```ts
+function appendAudit(event: AuditEvent) {
+  const prev = audit.list().at(-1);
+  const chained = {
+    ...event,
+    timestamp: new Date().toISOString(),
+    prevHash: prev?.chainHash ?? null,
+    chainHash: hash(JSON.stringify({ ...event, prevHash: prev?.chainHash ?? null })),
+  };
+  audit.append(chained);
+}
+
+// in your tool handler:
+handler: async ({ docId, flag }, ctx) => {
+  const before = await documents.get(docId);
+  const after  = await documents.update(docId, { privilege: flag });
+  appendAudit({ kind: 'mark-privileged', actor: ctx.session.userId,
+                docId, before: before.privilege, after: flag });
+  return after;
+}
+```
+
+Pair with use case 4 (persona scope) and use case 9 (OTel) and you have the three-piece compliance story: who *can* do it, who *did* do it, and what happened in the system when they did. The Audit Trail page in the eDiscovery demo verifies the chain on render — a `verified` badge means the hashes match end-to-end; a `break` badge means tampering was detected.
+
+---
+
 ## Where to go next
 
 - Look at [`examples/demo-remote-bookings/src/app/capability.ts`](../examples/demo-remote-bookings/src/app/capability.ts) to see how the remote contributes tools/widgets.

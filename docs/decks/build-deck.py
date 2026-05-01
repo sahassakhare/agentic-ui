@@ -395,7 +395,7 @@ def slide_cover(prs):
 
     # Date / version line
     text_box(s, Inches(0.7), H - Inches(0.6), W - Inches(1.4), Inches(0.3),
-             "Q2 2026 release  ·  v1.0  ·  Confidential",
+             "Q2 2026 release  ·  v1.1.0  ·  Confidential",
              size=10, color=FAINT)
 
     add_speaker_notes(s,
@@ -793,11 +793,12 @@ def slide_lib_problem(prs):
     bullets(s, Inches(7.25), Inches(3.15), Inches(5.2), Inches(3.5), [
         "One AgenticBackend interface — three adapters",
         "13 typed registries, one base class, signal-backed",
+        "Per-persona scope policy on every registry (1.1)",
         "Native + Module Federation, both first-class",
         "@maverick/agentic-ui-mcp wraps tools as MCP",
         "OTel-instrumented from M1; default no-op",
         "ng add scaffolds an entire app in one command",
-    ], size=12, gap=6, marker="✓", marker_color=OK)
+    ], size=11, gap=5, marker="✓", marker_color=OK)
     add_speaker_notes(s,
         "Frame for execs: building from scratch is a 6+ month investment. The library is a 2-week pilot.",
         "Production-grade, MIT-licensed, MIT-friendly. No vendor lock-in to a paid SaaS.")
@@ -1494,7 +1495,7 @@ def slide_lib_registries_v2(prs):
     slide_chrome(s, "5 · THE LIBRARY", "13 registries — hub & spokes", "Architects")
 
     text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.4),
-             "All 13 implement one Registry<TDef> interface — same MFE-aware teardown, same signal contract, same conformance test surface.",
+             "All 13 implement one Registry<TDef> — same MFE-aware teardown, same signal contract, same conformance test surface, plus setScopePolicy(...) for per-persona filtered reads (1.1).",
              size=12, color=TEXT_2)
 
     # Central hub
@@ -1867,6 +1868,839 @@ def slide_lib_schematics(prs):
     add_speaker_notes(s,
         "Show this slide to developers — the schematics are the value-multiplier.",
         "ng add takes a fresh Angular app to running chat in <2 minutes.")
+    return s
+
+
+# ── Use cases (NEW v6) ──────────────────────────────────────────────────────
+# Four slides distilling the User Guide's ten use cases into a deck-friendly
+# arc: one matrix overview hits all three audiences, then three spotlights
+# zoom in on the use cases that aren't already covered by the library deep-
+# dives in §5 (Generative UI, Tool calling, Per-turn budget at scale).
+
+def slide_use_cases_matrix(prs):
+    """Overview slide — every use case the library covers, in one place."""
+    s = add(prs)
+    slide_chrome(s, "5b · USE CASES", "Ten use cases · one library",
+                 "Senior executives + Architects")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.45),
+             "Each row maps a real user-facing scenario to the library seam that handles it. "
+             "Pick a row, jump to the slide; the User Guide has the full code walkthrough.",
+             size=12, color=TEXT_2)
+
+    # Table chrome
+    tx = Inches(0.7); ty = Inches(2.25)
+    tw = W - Inches(1.4); th = Inches(4.85)
+    rounded(s, tx, ty, tw, th, SURFACE, line=BORDER, radius=0.02)
+    rect(s, tx, ty, tw, Inches(0.4), SURFACE_2)
+
+    # Header row
+    col_x = [Inches(0.85), Inches(4.6), Inches(8.7), Inches(11.6)]
+    text_box(s, col_x[0], ty + Inches(0.08), Inches(3.5), Inches(0.3),
+             "USE CASE", size=10, bold=True, color=MUTED)
+    text_box(s, col_x[1], ty + Inches(0.08), Inches(4.0), Inches(0.3),
+             "LIBRARY SEAM", size=10, bold=True, color=MUTED)
+    text_box(s, col_x[2], ty + Inches(0.08), Inches(2.7), Inches(0.3),
+             "AUDIENCE", size=10, bold=True, color=MUTED)
+    text_box(s, col_x[3], ty + Inches(0.08), Inches(1.2), Inches(0.3),
+             "SECTION", size=10, bold=True, color=MUTED)
+
+    # Audience pill colors
+    DEV   = BRAND        # developers
+    ARCH  = INFO         # architects
+    EXEC  = WARN         # execs
+    rows = [
+        ("1. Generative UI — agent picks the component",
+         "ComponentRegistry · widget-container", "Dev",  ARCH, "5b"),
+        ("2. Tool calling with state mutation",
+         "ToolRegistry · tool-call-* events",     "Dev",  ARCH, "5b"),
+        ("3. Federating MFE remotes",
+         "defineCapabilityModule · loadRemoteCapabilities", "Arch",  EXEC, "5b"),
+        ("4. Per-persona entitlement",
+         "RegistryBase.setScopePolicy",            "Exec", DEV, "5b"),
+        ("5. Backend swap (AG-UI ↔ Hashbrown ↔ A2UI)",
+         "AgenticBackend interface",               "Arch", DEV, "5b"),
+        ("6. Multi-agent orchestration · sticky routing",
+         "OrchestratorAgent · ThreadStateStore",   "Arch", DEV, "5b"),
+        ("7. Per-turn tool budget at scale",
+         "provideToolFilter · keywordToolFilter",  "Dev",  ARCH, "5b"),
+        ("8. MCP — same tools power analyst desktops",
+         "@maverick/agentic-ui-mcp",               "Exec", ARCH, "5b"),
+        ("9. Observability — distributed tracing",
+         "AgenticTelemetrySink · /otel",           "Arch", DEV, "5b"),
+        ("10. Audit trail · chain-of-custody",
+         "Pattern: prevHash / chainHash + telemetry","Exec", ARCH, "5b"),
+    ]
+
+    y = ty + Inches(0.5)
+    row_h = Inches(0.42)
+    for i, (use, seam, audience, audience_color, section) in enumerate(rows):
+        if i % 2 == 1:
+            rect(s, tx + Inches(0.005), y, tw - Inches(0.01), row_h,
+                 RGBColor(0xFA, 0xFB, 0xFC))
+        text_box(s, col_x[0], y + Inches(0.07), Inches(3.7), Inches(0.32),
+                 use, size=11, color=TEXT)
+        text_box(s, col_x[1], y + Inches(0.07), Inches(4.0), Inches(0.32),
+                 seam, size=10, color=BRAND_DEEP)
+        chip(s, col_x[2], y + Inches(0.07), audience,
+             fg=SURFACE, bg=audience_color, size=9, w=Inches(0.85))
+        text_box(s, col_x[3] + Inches(0.05), y + Inches(0.07),
+                 Inches(1.2), Inches(0.32),
+                 f"§ {section}", size=10, bold=True, color=MUTED)
+        y += row_h
+
+    # Audience legend
+    leg_y = Inches(7.25)
+    text_box(s, Inches(0.7), leg_y, Inches(2.0), Inches(0.3),
+             "PRIMARY AUDIENCE", size=9, bold=True, color=MUTED)
+    chip(s, Inches(2.7), leg_y, "Dev",  fg=SURFACE, bg=DEV,  size=9, w=Inches(0.85))
+    chip(s, Inches(3.7), leg_y, "Arch", fg=SURFACE, bg=ARCH, size=9, w=Inches(0.85))
+    chip(s, Inches(4.7), leg_y, "Exec", fg=SURFACE, bg=EXEC, size=9, w=Inches(0.85))
+
+    add_speaker_notes(s,
+        "Strategic view. Use this slide to set up the rest of the deck — every row has a 'home' slide deeper in.",
+        "Highlight that 4 (persona scope) and 10 (audit) are differentiators — that's what makes this deployable in regulated domains.",
+        "If pressed for time, pick three rows the audience cares about and skip directly to those slides.")
+    return s
+
+
+def slide_use_case_genui(prs):
+    """Spotlight: generative UI — the headline value prop."""
+    s = add(prs)
+    slide_chrome(s, "5b · USE CASES",
+                 "Use case 1 · Generative UI — agent picks the component",
+                 "Architects + Developers")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.4),
+             '"Show me the flight options" → no prose. The agent emits widget-render and a typed Angular component mounts with validated props.',
+             size=12, color=TEXT_2)
+
+    # Left column — flow diagram
+    fx, fy = Inches(0.7), Inches(2.2)
+    fw, fh = Inches(6.2), Inches(4.7)
+    rounded(s, fx, fy, fw, fh, SURFACE_2, line=BORDER, radius=0.02)
+    text_box(s, fx + Inches(0.2), fy + Inches(0.1), fw - Inches(0.4), Inches(0.3),
+             "EVENT FLOW", size=10, bold=True, color=MUTED)
+
+    steps = [
+        ("LLM",                "decides which component",        BRAND),
+        ("Backend adapter",    "translates to widget-render",    INFO),
+        ("ComponentRegistry",  "resolves name · validates props",WARN),
+        ("widget-container",   "*ngComponentOutlet mounts it",   OK),
+    ]
+    sy = fy + Inches(0.55)
+    for label, desc, color in steps:
+        chip_node(s, fx + Inches(0.3), sy, Inches(2.4), Inches(0.5),
+                  label, fill=SURFACE, fg=color, border=color, size=11)
+        text_box(s, fx + Inches(2.85), sy + Inches(0.12),
+                 fw - Inches(3.0), Inches(0.35),
+                 desc, size=11, color=TEXT)
+        # arrow down (skip last)
+        if label != steps[-1][0]:
+            arrow(s, fx + Inches(1.5), sy + Inches(0.5),
+                  fx + Inches(1.5), sy + Inches(0.95),
+                  color=MUTED, weight=1)
+        sy += Inches(1.0)
+
+    # Footer caption
+    text_box(s, fx + Inches(0.2), fy + fh - Inches(0.45),
+             fw - Inches(0.4), Inches(0.35),
+             "If props don't match the Zod schema, the container shows a placeholder — never crashes the chat.",
+             size=10, color=MUTED, align=PP_ALIGN.CENTER)
+
+    # Right column — code skeleton
+    cx = fx + fw + Inches(0.3)
+    cw = W - cx - Inches(0.7)
+    text_box(s, cx, fy + Inches(0.1), cw, Inches(0.3),
+             "WIRING", size=10, bold=True, color=MUTED)
+    code_block(s, cx, fy + Inches(0.45), cw, Inches(2.6), [
+        "import { agenticWidget } from '@maverick/agentic-ui';",
+        "import { z } from 'zod';",
+        "",
+        "export const flightCard = agenticWidget({",
+        "  name: 'flight-card',",
+        "  component: FlightCardComponent,",
+        "  propsSchema: z.object({",
+        "    flightId: z.string(),",
+        "    from: z.string().length(3),",
+        "    to:   z.string().length(3),",
+        "    price: z.number().positive(),",
+        "  }),",
+        "});",
+    ])
+    text_box(s, cx, fy + Inches(3.2), cw, Inches(0.3),
+             "WHY IT MATTERS", size=10, bold=True, color=MUTED)
+    bullets(s, cx, fy + Inches(3.55), cw, Inches(1.5), [
+        "Agent owns content; UI owns presentation",
+        "Zod schemas double as the LLM's tool contract",
+        "Same component works under any backend (use case 5)",
+    ], size=11, gap=6, marker="✓", marker_color=OK)
+
+    add_speaker_notes(s,
+        "This is the headline. 'Generative UI' is a buzzword; the diagram makes it concrete.",
+        "Emphasise the Zod schema is the single contract — the agent sees it as a tool schema, the renderer uses it for validation, the cookbook generates types from it.",
+        "Compare to text-only LLM apps: this is what makes agentic UI different from a fancy chat box.")
+    return s
+
+
+def slide_use_case_tool_calling(prs):
+    """Spotlight: tool calling lifecycle — abort, mutation, audit."""
+    s = add(prs)
+    slide_chrome(s, "5b · USE CASES",
+                 "Use case 2 · Tool calling with state mutation",
+                 "Architects + Developers")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.4),
+             "Agent runs bookFlight against your backend, threads the result back into the next turn, and the user can hit Esc to abort mid-execution.",
+             size=12, color=TEXT_2)
+
+    # Left — lifecycle pills
+    fx, fy = Inches(0.7), Inches(2.2)
+    fw, fh = Inches(6.2), Inches(4.6)
+    rounded(s, fx, fy, fw, fh, SURFACE_2, line=BORDER, radius=0.02)
+    text_box(s, fx + Inches(0.2), fy + Inches(0.1), fw - Inches(0.4), Inches(0.3),
+             "ONE TOOL CALL · LIFECYCLE", size=10, bold=True, color=MUTED)
+
+    lifecycle = [
+        ("tool-call-start",  "name + toolCallId reach the host",       BRAND),
+        ("tool-call-args",   "streamed JSON · Zod-validated incrementally", INFO),
+        ("tool-call-end",    "args complete · handler invoked",        WARN),
+        ("handler(args, ctx)", "ctx.signal threads abort to fetch()", OK),
+        ("tool-call-result", "payload becomes the next-turn input",   BRAND_DEEP),
+    ]
+    ly = fy + Inches(0.55)
+    for label, desc, color in lifecycle:
+        chip_node(s, fx + Inches(0.3), ly, Inches(2.4), Inches(0.42),
+                  label, fill=SURFACE, fg=color, border=color, size=10)
+        text_box(s, fx + Inches(2.85), ly + Inches(0.07),
+                 fw - Inches(3.0), Inches(0.32),
+                 desc, size=11, color=TEXT)
+        ly += Inches(0.78)
+
+    text_box(s, fx + Inches(0.2), fy + fh - Inches(0.45),
+             fw - Inches(0.4), Inches(0.35),
+             "User hits Esc → AbortController fires → handler's fetch cancels → tool-call-result emits an error event.",
+             size=10, color=MUTED, align=PP_ALIGN.CENTER)
+
+    # Right — code
+    cx = fx + fw + Inches(0.3)
+    cw = W - cx - Inches(0.7)
+    text_box(s, cx, fy + Inches(0.1), cw, Inches(0.3),
+             "HANDLER", size=10, bold=True, color=MUTED)
+    code_block(s, cx, fy + Inches(0.45), cw, Inches(2.85), [
+        "agenticTool({",
+        "  name: 'bookFlight',",
+        "  description: 'Book a flight, return id.',",
+        "  schema: z.object({ flightId: z.string() }),",
+        "  handler: async ({ flightId }, ctx) => {",
+        "    ctx.signal.throwIfAborted();",
+        "    const r = await fetch('/api/bookings', {",
+        "      method: 'POST',",
+        "      body: JSON.stringify({ flightId }),",
+        "      signal: ctx.signal,    // forwards abort",
+        "    });",
+        "    return await r.json();",
+        "  },",
+        "});",
+    ])
+    text_box(s, cx, fy + Inches(3.45), cw, Inches(0.3),
+             "FOR FEDERATED TOOLS", size=10, bold=True, color=MUTED)
+    bullets(s, cx, fy + Inches(3.8), cw, Inches(1.0), [
+        "executeIn: 'remote' — handler runs in the remote's injector",
+        "ToolRegistry tags entries with source: 'remote:<name>'",
+    ], size=11, gap=6, marker="•", marker_color=BRAND)
+
+    add_speaker_notes(s,
+        "Walk through the four lifecycle events end-to-end — show that mid-stream abort is built in.",
+        "Emphasise that the handler is just a function; tools aren't proprietary objects.",
+        "If audience is paranoid about agents triggering destructive operations: combine with use case 4 (persona scope) for input gating + server-side check for the trust boundary.")
+    return s
+
+
+def slide_use_case_tool_budget(prs):
+    """Spotlight: per-turn tool budget — keyword filter at scale."""
+    s = add(prs)
+    slide_chrome(s, "5b · USE CASES",
+                 "Use case 7 · Per-turn tool budget at scale",
+                 "Architects")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.5),
+             "50+ tools across federated remotes blow your context budget. Solution: extract keywords from the prompt, score each tool, send the top-K to the LLM. Composes with persona scope.",
+             size=12, color=TEXT_2)
+
+    # Two-column before/after
+    col_w = (W - Inches(1.6)) / 2
+    cy = Inches(2.5)
+    ch = Inches(4.0)
+
+    # BEFORE column
+    bx = Inches(0.7)
+    rounded(s, bx, cy, col_w, ch, RGBColor(0xFE, 0xF2, 0xF2), line=BAD, radius=0.04)
+    text_box(s, bx + Inches(0.25), cy + Inches(0.15), col_w - Inches(0.5),
+             Inches(0.4), "WITHOUT FILTERING", size=14, bold=True, color=BAD)
+    bullets(s, bx + Inches(0.25), cy + Inches(0.7), col_w - Inches(0.5),
+            ch - Inches(0.85), [
+        ("All 50 tools sent each turn.",
+         "12k tokens of schema + descriptions before the user prompt."),
+        ("Latency.",
+         "Gemini 2-3s slower per turn at the upper end."),
+        ("Cost.",
+         "Roughly 4x token spend on tool definitions alone."),
+        ("Hallucination risk.",
+         "More plausible-sounding wrong tools to choose from."),
+    ], size=11, gap=8, marker="✗", marker_color=BAD)
+
+    # AFTER column
+    ax = bx + col_w + Inches(0.2)
+    rounded(s, ax, cy, col_w, ch, RGBColor(0xEC, 0xFD, 0xF5), line=OK, radius=0.04)
+    text_box(s, ax + Inches(0.25), cy + Inches(0.15), col_w - Inches(0.5),
+             Inches(0.4), "WITH KEYWORD FILTER", size=14, bold=True, color=OK)
+    bullets(s, ax + Inches(0.25), cy + Inches(0.7), col_w - Inches(0.5),
+            ch - Inches(0.85), [
+        ("Top-12 tools per turn.",
+         "Keyword match against the latest user message."),
+        ("Floor of 5 'core' tools always present.",
+         "Search, list, status — never filtered out."),
+        ("~70% smaller prompt.",
+         "Measured in eDiscovery's 18-tool inventory."),
+        ("Composes with persona scope.",
+         "Filter runs after setScopePolicy — both layers stack."),
+    ], size=11, gap=8, marker="✓", marker_color=OK)
+
+    # Bottom — wiring
+    code_block(s, Inches(0.7), Inches(6.65), W - Inches(1.4), Inches(0.85), [
+        "provideAgenticUi({ providers: [",
+        "  provideToolFilter(keywordToolFilter({ maxTools: 12, floor: 5 })),",
+        "  installPersonaScopePolicy(),    // runs first; the keyword filter narrows the scoped set",
+        "] });",
+    ])
+
+    add_speaker_notes(s,
+        "Architect framing. The tool inventory grows linearly with federated remotes; without this, you'd hit Gemini's context cap by remote #4.",
+        "Order matters: persona scope filters first (governance), keyword filter narrows further (efficiency).",
+        "Bring up tunability: keywordToolFilter is just an example; ToolFilter is a one-line interface, swap it for embedding-similarity if you have an embeddings service.")
+    return s
+
+
+def slide_use_case_federate(prs):
+    """Spotlight: federating MFE remotes — capability handoff."""
+    s = add(prs)
+    slide_chrome(s, "5b · USE CASES",
+                 "Use case 3 · Federating MFE remotes",
+                 "Architects + Developers")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.5),
+             "Bookings team owns its tools, widgets, and routes; ships independently. Host loads the remote at runtime and the agent's tool list updates within the same turn.",
+             size=12, color=TEXT_2)
+
+    fx, fy = Inches(0.7), Inches(2.3)
+    fw, fh = Inches(6.2), Inches(4.6)
+    rounded(s, fx, fy, fw, fh, SURFACE_2, line=BORDER, radius=0.02)
+    text_box(s, fx + Inches(0.2), fy + Inches(0.1), fw - Inches(0.4), Inches(0.3),
+             "CAPABILITY HANDOFF", size=10, bold=True, color=MUTED)
+
+    steps = [
+        ("MfeRegistry",       "discover(env) → RemoteSpec[]",          BRAND),
+        ("loadRemoteCapabilities", "import './Capability'",            INFO),
+        ("CapabilityModule",  "registerAll(tools, widgets) · source", WARN),
+        ("Registries",        "signal() emits → next chat turn",       OK),
+        ("On unload",         "removeBySource('remote:<n>') everywhere", BAD),
+    ]
+    sy = fy + Inches(0.55)
+    for label, desc, color in steps:
+        chip_node(s, fx + Inches(0.3), sy, Inches(2.4), Inches(0.42),
+                  label, fill=SURFACE, fg=color, border=color, size=10)
+        text_box(s, fx + Inches(2.85), sy + Inches(0.07),
+                 fw - Inches(3.0), Inches(0.32),
+                 desc, size=11, color=TEXT)
+        sy += Inches(0.78)
+
+    text_box(s, fx + Inches(0.2), fy + fh - Inches(0.45),
+             fw - Inches(0.4), Inches(0.35),
+             "Both Native Federation (esbuild) and webpack Module Federation are first-class — same CapabilityModule shape.",
+             size=10, color=MUTED, align=PP_ALIGN.CENTER)
+
+    cx = fx + fw + Inches(0.3)
+    cw = W - cx - Inches(0.7)
+    text_box(s, cx, fy + Inches(0.1), cw, Inches(0.3),
+             "REMOTE", size=10, bold=True, color=MUTED)
+    code_block(s, cx, fy + Inches(0.45), cw, Inches(1.6), [
+        "// remote/src/app/capability.ts",
+        "export default defineCapabilityModule({",
+        "  tools:   [bookFlight, cancelFlight],",
+        "  widgets: [flightCard],",
+        "});",
+    ])
+    text_box(s, cx, fy + Inches(2.15), cw, Inches(0.3),
+             "HOST", size=10, bold=True, color=MUTED)
+    code_block(s, cx, fy + Inches(2.5), cw, Inches(1.5), [
+        "provideAgenticUi({",
+        "  mfe: {",
+        "    federation: 'native',",
+        "    remotes: [{ remoteName: 'bookings',",
+        "                remoteEntry: '/remoteEntry.json' }],",
+        "  },",
+        "});",
+    ])
+    text_box(s, cx, fy + Inches(4.1), cw, Inches(0.4),
+             "Or: provideSpringBootMfeRegistry({ url }) for runtime discovery.",
+             size=10, color=MUTED)
+
+    add_speaker_notes(s,
+        "This is the MFE story — five steps, no surprises.",
+        "Emphasise that registries are the only shared state; remotes never call each other directly.",
+        "On unload, all 13 registries drop entries with that source in one pass — in-flight runs continue but next turn excludes them.")
+    return s
+
+
+def slide_use_case_persona_scope(prs):
+    """Spotlight: per-persona entitlement (1.1.0) — three layers of responsibility."""
+    s = add(prs)
+    slide_chrome(s, "5b · USE CASES",
+                 "Use case 4 · Per-persona entitlement",
+                 "Senior executives + Architects")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.5),
+             "Vendor Reviewer must only see read + tag tools — never markPrivileged, never createProductionSet. The agent shouldn't even consider tools the active user can't invoke. Library handles input + output gating; server still verifies.",
+             size=12, color=TEXT_2)
+
+    # Three-layer table on left
+    fx, fy = Inches(0.7), Inches(2.4)
+    fw, fh = Inches(6.4), Inches(4.5)
+    rounded(s, fx, fy, fw, fh, SURFACE_2, line=BORDER, radius=0.02)
+    text_box(s, fx + Inches(0.2), fy + Inches(0.1), fw - Inches(0.4), Inches(0.3),
+             "THREE LAYERS OF RESPONSIBILITY", size=10, bold=True, color=MUTED)
+
+    layers = [
+        ("LIBRARY",
+         "Filters list() / get() / signal() reads through your scope policy. Tools the persona can't invoke never reach the LLM.",
+         BRAND),
+        ("APPLICATION",
+         "Your PersonaService decides which entries each role is allowed to read. The library calls your predicate with each RegistryEntry.",
+         INFO),
+        ("AGENT SERVER",
+         "Re-verifies entitlement from the trusted session. Client-claimed personas are an UX hint, not a security boundary.",
+         WARN),
+    ]
+    ly = fy + Inches(0.55)
+    for label, desc, color in layers:
+        rect(s, fx + Inches(0.3), ly, Inches(0.05), Inches(1.1), color)
+        text_box(s, fx + Inches(0.5), ly + Inches(0.05),
+                 fw - Inches(0.7), Inches(0.3),
+                 label, size=11, bold=True, color=color)
+        text_box(s, fx + Inches(0.5), ly + Inches(0.4),
+                 fw - Inches(0.7), Inches(0.7),
+                 desc, size=10, color=TEXT)
+        ly += Inches(1.2)
+
+    text_box(s, fx + Inches(0.2), fy + fh - Inches(0.45),
+             fw - Inches(0.4), Inches(0.35),
+             "getRaw / listRaw bypass the policy on purpose — for governance UIs that show the unfiltered set.",
+             size=10, color=MUTED, align=PP_ALIGN.CENTER)
+
+    cx = fx + fw + Inches(0.3)
+    cw = W - cx - Inches(0.7)
+    text_box(s, cx, fy + Inches(0.1), cw, Inches(0.3),
+             "WIRING (1.1.0)", size=10, bold=True, color=MUTED)
+    code_block(s, cx, fy + Inches(0.45), cw, Inches(2.4), [
+        "function installPersonaScopePolicy() {",
+        "  return provideAppInitializer(() => {",
+        "    const persona = inject(PersonaService);",
+        "    const tools   = inject(ToolRegistry);",
+        "    tools.setScopePolicy((entry) =>",
+        "      persona.canInvoke(",
+        "        persona.active(),",
+        "        entry.name));",
+        "  });",
+        "}",
+    ])
+    text_box(s, cx, fy + Inches(3.0), cw, Inches(0.3),
+             "WHAT YOU GET", size=10, bold=True, color=MUTED)
+    bullets(s, cx, fy + Inches(3.35), cw, Inches(1.2), [
+        "Sidebar tool-count drops live on persona switch",
+        "Same predicate works on every registry",
+        "Composes with use case 7 (keyword filter)",
+    ], size=11, gap=6, marker="✓", marker_color=OK)
+
+    add_speaker_notes(s,
+        "Phase 8 / 1.1.0 ship. Address the question that comes up in every regulated-industry pitch.",
+        "Three-layer split is the architectural take-away: library enforces, app authorises, server verifies.",
+        "Cross-reference: e2e/specs/05-persona-scope.spec.ts validates ordering live without an LLM.")
+    return s
+
+
+def slide_use_case_backend_swap(prs):
+    """Spotlight: backend swap — AgenticBackend abstraction."""
+    s = add(prs)
+    slide_chrome(s, "5b · USE CASES",
+                 "Use case 5 · Backend swap (AG-UI ↔ Hashbrown ↔ A2UI)",
+                 "Architects")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.5),
+             "v1 ships against AG-UI for SSE-streaming. v2 you want Hashbrown for client-side LLM. The chat shell never sees the protocol — only the AgenticBackend interface.",
+             size=12, color=TEXT_2)
+
+    # Left — three adapters → one interface → unchanged shell
+    fx, fy = Inches(0.7), Inches(2.4)
+    fw, fh = Inches(6.4), Inches(4.5)
+    rounded(s, fx, fy, fw, fh, SURFACE_2, line=BORDER, radius=0.02)
+    text_box(s, fx + Inches(0.2), fy + Inches(0.1), fw - Inches(0.4), Inches(0.3),
+             "ONE INTERFACE · THREE ADAPTERS", size=10, bold=True, color=MUTED)
+
+    # Top: three adapter pills
+    adapters = [("AgUiBackend", BRAND), ("HashbrownBackend", OK), ("A2uiBackend", WARN)]
+    ay = fy + Inches(0.65)
+    aw = (fw - Inches(0.8)) / 3
+    for i, (name, color) in enumerate(adapters):
+        ax = fx + Inches(0.3) + i * (aw + Inches(0.1))
+        chip_node(s, ax, ay, aw, Inches(0.55), name,
+                  fill=SURFACE, fg=color, border=color, size=11)
+
+    # Middle: AgenticBackend interface (single wide pill)
+    iy = ay + Inches(1.15)
+    chip_node(s, fx + Inches(0.3), iy, fw - Inches(0.6), Inches(0.55),
+              "AgenticBackend.run(input) → AsyncIterable<AgenticEvent>",
+              fill=BRAND_DEEP, fg=SURFACE_2, border=BRAND_DEEP, size=11)
+
+    # Bottom: chat shell (unchanged)
+    cy_ = iy + Inches(1.15)
+    chip_node(s, fx + Inches(0.3), cy_, fw - Inches(0.6), Inches(0.55),
+              "<mvk-chat-shell>  ·  unchanged code, swap providers",
+              fill=SURFACE, fg=BRAND, border=BRAND, size=11)
+
+    # Arrows from each adapter down to the interface
+    for i in range(3):
+        ax = fx + Inches(0.3) + i * (aw + Inches(0.1)) + aw / 2
+        arrow(s, ax, ay + Inches(0.55), ax, iy, color=MUTED, weight=1)
+    # Arrow from interface to shell
+    arrow(s, fx + fw / 2, iy + Inches(0.55), fx + fw / 2, cy_,
+          color=BRAND_DEEP, weight=1.5)
+
+    text_box(s, fx + Inches(0.2), fy + fh - Inches(0.45),
+             fw - Inches(0.4), Inches(0.35),
+             "Each adapter announces capability flags (clientTools / generativeUi / uiActions) — the shell feature-detects.",
+             size=10, color=MUTED, align=PP_ALIGN.CENTER)
+
+    cx = fx + fw + Inches(0.3)
+    cw = W - cx - Inches(0.7)
+    text_box(s, cx, fy + Inches(0.1), cw, Inches(0.3),
+             "BOOT-TIME PICK", size=10, bold=True, color=MUTED)
+    code_block(s, cx, fy + Inches(0.45), cw, Inches(1.4), [
+        "provideAgenticUi({",
+        "  backend: provideAgUiBackend({",
+        "    url: '/api/ag-ui',",
+        "  }),",
+        "});",
+    ])
+    text_box(s, cx, fy + Inches(2.0), cw, Inches(0.3),
+             "RUNTIME SWITCH (DEBUG)", size=10, bold=True, color=MUTED)
+    code_block(s, cx, fy + Inches(2.35), cw, Inches(1.5), [
+        "const backends = inject(BackendRegistry);",
+        "backends.register({",
+        "  id: 'ag-ui',     factory: () => agUi,",
+        "  label: 'AG-UI · SSE',",
+        "});",
+        "backends.register({ id: 'hashbrown', ...});",
+    ])
+    text_box(s, cx, fy + Inches(4.0), cw, Inches(0.6),
+             "Conformance suite in /testing runs the same tests against every adapter — drift fails CI.",
+             size=10, color=MUTED)
+
+    add_speaker_notes(s,
+        "Vendor agnosticism story. Useful for execs uncomfortable with picking a not-yet-1.0 protocol.",
+        "Capability flags are the seam that makes feature-detection clean — no if/else by adapter id in the shell.",
+        "Tie back to ADR-0001 — backend abstraction was the first decision and carries every other one.")
+    return s
+
+
+def slide_use_case_orchestration(prs):
+    """Spotlight: multi-agent orchestration with sticky routing."""
+    s = add(prs)
+    slide_chrome(s, "5b · USE CASES",
+                 "Use case 6 · Multi-agent orchestration · sticky routing",
+                 "Architects + Developers")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.5),
+             "One chat panel for the whole matter. Custodian question → collection specialist; privilege flag → review; Bates assignment → production. Routing stays sticky so users can say 'what about that one?' without naming a specialist.",
+             size=12, color=TEXT_2)
+
+    fx, fy = Inches(0.7), Inches(2.4)
+    fw, fh = Inches(6.4), Inches(4.5)
+    rounded(s, fx, fy, fw, fh, SURFACE_2, line=BORDER, radius=0.02)
+    text_box(s, fx + Inches(0.2), fy + Inches(0.1), fw - Inches(0.4), Inches(0.3),
+             "ROUTING LOOP", size=10, bold=True, color=MUTED)
+
+    steps = [
+        ("User turn",          "free text into the chat shell",         BRAND),
+        ("Orchestrator",       "classifies via LLM · descriptions + examples", INFO),
+        ("ThreadStateStore",   "stamps last specialist · per-thread",   WARN),
+        ("Specialist runs",    "GeminiAgent with its own tool subset", OK),
+        ("Sticky next turn",   "follow-ups replay specialist unless switched", BRAND_DEEP),
+    ]
+    sy = fy + Inches(0.55)
+    for label, desc, color in steps:
+        chip_node(s, fx + Inches(0.3), sy, Inches(2.4), Inches(0.42),
+                  label, fill=SURFACE, fg=color, border=color, size=10)
+        text_box(s, fx + Inches(2.85), sy + Inches(0.07),
+                 fw - Inches(3.0), Inches(0.32),
+                 desc, size=11, color=TEXT)
+        sy += Inches(0.78)
+
+    text_box(s, fx + Inches(0.2), fy + fh - Inches(0.45),
+             fw - Inches(0.4), Inches(0.35),
+             "From the host's view it's still ONE AgenticBackend — the shell never knows there are 4 agents under it.",
+             size=10, color=MUTED, align=PP_ALIGN.CENTER)
+
+    cx = fx + fw + Inches(0.3)
+    cw = W - cx - Inches(0.7)
+    text_box(s, cx, fy + Inches(0.1), cw, Inches(0.3),
+             "SERVER-SIDE WIRING", size=10, bold=True, color=MUTED)
+    code_block(s, cx, fy + Inches(0.45), cw, Inches(3.2), [
+        "new OrchestratorAgent('coordinator', {",
+        "  apiKey, model: 'gemini-2.0-flash',",
+        "  subAgents: [",
+        "    { id: 'collection',",
+        "      description: 'custodians, holds',",
+        "      examples: ['Add Sarah as a custodian'],",
+        "      factory: (id) => new GeminiAgent(id, ...) },",
+        "    { id: 'review', ... },",
+        "    { id: 'production', ... },",
+        "    { id: 'search', ... },",
+        "  ],",
+        "});",
+    ])
+    text_box(s, cx, fy + Inches(3.85), cw, Inches(0.6),
+             "ThreadStateStore: in-memory default · Redis adapter in cookbook for horizontal scaling.",
+             size=10, color=MUTED)
+
+    add_speaker_notes(s,
+        "This is what makes a scale-out story credible — multiple teams own specialists, one chat interface.",
+        "Sticky routing is the UX win. Without it, every follow-up question would risk being routed to a different specialist mid-thread.",
+        "The 'Routed to **review** specialist.' banner in the demo is just the orchestrator emitting a text-delta when routing changes — not state.")
+    return s
+
+
+def slide_use_case_mcp_spotlight(prs):
+    """Spotlight: MCP — same tools, three surfaces."""
+    s = add(prs)
+    slide_chrome(s, "5b · USE CASES",
+                 "Use case 8 · MCP — same tools power analyst desktops",
+                 "Senior executives + Architects")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.5),
+             "Your tool definitions are valuable IP. Make them callable from your chat shell, Claude Desktop, Cursor, and Zed via the Model Context Protocol — one source of truth, three surfaces.",
+             size=12, color=TEXT_2)
+
+    fx, fy = Inches(0.7), Inches(2.4)
+    fw, fh = Inches(6.4), Inches(4.5)
+    rounded(s, fx, fy, fw, fh, SURFACE_2, line=BORDER, radius=0.02)
+    text_box(s, fx + Inches(0.2), fy + Inches(0.1), fw - Inches(0.4), Inches(0.3),
+             "ONE TOOLDEF · THREE SURFACES", size=10, bold=True, color=MUTED)
+
+    # Center: ToolDef[]
+    chip_node(s, fx + Inches(2.1), fy + Inches(2.0), Inches(2.2), Inches(0.7),
+              "ToolDef[]", fill=BRAND_DEEP, fg=SURFACE_2, border=BRAND_DEEP, size=14)
+    text_box(s, fx + Inches(2.1), fy + Inches(2.75), Inches(2.2), Inches(0.3),
+             "Zod schema · handler", size=10, color=MUTED, align=PP_ALIGN.CENTER)
+
+    # Three surface pills around it
+    surfaces = [
+        ("<mvk-chat-shell>",       Inches(0.4),  Inches(0.7),  BRAND),
+        ("Claude Desktop",         Inches(4.4),  Inches(0.7),  INFO),
+        ("Cursor / Zed (MCP)",     Inches(2.4),  Inches(3.5),  OK),
+    ]
+    for label, dx, dy, color in surfaces:
+        chip_node(s, fx + dx, fy + dy, Inches(2.0), Inches(0.55),
+                  label, fill=SURFACE, fg=color, border=color, size=11)
+        # arrow from center toolDef out
+        arrow(s, fx + Inches(3.2), fy + Inches(2.35),
+              fx + dx + Inches(1.0), fy + dy + Inches(0.3),
+              color=color, weight=1)
+
+    text_box(s, fx + Inches(0.2), fy + fh - Inches(0.45),
+             fw - Inches(0.4), Inches(0.35),
+             "Persona scope from use case 4 still applies — MCP also reads through ToolRegistry.",
+             size=10, color=MUTED, align=PP_ALIGN.CENTER)
+
+    cx = fx + fw + Inches(0.3)
+    cw = W - cx - Inches(0.7)
+    text_box(s, cx, fy + Inches(0.1), cw, Inches(0.3),
+             "MCP SERVER WIRING", size=10, bold=True, color=MUTED)
+    code_block(s, cx, fy + Inches(0.45), cw, Inches(2.0), [
+        "import { createMcpServer }",
+        "  from '@maverick/agentic-ui-mcp';",
+        "",
+        "const mcp = createMcpServer({",
+        "  name: 'ediscovery-paralegal',",
+        "  tools: [searchDocuments,",
+        "          markPrivileged, tagDocument],",
+        "});",
+        "app.route('/mcp', mcp);",
+    ])
+    text_box(s, cx, fy + Inches(2.6), cw, Inches(0.3),
+             "TRANSPORTS", size=10, bold=True, color=MUTED)
+    bullets(s, cx, fy + Inches(2.95), cw, Inches(1.2), [
+        "stdio · for Claude Desktop's spawn-and-pipe",
+        "SSE · streaming over HTTP",
+        "text/html;profile=mcp-app · in-browser",
+    ], size=11, gap=6, marker="•", marker_color=BRAND)
+
+    add_speaker_notes(s,
+        "Multi-surface story. Resonates with execs who see their tools as IP.",
+        "Reach: paralegal can drive the same review flow from Claude Desktop without using your web app.",
+        "Persona scope still gates — that's the 'hub' story for compliance.")
+    return s
+
+
+def slide_use_case_observability(prs):
+    """Spotlight: observability — distributed tracing per chat turn."""
+    s = add(prs)
+    slide_chrome(s, "5b · USE CASES",
+                 "Use case 9 · Observability — distributed tracing per chat turn",
+                 "Architects + Developers")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.5),
+             "One user prompt fans out into LLM calls, tool calls, widget renders, persistence writes. You want one trace covering all of them, with traceparent propagating across the SSE boundary.",
+             size=12, color=TEXT_2)
+
+    fx, fy = Inches(0.7), Inches(2.4)
+    fw, fh = Inches(6.4), Inches(4.5)
+    rounded(s, fx, fy, fw, fh, SURFACE_2, line=BORDER, radius=0.02)
+    text_box(s, fx + Inches(0.2), fy + Inches(0.1), fw - Inches(0.4), Inches(0.3),
+             "ONE TRACE · END-TO-END", size=10, bold=True, color=MUTED)
+
+    spans = [
+        ("agentic.run",                  "INTERNAL", "thread_id, run_id, backend.id",  BRAND),
+        ("agentic.backend.stream",       "CLIENT",   "http.url, status, traceparent",  INFO),
+        ("[ SSE boundary — traceparent ]", "",       "",                                MUTED),
+        ("agentic.tool_call",            "INTERNAL", "tool.name, tool.source, success", WARN),
+        ("agentic.federation.load",      "INTERNAL", "remote_name, version, load_ms",   OK),
+        ("agentic.persistence.write",    "INTERNAL", "adapter, bytes",                  BRAND_DEEP),
+    ]
+    sy = fy + Inches(0.55)
+    for name, kind, attrs, color in spans:
+        if kind == "":  # SSE boundary marker
+            text_box(s, fx + Inches(0.3), sy + Inches(0.05),
+                     fw - Inches(0.6), Inches(0.32),
+                     name, size=10, color=color, align=PP_ALIGN.CENTER)
+        else:
+            chip_node(s, fx + Inches(0.3), sy, Inches(2.5), Inches(0.42),
+                      name, fill=SURFACE, fg=color, border=color, size=10)
+            chip(s, fx + Inches(2.95), sy + Inches(0.07), kind,
+                 fg=SURFACE, bg=color, size=9, w=Inches(0.85))
+            text_box(s, fx + Inches(3.95), sy + Inches(0.07),
+                     fw - Inches(4.1), Inches(0.32),
+                     attrs, size=9, color=TEXT)
+        sy += Inches(0.62)
+
+    text_box(s, fx + Inches(0.2), fy + fh - Inches(0.45),
+             fw - Inches(0.4), Inches(0.35),
+             "Default: tool args / message bodies are NEVER captured — only sizes + stable hashes. Opt-in field-by-field.",
+             size=10, color=MUTED, align=PP_ALIGN.CENTER)
+
+    cx = fx + fw + Inches(0.3)
+    cw = W - cx - Inches(0.7)
+    text_box(s, cx, fy + Inches(0.1), cw, Inches(0.3),
+             "WIRING", size=10, bold=True, color=MUTED)
+    code_block(s, cx, fy + Inches(0.45), cw, Inches(3.0), [
+        "import { provideAgenticTelemetry }",
+        "  from '@maverick/agentic-ui/otel';",
+        "",
+        "telemetry: provideAgenticTelemetry({",
+        "  serviceName: 'demo-shell',",
+        "  exporter: 'otlp-http',",
+        "  endpoint: 'http://collector:4318/...',",
+        "  sampler: { kind: 'ratio', ratio: 0.1 },",
+        "  redaction: {",
+        "    argsAllowList: ['flightId','docId'],",
+        "  },",
+        "});",
+    ])
+    text_box(s, cx, fy + Inches(3.65), cw, Inches(0.7),
+             "Default sink is no-op — apps that don't import /otel pay zero bytes.",
+             size=10, color=MUTED)
+
+    add_speaker_notes(s,
+        "Observability seam was baked in from M1 — emit points exist whether or not the OTel exporter is wired.",
+        "Privacy story is conservative by default — that's what makes this deployable in regulated domains.",
+        "Demo with Tempo or Jaeger — show one trace covering chat shell, SSE, server, LLM, tool, federation load.")
+    return s
+
+
+def slide_use_case_audit(prs):
+    """Spotlight: audit trail / chain-of-custody — pattern, not core lib."""
+    s = add(prs)
+    slide_chrome(s, "5b · USE CASES",
+                 "Use case 10 · Audit trail · chain-of-custody",
+                 "Senior executives + Architects")
+
+    text_box(s, Inches(0.7), Inches(1.65), W - Inches(1.4), Inches(0.5),
+             "Regulated domain. Every state-mutating tool call must land in an immutable audit log: who, what, when, before, after. A hash chain makes any tamper attempt visibly break the chain.",
+             size=12, color=TEXT_2)
+
+    # Left — chain visualisation
+    fx, fy = Inches(0.7), Inches(2.4)
+    fw, fh = Inches(6.4), Inches(4.5)
+    rounded(s, fx, fy, fw, fh, SURFACE_2, line=BORDER, radius=0.02)
+    text_box(s, fx + Inches(0.2), fy + Inches(0.1), fw - Inches(0.4), Inches(0.3),
+             "TAMPER-EVIDENT CHAIN", size=10, bold=True, color=MUTED)
+
+    entries = [
+        ("HOLD-001 issued",   "actor: eleanor",  "prevHash: null",          BRAND),
+        ("DOC-789 marked priv","actor: associate","prevHash: hash(HOLD)",    INFO),
+        ("PROD-A1B2 created", "actor: paralegal","prevHash: hash(DOC)",     WARN),
+        ("PROD-A1B2 delivered","actor: lead",   "prevHash: hash(PROD-c)",  OK),
+    ]
+    ey = fy + Inches(0.6)
+    for label, actor, prev, color in entries:
+        rect(s, fx + Inches(0.3), ey, Inches(0.05), Inches(0.7), color)
+        text_box(s, fx + Inches(0.5), ey + Inches(0.05),
+                 fw - Inches(0.7), Inches(0.32),
+                 label, size=11, bold=True, color=TEXT)
+        text_box(s, fx + Inches(0.5), ey + Inches(0.4),
+                 fw - Inches(0.7), Inches(0.3),
+                 f"{actor}  ·  {prev}", size=9, color=MUTED, font="Menlo")
+        if (label, actor, prev, color) != entries[-1]:
+            arrow(s, fx + Inches(0.55), ey + Inches(0.7),
+                  fx + Inches(0.55), ey + Inches(0.95),
+                  color=MUTED, weight=1)
+        ey += Inches(0.95)
+
+    text_box(s, fx + Inches(0.2), fy + fh - Inches(0.45),
+             fw - Inches(0.4), Inches(0.35),
+             "Audit Trail page verifies the chain on render — green badge if hashes match end-to-end, red if tamper detected.",
+             size=10, color=MUTED, align=PP_ALIGN.CENTER)
+
+    cx = fx + fw + Inches(0.3)
+    cw = W - cx - Inches(0.7)
+    text_box(s, cx, fy + Inches(0.1), cw, Inches(0.3),
+             "PATTERN — NOT CORE LIB", size=10, bold=True, color=MUTED)
+    code_block(s, cx, fy + Inches(0.45), cw, Inches(2.7), [
+        "function appendAudit(event) {",
+        "  const prev = audit.list().at(-1);",
+        "  audit.append({",
+        "    ...event,",
+        "    timestamp: new Date().toISOString(),",
+        "    prevHash: prev?.chainHash ?? null,",
+        "    chainHash: hash({",
+        "      ...event,",
+        "      prevHash: prev?.chainHash,",
+        "    }),",
+        "  });",
+        "}",
+    ])
+    text_box(s, cx, fy + Inches(3.25), cw, Inches(0.3),
+             "THREE-PIECE COMPLIANCE STACK", size=10, bold=True, color=MUTED)
+    bullets(s, cx, fy + Inches(3.6), cw, Inches(1.2), [
+        "Use 4 — who CAN do it (persona scope)",
+        "Use 9 — what HAPPENED (telemetry / OTel)",
+        "Use 10 — verifiable WHO DID IT (this slide)",
+    ], size=10, gap=5, marker="✓", marker_color=OK)
+
+    add_speaker_notes(s,
+        "Compliance close. Together with use cases 4 and 9 this is the three-piece story regulated buyers ask for.",
+        "Note: audit chain is shown as a pattern in the demo's mock data layer — not part of the core lib because every domain expresses 'who/what/when' differently.",
+        "If asked: yes the prevHash design is a Merkle-style chain; verifying is O(n) on render but acceptable up to ~100k entries; for larger systems, split into time-windowed sub-chains with each sub-chain's root committed to a parent chain.")
     return s
 
 
@@ -2598,6 +3432,18 @@ def main():
         (slide_lib_mcp,                     "5 · The library",        False),
         (slide_lib_telemetry,               "5 · The library",        False),
         (slide_lib_schematics,              "5 · The library",        False),
+        # Section 5b — use cases (NEW v6 — every use case has a slide for consistency)
+        (slide_use_cases_matrix,            "5b · Use cases",         False),
+        (slide_use_case_genui,              "5b · Use cases",         False),
+        (slide_use_case_tool_calling,       "5b · Use cases",         False),
+        (slide_use_case_federate,           "5b · Use cases",         False),
+        (slide_use_case_persona_scope,      "5b · Use cases",         False),
+        (slide_use_case_backend_swap,       "5b · Use cases",         False),
+        (slide_use_case_orchestration,      "5b · Use cases",         False),
+        (slide_use_case_tool_budget,        "5b · Use cases",         False),
+        (slide_use_case_mcp_spotlight,      "5b · Use cases",         False),
+        (slide_use_case_observability,      "5b · Use cases",         False),
+        (slide_use_case_audit,              "5b · Use cases",         False),
         # Section 6 — examples
         (slide_examples_overview,           "6 · Examples",           False),
         (slide_example_ediscovery,          "6 · Examples",           False),
