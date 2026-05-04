@@ -58,6 +58,11 @@ PLAN.md
 # unignore rules below if a future .py becomes legitimately public.
 *.py
 
+# Intermediate video captures from scripts/capture-readme-animation.mjs.
+# We commit the .gif (which the README embeds) but not the .webm Playwright
+# produces — it's a regenerable intermediate, ~700 KB per capture.
+docs/assets/*.webm
+
 # Generated API docs (built by `npm run docs:api`; published, not tracked)
 /docs/api/
 

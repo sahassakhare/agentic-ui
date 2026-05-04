@@ -9,9 +9,11 @@
 > **A reusable Angular 21 library for building user interfaces an LLM can drive.**
 > One chat shell, one set of registries, one orchestration loop — works against AG-UI, Hashbrown, or A2UI without rewriting application code.
 
-![eDiscovery flagship — chat shell rendering an app-custodian-card widget mid-conversation, with the dashboard updating live as the agent runs the addCustodian tool](docs/assets/agentic-ui-in-action.png)
+![eDiscovery flagship — chat panel typing the prompt, the agent routing to the collection specialist, the addCustodian tool firing, and an app-custodian-card widget rendering live (animated)](docs/assets/agentic-ui-in-action.gif)
 
-*Above: the [eDiscovery flagship demo](./examples/demo-ediscovery-shell). User types "Add Sarah Chen as a custodian"; the agent routes to the **collection** specialist, calls the `addCustodian` tool, and the chat panel renders an `app-custodian-card` widget — a real Angular component the LLM picked from the registry. Three federated MFE remotes contribute the 18 tools the agent can call. None of that flow is hard-coded in the app.*
+*Above (~13 second loop): live capture of the [eDiscovery flagship demo](./examples/demo-ediscovery-shell). User types "Add Sarah Chen as a custodian"; the orchestrator routes to the **collection** specialist; the `addCustodian` tool fires; the chat panel mounts an `app-custodian-card` widget — a real Angular component the LLM picked from the `ComponentRegistry`. Three federated MFE remotes contribute the 18 tools the agent can call. None of the flow is hard-coded in the app.*
+
+> Need a static frame for slides or print? See [`docs/assets/agentic-ui-in-action.png`](./docs/assets/agentic-ui-in-action.png) — same scene, 2× retina PNG.
 
 ## What is an "agentic UI"?
 
@@ -56,11 +58,11 @@ The same flow as a rendered image (high-res, available even when Mermaid can't r
 sequenceDiagram
     autonumber
     actor User
-    participant Shell as &lt;mvk-chat-shell&gt;
+    participant Shell as mvk-chat-shell
     participant Backend as Agent backend<br/>(your LLM)
     participant Tool as Tool handler<br/>(your code)
     participant Registry as ComponentRegistry
-    participant Card as &lt;flight-card&gt;
+    participant Card as flight-card
 
     User->>Shell: "Book me a flight from LAX to JFK"
     Shell->>Backend: prompt + available tools + components
@@ -122,7 +124,7 @@ flowchart TB
     classDef adapter fill:#dcfce7,stroke:#166534,stroke-width:1px,color:#14532d
     classDef remote fill:#fce7f3,stroke:#9d174d,stroke-width:1px,color:#831843
 
-    APP["<b>YOUR APP</b><br/>&lt;mvk-chat-shell /&gt;<br/><i>write once · never rewrite</i>"]:::app
+    APP["YOUR APP<br/>mvk-chat-shell<br/>write once · never rewrite"]:::app
 
     subgraph LIB["@maverick/agentic-ui (this library)"]
         L1["Chat shell · widget container · form renderer"]:::lib
