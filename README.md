@@ -4,7 +4,7 @@
 [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui.svg)](https://www.npmjs.com/package/@maverick/agentic-ui)
 [![Angular](https://img.shields.io/badge/angular-21-DD0031?logo=angular&logoColor=white)](https://angular.dev)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.19-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 
 > **A reusable Angular 21 library for building user interfaces an LLM can drive.**
 > One chat shell, one set of registries, one orchestration loop — works against AG-UI, Hashbrown, or A2UI without rewriting application code.
@@ -523,4 +523,4 @@ Tagging convention: annotated tags `vMAJOR.MINOR.PATCH` against the commit that 
 
 ## License
 
-[MIT](./LICENSE)
+[Apache 2.0](./LICENSE)

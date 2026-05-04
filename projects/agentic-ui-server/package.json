@@ -2,7 +2,7 @@
   "name": "@maverick/agentic-ui-server",
   "version": "0.1.0",
   "description": "Server-side helpers for @maverick/agentic-ui — generic Agent interface, AG-UI SSE route handler, in-memory thread store.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

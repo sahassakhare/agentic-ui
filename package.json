@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Reusable Angular library + schematics for agentic UIs (AG-UI / Hashbrown / A2UI) with first-class microfrontend support",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=20.19.0"
   },

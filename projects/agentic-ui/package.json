@@ -2,7 +2,7 @@
   "name": "@maverick/agentic-ui",
   "version": "1.1.0",
   "description": "Reusable agentic UI library for Angular — pluggable AG-UI / Hashbrown / A2UI backends, MFE-aware registries, OpenTelemetry observability.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
   "bugs": {
     "url": "https://github.com/sahassakhare/agentic-ui/issues"
