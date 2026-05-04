@@ -53,6 +53,11 @@ Thumbs.db
 /.claude/local
 PLAN.md
 
+# Python helper scripts (kept local for regenerating decks etc., not
+# part of the public artefact). Whole-tree match — add specific
+# unignore rules below if a future .py becomes legitimately public.
+*.py
+
 # Generated API docs (built by `npm run docs:api`; published, not tracked)
 /docs/api/
 
