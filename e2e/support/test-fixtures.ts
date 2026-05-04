@@ -30,10 +30,12 @@ test.afterEach(async ({ page }, testInfo) => {
   } catch {
     // page closed mid-teardown — nothing to capture.
   }
-  // Gemini free tier is tight on per-minute (5 RPM on 2.5-flash) and
-  // per-day caps. A 12s pause between LLM-driven tests keeps us under
-  // even the 5-RPM cap (5 tests * 12s = 60s rolling window).
-  await new Promise((r) => setTimeout(r, 12_000));
+  // Gemini free tier 5 RPM is tight. A 25s throttle between LLM tests
+  // gives the rolling-minute window most of its way to clearing before
+  // the next test starts; server-side retry (gemini-agent.ts) catches
+  // anything still over the line. Combined with single-op prompts in
+  // each spec (avoid "do X then Y" chains) this fits the budget.
+  await new Promise((r) => setTimeout(r, 25_000));
 });
 
 export { expect };

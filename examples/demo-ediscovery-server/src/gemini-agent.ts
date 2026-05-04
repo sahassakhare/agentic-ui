@@ -172,7 +172,7 @@ export class GeminiAgent implements ServerAgent {
     tools: FunctionDeclaration[],
     signal: AbortSignal,
   ): Promise<AsyncIterable<{ candidates?: Array<{ content?: { parts?: Array<{ text?: string; functionCall?: { id?: string; name?: string; args?: unknown }}>}}>}>> {
-    const MAX_ATTEMPTS = 3;
+    const MAX_ATTEMPTS = 4;
     const BASE_DELAY_MS = 500;
     let lastErr: unknown;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -190,7 +190,13 @@ export class GeminiAgent implements ServerAgent {
       } catch (err) {
         lastErr = err;
         if (!isTransient(err) || attempt === MAX_ATTEMPTS) throw err;
-        const delay = BASE_DELAY_MS * 2 ** (attempt - 1) + Math.floor(Math.random() * 200);
+        // Honor Gemini's RetryInfo when present (429s carry "retry in 39s"
+        // etc. — exponential backoff alone undershoots that by 10x).
+        const hinted = parseRetryDelayMs(err);
+        const fallback = BASE_DELAY_MS * 2 ** (attempt - 1) + Math.floor(Math.random() * 200);
+        // Cap at 65s so a single retry still fits within the per-test
+        // timeout; rolling-minute window will have cleared by then.
+        const delay = hinted !== null ? Math.min(hinted + 500, 65_000) : fallback;
         await sleep(delay, signal);
       }
     }
@@ -201,6 +207,20 @@ export class GeminiAgent implements ServerAgent {
 function isTransient(err: unknown): boolean {
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
   return /\b(429|500|502|503|504|temporarily|unavailable|reset|timeout|network|fetch failed)\b/.test(msg);
+}
+
+/**
+ * Extract the `retryDelay` value from a Gemini 429 response body.
+ * The error JSON nests `details[].@type ===
+ * "type.googleapis.com/google.rpc.RetryInfo"` with `retryDelay: "39s"`.
+ * Returns the delay in milliseconds, or null if not present / not parseable.
+ */
+function parseRetryDelayMs(err: unknown): number | null {
+  const msg = err instanceof Error ? err.message : String(err);
+  const m = msg.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/);
+  if (!m) return null;
+  const seconds = Number(m[1]);
+  return Number.isFinite(seconds) ? Math.ceil(seconds * 1000) : null;
 }
 
 async function sleep(ms: number, signal: AbortSignal): Promise<void> {

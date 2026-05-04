@@ -25,8 +25,10 @@ const REUSE       = !process.env['CI'];
 
 export default defineConfig({
   testDir: './specs',
-  // LLM round-trips can take 10-20s under load; tool chains 3x that.
-  timeout: 90_000,
+  // LLM round-trips run 10-20s under load; tool chains 3x that. Plus the
+  // agent server retries 429s honoring Gemini's RetryInfo (up to 65s) so
+  // a single test may absorb one full retry — bump to 180s.
+  timeout: 180_000,
   expect: { timeout: 30_000 },
   fullyParallel: false,            // serial: state mutates across tests within a file
   forbidOnly: !!process.env['CI'],
@@ -48,34 +50,43 @@ export default defineConfig({
     },
   ],
   // Spawned only on CI — locally we expect you to have ng serve already running.
+  // `cwd: '..'` because Playwright runs webServer commands from the config's
+  // directory (`e2e/`); ng + tsx need to see the repo root's angular.json.
   webServer: process.env['CI']
     ? [
         {
-          command: 'cd examples/demo-ediscovery-server && npx tsx src/server.ts',
+          // Server uses `import 'dotenv/config'` which reads from cwd —
+          // run from its own dir so `.env` is found.
+          command: 'npx tsx src/server.ts',
+          cwd: '../examples/demo-ediscovery-server',
           url: `${SERVER_URL}/health`,
           timeout: 60_000,
           reuseExistingServer: REUSE,
         },
         {
           command: 'npx ng serve demo-ediscovery-shell --port 4300',
+          cwd: '..',
           url: BASE_URL,
           timeout: 240_000,
           reuseExistingServer: REUSE,
         },
         {
           command: 'npx ng serve demo-ediscovery-review --port 4302',
+          cwd: '..',
           url: 'http://localhost:4302',
           timeout: 240_000,
           reuseExistingServer: REUSE,
         },
         {
           command: 'npx ng serve demo-ediscovery-production --port 4303',
+          cwd: '..',
           url: 'http://localhost:4303',
           timeout: 240_000,
           reuseExistingServer: REUSE,
         },
         {
           command: 'npx ng serve demo-ediscovery-search --port 4304',
+          cwd: '..',
           url: 'http://localhost:4304',
           timeout: 240_000,
           reuseExistingServer: REUSE,

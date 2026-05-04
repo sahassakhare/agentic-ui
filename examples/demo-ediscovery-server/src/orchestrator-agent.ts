@@ -360,7 +360,7 @@ export class OrchestratorAgent implements ServerAgent {
     // 5xx, network) wait per attempt; on permanent errors break out and use
     // the deterministic keyword fallback. Either way the orchestrator gets a
     // routing decision — quota exhaustion never strands a turn.
-    const MAX_ATTEMPTS = 3;
+    const MAX_ATTEMPTS = 4;
     const BASE_DELAY_MS = 800;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       if (signal.aborted) return { agent: 'none', reason: 'aborted' };
@@ -385,7 +385,11 @@ export class OrchestratorAgent implements ServerAgent {
           err: err instanceof Error ? err.message.slice(0, 200) : String(err).slice(0, 200),
         });
         if (!transient || attempt === MAX_ATTEMPTS) break;
-        const delay = BASE_DELAY_MS * 2 ** (attempt - 1) + Math.floor(Math.random() * 400);
+        // Honor Gemini's RetryInfo on 429 — exponential backoff alone
+        // undershoots the rolling-minute window by ~10x.
+        const hinted = parseClassifierRetryDelayMs(err);
+        const fallback = BASE_DELAY_MS * 2 ** (attempt - 1) + Math.floor(Math.random() * 400);
+        const delay = hinted !== null ? Math.min(hinted + 500, 65_000) : fallback;
         await sleepWithSignal(delay, signal);
       }
     }
@@ -509,6 +513,20 @@ function isRoutingAnnotation(m: { role: string; content?: unknown }): boolean {
 function isTransientClassifierError(err: unknown): boolean {
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
   return /\b(429|500|502|503|504|temporarily|unavailable|reset|timeout|network|fetch failed|resource_exhausted|quota)\b/.test(msg);
+}
+
+/**
+ * Extract the `retryDelay` value from a Gemini 429 response body.
+ * The error JSON nests `details[].@type ===
+ * "type.googleapis.com/google.rpc.RetryInfo"` with `retryDelay: "39s"`.
+ * Returns the delay in milliseconds, or null if not present / not parseable.
+ */
+function parseClassifierRetryDelayMs(err: unknown): number | null {
+  const msg = err instanceof Error ? err.message : String(err);
+  const m = msg.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/);
+  if (!m) return null;
+  const seconds = Number(m[1]);
+  return Number.isFinite(seconds) ? Math.ceil(seconds * 1000) : null;
 }
 
 /** Truncate to N chars with an ellipsis. Defensive — long Gemini error
