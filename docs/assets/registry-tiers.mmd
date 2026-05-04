@@ -1,0 +1,36 @@
+flowchart TB
+    classDef core fill:#dbeafe,stroke:#1e40af,stroke-width:1px,color:#1e3a8a
+    classDef ext fill:#dcfce7,stroke:#166534,stroke-width:1px,color:#14532d
+    classDef seam fill:#fef3c7,stroke:#a16207,stroke-width:1px,color:#854d0e
+    classDef base fill:#e9d5ff,stroke:#6b21a8,stroke-width:2px,color:#581c87
+
+    BASE["Registry of TDef — base class shared by all 13<br/>register · list · signal · removeBySource · setScopePolicy"]:::base
+
+    subgraph CORE["CORE · required for any agentic UI (M1-M3)"]
+        direction LR
+        T1[Tool]:::core
+        T2[Component]:::core
+        T3[Capability]:::core
+        T4[Backend]:::core
+        T5[MFE]:::core
+    end
+
+    subgraph EXT["EXTENDED · full agent-driven UI (M4-M5)"]
+        direction LR
+        E1[Action]:::ext
+        E2[Intent]:::ext
+        E3[Form]:::ext
+        E4[DataSource]:::ext
+    end
+
+    subgraph SEAM["SEAMS · interface + thin default (M4-M5)"]
+        direction LR
+        S1[Validation]:::seam
+        S2[Persistence]:::seam
+        S3[Layout]:::seam
+        S4[SchemaTransformer]:::seam
+    end
+
+    BASE --> CORE
+    BASE --> EXT
+    BASE --> SEAM

@@ -1,0 +1,21 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant Shell as mvk-chat-shell
+    participant Backend as Agent backend (your LLM)
+    participant Tool as Tool handler (your code)
+    participant Registry as ComponentRegistry
+    participant Card as flight-card
+
+    User->>Shell: "Book me a flight from LAX to JFK"
+    Shell->>Backend: prompt + available tools + components
+    Backend-->>Shell: tool-call · bookFlight({from, to})
+    Shell->>Tool: invoke handler (typed args)
+    Tool-->>Shell: result · {bookingId, price}
+    Shell->>Backend: tool result, continue
+    Backend-->>Shell: widget-render · flight-card + props
+    Shell->>Registry: resolve "flight-card"
+    Registry-->>Shell: FlightCardComponent
+    Shell->>Card: mount via *ngComponentOutlet
+    Backend-->>Shell: text-delta · "Your flight is booked..."
+    Shell->>User: rendered component + text

@@ -6,9 +6,157 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D20.19-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-A reusable Angular 21 library and schematics collection for building agentic UIs — chat shells with streaming LLM responses, tool calling, generative UI components, and microfrontend federation — behind one consistent registry-based API.
+> **A reusable Angular 21 library for building user interfaces an LLM can drive.**
+> One chat shell, one set of registries, one orchestration loop — works against AG-UI, Hashbrown, or A2UI without rewriting application code.
 
-The library treats agent transports as pluggable adapters: the same chat shell, the same registry surface, and the same orchestration loop work over **AG-UI**, **Hashbrown**, or **A2UI** without rewriting application code. Microfrontend remotes can contribute tools and widgets at runtime through Native Federation or webpack Module Federation, and the host renders remote-defined components without compile-time knowledge of them.
+![eDiscovery flagship — chat shell rendering an app-custodian-card widget mid-conversation, with the dashboard updating live as the agent runs the addCustodian tool](docs/assets/agentic-ui-in-action.png)
+
+*Above: the [eDiscovery flagship demo](./examples/demo-ediscovery-shell). User types "Add Sarah Chen as a custodian"; the agent routes to the **collection** specialist, calls the `addCustodian` tool, and the chat panel renders an `app-custodian-card` widget — a real Angular component the LLM picked from the registry. Three federated MFE remotes contribute the 18 tools the agent can call. None of that flow is hard-coded in the app.*
+
+## What is an "agentic UI"?
+
+A regular chat app shows you text. An **agentic** chat app does more — it lets the LLM decide:
+
+1. Which **tool** to call against your backend (`bookFlight`, `searchDocuments`, …) — with typed arguments validated by a Zod schema.
+2. Which **UI component** to render in response — a `<flight-card>`, a `<search-results>` panel, a redacted-document preview — with typed props the LLM picks.
+3. When to **stream more text**, when to **call another tool**, when to **stop**. Multi-turn orchestration the user never sees.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                              ONE USER PROMPT, FIVE THINGS                           │
+│                                                                                     │
+│  user types ────►  "Book me a flight from LAX to JFK on May 15"                     │
+│                                                                                     │
+│   ┌──────────────────────┬────────────────────────────────┬───────────────────────┐ │
+│   │ 1. LLM picks a tool  │  2. handler runs against the   │  3. LLM picks a UI    │ │
+│   │    bookFlight        │     backend (your code)        │     component         │ │
+│   │    {from:"LAX",      │     → returns booking confirm. │     flight-card       │ │
+│   │     to:"JFK", …}     │                                │     {price:342,       │ │
+│   └──────────────────────┴────────────────────────────────┘     status:"ok", …}   │ │
+│                                                              └───────────────────┘  │
+│   ┌──────────────────────┐                                                          │
+│   │ 4. host mounts the   │      ┌─────────────────────────────────────────┐         │
+│   │    component by name │ ───► │  ✈  LAX → JFK  ·  May 15  ·  $342      │         │
+│   │    (ngComponentOutlet│      │  [Book]  [Save for later]                │         │
+│   │     + Zod-validated  │      └─────────────────────────────────────────┘         │
+│   │     props)           │                                                          │
+│   └──────────────────────┘                                                          │
+│                                                                                     │
+│   5. LLM streams a closing line of natural-language confirmation.                   │
+└─────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+The same flow as a rendered image (high-res, available even when Mermaid can't render):
+
+![One user prompt, five things happen — sequence diagram](docs/assets/agentic-ui-flow.png)
+
+…and the same diagram as Mermaid source (GitHub renders it natively):
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Shell as &lt;mvk-chat-shell&gt;
+    participant Backend as Agent backend<br/>(your LLM)
+    participant Tool as Tool handler<br/>(your code)
+    participant Registry as ComponentRegistry
+    participant Card as &lt;flight-card&gt;
+
+    User->>Shell: "Book me a flight from LAX to JFK"
+    Shell->>Backend: prompt + available tools + components
+    Backend-->>Shell: tool-call · bookFlight({from, to})
+    Shell->>Tool: invoke handler (typed args)
+    Tool-->>Shell: result · {bookingId, price}
+    Shell->>Backend: tool result, continue
+    Backend-->>Shell: widget-render · flight-card + props
+    Shell->>Registry: resolve "flight-card"
+    Registry-->>Shell: FlightCardComponent
+    Shell->>Card: mount via *ngComponentOutlet
+    Backend-->>Shell: text-delta · "Your flight is booked..."
+    Shell->>User: rendered component + text
+```
+
+None of that flow is hard-coded in *your* application code. Tools are entries in a registry. Components are entries in a registry. The agent's choice of which one to call is a model decision the chat shell forwards.
+
+## What this library does
+
+It's the **plumbing between your app code and the agentic protocols**. You write tools and components; this library does the orchestration, transport translation, and federation handoff so the same code runs against three protocols — and against tools contributed by federated MFE remotes you didn't even know about at compile time.
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  YOUR APP                                                            │
+│    import { ChatShellComponent } from '@maverick/agentic-ui';        │  ← write once,
+│    <mvk-chat-shell />        no fetch, no SSE parsing, no DOM glue   │    never rewrite
+└─────────────────────────────────┬────────────────────────────────────┘
+                                  │  one consistent interface
+┌─────────────────────────────────▼────────────────────────────────────┐
+│  @maverick/agentic-ui                                                │
+│    · Chat shell + widget container + form renderer                   │  ← this library
+│    · 13 registries (tool, component, action, form, …) all uniform    │
+│    · Orchestration loop · runUntilSettled · abort signals            │
+└─────────────────────────────────┬────────────────────────────────────┘
+                                  │  AgenticBackend abstraction
+┌──────────┬──────────────────────▼───────────────────┬────────────────┐
+│  AG-UI   │     Hashbrown    │     A2UI             │  Bring-your-own │  ← pluggable,
+│  (SSE)   │     (NDJSON)     │     (ui-action)      │  protocol       │    swap by config
+└──────────┴──────────────────────────────────────────┴────────────────┘
+                                  │
+                                  │  loadRemoteCapabilities()
+┌─────────────────────────────────▼────────────────────────────────────┐
+│  FEDERATED MFE REMOTES                                                │
+│   bookings remote          loyalty remote          tickets remote    │  ← contribute
+│   bookFlight, flightCard   addPoints, pointsCard   etc.              │    at runtime
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+The same layout as a rendered image:
+
+![Library architecture — your app, library, adapters, federated remotes](docs/assets/agentic-ui-architecture.png)
+
+…and the same diagram as Mermaid source:
+
+```mermaid
+flowchart TB
+    classDef app fill:#dbeafe,stroke:#1e40af,stroke-width:1px,color:#1e3a8a
+    classDef lib fill:#fef3c7,stroke:#a16207,stroke-width:1px,color:#854d0e
+    classDef adapter fill:#dcfce7,stroke:#166534,stroke-width:1px,color:#14532d
+    classDef remote fill:#fce7f3,stroke:#9d174d,stroke-width:1px,color:#831843
+
+    APP["<b>YOUR APP</b><br/>&lt;mvk-chat-shell /&gt;<br/><i>write once · never rewrite</i>"]:::app
+
+    subgraph LIB["@maverick/agentic-ui (this library)"]
+        L1["Chat shell · widget container · form renderer"]:::lib
+        L2["13 registries — Tool · Component · Action · Form · …"]:::lib
+        L3["Orchestration loop · runUntilSettled · abort signals"]:::lib
+    end
+
+    subgraph PROTO["Pluggable backend adapters · swap by config"]
+        AG["AG-UI<br/>(SSE)"]:::adapter
+        HB["Hashbrown<br/>(NDJSON)"]:::adapter
+        A2["A2UI<br/>(ui-action)"]:::adapter
+        BYO["Bring-your-own<br/>protocol"]:::adapter
+    end
+
+    subgraph MFE["Federated MFE remotes · contribute at runtime"]
+        R1["bookings<br/>bookFlight · flightCard"]:::remote
+        R2["loyalty<br/>addPoints · pointsCard"]:::remote
+        R3["tickets<br/>…"]:::remote
+    end
+
+    APP -->|one consistent interface| LIB
+    LIB -->|AgenticBackend.run| PROTO
+    LIB -.->|loadRemoteCapabilities| MFE
+```
+
+**Three concrete benefits:**
+
+- **Vendor-agnostic.** AG-UI looks like the leader today; Hashbrown and A2UI are gaining traction. The library treats agent transports as pluggable adapters so you swap backends with a one-line config change, not a chat-shell rewrite.
+- **Microfrontend native.** Multiple teams ship Angular remotes that contribute tools and widgets at runtime via Native Federation (or webpack Module Federation). The host's chat shell discovers them dynamically — no compile-time imports required. An MFE shipped today shows up in tomorrow's chat without redeploying the host.
+- **Registry-uniform.** Thirteen registries — tools, components, actions, intents, forms, validation, persistence, layout, … — share one `Registry<TDef>` shape. Same `register / list / signal / removeBySource` semantics. Same per-persona `setScopePolicy` filter. Add a new registry for your domain in ~30 LOC of base-class extension.
+
+If you've ever shipped a chat box where rendering "the flight card" required a `switch` statement on an LLM-emitted string and a separate fetch chain, this library replaces all of that with one `<mvk-chat-shell />` and a typed registry.
+
+
 
 ## Table of contents
 
@@ -80,6 +228,18 @@ The library treats agent transports as pluggable adapters: the same chat shell, 
 ```
 
 The chat shell talks to the registry layer; the registry layer dispatches the active `AgenticBackend`; the backend streams events from the agent server. Federation loads MFE remotes into the same browser realm so their `CapabilityModule.apply()` writes directly into the host's registries — and because the library ships as a single primary entry shared via federation, the registry singletons resolve to the same class identity in host and remote.
+
+### The registry layer up close
+
+All thirteen registries inherit one base class — `Registry<TDef>` — with identical `register / list / signal / removeBySource / setScopePolicy` semantics. They split into three tiers by adoption stage:
+
+![Thirteen registries grouped into Core / Extended / Seams, all inheriting one base class](docs/assets/registry-tiers.png)
+
+- **Core (5)** — every agentic UI needs these from day one. Tool, Component, Capability, Backend, MFE.
+- **Extended (4)** — agent-driven UI beyond chat. Action (NgRx-style commands), Intent (NL → tool routing), Form (schema-driven dynamic forms), DataSource (REST/GraphQL/SSE adapters).
+- **Seams (4)** — interface + thin default; you plug in your own. Validation (Zod by default; pluggable Ajv / Joi), Persistence (localStorage / sessionStorage / Dexie), Layout (CDK-friendly), SchemaTransformer (JSON Schema ↔ Zod, OpenAPI → Tool importer).
+
+Adding a registry of your own — say, a `MetricRegistry` for a custom domain — is ~30 LOC of base-class extension and gets the same MFE teardown, conformance suite, and persona scope policy out of the box.
 
 ## Installation
 
