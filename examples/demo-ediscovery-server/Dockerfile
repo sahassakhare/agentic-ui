@@ -77,14 +77,32 @@ FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Copy only what the runtime needs:
-#   - the server's compiled output
-#   - the workspace node_modules (so the server's imports resolve)
-#   - the shared package (for `@maverick/demo-ediscovery-shared`)
-#   - the agentic-ui-server library
+# Copy only what the runtime needs.
+#
+# node_modules layout: workspace root + server-local merged. The server's
+# package.json declares its own runtime deps (dotenv, hono, @google/genai,
+# @hono/node-server) which npm installs into
+# examples/demo-ediscovery-server/node_modules/ rather than hoisting to
+# the root (no workspaces declaration). Both directories COPY into the
+# same target so the merged tree resolves both root deps AND server deps.
+#
+# file: deps (`@maverick/agentic-ui-server`, `@maverick/demo-ediscovery-shared`)
+# install as symlinks pointing back into the build stage's filesystem
+# layout — those symlinks would dangle in the runtime image. Override
+# both with explicit COPYs of the built dist + package.json so the
+# import resolver finds real files at /app/node_modules/@maverick/<lib>.
 COPY --from=build /repo/examples/demo-ediscovery-server/dist /app/dist
 COPY --from=build /repo/examples/demo-ediscovery-server/package.json /app/package.json
+
+# 1. Workspace-root deps (foundation).
 COPY --from=build /repo/node_modules /app/node_modules
+
+# 2. Server-local deps merged on top (dotenv, hono, @google/genai, …).
+COPY --from=build /repo/examples/demo-ediscovery-server/node_modules /app/node_modules
+
+# 3. Replace any dangling file:-dep symlinks with the built libraries.
+COPY --from=build /repo/projects/agentic-ui-server/dist /app/node_modules/@maverick/agentic-ui-server/dist
+COPY --from=build /repo/projects/agentic-ui-server/package.json /app/node_modules/@maverick/agentic-ui-server/package.json
 COPY --from=build /repo/examples/demo-ediscovery-shared/dist /app/node_modules/@maverick/demo-ediscovery-shared/dist
 COPY --from=build /repo/examples/demo-ediscovery-shared/package.json /app/node_modules/@maverick/demo-ediscovery-shared/package.json
 
