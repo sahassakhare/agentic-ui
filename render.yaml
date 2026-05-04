@@ -84,12 +84,14 @@ services:
       npm run build:lib
       npm run build:ediscovery-shared
       npx ng build demo-ediscovery-shell --configuration production
+      # Angular 17+ esbuild builder outputs to dist/<project>/browser/ —
+      # so mfes.json and _redirects must land there, not in the parent.
       envsubst < examples/demo-ediscovery-shell/public/mfes.template.json \
-        > dist/demo-ediscovery-shell/mfes.json
+        > dist/demo-ediscovery-shell/browser/mfes.json
       printf '/api/*  %s/:splat  200\n/*  /index.html  200\n' \
         "$AGENT_SERVER_URL" \
-        > dist/demo-ediscovery-shell/_redirects
-    staticPublishPath: dist/demo-ediscovery-shell
+        > dist/demo-ediscovery-shell/browser/_redirects
+    staticPublishPath: dist/demo-ediscovery-shell/browser
     envVars:
       # Render auto-injects the host (just the bare hostname, no scheme).
       # The build command prefixes https:// when composing full URLs.
@@ -144,7 +146,7 @@ services:
       npm run build:lib
       npm run build:ediscovery-shared
       npx ng build demo-ediscovery-review --configuration production
-    staticPublishPath: dist/demo-ediscovery-review
+    staticPublishPath: dist/demo-ediscovery-review/browser
     # CORS for cross-origin federation loads. Without these headers, the
     # browser blocks the shell's `fetch(remoteEntry.json)` and the dynamic
     # import of remote chunks — and the tool registry stays empty.
@@ -173,7 +175,7 @@ services:
       npm run build:lib
       npm run build:ediscovery-shared
       npx ng build demo-ediscovery-production --configuration production
-    staticPublishPath: dist/demo-ediscovery-production
+    staticPublishPath: dist/demo-ediscovery-production/browser
     headers:
       - path: /remoteEntry.json
         name: Access-Control-Allow-Origin
@@ -199,7 +201,7 @@ services:
       npm run build:lib
       npm run build:ediscovery-shared
       npx ng build demo-ediscovery-search --configuration production
-    staticPublishPath: dist/demo-ediscovery-search
+    staticPublishPath: dist/demo-ediscovery-search/browser
     headers:
       - path: /remoteEntry.json
         name: Access-Control-Allow-Origin
