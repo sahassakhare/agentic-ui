@@ -22,6 +22,20 @@
 FROM node:22-alpine AS build
 WORKDIR /repo
 
+# ── Build-only env vars ────────────────────────────────────────────────────
+# Skip browser / native-binary postinstalls that fail on alpine (musl libc):
+#   · @playwright/test downloads Chromium — glibc-only, breaks here, AND
+#     the server doesn't need browsers at runtime
+#   · puppeteer / cypress: same shape; harmless if not installed
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    PUPPETEER_SKIP_DOWNLOAD=1 \
+    CYPRESS_INSTALL_BINARY=0
+
+# Some native deps (rare here, but a safety net) need build tooling on
+# alpine. node:22-alpine ships without python/make/g++ — install them
+# in a single layer that's discarded after npm ci.
+RUN apk add --no-cache --virtual .build-deps python3 make g++
+
 # Install workspace deps with the lockfile honoured.
 COPY package.json package-lock.json ./
 COPY tsconfig*.json angular.json ./
@@ -30,7 +44,8 @@ COPY examples/demo-ediscovery-shared/ examples/demo-ediscovery-shared/
 COPY examples/demo-ediscovery-server/  examples/demo-ediscovery-server/
 COPY scripts/ scripts/
 
-RUN npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund \
+ && apk del .build-deps
 
 # Build in dependency order:
 #   1. @maverick/agentic-ui (the library the server consumes)
