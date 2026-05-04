@@ -1,0 +1,37 @@
+{
+  "matters": [
+    {
+      "id": "M-2026-0042",
+      "name": "In re Acme Corp Securities Litigation",
+      "remotes": [
+        {
+          "remoteName": "demo-ediscovery-review",
+          "version": "1.0.0",
+          "deploymentUrl": "${MFE_REVIEW_URL}",
+          "remoteEntry": "${MFE_REVIEW_URL}/remoteEntry.json",
+          "exposedModule": "./Capability",
+          "env": "prod",
+          "healthStatus": "healthy"
+        },
+        {
+          "remoteName": "demo-ediscovery-production",
+          "version": "1.0.0",
+          "deploymentUrl": "${MFE_PRODUCTION_URL}",
+          "remoteEntry": "${MFE_PRODUCTION_URL}/remoteEntry.json",
+          "exposedModule": "./Capability",
+          "env": "prod",
+          "healthStatus": "healthy"
+        },
+        {
+          "remoteName": "demo-ediscovery-search",
+          "version": "1.0.0",
+          "deploymentUrl": "${MFE_SEARCH_URL}",
+          "remoteEntry": "${MFE_SEARCH_URL}/remoteEntry.json",
+          "exposedModule": "./Capability",
+          "env": "prod",
+          "healthStatus": "healthy"
+        }
+      ]
+    }
+  ]
+}

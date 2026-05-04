@@ -1,0 +1,51 @@
+# Build context excludes — keeps the Docker build small and avoids
+# accidentally shipping secrets / dev artefacts into the image.
+
+# Dev artefacts
+node_modules
+**/node_modules
+dist
+**/dist
+.angular
+.tsbuildinfo
+*.log
+.cache
+
+# Local secrets / config
+.env
+.env.*
+!.env.example
+
+# Editor / OS noise
+.DS_Store
+.idea
+.vscode
+*.swp
+
+# Tests + e2e (not needed in the runtime image)
+e2e
+test-results
+playwright-report
+**/*.spec.ts
+**/*.test.ts
+
+# Unrelated example apps (the Dockerfile only needs server + shared + lib)
+examples/demo-ediscovery-shell
+examples/demo-ediscovery-review
+examples/demo-ediscovery-production
+examples/demo-ediscovery-search
+examples/demo-ediscovery-mcp
+examples/demo-monolith
+examples/demo-multi-agent
+examples/demo-shell
+examples/demo-feature-tour
+examples/demo-mcp-server
+examples/demo-remote-bookings
+examples/demo-remote-loyalty
+examples/demo-remote-support
+examples/demo-server
+
+# Docs + decks
+docs
+.compodocrc.json
+typedoc.json
