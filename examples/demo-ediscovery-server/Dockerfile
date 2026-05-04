@@ -98,9 +98,22 @@ COPY --from=build /repo/examples/demo-ediscovery-server/package.json /app/packag
 COPY --from=build /repo/node_modules /app/node_modules
 
 # 2. Server-local deps merged on top (dotenv, hono, @google/genai, …).
+#    npm installed these into examples/demo-ediscovery-server/node_modules
+#    because the workspace doesn't declare workspaces. Merging into the
+#    same /app/node_modules tree lets module resolution walk up from
+#    /app/dist/server.js and find both root and server-specific deps.
 COPY --from=build /repo/examples/demo-ediscovery-server/node_modules /app/node_modules
 
-# 3. Replace any dangling file:-dep symlinks with the built libraries.
+# 3. Replace the file:-dep symlinks with REAL directories. npm creates
+#    these symlinks with relative targets (../../../projects/…). In the
+#    runtime image those targets don't exist; if we COPY into the
+#    symlink path, Docker follows it and writes the files at
+#    /projects/agentic-ui-server/ instead of /app/node_modules/@maverick/…
+#    — and Node's module resolver won't find transitive deps like
+#    @ag-ui/core that live in /app/node_modules/. Delete the symlink
+#    first so the COPY creates a real directory at the intended path.
+RUN rm -rf /app/node_modules/@maverick/agentic-ui-server \
+           /app/node_modules/@maverick/demo-ediscovery-shared
 COPY --from=build /repo/projects/agentic-ui-server/dist /app/node_modules/@maverick/agentic-ui-server/dist
 COPY --from=build /repo/projects/agentic-ui-server/package.json /app/node_modules/@maverick/agentic-ui-server/package.json
 COPY --from=build /repo/examples/demo-ediscovery-shared/dist /app/node_modules/@maverick/demo-ediscovery-shared/dist
