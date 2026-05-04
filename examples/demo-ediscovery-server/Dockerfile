@@ -44,7 +44,16 @@ COPY examples/demo-ediscovery-shared/ examples/demo-ediscovery-shared/
 COPY examples/demo-ediscovery-server/  examples/demo-ediscovery-server/
 COPY scripts/ scripts/
 
-RUN npm ci --no-audit --no-fund
+# Pin npm to a version known to accept this repo's lockfile. npm 10.9.7
+# does stricter transitive-dep resolution than 10.9.4 and rejects valid
+# entries (`Missing: @module-federation/runtime-core@x.y.z`). Pin solves
+# the version drift between local dev and Render's builder.
+RUN npm install --global npm@10.9.4
+
+# Use `install` not `ci` so the lockfile is reconciled if the local repo
+# was generated with a different npm version. Slightly slower but does
+# not hard-fail on minor lockfile inconsistencies.
+RUN npm install --no-audit --no-fund
 
 # Build in dependency order:
 #   1. @maverick/agentic-ui (the library the server consumes)
