@@ -55,13 +55,22 @@ RUN npm install --global npm@10.9.4
 # not hard-fail on minor lockfile inconsistencies.
 RUN npm install --no-audit --no-fund
 
-# Build in dependency order:
-#   1. @maverick/agentic-ui (the library the server consumes)
-#   2. @maverick/demo-ediscovery-shared (mock data + types)
-#   3. The server itself
+# Build in dependency order. Each `file:` workspace dep must have its
+# dist/ in place before the server's npm install resolves it (TypeScript
+# follows the symlink to find dist/index.d.ts), and the server's own
+# deps (@google/genai, hono, dotenv) are NOT in the root package.json
+# so they need a separate install in the server folder.
+#
+#   1. @maverick/agentic-ui          (Angular library — consumed by the demos)
+#   2. @maverick/agentic-ui-server   (Node lib — consumed by the demo server)
+#   3. @maverick/demo-ediscovery-shared  (mock data + types)
+#   4. Install the server's own deps (now that file: deps have dist/)
+#   5. Build the server itself
 RUN npm run build:lib \
- && npm --prefix examples/demo-ediscovery-shared run build \
- && npm --prefix examples/demo-ediscovery-server  run build
+ && npm --prefix projects/agentic-ui-server               run build \
+ && npm --prefix examples/demo-ediscovery-shared          run build \
+ && npm --prefix examples/demo-ediscovery-server install  --no-audit --no-fund \
+ && npm --prefix examples/demo-ediscovery-server          run build
 
 # ── Stage 2: runtime ───────────────────────────────────────────────────────
 FROM node:22-bookworm-slim AS runtime
