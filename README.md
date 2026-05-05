@@ -158,7 +158,39 @@ flowchart TB
 
 If you've ever shipped a chat box where rendering "the flight card" required a `switch` statement on an LLM-emitted string and a separate fetch chain, this library replaces all of that with one `<mvk-chat-shell />` and a typed registry.
 
+## Problem statement (for technical architects)
 
+Agentic UIs are easy to demo and hard to ship. The pain compounds across six axes — every team building this shape of product hits at least four of them.
+
+| # | Problem | What teams build without an abstraction | What this library does |
+|---|---|---|---|
+| 1 | **Protocol churn** — AG-UI, Hashbrown, A2UI all evolve quarterly; picking one is betting on a moving target. | Hand-rolled SSE / WebSocket / NDJSON parser per app, retried per protocol revision; chat-shell rewrites every quarter. | One `AgenticBackend` interface with three shipped adapters; the chat shell never sees the wire format. Swap protocols by changing one provider. |
+| 2 | **Fan-out** — an agentic UI isn't just chat; it's tools + components + validation + persistence + telemetry + audit + federation. Each becomes bespoke. | Each capability shipped as a one-off store / service with its own conventions, life-cycle, signal pattern, and teardown semantics. | One `Registry<TDef>` base class. Thirteen registries (Tool, Component, Action, Form, DataSource, …) all expose the same `register / list / signal / removeBySource / setScopePolicy`. Adding your own registry for a domain concept is ~30 LOC. |
+| 3 | **Generative UI dispatch** — the LLM emits "render flight-card with these props" as a string; resolving that to a typed Angular component with validated inputs is fiddly. | A growing `switch` over LLM-emitted strings, mounting hard-imported components, no schema validation on props. | `ComponentRegistry.get(name)` + Zod-validated props + `*ngComponentOutlet` mount. The agent's choice of widget is a registry read; missing names show a fallback, not a runtime crash. |
+| 4 | **Microfrontend composition** — multiple teams need to contribute tools and widgets to one chat without recompiling the host or redeploying the shell. | Static imports + central registration list maintained by the host team; every new MFE is a host-team PR. | `defineCapabilityModule` + Native or webpack Federation. Remote loads at runtime, calls `registerAll`, and the next chat turn sees its tools. Unload runs `removeBySource` across all 13 registries in one pass. |
+| 5 | **Governance + persona scope** — regulated domains require per-role tool surfaces. The LLM should not even see tools the active user can't invoke. | Bolt-on input filter in the chat shell only; remotes that come later don't honour it; the audit story is per-app. | `RegistryBase.setScopePolicy(predicate)` filters every `list / get / signal` read — the LLM's tool list, the widget container's resolution, the form renderer's available shapes — uniformly across all 13 registries. Three layers: library enforces, app authorises (predicate), server verifies (trust boundary). |
+| 6 | **Observability across the SSE boundary** — a chat turn fans out into LLM streaming, multiple tool calls, federation loads, persistence writes. Tracing it end-to-end is non-trivial. | Per-app logs, no correlation between client + server, no W3C trace propagation; debugging slow turns means staring at network tabs. | `AgenticTelemetrySink` emit points baked in from M1 (no-op default). Optional `/otel` entry point ships an OpenTelemetry-backed sink with W3C `traceparent` propagation across the SSE handshake — one trace covers `chat shell → backend → server → LLM → tool → registry`. |
+
+**The architect's net.** You design *one* shape — registries plus pluggable backends plus an MFE-aware host — and protocol shifts, governance changes, and team ownership splits land as configuration changes, not chat-shell rewrites. The library trades a few extra abstractions up front (yes, thirteen registries) for the elimination of bespoke code for the next five years of agent protocol churn.
+
+## Use cases
+
+Ten distinct scenarios the library covers, ranked roughly by adoption order. Pick the rows your team will hit; the rest are opt-in via DI.
+
+| # | Use case | Library seam | Audience |
+|---|---|---|---|
+| 1 | **Generative UI** — agent picks the component to render | `ComponentRegistry` · `<mvk-widget-container>` | Foundational |
+| 2 | **Tool calling with state mutation** — typed args, abort signals | `ToolRegistry` · `tool-call-*` events | Foundational |
+| 3 | **Federating MFE remotes** — remotes contribute tools/widgets at runtime | `defineCapabilityModule` · `loadRemoteCapabilities` | Architects |
+| 4 | **Per-persona entitlement** — LLM can't see tools the user isn't entitled to | `RegistryBase.setScopePolicy(predicate)` | Architects + execs |
+| 5 | **Backend swap (AG-UI ↔ Hashbrown ↔ A2UI)** — one shell, three protocols | `AgenticBackend` interface | Architects |
+| 6 | **Multi-agent orchestration** — sticky routing across specialists | `OrchestratorAgent` · `ThreadStateStore` | Architects |
+| 7 | **Per-turn tool budget at scale** — keyword-filtered tool list per prompt | `provideToolFilter(keywordToolFilter({maxTools, floor}))` | Architects |
+| 8 | **MCP — same tools power Claude Desktop / Cursor** | `@maverick/agentic-ui-mcp` | Execs + architects |
+| 9 | **Observability — distributed tracing per chat turn** | `AgenticTelemetrySink` · `/otel` entry | Architects + devs |
+| 10 | **Audit trail / chain-of-custody** — tamper-evident state mutations | Pattern: `prevHash` / `chainHash` + telemetry | Execs + architects |
+
+> **Each use case has a dedicated walkthrough in the [User Guide → Use cases](./docs/USER_GUIDE.md#use-cases).** The walkthroughs include scenario, library responsibility, minimal wiring code, and a link to the relevant cookbook entry.
 
 ## Table of contents
 
