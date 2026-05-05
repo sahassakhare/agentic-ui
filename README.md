@@ -541,9 +541,39 @@ GitHub Actions runs the full pipeline (build → test → three production demo 
 
 ## Versioning and release
 
-`@maverick/agentic-ui` follows [Semantic Versioning](https://semver.org/). The current release is `1.0.0` — see [CHANGELOG.md](./projects/agentic-ui/CHANGELOG.md) for full notes.
+`@maverick/agentic-ui` follows [Semantic Versioning](https://semver.org/). Current version: **1.1.0** — see [CHANGELOG.md](./projects/agentic-ui/CHANGELOG.md) for full notes.
 
-Tagging convention: annotated tags `vMAJOR.MINOR.PATCH` against the commit that bumps the lib's `package.json#version`.
+### Publishing to npm
+
+A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) builds and publishes the three packages to npm with [provenance attestations](https://docs.npmjs.com/generating-provenance-statements):
+
+| Package | npm | Source dir |
+|---|---|---|
+| `@maverick/agentic-ui` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui.svg)](https://www.npmjs.com/package/@maverick/agentic-ui) | `projects/agentic-ui` |
+| `@maverick/agentic-ui-server` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-server.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-server) | `projects/agentic-ui-server` |
+| `@maverick/agentic-ui-mcp` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-mcp.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-mcp) | `projects/agentic-ui-mcp` |
+
+Two ways to trigger a publish:
+
+1. **GitHub Release** (recommended). Tag the commit with one of:
+   - `agentic-ui-v1.1.0` → publishes `@maverick/agentic-ui`
+   - `agentic-ui-server-v0.1.0` → publishes `@maverick/agentic-ui-server`
+   - `agentic-ui-mcp-v0.1.0` → publishes `@maverick/agentic-ui-mcp`
+   - `v1.1.0` (legacy) → publishes the primary `@maverick/agentic-ui`
+
+   Then create the GitHub Release for that tag — the workflow fires automatically on `release: published`.
+
+2. **Manual trigger** (Actions tab → `publish` → **Run workflow**). Pick a package or `all`, optionally tick `dry_run` to test the workflow without pushing to npm. Already-published versions are skipped — safe to re-run.
+
+### One-time setup
+
+Generate an npm Automation Token (npmjs.com → Access Tokens → Generate New Token → Automation) with publish access on the `@maverick` scope. Add to GitHub: **Settings → Secrets and variables → Actions → New repository secret → name `NPM_TOKEN`**.
+
+Once the first publish succeeds, switching to [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers) is recommended — the workflow already requests an OIDC token, so the secret can then be removed.
+
+### Tagging convention
+
+Annotated tags `<package>-vMAJOR.MINOR.PATCH` against the commit that bumps that package's `package.json#version`. Each package versions independently — agentic-ui can be at 1.1.0 while agentic-ui-server is at 0.1.0.
 
 ## Compatibility
 

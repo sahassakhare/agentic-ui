@@ -1,0 +1,205 @@
+name: publish
+
+# Publishes one or more @maverick/* packages to npm.
+#
+# ── How to publish ─────────────────────────────────────────────────────────
+#  Bump the package's version in its package.json, commit, and either:
+#
+#    1. Manual run from GitHub UI (recommended for first-time):
+#         Actions → "publish" → Run workflow
+#         · Pick which package(s) to publish (default: all that need publishing)
+#         · Tick `dry_run` to test the workflow without pushing to npm
+#
+#    2. Automatic on a release:
+#         Create a GitHub release whose tag follows one of:
+#           agentic-ui-v1.1.0          → publishes @maverick/agentic-ui
+#           agentic-ui-server-v0.1.0   → publishes @maverick/agentic-ui-server
+#           agentic-ui-mcp-v0.1.0      → publishes @maverick/agentic-ui-mcp
+#         The workflow detects the prefix and publishes only that package.
+#         (`v1.1.0` without a prefix also works — defaults to agentic-ui.)
+#
+# ── One-time setup (per repo) ──────────────────────────────────────────────
+#  Generate an npm Automation Token (npmjs.com → Access Tokens → Generate
+#  New Token → Automation). Grant publish access to the @maverick scope.
+#  Add it to GitHub: Settings → Secrets and variables → Actions → New
+#  repository secret → name `NPM_TOKEN`, value <token>.
+#
+#  Once the first publish succeeds you can switch to npm Trusted Publishing
+#  (npmjs.com → package settings → Trusted publishing → add this repo +
+#  this workflow file). After that, NPM_TOKEN is no longer required — the
+#  OIDC token this workflow already requests provides authentication, and
+#  provenance attestations are stronger.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      package:
+        description: "Which package to publish (`all` runs all three; already-published versions are skipped)"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - agentic-ui
+          - agentic-ui-server
+          - agentic-ui-mcp
+      dry_run:
+        description: "Dry run — build + `npm publish --dry-run`, but don't push to npm"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write   # required for npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # `inputs.dry_run` is only set for workflow_dispatch; defaults to "false"
+      # (string) for release-triggered runs.
+      DRY_RUN: ${{ inputs.dry_run || 'false' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20.19 (matches CI matrix)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19'
+          cache: npm
+          # Configures ~/.npmrc with the auth token line for npm publish
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install workspace dependencies
+        run: npm ci --no-audit --fund=false
+
+      - name: Decide which packages to publish
+        id: target
+        run: |
+          # Resolve the trigger source into a space-separated list of packages.
+          # Spaces around the list let downstream steps do exact-word matching
+          # via bash globbing (`*" agentic-ui "*`) — substring-style matching
+          # in YAML `contains()` would treat `agentic-ui` as a prefix of
+          # `agentic-ui-server` and false-positive.
+          if [ "${{ github.event_name }}" = "release" ]; then
+            tag="${{ github.event.release.tag_name }}"
+            case "$tag" in
+              agentic-ui-server-v*)  pkgs="agentic-ui-server" ;;
+              agentic-ui-mcp-v*)     pkgs="agentic-ui-mcp" ;;
+              agentic-ui-v*)         pkgs="agentic-ui" ;;
+              v*)                    pkgs="agentic-ui" ;;       # legacy default
+              *)
+                echo "::error::Unrecognised tag format: $tag (expected agentic-ui-v*, agentic-ui-server-v*, agentic-ui-mcp-v*, or v*)"
+                exit 1
+                ;;
+            esac
+          else
+            case "${{ inputs.package }}" in
+              all) pkgs="agentic-ui agentic-ui-server agentic-ui-mcp" ;;
+              *)   pkgs="${{ inputs.package }}" ;;
+            esac
+          fi
+          echo "Publishing: $pkgs"
+          echo "pkgs=$pkgs" >> "$GITHUB_OUTPUT"
+
+      - name: Build all libraries (dependency order)
+        run: |
+          # Always build everything — small enough that conditional builds
+          # aren't worth the complexity. Per-package skip happens at publish.
+          npm run build:lib
+          npm --prefix projects/agentic-ui-server run build
+          npm --prefix projects/agentic-ui-mcp    run build
+
+      - name: Publish @maverick/agentic-ui
+        working-directory: dist/agentic-ui
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PKGS: ${{ steps.target.outputs.pkgs }}
+        run: |
+          set -e
+          # Whole-word match — `agentic-ui` won't match `agentic-ui-server`.
+          if ! [[ " $PKGS " == *" agentic-ui "* ]]; then
+            echo "::notice::@maverick/agentic-ui not in target list — skipping"; exit 0
+          fi
+          version=$(node -p "require('./package.json').version")
+          if npm view "@maverick/agentic-ui@$version" version > /dev/null 2>&1; then
+            echo "::notice::@maverick/agentic-ui@$version already on npm — skipping"; exit 0
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --dry-run
+          else
+            npm publish
+          fi
+
+      - name: Publish @maverick/agentic-ui-server
+        working-directory: projects/agentic-ui-server
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PKGS: ${{ steps.target.outputs.pkgs }}
+        run: |
+          set -e
+          if ! [[ " $PKGS " == *" agentic-ui-server "* ]]; then
+            echo "::notice::@maverick/agentic-ui-server not in target list — skipping"; exit 0
+          fi
+          version=$(node -p "require('./package.json').version")
+          if npm view "@maverick/agentic-ui-server@$version" version > /dev/null 2>&1; then
+            echo "::notice::@maverick/agentic-ui-server@$version already on npm — skipping"; exit 0
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --dry-run
+          else
+            npm publish
+          fi
+
+      - name: Publish @maverick/agentic-ui-mcp
+        working-directory: projects/agentic-ui-mcp
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PKGS: ${{ steps.target.outputs.pkgs }}
+        run: |
+          set -e
+          if ! [[ " $PKGS " == *" agentic-ui-mcp "* ]]; then
+            echo "::notice::@maverick/agentic-ui-mcp not in target list — skipping"; exit 0
+          fi
+          version=$(node -p "require('./package.json').version")
+          if npm view "@maverick/agentic-ui-mcp@$version" version > /dev/null 2>&1; then
+            echo "::notice::@maverick/agentic-ui-mcp@$version already on npm — skipping"; exit 0
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --dry-run
+          else
+            npm publish
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Publish summary"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Trigger | \`${{ github.event_name }}\` |"
+            echo "| Targets | \`${{ steps.target.outputs.pkgs }}\` |"
+            echo "| Dry run | \`$DRY_RUN\` |"
+            echo
+            echo "### Versions in this commit"
+            echo
+            echo "| Package | Version |"
+            echo "|---|---|"
+            for p in agentic-ui agentic-ui-server agentic-ui-mcp; do
+              # agentic-ui's manifest is in dist/ after build; the others are
+              # at projects/<name>/package.json (no build-time rewrite).
+              if [ "$p" = "agentic-ui" ] && [ -f dist/agentic-ui/package.json ]; then
+                v=$(node -p "require('./dist/agentic-ui/package.json').version")
+              else
+                v=$(node -p "require('./projects/$p/package.json').version")
+              fi
+              echo "| \`@maverick/$p\` | \`$v\` |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
