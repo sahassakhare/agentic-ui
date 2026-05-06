@@ -63,6 +63,9 @@ PLAN.md
 # produces — it's a regenerable intermediate, ~700 KB per capture.
 docs/assets/*.webm
 
+# Office lock files (created when a file is open in Word/PowerPoint/Excel).
+~$*
+
 # Generated API docs (built by `npm run docs:api`; published, not tracked)
 /docs/api/
 
