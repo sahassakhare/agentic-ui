@@ -308,6 +308,12 @@ export interface CompositionEntry {
  * Composition mode (Capability F1): when `composition` is set, the form is
  * built at runtime from registered widgets and `fieldsSchema` is a permissive
  * passthrough synthesized by the `agenticForm` factory.
+ *
+ * Workflow mode (Capability F3 — provisional, see r3 plan §9.3.3): when
+ * `workflow` is set, the entry represents a multi-step wizard. The
+ * `<mvk-workflow-renderer>` mounts one step's widget at a time and walks
+ * the step graph via Back / Next controls. `submit` is unused in workflow
+ * mode; terminal completion runs `workflow.onComplete` instead.
  */
 export interface FormDef<TValues = unknown> extends RegistryEntry {
   /** Human-readable description. */
@@ -329,6 +335,84 @@ export interface FormDef<TValues = unknown> extends RegistryEntry {
    * never a remaining `if` string.
    */
   readonly composition?: readonly CompositionEntry[];
+  /**
+   * Optional workflow definition (Capability F3 — provisional). Mutually
+   * exclusive with `composition` — workflow forms render one step's widget
+   * at a time via `<mvk-workflow-renderer>`, not all sections at once.
+   */
+  readonly workflow?: WorkflowDef;
+}
+
+/**
+ * One step in a workflow (Capability F3 — provisional, r3 plan §9.3).
+ *
+ * Each step references a widget already in `ComponentRegistry`; the
+ * workflow renderer mounts it and provides the step's `id` as the
+ * `COMPOSITION_SLOT` so the widget reads/writes through the renderer-
+ * scoped `CompositionStore` under that key. State persists across step
+ * transitions (and across Back navigation) for free.
+ *
+ * The `next` field drives transitions:
+ *   - `string` → unconditional advance to the named step
+ *   - `null`   → terminal step; Next runs `WorkflowDef.onComplete`
+ *   - function → branch on the workflow's aggregated state (e.g. jump
+ *                to `'matter-setup'` when zero custodians selected)
+ */
+export interface WorkflowStep {
+  /** Unique step id within this workflow. */
+  readonly id: string;
+  /** ComponentRegistry name for the widget rendered at this step. */
+  readonly widget: string;
+  /** Optional heading rendered above the widget + in the breadcrumb. */
+  readonly section?: string;
+  /** Transition target — `null` is terminal; a function branches on state. */
+  readonly next:
+    | string
+    | null
+    | ((state: Readonly<Record<string, unknown>>) => string | null);
+}
+
+/**
+ * Context passed to {@link WorkflowDef.onComplete}. Empty in v1; reserved
+ * so future expansion (tool dispatch, agent thread metadata) is non-breaking.
+ */
+export interface WorkflowCtx {
+  /** Reserved for future expansion — currently empty. */
+  readonly threadId?: string;
+}
+
+/**
+ * Workflow definition (Capability F3). Carried on `FormDef.workflow` until
+ * ARB ratifies promotion to a top-level `WorkflowRegistry` (R-F3-A).
+ *
+ * @example
+ * ```ts
+ * agenticWorkflow({
+ *   name: 'placeLegalHold',
+ *   description: 'Guided wizard to draft, scope, and send a hold notice.',
+ *   steps: [
+ *     { id: 'scope',       widget: 'keyword-chip-picker',   next: 'custodians' },
+ *     { id: 'custodians',  widget: 'custodian-multi-select',
+ *       next: (s) => (s['custodians'] as string[]).length === 0 ? 'matter-setup' : 'date-range' },
+ *     { id: 'date-range',  widget: 'date-range-picker',     next: 'preview' },
+ *     { id: 'preview',     widget: 'hold-notice-preview',   next: null },
+ *   ],
+ *   onComplete: async (state, ctx) => placeLegalHoldTool(state),
+ * });
+ * ```
+ */
+export interface WorkflowDef {
+  /** Ordered list of steps. The first step is the starting point. */
+  readonly steps: readonly WorkflowStep[];
+  /**
+   * Async handler invoked when the user clicks Next on a terminal step
+   * (`step.next === null`). Receives the aggregated state from the
+   * renderer-scoped `CompositionStore` keyed by step id.
+   */
+  readonly onComplete: (
+    state: Readonly<Record<string, unknown>>,
+    ctx: WorkflowCtx,
+  ) => Promise<unknown>;
 }
 
 // ─── Cross-cutting / extension-seam registries (M5) ──────────────────────────

@@ -4,4 +4,5 @@ export * from './agentic-backend';
 export * from './agentic-action';
 export * from './agentic-intent';
 export * from './agentic-form';
+export * from './agentic-workflow';
 export * from './agentic-data-source';
