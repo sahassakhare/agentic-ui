@@ -78,10 +78,7 @@ services:
     buildCommand: |
       # Render's fromService.property: host returns just the bare service
       # name (e.g. "ediscovery-review"), NOT the full FQDN. Append the
-      # `.onrender.com` suffix to compose absolute URLs. If you later move
-      # to custom domains, replace these with full URLs set via the
-      # dashboard env-var override (which beats the fromService default).
-      export AGENT_SERVER_URL=https://${AGENT_SERVER_HOST}.onrender.com
+      # `.onrender.com` suffix to compose absolute URLs.
       export MFE_REVIEW_URL=https://${MFE_REVIEW_HOST}.onrender.com
       export MFE_PRODUCTION_URL=https://${MFE_PRODUCTION_HOST}.onrender.com
       export MFE_SEARCH_URL=https://${MFE_SEARCH_HOST}.onrender.com
@@ -90,23 +87,24 @@ services:
       npm run build:ediscovery-shared
       npx ng build demo-ediscovery-shell --configuration production
       # Angular 17+ esbuild builder outputs to dist/<project>/browser/ —
-      # so mfes.json and _redirects must land there, not in the parent.
+      # so mfes.json must land there, not in the parent.
       envsubst < examples/demo-ediscovery-shell/public/mfes.template.json \
         > dist/demo-ediscovery-shell/browser/mfes.json
-      printf '/api/*  %s/:splat  200\n/*  /index.html  200\n' \
-        "$AGENT_SERVER_URL" \
+      # SPA fallback only — the agent-server URL is hardcoded into the
+      # shell's environment.prod.ts (the chat shell calls it directly,
+      # cross-origin, with CORS allowlisted server-side). Render static
+      # sites can't proxy POSTs with bodies to external origins via
+      # _redirects — it returns 200 with empty body silently.
+      printf '/*  /index.html  200\n' \
         > dist/demo-ediscovery-shell/browser/_redirects
     staticPublishPath: dist/demo-ediscovery-shell/browser
     envVars:
       # fromService.property: host returns the bare service name (NOT the
       # FQDN). The build command above appends `.onrender.com` to form a
       # full URL — that assumption holds for any default-Render-hostname
-      # deployment in this same Render project.
-      - key: AGENT_SERVER_HOST
-        fromService:
-          type: web
-          name: ediscovery-agent-server
-          property: host
+      # deployment in this same Render project. The agent-server URL is
+      # NOT injected here — it's hardcoded in environment.prod.ts because
+      # Render static sites can't proxy POSTs to external origins.
       - key: MFE_REVIEW_HOST
         fromService:
           type: web
