@@ -89,3 +89,35 @@ test('AC-F1-1: switching persona back to Paralegal re-mounts the supervisor sect
   await persona.select('Paralegal');
   await expect(card.locator('app-intake-supervisor-picker')).toBeVisible({ timeout: 5_000 });
 });
+
+test('AC-F2-1: supervisor picker autocomplete populates from the users data source', async ({ page }) => {
+  // Serial state: form is mounted, paralegal persona, supervisor section visible.
+  const card = page.locator('app-custodian-intake-card').last();
+  const supervisorPicker = card.locator('app-intake-supervisor-picker');
+  await expect(supervisorPicker).toBeVisible();
+
+  const input = supervisorPicker.locator('input[name="supervisor"]');
+  const datalist = supervisorPicker.locator('datalist#supervisor-suggestions');
+
+  // Type a prefix that matches one of the seeded directory entries
+  // (Eleanor Vance — eleanor.vance@acme.example, role lead-counsel).
+  await input.fill('Eleanor');
+
+  // The widget calls inject(DataSourceRegistry).getTyped('users').adapter
+  // and writes the matches into a signal that drives the datalist.
+  // Assert at least one matching option lands in the DOM.
+  await expect(async () => {
+    const opts = await datalist.locator('option').allTextContents();
+    expect(opts.some((t) => t.includes('Eleanor Vance'))).toBe(true);
+  }).toPass({ timeout: 5_000 });
+
+  // Adapter swap (AC-F2-3) is unit-tested in the lib; here we just
+  // confirm the runtime path actually goes through the adapter
+  // — typing a prefix that doesn't match anything should drop the
+  // matching option from the datalist.
+  await input.fill('NoOneNamedThis');
+  await expect(async () => {
+    const opts = await datalist.locator('option').allTextContents();
+    expect(opts.some((t) => t.includes('Eleanor Vance'))).toBe(false);
+  }).toPass({ timeout: 5_000 });
+});
