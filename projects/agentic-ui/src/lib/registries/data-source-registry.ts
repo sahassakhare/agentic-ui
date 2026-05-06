@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
 import { RegistryBase } from './registry-base';
 import type { DataSourceDef } from '../types/registry-defs';
 
@@ -45,6 +46,14 @@ export class UnknownDataSourceError extends Error {
 export class DataSourceRegistry extends RegistryBase<DataSourceDef> {
   protected readonly registryName = 'data-source';
 
+  /**
+   * Telemetry sink used to record `data_source.query_ms` histograms on
+   * every adapter call routed through {@link getTyped}. Direct callers
+   * of `get(name).adapter(...)` bypass the wrapper — those call sites
+   * are responsible for their own instrumentation.
+   */
+  private readonly metrics = inject(AGENTIC_TELEMETRY_SINK);
+
   byKind(kind: DataSourceDef['kind']): readonly DataSourceDef[] {
     return this.list().filter((d) => d.kind === kind);
   }
@@ -54,14 +63,46 @@ export class DataSourceRegistry extends RegistryBase<DataSourceDef> {
    * {@link UnknownDataSourceError} when the registration is missing.
    * The `<TQuery, TResult>` generic is a compile-time narrowing only —
    * the registered adapter's actual shape is the runtime source of truth.
+   *
+   * The returned adapter is **wrapped with telemetry**: every call records
+   * a `data_source.query_ms` histogram tagged with `name`, `kind`, and an
+   * `ok` flag (`'true'` / `'false'`). Async results are awaited so the
+   * histogram captures end-to-end latency including the network hop.
    */
   getTyped<TQuery, TResult>(name: string): TypedDataSource<TQuery, TResult> {
     const def = this.get(name);
     if (!def) throw new UnknownDataSourceError(name, this.list().map((d) => d.name));
+    const sink = this.metrics;
+    const sourceName = def.name;
+    const sourceKind = def.kind;
+    const baseAdapter = def.adapter;
     return {
       name: def.name,
       kind: def.kind,
-      adapter: def.adapter as (query: TQuery) => TResult,
+      adapter: (query: TQuery): TResult => {
+        const start = performance.now();
+        const record = (ok: boolean): void => {
+          sink.histogram('data_source.query_ms', performance.now() - start, {
+            name: sourceName,
+            kind: sourceKind,
+            ok: ok ? 'true' : 'false',
+          });
+        };
+        try {
+          const result = baseAdapter(query as unknown);
+          if (result !== null && typeof result === 'object' && typeof (result as PromiseLike<unknown>).then === 'function') {
+            return (result as Promise<unknown>).then(
+              (value) => { record(true); return value; },
+              (err) => { record(false); throw err; },
+            ) as unknown as TResult;
+          }
+          record(true);
+          return result as TResult;
+        } catch (err) {
+          record(false);
+          throw err;
+        }
+      },
     };
   }
 

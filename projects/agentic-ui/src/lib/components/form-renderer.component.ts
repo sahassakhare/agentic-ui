@@ -12,6 +12,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
+  AGENTIC_TELEMETRY_SINK,
   COMPOSITION_SLOT,
   ComponentRegistry,
   CompositionStore,
@@ -208,6 +209,7 @@ export class FormRendererComponent {
   private readonly dataSources = inject(DataSourceRegistry);
   private readonly store = inject(CompositionStore);
   private readonly hostInjector = inject(Injector);
+  private readonly telemetry = inject(AGENTIC_TELEMETRY_SINK);
 
   /**
    * Cached per-slot injectors keyed by slot name. Created lazily and
@@ -267,6 +269,8 @@ export class FormRendererComponent {
     const ctx = this.context();
     const pending = this.pendingPrompts();
     const keeps = this.keepOverrides();
+    const start = performance.now();
+    const totalEntries = def.composition.length;
 
     const sections: ResolvedSection[] = [];
     for (const entry of def.composition) {
@@ -291,6 +295,20 @@ export class FormRendererComponent {
         missingDataSources,
       });
     }
+
+    // P-2 (r3 plan §6.1): observe composition-render latency. Computed
+    // memoization bounds the rate — this only fires when one of the
+    // tracked signals (form, context, prompts, overrides) actually changes.
+    this.telemetry.histogram(
+      'form.composition.evaluate_ms',
+      performance.now() - start,
+      {
+        form: def.name,
+        sectionsTotal: totalEntries,
+        sectionsVisible: sections.length,
+      },
+    );
+
     return sections;
   });
 
