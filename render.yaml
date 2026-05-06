@@ -90,6 +90,19 @@ services:
       # so mfes.json must land there, not in the parent.
       envsubst < examples/demo-ediscovery-shell/public/mfes.template.json \
         > dist/demo-ediscovery-shell/browser/mfes.json
+      # Native Federation reads federation.manifest.json at boot (in
+      # main.ts: initFederation('federation.manifest.json')). It's a
+      # different file from mfes.json (which is the app-level MFE
+      # registry). The committed copy in public/ has localhost URLs for
+      # local dev — overwrite at build time with the prod URLs so
+      # federation actually loads the remotes from the right hosts.
+      cat > dist/demo-ediscovery-shell/browser/federation.manifest.json <<EOF
+      {
+        "demo-ediscovery-review":     "$MFE_REVIEW_URL/remoteEntry.json",
+        "demo-ediscovery-production": "$MFE_PRODUCTION_URL/remoteEntry.json",
+        "demo-ediscovery-search":     "$MFE_SEARCH_URL/remoteEntry.json"
+      }
+      EOF
       # SPA fallback only — the agent-server URL is hardcoded into the
       # shell's environment.prod.ts (the chat shell calls it directly,
       # cross-origin, with CORS allowlisted server-side). Render static
