@@ -25,8 +25,11 @@ import { createWriteStream } from 'node:fs';
 import { mkdir, stat, rm } from 'node:fs/promises';
 import { dirname, extname, resolve } from 'node:path';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
-const REPO_ROOT = resolve(new URL('..', import.meta.url).pathname);
+// `new URL('..', import.meta.url).pathname` URL-encodes spaces ("my%20projects").
+// `fileURLToPath` decodes them back to plain filesystem paths.
+const REPO_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const OUT_DIR = resolve(REPO_ROOT, 'docs/distributions');
 const OUT_ZIP = resolve(OUT_DIR, 'agentic-ui-codebase.zip');
 
