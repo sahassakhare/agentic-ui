@@ -232,7 +232,10 @@ function seedDefault(s: MockStore): void {
   ];
   s.custodians.push(...seedCustodians);
 
-  // One existing legal hold covering three of the custodians.
+  // Seed two legal holds so demos of "Show pending hold acknowledgements"
+  // and "Show all legal holds" both surface real data.
+  //   HOLD-001: acknowledged within hours (the canonical happy-path hold)
+  //   HOLD-002: pending — issued recently, custodians haven't ack'd yet
   s.legalHolds.push({
     id: 'HOLD-001',
     matterId,
@@ -240,6 +243,14 @@ function seedDefault(s: MockStore): void {
     scope: 'All emails, documents, and chat messages pertaining to Project Phoenix from 2024-09-01 onward.',
     issuedAt: '2026-02-16T14:00:00Z',
     acknowledgedAt: '2026-02-16T15:42:00Z',
+  });
+  s.legalHolds.push({
+    id: 'HOLD-002',
+    matterId,
+    custodianIds: ['CUST-003', 'CUST-005'],
+    scope: 'All Slack DMs, Jira tickets, and design-doc revisions referencing the Project Phoenix data-plane redesign — calendar window 2024-11-01 to 2025-03-31.',
+    issuedAt: '2026-04-22T09:15:00Z',
+    // No acknowledgedAt — hold is pending acknowledgement.
   });
 
   // Sample documents — small set, just enough to make the dashboard non-empty.
