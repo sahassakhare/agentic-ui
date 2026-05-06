@@ -36,6 +36,7 @@ export function buildTools(env: EnvironmentInjector): ToolDef[] {
   return [
     addCustodianTool(env) as ToolDef,
     listCustodiansTool(env) as ToolDef,
+    listLegalHoldsTool(env) as ToolDef,
     placeLegalHoldTool(env) as ToolDef,
     releaseLegalHoldTool(env) as ToolDef,
     acknowledgeLegalHoldTool(env) as ToolDef,
@@ -188,6 +189,59 @@ function listCustodiansTool(env: EnvironmentInjector) {
             ? 'No custodians match those filters.'
             : `Found **${list.length}** custodian(s):\n\n` +
               list.map((c) => `- **${c.name}** (${c.department})${c.hasLegalHold ? ' · on hold' : ''}`).join('\n'),
+        };
+      });
+    },
+  });
+}
+
+function listLegalHoldsTool(env: EnvironmentInjector) {
+  return agenticTool({
+    name: 'listLegalHolds',
+    description:
+      'List legal holds on the active matter, optionally filtered by acknowledgement ' +
+      'status (pending vs acknowledged) or whether the hold is still active. ' +
+      'Use this when the user asks "show pending hold acknowledgements", "which ' +
+      'holds are open", or anything about hold status.',
+    schema: z.object({
+      status: z.enum(['pending', 'acknowledged', 'released', 'all']).optional()
+        .describe('Filter: pending = not yet acknowledged; acknowledged = ack received; released = hold lifted; all (default) = no filter'),
+    }),
+    handler: async ({ status }) => {
+      return runInInjectionContext(env, () => {
+        const store = env.get(MatterStore);
+        let list = store.legalHolds();
+        if (status === 'pending')      list = list.filter((h) => !h.acknowledgedAt && !h.releasedAt);
+        else if (status === 'acknowledged') list = list.filter((h) => h.acknowledgedAt && !h.releasedAt);
+        else if (status === 'released')     list = list.filter((h) => !!h.releasedAt);
+
+        const verdict = (h: { acknowledgedAt?: string; releasedAt?: string }) =>
+          h.releasedAt ? 'released' : h.acknowledgedAt ? 'acknowledged' : 'pending';
+
+        return {
+          count: list.length,
+          status: status ?? 'all',
+          holds: list.map((h) => ({
+            id: h.id, scope: h.scope, custodianCount: h.custodianIds.length,
+            issuedAt: h.issuedAt, acknowledgedAt: h.acknowledgedAt ?? null,
+            releasedAt: h.releasedAt ?? null, verdict: verdict(h),
+          })),
+          // Render up to 3 hold cards inline; the LLM summarises the rest.
+          components: list.slice(0, 3).map((h) => ({
+            name: 'legalHoldCard',
+            props: {
+              holdId: h.id, scope: h.scope, custodianCount: h.custodianIds.length,
+              issuedAt: h.issuedAt,
+              acknowledged: !!h.acknowledgedAt,
+              released: !!h.releasedAt,
+            },
+          })),
+          markdown: list.length === 0
+            ? `No legal holds match status="${status ?? 'all'}".`
+            : `Found **${list.length}** hold(s) (${status ?? 'all'}):\n\n` +
+              list.map((h) =>
+                `- \`${h.id}\` — ${verdict(h)} · ${h.custodianIds.length} custodian(s)\n  > ${h.scope}`
+              ).join('\n'),
         };
       });
     },
