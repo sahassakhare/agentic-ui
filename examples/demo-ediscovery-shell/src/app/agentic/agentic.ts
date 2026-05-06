@@ -1,8 +1,10 @@
 import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
+  agenticDataSource,
   agenticForm,
   agenticTool,
   agenticWidget,
+  DataSourceRegistry,
   FormRegistry,
   type ComponentDef,
   type FormDef,
@@ -93,6 +95,11 @@ export const widgets: ComponentDef[] = [
     name: 'intake-supervisor-picker',
     component: IntakeSupervisorPickerComponent,
     propsSchema: z.object({}),
+    // Capability F2: declares the data sources the widget consumes.
+    // Mount-time machinery verifies `users` is registered before
+    // instantiating the component; missing source surfaces an inline
+    // diagnostic instead of a silently-broken widget.
+    dataSources: ['users'],
   }),
   agenticWidget({
     name: 'intake-accounting-systems',
@@ -110,6 +117,55 @@ export const widgets: ComponentDef[] = [
     }),
   }),
 ];
+
+/**
+ * Capability F2 — directory data source.
+ *
+ * The intake form's supervisor picker declares `dataSources: ['users']`.
+ * Registering the source here populates autocomplete suggestions; mount-time
+ * machinery refuses to instantiate the widget without it (AC-F2-1).
+ *
+ * Production deployments swap this `agenticDataSource` for a `restDataSource`
+ * pointing at the firm's directory; the widget code is unchanged (AC-F2-3).
+ */
+export interface DirectoryUser {
+  readonly email: string;
+  readonly name: string;
+  readonly role: string;
+}
+
+export interface DirectoryUserQuery {
+  readonly prefix?: string;
+  readonly role?: string;
+}
+
+const MOCK_DIRECTORY: readonly DirectoryUser[] = [
+  { email: 'eleanor.vance@acme.example',     name: 'Eleanor Vance',     role: 'lead-counsel' },
+  { email: 'marcus.osei@acme.example',       name: 'Marcus Osei',       role: 'associate' },
+  { email: 'priya.shah@acme.example',        name: 'Priya Shah',        role: 'lit-support' },
+  { email: 'james.obrien@acme.example',      name: 'James OBrien',      role: 'paralegal' },
+  { email: 'diana.matsunaga@acme.example',   name: 'Diana Matsunaga',   role: 'associate' },
+] as const;
+
+export function registerDataSources(env: EnvironmentInjector): void {
+  env.get(DataSourceRegistry).register(
+    agenticDataSource<DirectoryUserQuery, Promise<readonly DirectoryUser[]>>({
+      name: 'users',
+      kind: 'rest',
+      adapter: async (query) => {
+        const prefix = (query.prefix ?? '').toLowerCase().trim();
+        const role = query.role?.toLowerCase();
+        return MOCK_DIRECTORY.filter((u) => {
+          const matchesPrefix = prefix === ''
+            || u.name.toLowerCase().includes(prefix)
+            || u.email.toLowerCase().includes(prefix);
+          const matchesRole = !role || u.role === role;
+          return matchesPrefix && matchesRole;
+        });
+      },
+    }),
+  );
+}
 
 /**
  * Register the custodian intake form (Capability F1 — composable form).

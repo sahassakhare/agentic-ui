@@ -25,7 +25,7 @@ import {
 
 import { environment } from '../environments/environment';
 import { routes } from './app.routes';
-import { buildTools, registerForms, widgets } from './agentic/agentic';
+import { buildTools, registerDataSources, registerForms, widgets } from './agentic/agentic';
 import { registerNavigationActions } from './agentic/navigation-actions';
 import { PersonaService } from './services/persona.service';
 
@@ -51,6 +51,10 @@ function telemetryProvider() {
 function bootAgenticCapabilities() {
   return provideAppInitializer(() => {
     const env = inject(EnvironmentInjector);
+    // Data sources MUST register before forms — composition widgets that
+    // declare `dataSources` validate at mount, and mount happens as soon
+    // as the agent surfaces a form-card widget (Capability F2).
+    registerDataSources(env);
     registerForms(env);
     registerNavigationActions(env);
     inject(ToolRegistry).registerAll(buildTools(env));

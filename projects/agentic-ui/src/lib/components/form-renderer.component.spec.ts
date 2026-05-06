@@ -7,7 +7,9 @@ import {
   COMPOSITION_SLOT,
   ComponentRegistry,
   CompositionStore,
+  DataSourceRegistry,
   FormRegistry,
+  agenticDataSource,
   agenticForm,
   agenticWidget,
   type FormDef,
@@ -377,6 +379,76 @@ describe('FormRendererComponent — AC-F1-2 (preservation + drop/keep prompt)', 
       'always-on': { name: 'Sarah' },
       conditional: { signoff: 'eleanor@x.com' },
     });
+  });
+});
+
+describe('FormRendererComponent — F2 mount-time data-source validation', () => {
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+  });
+
+  it('renders the missing-data-sources placeholder when a declared source is absent (AC-F2-1)', () => {
+    const components = TestBed.inject(ComponentRegistry);
+    const forms = TestBed.inject(FormRegistry);
+    components.register(
+      agenticWidget({
+        name: 'needs-users',
+        component: TestStoreWidgetComponent,
+        propsSchema: z.object({}),
+        dataSources: ['users'],
+      }),
+    );
+    // NOTE: we deliberately do NOT register the 'users' source.
+    forms.register(
+      agenticForm({
+        name: 'f2Form',
+        description: 'f2',
+        composition: [{ widget: 'needs-users' }],
+        submit: () => undefined,
+      }) as FormDef,
+    );
+
+    const fixture = TestBed.createComponent(FormRendererComponent);
+    fixture.componentRef.setInput('formName', 'f2Form');
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('missing required data sources');
+    expect(text).toContain('users');
+    // Component MUST NOT mount when a required source is missing.
+    expect(fixture.nativeElement.querySelector('[data-testid="store-widget"]')).toBeNull();
+  });
+
+  it('mounts the widget normally once the required source is registered', () => {
+    const components = TestBed.inject(ComponentRegistry);
+    const forms = TestBed.inject(FormRegistry);
+    const sources = TestBed.inject(DataSourceRegistry);
+
+    sources.register(agenticDataSource({ name: 'users', kind: 'rest', adapter: async () => [] }));
+    components.register(
+      agenticWidget({
+        name: 'needs-users',
+        component: TestStoreWidgetComponent,
+        propsSchema: z.object({}),
+        dataSources: ['users'],
+      }),
+    );
+    forms.register(
+      agenticForm({
+        name: 'f2FormOk',
+        description: 'f2',
+        composition: [{ widget: 'needs-users' }],
+        submit: () => undefined,
+      }) as FormDef,
+    );
+
+    const fixture = TestBed.createComponent(FormRendererComponent);
+    fixture.componentRef.setInput('formName', 'f2FormOk');
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('missing required data sources');
+    expect(fixture.nativeElement.querySelector('[data-testid="store-widget"]')).not.toBeNull();
   });
 });
 

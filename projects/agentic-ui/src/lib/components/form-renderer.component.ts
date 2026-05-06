@@ -15,6 +15,7 @@ import {
   COMPOSITION_SLOT,
   ComponentRegistry,
   CompositionStore,
+  DataSourceRegistry,
   FormRegistry,
   ValidationRegistry,
   type CompositionEntry,
@@ -40,6 +41,13 @@ interface ResolvedSection {
    * slot key without needing a public input.
    */
   readonly injector: Injector;
+  /**
+   * Names from `ComponentDef.dataSources` (Capability F2) that did NOT
+   * resolve at the moment this section was prepared. Non-empty disables
+   * widget mounting and surfaces an inline diagnostic so authoring
+   * errors surface at mount, not at first call.
+   */
+  readonly missingDataSources: readonly string[];
 }
 
 /**
@@ -89,6 +97,11 @@ interface ResolvedSection {
               }
               @if (sec.component) {
                 <ng-container *ngComponentOutlet="sec.component; injector: sec.injector" />
+              } @else if (sec.missingDataSources.length > 0) {
+                <p class="missing">
+                  Widget "{{ sec.entry.widget }}" is missing required data sources:
+                  {{ sec.missingDataSources.join(', ') }}
+                </p>
               } @else {
                 <p class="missing">Unknown widget: {{ sec.entry.widget }}</p>
               }
@@ -192,6 +205,7 @@ export class FormRendererComponent {
   private readonly forms = inject(FormRegistry);
   private readonly validators = inject(ValidationRegistry);
   private readonly components = inject(ComponentRegistry);
+  private readonly dataSources = inject(DataSourceRegistry);
   private readonly store = inject(CompositionStore);
   private readonly hostInjector = inject(Injector);
 
@@ -261,12 +275,20 @@ export class FormRendererComponent {
       const visible = ok || pending.has(slot) || keeps.has(slot);
       if (!visible) continue;
       const widgetDef = this.components.get(slot);
+      const missingDataSources = widgetDef?.dataSources?.length
+        ? this.dataSources.missing(widgetDef.dataSources)
+        : [];
+      const component =
+        widgetDef && missingDataSources.length === 0
+          ? (widgetDef.component as Type<unknown>)
+          : null;
       sections.push({
         entry,
-        component: (widgetDef?.component as Type<unknown> | undefined) ?? null,
+        component,
         pendingDrop: pending.has(slot),
         keepOverride: !ok && keeps.has(slot) && !pending.has(slot),
         injector: this.slotInjectorFor(slot),
+        missingDataSources,
       });
     }
     return sections;

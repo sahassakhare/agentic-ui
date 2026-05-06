@@ -1,6 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { COMPOSITION_SLOT, CompositionStore } from '@maverick/agentic-ui';
+import {
+  COMPOSITION_SLOT,
+  CompositionStore,
+  DataSourceRegistry,
+} from '@maverick/agentic-ui';
+import type { DirectoryUser, DirectoryUserQuery } from './agentic';
 
 /**
  * Intake-form section widgets for the F1 composable-form demo.
@@ -117,15 +122,15 @@ export class IntakeRegulatoryConsentComponent {
     <label>Supervisor email
       <input type="email"
              [ngModel]="supervisor()"
-             (ngModelChange)="setSupervisor($event)"
+             (ngModelChange)="onPrefix($event)"
              name="supervisor"
-             placeholder="eleanor.vance@acme.example"
+             placeholder="Type a name or email…"
              list="supervisor-suggestions" />
     </label>
     <datalist id="supervisor-suggestions">
-      <option value="eleanor.vance@acme.example">Eleanor Vance — Lead Counsel</option>
-      <option value="marcus.osei@acme.example">Marcus Osei — Senior Associate</option>
-      <option value="priya.shah@acme.example">Priya Shah — Litigation Support Lead</option>
+      @for (u of suggestions(); track u.email) {
+        <option [value]="u.email">{{ u.name }} — {{ u.role }}</option>
+      }
     </datalist>
   `,
   styles: `
@@ -138,15 +143,30 @@ export class IntakeRegulatoryConsentComponent {
 export class IntakeSupervisorPickerComponent {
   private readonly slot = inject(COMPOSITION_SLOT, { optional: true });
   private readonly store = inject(CompositionStore, { optional: true });
+  // Capability F2: typed view of the `users` source. Throws at construction
+  // if the source is missing — but the renderer's mount-time validation
+  // catches that earlier and surfaces a placeholder, so callers can rely
+  // on this being safe in production.
+  private readonly directory = inject(DataSourceRegistry).getTyped<
+    DirectoryUserQuery,
+    Promise<readonly DirectoryUser[]>
+  >('users');
+
+  protected readonly suggestions = signal<readonly DirectoryUser[]>([]);
 
   protected readonly supervisor = computed<string>(() => {
     if (!this.store || !this.slot) return '';
     return String(this.store.values()[this.slot] ?? '');
   });
 
-  protected setSupervisor(value: string): void {
-    if (!this.store || !this.slot) return;
-    this.store.write(this.slot, value);
+  protected onPrefix(value: string): void {
+    if (this.store && this.slot) this.store.write(this.slot, value);
+    void this.refreshSuggestions(value);
+  }
+
+  private async refreshSuggestions(prefix: string): Promise<void> {
+    const users = await this.directory.adapter({ prefix });
+    this.suggestions.set(users);
   }
 }
 

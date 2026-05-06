@@ -111,6 +111,27 @@ export interface ComponentDef extends RegistryEntry {
   readonly component: Type<unknown>;
   /** Zod schema for the component's `@Input()` props. */
   readonly propsSchema: ZodTypeAny;
+  /**
+   * Names of `DataSourceRegistry` entries this widget consumes (Capability F2).
+   *
+   * Mount-time machinery (`<mvk-widget-container>` and the composition branch
+   * of `<mvk-form-renderer>`) verifies every declared name resolves before
+   * instantiating the widget. A missing source produces an actionable error /
+   * placeholder, not a silent broken widget.
+   *
+   * Widgets read declared sources via `inject(DataSourceRegistry).getTyped(...)`.
+   *
+   * @example
+   * ```ts
+   * agenticWidget({
+   *   name: 'supervisor-signoff-picker',
+   *   component: SupervisorPickerComponent,
+   *   propsSchema: z.object({ matterId: z.string() }),
+   *   dataSources: ['users'],
+   * });
+   * ```
+   */
+  readonly dataSources?: readonly string[];
 }
 
 /**
