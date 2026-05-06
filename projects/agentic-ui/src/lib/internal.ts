@@ -10,6 +10,7 @@ export * from './types';
 export * from './telemetry';
 export * from './registries';
 export * from './validation';
+export * from './composition';
 export * from './factories';
 export * from './providers';
 export * from './chat';

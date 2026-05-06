@@ -241,9 +241,52 @@ export interface FormFieldUi {
 }
 
 /**
+ * Composition entry describing one section of a runtime-composed form
+ * (Capability F1). Each entry references a widget already in
+ * `ComponentRegistry`; the form renderer mounts them in order and aggregates
+ * their values into a single submit payload.
+ *
+ * Conditional rendering: provide *either* `if` (a closed-AST DSL parsed at
+ * registration time) *or* `predicate` (a programmatic escape hatch). They are
+ * mutually exclusive — passing both is rejected by the `agenticForm` factory.
+ *
+ * After the factory runs, an entry's `if` string has been compiled into a
+ * `predicate`; the renderer only ever calls `predicate?.(ctx)`.
+ *
+ * @see docs/plans/ediscovery-dynamic-ui-plan.md §9.1 (Capability F1)
+ */
+export interface CompositionEntry {
+  /** ComponentRegistry name for the widget that renders this section. */
+  readonly widget: string;
+  /** Optional section heading rendered above the widget. */
+  readonly section?: string;
+  /**
+   * Optional declarative condition. Closed-AST DSL — supports `===`, `!==`,
+   * `&&`, `||`, dotted property access, parentheses, and string / number /
+   * boolean literals. Parsed at `agenticForm` registration time so authoring
+   * errors surface before any UI mounts (AC-F1-3).
+   *
+   * Mutually exclusive with `predicate`.
+   */
+  readonly if?: string;
+  /**
+   * Optional programmatic escape hatch for predicates the DSL cannot express.
+   * Receives the form context (matter + persona + partial form values) and
+   * returns whether the section should render.
+   *
+   * Mutually exclusive with `if`.
+   */
+  readonly predicate?: (ctx: Readonly<Record<string, unknown>>) => boolean;
+}
+
+/**
  * Schema-driven form the agent can ask the user to fill. Pairs a Zod schema
  * with a submit handler; the `<mvk-form-renderer>` validates input via the
  * `ValidationRegistry` and invokes `submit` on success.
+ *
+ * Composition mode (Capability F1): when `composition` is set, the form is
+ * built at runtime from registered widgets and `fieldsSchema` is a permissive
+ * passthrough synthesized by the `agenticForm` factory.
  */
 export interface FormDef<TValues = unknown> extends RegistryEntry {
   /** Human-readable description. */
@@ -254,6 +297,17 @@ export interface FormDef<TValues = unknown> extends RegistryEntry {
   readonly ui?: Readonly<Record<string, FormFieldUi>>;
   /** Async submit handler invoked when validation passes. */
   readonly submit: (values: TValues) => Promise<void>;
+  /**
+   * Optional ordered list of widget-backed sections (Capability F1). When
+   * present, the renderer mounts each entry's widget in order, evaluates its
+   * `predicate` against the form context, and aggregates values across
+   * sections at submit time.
+   *
+   * `if` strings are pre-compiled into `predicate` by the factory; entries
+   * stored on `FormDef.composition` therefore have at most a `predicate`,
+   * never a remaining `if` string.
+   */
+  readonly composition?: readonly CompositionEntry[];
 }
 
 // ─── Cross-cutting / extension-seam registries (M5) ──────────────────────────

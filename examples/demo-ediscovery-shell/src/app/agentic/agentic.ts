@@ -16,7 +16,15 @@ import {
 } from '@maverick/demo-ediscovery-shared';
 import { z } from 'zod';
 import { MatterStore } from '../services/matter.store';
+import { PersonaService } from '../services/persona.service';
 import { CustodianCardComponent } from './custodian-card.component';
+import { CustodianIntakeCardComponent } from './custodian-intake-card.component';
+import {
+  IntakeAccountingSystemsComponent,
+  IntakeIdentityComponent,
+  IntakeRegulatoryConsentComponent,
+  IntakeSupervisorPickerComponent,
+} from './intake-sections.component';
 import { LegalHoldCardComponent } from './legal-hold-card.component';
 
 /**
@@ -40,6 +48,7 @@ export function buildTools(env: EnvironmentInjector): ToolDef[] {
     placeLegalHoldTool(env) as ToolDef,
     releaseLegalHoldTool(env) as ToolDef,
     acknowledgeLegalHoldTool(env) as ToolDef,
+    openCustodianIntakeTool(env) as ToolDef,
   ];
 }
 
@@ -69,43 +78,101 @@ export const widgets: ComponentDef[] = [
       released: z.boolean(),
     }),
   }),
+  // ── F1 — composable intake form section widgets ────────────────────────
+  agenticWidget({
+    name: 'intake-identity-fields',
+    component: IntakeIdentityComponent,
+    propsSchema: z.object({}),
+  }),
+  agenticWidget({
+    name: 'intake-regulatory-consent',
+    component: IntakeRegulatoryConsentComponent,
+    propsSchema: z.object({}),
+  }),
+  agenticWidget({
+    name: 'intake-supervisor-picker',
+    component: IntakeSupervisorPickerComponent,
+    propsSchema: z.object({}),
+  }),
+  agenticWidget({
+    name: 'intake-accounting-systems',
+    component: IntakeAccountingSystemsComponent,
+    propsSchema: z.object({}),
+  }),
+  // F1 form-card wrapper — agent emits this to surface the composed form.
+  agenticWidget({
+    name: 'custodianIntakeCard',
+    component: CustodianIntakeCardComponent,
+    propsSchema: z.object({
+      matterType: z.string(),
+      persona: z.string(),
+      department: z.string().optional(),
+    }),
+  }),
 ];
 
 /**
- * Register the custodian intake form. The form is available via
- * `FormRegistry`, so callers (the future `editCustodianForm` schematic
- * in Phase 4 + the chat shell's slash-command surface) can render it
- * when the user's request lacks the fields `addCustodian` requires.
+ * Register the custodian intake form (Capability F1 — composable form).
+ *
+ * The form is composed at runtime from four section widgets. Conditional
+ * sections evaluate against the form context (matter type + persona +
+ * department) at render time:
+ *   - Identity                — always
+ *   - Compliance disclosure   — when matter.type === 'securities'
+ *   - Supervisor sign-off     — when persona !== 'lead-counsel'
+ *   - Accounting systems      — when department === 'Finance'
+ *
+ * Per-section value aggregation lands in AC-F1-2; this slice demonstrates
+ * the composition + reactive toggle, with submit stubbed to add a placeholder
+ * custodian until the aggregation contract is finalised.
  */
 export function registerForms(env: EnvironmentInjector): void {
   env.get(FormRegistry).register(
     agenticForm({
       name: 'custodianIntakeForm',
-      description: 'Intake details for a new custodian.',
-      fieldsSchema: z.object({
-        name: z.string().min(1).describe('Full name'),
-        email: z.string().email().describe('Work email'),
-        department: z.string().min(1).describe('Department / org unit'),
-      }),
-      ui: {
-        name: { order: 1, placeholder: 'Sarah Chen' },
-        email: { order: 2, placeholder: 'sarah.chen@acme.example' },
-        department: { order: 3, placeholder: 'Engineering' },
-      },
+      description:
+        'Intake details for a new custodian, composed at runtime based on the ' +
+        'matter type, requesting persona, and the custodian’s department.',
+      composition: [
+        { widget: 'intake-identity-fields',     section: 'Identity' },
+        { widget: 'intake-regulatory-consent',  section: 'Compliance', if: 'matter.type === "securities"' },
+        { widget: 'intake-supervisor-picker',   section: 'Approval',   if: 'persona !== "lead-counsel"' },
+        { widget: 'intake-accounting-systems',  section: 'Discovery',  if: 'department === "Finance"' },
+      ],
       submit: async (values) => {
+        // The form-renderer aggregates per-slot values from the
+        // CompositionStore and passes the snapshot here. Slot keys mirror
+        // the `widget` names declared in the composition above.
+        const identity = (values['intake-identity-fields'] ?? {}) as {
+          name?: string; email?: string; department?: string;
+        };
+        const regulatoryAck = Boolean(values['intake-regulatory-consent']);
+        const supervisor = (values['intake-supervisor-picker'] as string | undefined) ?? '';
+        const accountingSystems = (values['intake-accounting-systems'] as readonly string[] | undefined) ?? [];
+
         runInInjectionContext(env, () => {
           const store = env.get(MatterStore);
           const custodian: Custodian = {
             id: nextCustodianId(),
             matterId: store.matterId,
-            name: values.name,
-            email: values.email,
-            department: values.department,
+            name: identity.name?.trim() || 'Unnamed custodian',
+            email: identity.email?.trim() || 'unknown@acme.example',
+            department: identity.department?.trim() || 'Unspecified',
             hasLegalHold: false,
             collectionStatus: 'pending',
             documentCount: 0,
           };
           store.addCustodian(custodian);
+          // Demo wiring stops at the custodian record. In a real flow,
+          // regulatory ack + supervisor sign-off + accounting-system list
+          // would feed dedicated audit-chain entries (Phase 5 hooks).
+          // eslint-disable-next-line no-console
+          console.info('[custodianIntake] submitted', {
+            custodianId: custodian.id,
+            regulatoryAck,
+            supervisor,
+            accountingSystems,
+          });
         });
       },
     }) as FormDef,
@@ -352,6 +419,52 @@ function acknowledgeLegalHoldTool(env: EnvironmentInjector) {
         return {
           ...updated,
           markdown: `**Hold acknowledged** — \`${updated.id}\` at ${updated.acknowledgedAt}.`,
+        };
+      });
+    },
+  });
+}
+
+/**
+ * Capability F1 — surface the composable custodian-intake form.
+ *
+ * The agent calls this when the user wants to onboard a custodian. The
+ * tool returns a `custodianIntakeCard` widget; the chat shell mounts it,
+ * the wrapper instantiates `<mvk-form-renderer>`, and the form composes
+ * itself based on the active persona, the matter type, and any department
+ * the user mentioned. Sections appear/disappear as the context changes.
+ */
+function openCustodianIntakeTool(env: EnvironmentInjector) {
+  return agenticTool({
+    name: 'openCustodianIntake',
+    description:
+      'Open the runtime-composed custodian intake form. Use whenever the ' +
+      'user wants to onboard a new custodian. The form renders different ' +
+      'sections (compliance disclosure, supervisor sign-off, accounting ' +
+      'system picker) based on matter type, persona, and the custodian’s ' +
+      'department. Pass `department` if the user mentioned it; otherwise ' +
+      'leave it blank and the form will skip the accounting-systems section.',
+    schema: z.object({
+      department: z.string().optional()
+        .describe("The custodian's department (e.g. 'Finance', 'Engineering')"),
+      matterType: z.string().optional()
+        .describe("Matter type override (defaults to 'securities' for the demo Project Phoenix matter)"),
+    }),
+    handler: async ({ department, matterType }) => {
+      return runInInjectionContext(env, () => {
+        const persona = env.get(PersonaService).active();
+        return {
+          components: [{
+            name: 'custodianIntakeCard',
+            props: {
+              matterType: matterType ?? 'securities',
+              persona,
+              department: department ?? '',
+            },
+          }],
+          markdown:
+            `Opening custodian intake for matter type **${matterType ?? 'securities'}**, ` +
+            `persona **${persona}**${department ? `, department **${department}**` : ''}.`,
         };
       });
     },
