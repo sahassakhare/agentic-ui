@@ -1,16 +1,20 @@
 import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
+  agenticApproval,
   agenticDataSource,
   agenticForm,
   agenticTool,
   agenticWidget,
   agenticWorkflow,
+  ApprovalCardComponent,
+  ApprovalRegistry,
   DataSourceRegistry,
   FormRegistry,
   type ComponentDef,
   type FormDef,
   type ToolDef,
 } from '@maverick/agentic-ui';
+import { ApprovalSummaryDiffComponent } from './approval-summary-diff.component';
 import {
   isoNow,
   nextCustodianId,
@@ -158,6 +162,22 @@ export const widgets: ComponentDef[] = [
     component: PlaceLegalHoldCardComponent,
     propsSchema: z.object({}),
   }),
+  // ── F4 — approval card + generic diff renderer ────────────────────────
+  // The chat-shell intercept emits `{components: [{name: 'mvk-approval-card', ...}]}`
+  // when a tool call needs HITL — register the lib's built-in card under
+  // that exact name so widget-container can resolve it.
+  agenticWidget({
+    name: 'mvk-approval-card',
+    component: ApprovalCardComponent,
+    propsSchema: z.object({ approvalId: z.string() }),
+  }),
+  // Generic diff renderer used by every approval policy in this demo.
+  // Production deployments would register tool-specific diffs.
+  agenticWidget({
+    name: 'approval-summary-diff',
+    component: ApprovalSummaryDiffComponent,
+    propsSchema: z.object({}),
+  }),
 ];
 
 /**
@@ -188,6 +208,56 @@ const MOCK_DIRECTORY: readonly DirectoryUser[] = [
   { email: 'james.obrien@acme.example',      name: 'James OBrien',      role: 'paralegal' },
   { email: 'diana.matsunaga@acme.example',   name: 'Diana Matsunaga',   role: 'associate' },
 ] as const;
+
+/**
+ * Capability F4 — approval policies for the eDiscovery demo.
+ *
+ * Two irreversible mutations are gated:
+ *
+ *   - `exportProductionSet` (production remote) — delivery to opposing
+ *     counsel. Required for any persona except `lead-counsel`.
+ *     Approver: lead-counsel only.
+ *
+ *   - `releaseLegalHold` (host) — drops a hold which may be load-bearing
+ *     for an active matter. Required for paralegal / lit-support /
+ *     vendor-reviewer. Approvers: lead-counsel + associate.
+ *
+ * Both surface through the generic `approval-summary-diff` widget; in a
+ * real deployment, each tool would have a tool-specific diff (with
+ * pre/post visualisations, joined matter-store data, etc.) — the
+ * registration shape is identical, only the `diffRenderer` name changes.
+ */
+export function registerApprovals(env: EnvironmentInjector): void {
+  const registry = env.get(ApprovalRegistry);
+
+  registry.register(
+    agenticApproval({
+      tool: 'exportProductionSet',
+      required: (_args, ctx) => ctx.persona !== 'lead-counsel',
+      approverRoles: ['lead-counsel'],
+      diffRenderer: 'approval-summary-diff',
+      signoffMessage: (args) => {
+        const pid = (args as { productionId?: string }).productionId ?? '(unknown)';
+        return `Approve export + delivery of production ${pid} to opposing counsel? This is irreversible.`;
+      },
+    }),
+  );
+
+  registry.register(
+    agenticApproval({
+      tool: 'releaseLegalHold',
+      required: (_args, ctx) =>
+        ctx.persona !== 'lead-counsel' && ctx.persona !== 'associate',
+      approverRoles: ['lead-counsel', 'associate'],
+      diffRenderer: 'approval-summary-diff',
+      signoffMessage: (args) => {
+        const hid = (args as { holdId?: string }).holdId ?? '(unknown)';
+        const reason = (args as { reason?: string }).reason ?? '';
+        return `Approve release of legal hold ${hid}?` + (reason ? ` — "${reason}"` : '');
+      },
+    }),
+  );
+}
 
 export function registerDataSources(env: EnvironmentInjector): void {
   env.get(DataSourceRegistry).register(

@@ -10,6 +10,7 @@ import {
 import { provideRouter } from '@angular/router';
 import { loadRemoteModule } from '@angular-architects/native-federation';
 import {
+  AGENTIC_ACTIVE_PERSONA,
   keywordToolFilter,
   loadRemoteCapabilities,
   MfeRegistryClient,
@@ -25,7 +26,7 @@ import {
 
 import { environment } from '../environments/environment';
 import { routes } from './app.routes';
-import { buildTools, registerDataSources, registerForms, widgets } from './agentic/agentic';
+import { buildTools, registerApprovals, registerDataSources, registerForms, widgets } from './agentic/agentic';
 import { registerNavigationActions } from './agentic/navigation-actions';
 import { PersonaService } from './services/persona.service';
 
@@ -57,6 +58,10 @@ function bootAgenticCapabilities() {
     registerDataSources(env);
     registerForms(env);
     registerNavigationActions(env);
+    // Approval policies (Capability F4) must register before the chat
+    // intercept fires — paralegal turns triggering exportProductionSet
+    // from the moment the shell boots get queued correctly.
+    registerApprovals(env);
     inject(ToolRegistry).registerAll(buildTools(env));
   });
 }
@@ -178,6 +183,16 @@ export const appConfig: ApplicationConfig = {
     provideAgUiBackend({ url: environment.agentUrl }),
     provideStaticJsonMfeRegistry({ url: environment.mfeRegistryUrl }),
     telemetryProvider(),
+    // Capability F4 — wire the approval intercept to read the active
+    // persona from PersonaService. Closing over the singleton keeps the
+    // accessor reactive across every chat-turn intercept.
+    {
+      provide: AGENTIC_ACTIVE_PERSONA,
+      useFactory: () => {
+        const persona = inject(PersonaService);
+        return () => persona.active();
+      },
+    },
     // Phase 8 — `setScopePolicy` on ToolRegistry handles the persona
     // filter (in installPersonaScopePolicy below). The chat shell sees
     // the already-filtered tools through ToolRegistry.signal(), so the
