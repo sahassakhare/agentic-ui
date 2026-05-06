@@ -175,7 +175,7 @@ Agentic UIs are easy to demo and hard to ship. The pain compounds across six axe
 
 ## Use cases
 
-Twelve distinct scenarios the library covers, ranked roughly by adoption order. Pick the rows your team will hit; the rest are opt-in via DI.
+Thirteen distinct scenarios the library covers, ranked roughly by adoption order. Pick the rows your team will hit; the rest are opt-in via DI.
 
 | # | Use case | Library seam | Audience |
 |---|---|---|---|
@@ -191,6 +191,7 @@ Twelve distinct scenarios the library covers, ranked roughly by adoption order. 
 | 10 | **Audit trail / chain-of-custody** — tamper-evident state mutations | Pattern: `prevHash` / `chainHash` + telemetry | Execs + architects |
 | 11 | **Composable forms at runtime** — agent picks sections from registered widgets; predicates toggle on persona / matter / partial values; values survive section unmount with drop/keep prompt | `agenticForm({ composition: [...] })` · `CompositionStore` · `<mvk-form-renderer>` ([cookbook](./docs/cookbook/composable-intake-form.md)) | Architects + product |
 | 12 | **Live data fetching from generated UI** — widgets declare `dataSources`; mount-time validation surfaces missing sources; UI calls backend directly without burning LLM tokens; adapter swap (mock → REST → GraphQL) without widget changes | `ComponentDef.dataSources` · `DataSourceRegistry.getTyped<TQuery,TResult>()` · `restDataSource` ([cookbook](./docs/cookbook/widgets-with-live-data.md)) | Architects + devs |
+| 13 | **Guided multi-step workflows** — one widget per step, conditional `next` branches on aggregated state, Back preserves prior values, terminal Submit runs the same domain handler as the equivalent one-shot tool | `agenticWorkflow({ steps, onComplete })` · `<mvk-workflow-renderer>` ([cookbook](./docs/cookbook/interactive-workflows.md)) | Architects + product |
 
 > **Each use case has a dedicated walkthrough in the [User Guide → Use cases](./docs/USER_GUIDE.md#use-cases).** The walkthroughs include scenario, library responsibility, minimal wiring code, and a link to the relevant cookbook entry.
 
