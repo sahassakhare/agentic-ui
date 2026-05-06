@@ -2,8 +2,10 @@ import { computed, inject, signal, Signal, WritableSignal } from '@angular/core'
 import { ToolRegistry } from '../registries/tool-registry';
 import { ComponentRegistry } from '../registries/component-registry';
 import { BackendRegistry } from '../registries/backend-registry';
+import { ApprovalRegistry } from '../registries/approval-registry';
 import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
 import type { AgenticMessage } from '../types/agentic-message';
+import { AGENTIC_ACTIVE_PERSONA } from './active-persona';
 import { randomId } from './message-utils';
 import { runUntilSettled } from './run-orchestrator';
 import { TOOL_FILTER } from './tool-filter';
@@ -41,6 +43,8 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
   const backends = inject(BackendRegistry);
   const telemetry = inject(AGENTIC_TELEMETRY_SINK);
   const toolFilter = inject(TOOL_FILTER);
+  const approvalRegistry = inject(ApprovalRegistry);
+  const activePersona = inject(AGENTIC_ACTIVE_PERSONA);
 
   const maxLocalTurns = options.maxLocalTurns ?? 10;
   const messages: WritableSignal<readonly AgenticMessage[]> = signal([]);
@@ -105,6 +109,8 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
       maxLocalTurns,
       signal: abortController.signal,
       telemetry,
+      approvalRegistry,
+      activePersona,
     })
       .catch((err) => {
         if (!(err instanceof DOMException && err.name === 'AbortError')) {

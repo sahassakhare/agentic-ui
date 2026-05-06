@@ -2,8 +2,9 @@ import type { WritableSignal } from '@angular/core';
 import type { AgenticBackend, AgenticRunInput } from '../types/agentic-backend';
 import type { AgenticEvent } from '../types/agentic-event';
 import type { AgenticMessage, AgenticToolCall, AgenticWidgetInstance } from '../types/agentic-message';
-import type { ToolDef, ComponentDef, ToolContext } from '../types/registry-defs';
+import type { ToolDef, ComponentDef, ToolContext, Approval } from '../types/registry-defs';
 import type { AgenticTelemetrySink } from '../telemetry/telemetry-sink';
+import type { ApprovalRegistry } from '../registries/approval-registry';
 import { appendDelta, appendErrorMessage, attachToolCall, attachWidget, randomId } from './message-utils';
 
 export interface RunOrchestratorOptions {
@@ -17,6 +18,19 @@ export interface RunOrchestratorOptions {
   readonly maxLocalTurns: number;
   readonly signal: AbortSignal;
   readonly telemetry: AgenticTelemetrySink;
+  /**
+   * Optional approval registry (Capability F4). When set, the
+   * tool-execution loop consults the registry per call: if a policy
+   * exists and `required(args, ctx)` returns true, the tool is **not
+   * executed** and a synthetic queued-result is returned instead.
+   */
+  readonly approvalRegistry?: ApprovalRegistry;
+  /**
+   * Reads the active persona (Capability F4). Threaded into the
+   * approval policy's `required(args, ctx)` so policies can short-
+   * circuit on role. Defaults to `''` when omitted.
+   */
+  readonly activePersona?: () => string;
 }
 
 interface PendingToolCall {
@@ -105,6 +119,8 @@ export async function runUntilSettled(opts: RunOrchestratorOptions): Promise<voi
         runId: opts.runId,
         signal: opts.signal,
         telemetry: opts.telemetry,
+        approvalRegistry: opts.approvalRegistry,
+        activePersona: opts.activePersona,
       });
 
       if (clientResults.length === 0) {
@@ -200,6 +216,8 @@ interface ExecuteClientToolsOptions {
   readonly runId: string;
   readonly signal: AbortSignal;
   readonly telemetry: AgenticTelemetrySink;
+  readonly approvalRegistry?: ApprovalRegistry;
+  readonly activePersona?: () => string;
 }
 
 async function executeClientTools(opts: ExecuteClientToolsOptions): Promise<AgenticToolCall[]> {
@@ -221,6 +239,19 @@ async function executeClientTools(opts: ExecuteClientToolsOptions): Promise<Agen
         signal: opts.signal,
       };
       const parsed = tool.schema.parse(call.args);
+
+      // Capability F4 — HITL intercept.
+      const intercept = maybeQueueForApproval(call, parsed, ctx, opts);
+      if (intercept) {
+        out.push({ ...call, result: intercept });
+        opts.telemetry.histogram('approval.intercept', 1, {
+          'agentic.tool.name': call.name,
+          decision: 'queued',
+        });
+        span.end({ 'agentic.tool.success': true, 'agentic.tool.queued_for_approval': true });
+        continue;
+      }
+
       const result = await tool.handler(parsed, ctx);
       out.push({ ...call, result });
       span.end({ 'agentic.tool.success': true });
@@ -232,6 +263,80 @@ async function executeClientTools(opts: ExecuteClientToolsOptions): Promise<Agen
     }
   }
   return out;
+}
+
+/**
+ * Capability F4 intercept (r3 plan §9.4). When an approval policy is
+ * registered for the tool name AND `required(args, ctx)` returns true,
+ * persist a pending `Approval` record and return the synthetic queued
+ * result the LLM and the chat shell consume.
+ *
+ * Returns `undefined` when no intercept applies — the caller proceeds
+ * with normal tool execution.
+ */
+function maybeQueueForApproval(
+  call: AgenticToolCall,
+  parsedArgs: unknown,
+  ctx: ToolContext,
+  opts: ExecuteClientToolsOptions,
+): { queued: true; approvalId: string; status: 'pending-approval'; message: string; components: ReadonlyArray<{ name: string; props: Record<string, unknown> }> } | undefined {
+  const registry = opts.approvalRegistry;
+  if (!registry) return undefined;
+  const policy = registry.get(call.name);
+  if (!policy) return undefined;
+
+  const persona = opts.activePersona?.() ?? '';
+  const decisionCtx = {
+    persona,
+    threadId: ctx.threadId,
+    runId: ctx.runId,
+    toolCallId: ctx.toolCallId,
+  };
+
+  let needs: boolean;
+  try {
+    needs = policy.required(parsedArgs, decisionCtx);
+  } catch (err) {
+    // A throwing predicate is an authoring bug; fail closed (require approval)
+    // and let the audit chain capture the error in a follow-up commit.
+    opts.telemetry.emit('agentic.tool_call.start', {
+      'agentic.approval.predicate_failed': true,
+      'agentic.tool.name': call.name,
+      'agentic.error.message': err instanceof Error ? err.message : String(err),
+    });
+    needs = true;
+  }
+  if (!needs) return undefined;
+
+  const approvalId = randomId('appr');
+  const message = policy.signoffMessage(parsedArgs);
+  const approval: Approval = {
+    id: approvalId,
+    toolName: call.name,
+    args: parsedArgs,
+    requesterPersona: persona,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+    signoffMessage: message,
+    continuationHandle: {
+      threadId: ctx.threadId,
+      runId: ctx.runId,
+      toolCallId: ctx.toolCallId,
+    },
+  };
+  registry.enqueue(approval);
+
+  return {
+    queued: true,
+    approvalId,
+    status: 'pending-approval',
+    message,
+    components: [
+      // The chat shell renders this widget inline; clicking Approve / Reject
+      // walks the same ApprovalRegistry transitions the queue page does.
+      { name: 'mvk-approval-card', props: { approvalId } },
+    ],
+  };
 }
 
 function safeJson(text: string): unknown {

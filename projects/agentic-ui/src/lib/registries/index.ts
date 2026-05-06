@@ -10,3 +10,4 @@ export * from './data-source-registry';
 export * from './persistence-registry';
 export * from './layout-registry';
 export * from './schema-transformer-registry';
+export * from './approval-registry';

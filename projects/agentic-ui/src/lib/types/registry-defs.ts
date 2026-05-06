@@ -415,6 +415,138 @@ export interface WorkflowDef {
   ) => Promise<unknown>;
 }
 
+// ─── Capability F4 — approval registry (HITL on tool calls) ─────────────────
+
+/**
+ * Status of an `Approval` record (Capability F4). Drives the chat-shell
+ * intercept loop and the queue UI:
+ *
+ *   - `pending`  — captured by the chat-shell intercept, awaiting decision
+ *   - `approved` — reviewer signed off; the gated tool either ran already
+ *                  (sidecar execution) or is about to run
+ *   - `rejected` — reviewer declined; the gated tool MUST NOT run
+ */
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+/**
+ * Persisted approval record (Capability F4). One per intercepted tool call
+ * that needed HITL. Keyed by `id` (host-generated). Persisted via
+ * `PersistenceRegistry` so the queue survives session boundaries — a
+ * paralegal triggers an export, lead counsel approves it tomorrow.
+ *
+ * Audit posture: every transition appends to the existing tamper-evident
+ * chain (Phase 5) under the `tool-approved` / `tool-rejected` event kinds.
+ */
+export interface Approval {
+  /** Unique id for this approval record. */
+  readonly id: string;
+  /** Tool name the approval gates. Matches `ToolDef.name`. */
+  readonly toolName: string;
+  /** The original args the requester wanted to invoke. Validated frozen copy. */
+  readonly args: unknown;
+  /** Persona that originated the request. */
+  readonly requesterPersona: string;
+  /** Current status. */
+  readonly status: ApprovalStatus;
+  /** ISO timestamp when the approval was queued. */
+  readonly createdAt: string;
+  /** Persona that decided (only set after status leaves `pending`). */
+  readonly approverPersona?: string;
+  /** Optional reviewer comment captured on Reject. */
+  readonly comment?: string;
+  /** ISO timestamp when the decision was made. */
+  readonly decidedAt?: string;
+  /** Sign-off prompt rendered to the reviewer. */
+  readonly signoffMessage: string;
+  /** Conversation/run continuation handle for resume (per r3 plan §9.4.3). */
+  readonly continuationHandle?: ApprovalContinuationHandle;
+}
+
+/**
+ * Continuation handle — enough state to resume the original chat thread
+ * when the approval lands (r3 plan §9.4.3). v1 records only the
+ * thread/turn/tool-call ids; production deployments may carry additional
+ * persistence keys (e.g. backend-specific resume tokens).
+ */
+export interface ApprovalContinuationHandle {
+  readonly threadId: string;
+  readonly runId: string;
+  readonly toolCallId: string;
+}
+
+/**
+ * Approval policy registered for a specific tool name (Capability F4).
+ *
+ * The chat-shell intercept consults the matching policy before executing
+ * the tool. When `required(args, ctx)` returns `true`, the tool is
+ * **not executed**; instead an `Approval{pending}` record is persisted
+ * and a synthetic result is returned to the LLM so the agent can inform
+ * the user that approval is queued.
+ *
+ * Mutual-exclusion with `setScopePolicy`: scope policy decides whether
+ * a persona can SEE a tool; approval policy decides whether they can
+ * INVOKE it without an authorising signature. Both apply.
+ */
+export interface ApprovalPolicy {
+  /** Tool name this policy gates. Matches `ToolDef.name`. */
+  readonly tool: string;
+  /**
+   * Predicate that returns `true` when this invocation needs HITL.
+   * Receives the parsed tool args and the running tool context (persona,
+   * threadId, etc.). Pure — must not have side effects.
+   */
+  readonly required: (
+    args: unknown,
+    ctx: ApprovalDecisionContext,
+  ) => boolean;
+  /**
+   * Roles authorised to approve. The queue UI filters per active
+   * persona; the intercept loop revalidates at decision time.
+   */
+  readonly approverRoles: readonly string[];
+  /**
+   * Name of a `ComponentRegistry` widget rendering the diff for the
+   * reviewer (e.g. a structured before/after view of a production set).
+   * The reviewer sees the literal arg payload that will execute on
+   * approve — not an LLM-generated summary.
+   */
+  readonly diffRenderer: string;
+  /** Sign-off prompt rendered above the approve/reject buttons. */
+  readonly signoffMessage: (args: unknown) => string;
+  /**
+   * Optional SLA timeout in minutes. When set, the queue UI surfaces
+   * an overdue badge after the threshold and (host-deployment-specific)
+   * may escalate. Out of scope for v1; reserved for future expansion.
+   */
+  readonly slaMinutes?: number;
+  /**
+   * Low-friction record-keeping mode. When `true`, the policy auto-
+   * approves with an audit note rather than blocking on a discretionary
+   * decision. Use sparingly; defeats the HITL purpose if applied broadly.
+   */
+  readonly autoApproveAfterAuditNote?: boolean;
+}
+
+/**
+ * Context passed to `ApprovalPolicy.required(...)`. Mirrors `ToolContext`
+ * but adds the active persona so policies can short-circuit on role.
+ */
+export interface ApprovalDecisionContext {
+  readonly persona: string;
+  readonly threadId: string;
+  readonly runId: string;
+  readonly toolCallId: string;
+}
+
+/**
+ * Registry entry shape for {@link ApprovalPolicy}. Stored in
+ * `ApprovalRegistry` keyed by `tool` (which is also `name` for
+ * RegistryBase indexing).
+ */
+export interface ApprovalDef extends RegistryEntry, ApprovalPolicy {
+  /* `name === tool` for registry indexing. */
+}
+
 // ─── Cross-cutting / extension-seam registries (M5) ──────────────────────────
 
 /** Transport kind for a data source. Used for tooling/instrumentation. */
