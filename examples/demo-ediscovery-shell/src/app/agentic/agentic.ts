@@ -4,6 +4,7 @@ import {
   agenticForm,
   agenticTool,
   agenticWidget,
+  agenticWorkflow,
   DataSourceRegistry,
   FormRegistry,
   type ComponentDef,
@@ -28,6 +29,14 @@ import {
   IntakeSupervisorPickerComponent,
 } from './intake-sections.component';
 import { LegalHoldCardComponent } from './legal-hold-card.component';
+import { PlaceLegalHoldCardComponent } from './place-legal-hold-card.component';
+import {
+  PlaceHoldCustodiansComponent,
+  PlaceHoldDatesComponent,
+  PlaceHoldKeywordsComponent,
+  PlaceHoldMatterSetupComponent,
+  PlaceHoldPreviewComponent,
+} from './place-hold-steps.component';
 
 /**
  * Phase 1 — collection-domain tools, widgets, and an intake form.
@@ -51,6 +60,7 @@ export function buildTools(env: EnvironmentInjector): ToolDef[] {
     releaseLegalHoldTool(env) as ToolDef,
     acknowledgeLegalHoldTool(env) as ToolDef,
     openCustodianIntakeTool(env) as ToolDef,
+    openPlaceLegalHoldWorkflowTool() as ToolDef,
   ];
 }
 
@@ -115,6 +125,38 @@ export const widgets: ComponentDef[] = [
       persona: z.string(),
       department: z.string().optional(),
     }),
+  }),
+  // ── F3 — placeLegalHold workflow step widgets ──────────────────────────
+  agenticWidget({
+    name: 'place-hold-keywords',
+    component: PlaceHoldKeywordsComponent,
+    propsSchema: z.object({}),
+  }),
+  agenticWidget({
+    name: 'place-hold-custodians',
+    component: PlaceHoldCustodiansComponent,
+    propsSchema: z.object({}),
+  }),
+  agenticWidget({
+    name: 'place-hold-dates',
+    component: PlaceHoldDatesComponent,
+    propsSchema: z.object({}),
+  }),
+  agenticWidget({
+    name: 'place-hold-preview',
+    component: PlaceHoldPreviewComponent,
+    propsSchema: z.object({}),
+  }),
+  agenticWidget({
+    name: 'place-hold-matter-setup',
+    component: PlaceHoldMatterSetupComponent,
+    propsSchema: z.object({}),
+  }),
+  // F3 workflow-card wrapper.
+  agenticWidget({
+    name: 'placeLegalHoldCard',
+    component: PlaceLegalHoldCardComponent,
+    propsSchema: z.object({}),
   }),
 ];
 
@@ -228,6 +270,71 @@ export function registerForms(env: EnvironmentInjector): void {
             regulatoryAck,
             supervisor,
             accountingSystems,
+          });
+        });
+      },
+    }) as FormDef,
+  );
+
+  // ── Capability F3 — placeLegalHold workflow ─────────────────────────────
+  //
+  // Same domain handler as `placeLegalHoldTool` (one-shot agent call), now
+  // surfaced as a four-step wizard. Conditional next on step 'custodians':
+  // zero selected → jump to 'matter-setup' redirect (AC-F3-2). On terminal
+  // 'preview' Submit, onComplete aggregates the per-step state and adds the
+  // hold to MatterStore — same audit posture as the tool path.
+  env.get(FormRegistry).register(
+    agenticWorkflow({
+      name: 'placeLegalHold',
+      description:
+        'Guided wizard to draft, scope, and send a legal hold notice in four steps.',
+      steps: [
+        { id: 'scope',        widget: 'place-hold-keywords',     section: 'Scope',       next: 'custodians' },
+        {
+          id: 'custodians',
+          widget: 'place-hold-custodians',
+          section: 'Custodians',
+          next: (state) => {
+            const ids = (state['custodians'] as readonly string[] | undefined) ?? [];
+            return ids.length === 0 ? 'matter-setup' : 'date-range';
+          },
+        },
+        { id: 'date-range',   widget: 'place-hold-dates',        section: 'Date range',  next: 'preview' },
+        { id: 'preview',      widget: 'place-hold-preview',      section: 'Preview',     next: null },
+        { id: 'matter-setup', widget: 'place-hold-matter-setup', section: 'Setup',       next: null },
+      ],
+      onComplete: async (state) => {
+        runInInjectionContext(env, () => {
+          const keywords = (state['scope'] as readonly string[] | undefined) ?? [];
+          const custodianIds = (state['custodians'] as readonly string[] | undefined) ?? [];
+          const range = (state['date-range'] as { from?: string; to?: string } | undefined) ?? {};
+
+          const scopeParts = [
+            keywords.length > 0 ? `Keywords: ${keywords.join(', ')}` : '',
+            (range.from || range.to) ? `Date range: ${range.from ?? '—'} → ${range.to ?? '—'}` : '',
+          ].filter(Boolean);
+          const scope = scopeParts.length > 0
+            ? scopeParts.join('. ')
+            : 'Hold placed via wizard.';
+
+          const store = env.get(MatterStore);
+          const validIds = custodianIds.filter((id) =>
+            store.custodians().some((c) => c.id === id),
+          );
+          if (validIds.length === 0) {
+            // The matter-setup branch handles the empty-custodians case
+            // before we get here, so this is a defensive guard rather than
+            // a normal path.
+            // eslint-disable-next-line no-console
+            console.warn('[placeLegalHold] workflow completed with no custodians; skipping addLegalHold');
+            return;
+          }
+          store.addLegalHold({
+            id: nextLegalHoldId(),
+            matterId: store.matterId,
+            custodianIds: validIds,
+            scope,
+            issuedAt: isoNow(),
           });
         });
       },
@@ -524,5 +631,33 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
         };
       });
     },
+  });
+}
+
+/**
+ * Capability F3 — surface the placeLegalHold guided workflow.
+ *
+ * The chat shell mounts `placeLegalHoldCard`, which in turn instantiates
+ * `<mvk-workflow-renderer formName="placeLegalHold">`. The wizard walks
+ * the user through scope → custodians → date range → preview, with a
+ * conditional jump to `matter-setup` when zero custodians are selected
+ * (AC-F3-2). On terminal Submit, `WorkflowDef.onComplete` calls
+ * `MatterStore.addLegalHold` — same domain handler as the one-shot
+ * `placeLegalHoldTool`, two surfaces.
+ */
+function openPlaceLegalHoldWorkflowTool() {
+  return agenticTool({
+    name: 'openPlaceLegalHoldWorkflow',
+    description:
+      'Open the guided wizard for placing a legal hold. Use whenever the ' +
+      'user wants to issue a hold and would benefit from a step-by-step ' +
+      'flow (scope keywords → custodian selection → date range → preview). ' +
+      'Prefer this over `placeLegalHold` (one-shot) when the user is ' +
+      'unsure which custodians to cover or wants to review before sending.',
+    schema: z.object({}),
+    handler: async () => ({
+      components: [{ name: 'placeLegalHoldCard', props: {} }],
+      markdown: 'Opening the place-legal-hold wizard.',
+    }),
   });
 }
