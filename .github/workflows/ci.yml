@@ -55,6 +55,19 @@ jobs:
       - name: Link the freshly built lib into node_modules
         run: npm install ./dist/agentic-ui --no-save
 
+      # examples/demo-ediscovery-shared is a private workspace package
+      # consumed by demo-ediscovery-{shell,review,production,search} and
+      # demo-ediscovery-server. Its dist/ is gitignored, but the root
+      # tsconfig.json's `@maverick/demo-ediscovery-shared` path alias
+      # resolves to dist/index, so any subsequent `ng build` (including
+      # demo-shell, demo-monolith, etc., which scan workspace tsconfig
+      # paths via the Angular CLI) needs dist/ to exist on disk.
+      - name: Build demo-ediscovery-shared (TypeScript shared package)
+        working-directory: examples/demo-ediscovery-shared
+        run: |
+          npm install --no-audit --fund=false
+          npm run build
+
       - name: Unit tests (Vitest via @angular/build:unit-test)
         run: npx ng test agentic-ui --no-watch
 
