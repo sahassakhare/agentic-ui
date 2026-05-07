@@ -112,6 +112,15 @@ export class GeminiAgent implements ServerAgent {
       const messageId = `msg-${input.runId}`;
       let textStarted = false;
       const pendingCalls: PendingFunctionCall[] = [];
+      // Per-tool-name dedup: Gemini can emit the same tool twice in one turn
+      // — sometimes with identical args (sampling noise), sometimes with
+      // refined args (eager call then refined call after seeing its own
+      // first call). The shell would then render duplicate widgets and re-
+      // run the handler, so we keep only the FIRST call per tool name in
+      // this turn. The shared system rule "Call each tool AT MOST ONCE per
+      // user request" makes this the contract; any genuine multi-step work
+      // happens on subsequent turns once the tool result lands.
+      const seenToolNames = new Set<string>();
 
       for await (const chunk of stream) {
         if (signal.aborted) break;
@@ -132,14 +141,19 @@ export class GeminiAgent implements ServerAgent {
             const callId = part.functionCall.id ?? `fc-${pendingCalls.length}-${input.runId}`;
             const name = part.functionCall.name ?? '';
             const args = (part.functionCall.args as Record<string, unknown> | undefined) ?? {};
+
+            // Skip if we've already emitted this tool name in this turn.
+            if (seenToolNames.has(name)) continue;
+            seenToolNames.add(name);
+
             pendingCalls.push({ id: callId, name, args });
 
             // Gemini 3 attaches `thoughtSignature` on the same Part as the
             // functionCall. Capture it here so we can echo it back on the
             // next turn — see this.thoughtSignatures docstring.
-            const sig = (part as { thoughtSignature?: string }).thoughtSignature;
-            if (typeof sig === 'string' && sig.length > 0) {
-              this.thoughtSignatures.set(callId, sig);
+            const ts = (part as { thoughtSignature?: string }).thoughtSignature;
+            if (typeof ts === 'string' && ts.length > 0) {
+              this.thoughtSignatures.set(callId, ts);
             }
 
             yield { type: EventType.TOOL_CALL_START, toolCallId: callId, toolCallName: name, parentMessageId: messageId } as BaseEvent;

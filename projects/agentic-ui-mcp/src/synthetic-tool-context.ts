@@ -33,5 +33,14 @@ export function syntheticToolContext(params: {
     runId: params.callId,
     toolCallId: params.callId,
     signal: params.signal ?? new AbortController().signal,
+    // Capability F5 LRO surface — MCP hosts don't currently consume
+    // operation-* events; provide typed-stub no-ops to satisfy the
+    // ToolContext contract. Long-running tools invoked through MCP
+    // see successful method calls but no progress is surfaced. A
+    // future slice extends MCP transport to forward operation events.
+    startOperation: () => `mcp-op-${params.callId}-${Date.now()}`,
+    reportProgress: () => undefined,
+    completeOperation: () => undefined,
+    failOperation: () => undefined,
   });
 }
