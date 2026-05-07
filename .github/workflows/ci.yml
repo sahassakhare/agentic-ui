@@ -105,12 +105,21 @@ jobs:
           npm ci --no-audit --fund=false
           npx tsc -p tsconfig.json
 
-      - name: Bundle-size guard (lib FESM under 200 KB)
+      - name: Bundle-size guard (lib FESM under 300 KB)
         run: |
+          # Cap raised from 200 KB → 300 KB to accommodate F1–F6:
+          #   F1 form-renderer + composition store + closed-AST DSL evaluator
+          #   F4 ApprovalRegistry + ApprovalCardComponent
+          #   F5 OperationRegistry + OperationProgressComponent
+          #   F6 MessageContent union + multi-modal composer affordances
+          # Pre-F1 baseline ~140 KB; post-F6 ~258 KB. The 300 KB cap leaves
+          # headroom for one more capability slice before the next budget
+          # review. Lower this back if a refactor materially shrinks the
+          # surface.
           size=$(wc -c < dist/agentic-ui/fesm2022/maverick-agentic-ui.mjs)
           echo "FESM size: $size bytes"
-          if [ "$size" -gt 204800 ]; then
-            echo "::error::Lib FESM exceeded 200 KB ($size B). Investigate before merging."
+          if [ "$size" -gt 307200 ]; then
+            echo "::error::Lib FESM exceeded 300 KB ($size B). Investigate before merging."
             exit 1
           fi
 
