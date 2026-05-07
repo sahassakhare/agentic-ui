@@ -92,6 +92,13 @@ jobs:
       - name: Build demo-remote-support (production, Native Federation remote)
         run: npx ng build demo-remote-support --configuration=production
 
+      # demo-server imports @maverick/agentic-ui-server (workspace pkg).
+      # Build it before compiling demo-server so the consumer's
+      # `import {...} from '@maverick/agentic-ui-server'` resolves.
+      - name: Build @maverick/agentic-ui-server (TypeScript)
+        working-directory: projects/agentic-ui-server
+        run: npm run build
+
       - name: Compile demo-server (TypeScript → dist/)
         working-directory: examples/demo-server
         run: |
