@@ -175,7 +175,7 @@ Agentic UIs are easy to demo and hard to ship. The pain compounds across six axe
 
 ## Use cases
 
-Fourteen distinct scenarios the library covers, ranked roughly by adoption order. Pick the rows your team will hit; the rest are opt-in via DI.
+Fifteen distinct scenarios the library covers, ranked roughly by adoption order. Pick the rows your team will hit; the rest are opt-in via DI.
 
 | # | Use case | Library seam | Audience |
 |---|---|---|---|
@@ -193,6 +193,7 @@ Fourteen distinct scenarios the library covers, ranked roughly by adoption order
 | 12 | **Live data fetching from generated UI** — widgets declare `dataSources`; mount-time validation surfaces missing sources; UI calls backend directly without burning LLM tokens; adapter swap (mock → REST → GraphQL) without widget changes | `ComponentDef.dataSources` · `DataSourceRegistry.getTyped<TQuery,TResult>()` · `restDataSource` ([cookbook](./docs/cookbook/widgets-with-live-data.md)) | Architects + devs |
 | 13 | **Guided multi-step workflows** — one widget per step, conditional `next` branches on aggregated state, Back preserves prior values, terminal Submit runs the same domain handler as the equivalent one-shot tool | `agenticWorkflow({ steps, onComplete })` · `<mvk-workflow-renderer>` ([cookbook](./docs/cookbook/interactive-workflows.md)) | Architects + product |
 | 14 | **Human-in-the-loop approval** — the agent drafts an irreversible action; chat-shell intercept queues it for HITL; senior reviewer approves or rejects from an inline card or the `/approvals` queue page; every transition appends to the same tamper-evident audit chain (`tool-approved` / `tool-rejected`) | `agenticApproval({...})` · `ApprovalRegistry` · `<mvk-approval-card>` · `AGENTIC_APPROVAL_AUDIT_HOOK` ([cookbook](./docs/cookbook/approval-flow.md)) | Execs + architects + compliance |
+| 15 | **Long-running operations** — tools that take minutes return immediately with an `opId`; chat shows live progress inline; `/operations` page lists in-flight + recent across routes; lifecycle (started/progress/finished/failed) participates in the same audit chain | `agenticTool({ longRunning: true, ... })` · `OperationRegistry` · `<mvk-operation-progress>` · `AGENTIC_OPERATION_AUDIT_HOOK` ([cookbook](./docs/cookbook/long-running-operations.md)) | Architects + product + SRE |
 
 > **Each use case has a dedicated walkthrough in the [User Guide → Use cases](./docs/USER_GUIDE.md#use-cases).** The walkthroughs include scenario, library responsibility, minimal wiring code, and a link to the relevant cookbook entry.
 
