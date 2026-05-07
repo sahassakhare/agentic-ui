@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { ToolRegistry, CapabilityRegistry } from '@maverick/agentic-ui';
+import { ApprovalRegistry, CapabilityRegistry, ToolRegistry } from '@maverick/agentic-ui';
+import { PersonaService } from '../services/persona.service';
 import { IconComponent, type IconName } from '../ui/icon.component';
 
 interface NavItem {
@@ -136,10 +137,20 @@ interface NavItem {
 export class SidebarComponent {
   private readonly toolRegistry = inject(ToolRegistry);
   private readonly capabilityRegistry = inject(CapabilityRegistry);
+  private readonly approvalRegistry = inject(ApprovalRegistry);
+  private readonly persona = inject(PersonaService);
 
   protected readonly tools = computed(() => this.toolRegistry.signal().length);
   protected readonly remotes = computed(() => this.capabilityRegistry.signal().length);
   protected readonly remoteList = computed(() => this.capabilityRegistry.signal().map((c) => c.remoteName));
+
+  /**
+   * Pending approvals routed to the active persona — used as the
+   * `Approvals` nav badge so reviewers see the queue depth at a glance.
+   */
+  private readonly pendingForMe = computed(
+    () => this.approvalRegistry.pendingForApprover(this.persona.active()).length,
+  );
 
   protected readonly items: readonly NavItem[] = [
     { path: '/', label: 'Dashboard', icon: 'dashboard' },
@@ -148,5 +159,14 @@ export class SidebarComponent {
     { path: '/holds', label: 'Legal Holds', icon: 'shield' },
     { path: '/audit', label: 'Audit Trail', icon: 'audit' },
     { path: '/productions', label: 'Productions', icon: 'archive' },
+    {
+      path: '/approvals',
+      label: 'Approvals',
+      icon: 'circle-check',
+      badge: () => {
+        const n = this.pendingForMe();
+        return n > 0 ? n : null;
+      },
+    },
   ];
 }
