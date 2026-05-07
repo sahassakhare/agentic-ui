@@ -5,7 +5,7 @@ import { BackendRegistry } from '../registries/backend-registry';
 import { ApprovalRegistry } from '../registries/approval-registry';
 import { OperationRegistry } from '../registries/operation-registry';
 import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
-import type { AgenticMessage } from '../types/agentic-message';
+import type { AgenticMessage, MessageContent } from '../types/agentic-message';
 import { AGENTIC_ACTIVE_PERSONA } from './active-persona';
 import { randomId } from './message-utils';
 import { runUntilSettled } from './run-orchestrator';
@@ -22,8 +22,18 @@ export interface AgenticChatRef {
   readonly value: Signal<readonly AgenticMessage[]>;
   readonly isLoading: Signal<boolean>;
   readonly error: Signal<Error | undefined>;
-  /** Append a user message and trigger a new run. */
-  sendMessage(content: string): void;
+  /**
+   * Append a user message and trigger a new run.
+   *
+   * - `string` — the legacy single-part shape (text only).
+   * - `MessageContent[]` — multi-modal (Capability F6); requires the
+   *   active backend to advertise `multiModal: true`. When the backend
+   *   does NOT advertise the capability, the chat shell logs a console
+   *   warning, emits a telemetry event, and degrades to a text-only
+   *   fallback (filenames + alt text concatenated into a single
+   *   `text` part).
+   */
+  sendMessage(content: string | readonly MessageContent[]): void;
   /** Abort any in-flight run and clear state. */
   reset(): void;
   /** Abort any in-flight run; keep transcript. */
@@ -56,22 +66,47 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
   let abortController: AbortController | undefined;
   const threadId = randomId('thread');
 
-  const sendMessage = (content: string): void => {
-    const trimmed = content.trim();
-    if (!trimmed) return;
-
-    const userMessage: AgenticMessage = {
-      id: randomId('msg'),
-      role: 'user',
-      content: trimmed,
-      toolCalls: [],
-      widgets: [],
-    };
-    messages.update((cur) => [...cur, userMessage]);
+  const sendMessage = (content: string | readonly MessageContent[]): void => {
+    // Resolve to the wire shape that lands on `AgenticMessage.content`.
+    // Multi-modal arrays are kept as-is when the active backend advertises
+    // the capability; otherwise a text-only fallback is synthesised from
+    // the visible parts (file names + alt text + raw text).
+    let resolvedContent: AgenticMessage['content'];
+    if (typeof content === 'string') {
+      const trimmed = content.trim();
+      if (!trimmed) return;
+      resolvedContent = trimmed;
+    } else {
+      if (content.length === 0) return;
+      resolvedContent = content;
+    }
 
     const def = options.backendId
       ? backends.list().find((b) => b.id === options.backendId)
       : backends.active();
+    const supportsMultiModal = def?.capabilities.multiModal === true;
+    if (Array.isArray(resolvedContent) && !supportsMultiModal) {
+      const fallback = textOnlyFallback(resolvedContent);
+      telemetry.emit('agentic.run.start', {
+        'agentic.multimodal.fallback': true,
+        'agentic.backend.id': def?.id ?? '(none)',
+      });
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[agentic-ui] Backend ${JSON.stringify(def?.id ?? '(none)')} does not advertise ` +
+        `multiModal capability; multi-part content was concatenated to text-only fallback.`,
+      );
+      resolvedContent = fallback;
+    }
+
+    const userMessage: AgenticMessage = {
+      id: randomId('msg'),
+      role: 'user',
+      content: resolvedContent,
+      toolCalls: [],
+      widgets: [],
+    };
+    messages.update((cur) => [...cur, userMessage]);
     if (!def) {
       lastError.set(new Error('No backend registered. Call provideAgenticBackend(...) before sendMessage.'));
       return;
@@ -146,4 +181,34 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
     reset,
     stop,
   };
+}
+
+/**
+ * Synthesize a single text-only fallback string from a multi-modal
+ * `MessageContent[]` payload (Capability F6 graceful degradation).
+ *
+ * Concatenates text parts verbatim, includes alt text for images
+ * (so the LLM at least knows there was an image), and renders file
+ * parts as `[file: <filename>]` markers. Used when the active
+ * backend does not advertise `multiModal: true`.
+ */
+function textOnlyFallback(parts: readonly MessageContent[]): string {
+  const out: string[] = [];
+  for (const p of parts) {
+    if (p.kind === 'text') {
+      out.push(p.text);
+    } else if (p.kind === 'image') {
+      out.push(`[image${p.alt ? `: ${p.alt}` : ''} (${p.mimeType})]`);
+    } else if (p.kind === 'file') {
+      out.push(`[file: ${p.filename}${p.sizeBytes ? ` · ${formatSize(p.sizeBytes)}` : ''}]`);
+    }
+  }
+  return out.join('\n').trim();
+}
+
+function formatSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '?';
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }

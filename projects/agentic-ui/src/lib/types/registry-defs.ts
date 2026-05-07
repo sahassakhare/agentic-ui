@@ -197,6 +197,12 @@ export interface BackendCapabilities {
   readonly generativeUi: boolean;
   /** Backend emits `ui-action` events (A2UI-style). */
   readonly uiActions: boolean;
+  /**
+   * Backend accepts multi-modal `MessageContent[]` (Capability F6 — r3
+   * plan §9.6). When `false` (or omitted), the chat shell warns and
+   * either text-only fallbacks or refuses non-text content.
+   */
+  readonly multiModal?: boolean;
 }
 
 /**

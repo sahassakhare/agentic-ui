@@ -69,5 +69,12 @@ function syntheticToolContext() {
     runId: id,
     toolCallId: id,
     signal: new AbortController().signal,
+    // Capability F5 LRO surface — the form path is synchronous so
+    // these are typed stubs. Tools that need real LRO from a form
+    // submit would route through ToolRegistry + chat-shell instead.
+    startOperation: () => `op-form-${Date.now()}`,
+    reportProgress: () => undefined,
+    completeOperation: () => undefined,
+    failOperation: () => undefined,
   };
 }
