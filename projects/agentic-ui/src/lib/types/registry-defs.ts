@@ -87,6 +87,24 @@ export interface ToolDef<TArgs = unknown, TResult = unknown> extends RegistryEnt
    * call into the remote's captured `EnvironmentInjector`.
    */
   readonly executeIn?: 'host' | 'remote';
+  /**
+   * Capability F5 opt-in (r3 plan §9.5). When `true`, the tool's handler
+   * is expected to:
+   *   1. Call `ctx.startOperation({...})` to mint an opId.
+   *   2. Kick off background work and return promptly with at minimum
+   *      `{ opId }` (typically as part of a result that also surfaces
+   *      a progress widget).
+   *   3. Periodically call `ctx.reportProgress(opId, {...})`, then
+   *      `ctx.completeOperation(opId, result)` or
+   *      `ctx.failOperation(opId, err)` on terminal state.
+   *
+   * The flag is informational for tooling (telemetry, the `/operations`
+   * route's classification, MCP tool descriptions). The chat shell does
+   * not require it to be set — calling `startOperation` on any tool
+   * works — but setting it lets surfaces show "this tool may take time"
+   * affordances proactively.
+   */
+  readonly longRunning?: boolean;
 }
 
 /** Context passed to every tool handler. */
@@ -99,6 +117,22 @@ export interface ToolContext {
   readonly toolCallId: string;
   /** Signal that fires when the user / orchestrator aborts the run. */
   readonly signal: AbortSignal;
+  /**
+   * Capability F5 — start a long-running operation (r3 plan §9.5).
+   * Returns the generated `opId` the tool forwards into background work.
+   * Persists the operation in `OperationRegistry` so the
+   * `<mvk-operation-progress>` widget and `/operations` page see it
+   * immediately; emits the `operation-started` audit event.
+   *
+   * Always present on the context. Tools that don't use LRO ignore it.
+   */
+  startOperation(meta: OperationStartMeta): string;
+  /** Capability F5 — emit a progress update for a started operation. */
+  reportProgress(opId: string, progress: OperationProgress): void;
+  /** Capability F5 — terminal-success transition. */
+  completeOperation(opId: string, result: unknown): void;
+  /** Capability F5 — terminal-failure transition. */
+  failOperation(opId: string, error: OperationError): void;
 }
 
 /**
@@ -413,6 +447,83 @@ export interface WorkflowDef {
     state: Readonly<Record<string, unknown>>,
     ctx: WorkflowCtx,
   ) => Promise<unknown>;
+}
+
+// ─── Capability F5 — long-running operations (LRO) ──────────────────────────
+
+/**
+ * Lifecycle status of an `Operation` (Capability F5 — r3 plan §9.5).
+ *
+ *   - `started`  — `startOperation` called; no progress yet.
+ *   - `progress` — at least one `reportProgress` call has landed.
+ *   - `finished` — terminal-success.
+ *   - `failed`   — terminal-error.
+ */
+export type OperationStatus = 'started' | 'progress' | 'finished' | 'failed';
+
+/** Progress update an LRO tool emits via `ToolContext.reportProgress`. */
+export interface OperationProgress {
+  /** 0–100 — caller's responsibility to keep monotonic. */
+  readonly pct: number;
+  /** Optional human-readable phase ("scoring batch 23 / 100"). */
+  readonly phase?: string;
+  /** Optional partial result (e.g., counts so far). UI may surface. */
+  readonly partialResult?: unknown;
+}
+
+/** Terminal-failure shape mirrored on `Operation.error`. */
+export interface OperationError {
+  readonly code: string;
+  readonly message: string;
+}
+
+/**
+ * Metadata at LRO start. The tool calls
+ * `ctx.startOperation({ description, estDurationMs? })` and gets back an
+ * `opId` it forwards into background work; subsequent
+ * `reportProgress(opId, ...)` / `completeOperation(opId, ...)` calls drive
+ * the lifecycle.
+ */
+export interface OperationStartMeta {
+  /** Human-readable description shown in the progress widget. */
+  readonly description: string;
+  /** Optional estimated duration for ETA rendering. */
+  readonly estDurationMs?: number;
+  /** The tool that initiated the operation. Auto-populated by ToolContext. */
+  readonly toolName?: string;
+}
+
+/**
+ * Persisted LRO record (Capability F5). One per call to
+ * `ctx.startOperation` from a `longRunning: true` tool. The chat shell's
+ * `<mvk-operation-progress>` widget subscribes via `OperationRegistry`
+ * for live updates; the `/operations` route lists all in-flight + recent.
+ *
+ * Audit posture: every transition appends to the existing tamper-evident
+ * chain under the new `operation-{started,progress,finished,failed}`
+ * actions (r3 plan §7.8).
+ */
+export interface Operation {
+  readonly opId: string;
+  readonly toolName: string;
+  readonly description: string;
+  readonly status: OperationStatus;
+  /** ISO timestamp when `startOperation` was called. */
+  readonly startedAt: string;
+  readonly estDurationMs?: number;
+  /** Continuation handle for cross-session reattach (AC-F5-2). */
+  readonly threadId?: string;
+  readonly runId?: string;
+  readonly toolCallId?: string;
+  // ── Progress state ────────────────────────────────────────────
+  readonly pct?: number;
+  readonly phase?: string;
+  readonly partialResult?: unknown;
+  // ── Terminal state ────────────────────────────────────────────
+  readonly finishedAt?: string;
+  readonly durationMs?: number;
+  readonly result?: unknown;
+  readonly error?: OperationError;
 }
 
 // ─── Capability F4 — approval registry (HITL on tool calls) ─────────────────

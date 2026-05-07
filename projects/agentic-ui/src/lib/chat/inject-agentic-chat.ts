@@ -3,6 +3,7 @@ import { ToolRegistry } from '../registries/tool-registry';
 import { ComponentRegistry } from '../registries/component-registry';
 import { BackendRegistry } from '../registries/backend-registry';
 import { ApprovalRegistry } from '../registries/approval-registry';
+import { OperationRegistry } from '../registries/operation-registry';
 import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
 import type { AgenticMessage } from '../types/agentic-message';
 import { AGENTIC_ACTIVE_PERSONA } from './active-persona';
@@ -44,6 +45,7 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
   const telemetry = inject(AGENTIC_TELEMETRY_SINK);
   const toolFilter = inject(TOOL_FILTER);
   const approvalRegistry = inject(ApprovalRegistry);
+  const operationRegistry = inject(OperationRegistry);
   const activePersona = inject(AGENTIC_ACTIVE_PERSONA);
 
   const maxLocalTurns = options.maxLocalTurns ?? 10;
@@ -111,6 +113,7 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
       telemetry,
       approvalRegistry,
       activePersona,
+      operationRegistry,
     })
       .catch((err) => {
         if (!(err instanceof DOMException && err.name === 'AbortError')) {

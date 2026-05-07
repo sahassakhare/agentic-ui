@@ -2,9 +2,18 @@ import type { WritableSignal } from '@angular/core';
 import type { AgenticBackend, AgenticRunInput } from '../types/agentic-backend';
 import type { AgenticEvent } from '../types/agentic-event';
 import type { AgenticMessage, AgenticToolCall, AgenticWidgetInstance } from '../types/agentic-message';
-import type { ToolDef, ComponentDef, ToolContext, Approval } from '../types/registry-defs';
+import type {
+  Approval,
+  ComponentDef,
+  OperationError,
+  OperationProgress,
+  OperationStartMeta,
+  ToolContext,
+  ToolDef,
+} from '../types/registry-defs';
 import type { AgenticTelemetrySink } from '../telemetry/telemetry-sink';
 import type { ApprovalRegistry } from '../registries/approval-registry';
+import type { OperationRegistry } from '../registries/operation-registry';
 import { appendDelta, appendErrorMessage, attachToolCall, attachWidget, randomId } from './message-utils';
 
 export interface RunOrchestratorOptions {
@@ -31,6 +40,14 @@ export interface RunOrchestratorOptions {
    * circuit on role. Defaults to `''` when omitted.
    */
   readonly activePersona?: () => string;
+  /**
+   * Optional operation registry (Capability F5 — r3 plan §9.5). When
+   * set, every `ToolContext` created by `executeClientTools` carries
+   * `startOperation` / `reportProgress` / `completeOperation` /
+   * `failOperation` that route through this registry. Tools without
+   * LRO needs ignore the methods.
+   */
+  readonly operationRegistry?: OperationRegistry;
 }
 
 interface PendingToolCall {
@@ -121,6 +138,7 @@ export async function runUntilSettled(opts: RunOrchestratorOptions): Promise<voi
         telemetry: opts.telemetry,
         approvalRegistry: opts.approvalRegistry,
         activePersona: opts.activePersona,
+        operationRegistry: opts.operationRegistry,
       });
 
       if (clientResults.length === 0) {
@@ -218,6 +236,7 @@ interface ExecuteClientToolsOptions {
   readonly telemetry: AgenticTelemetrySink;
   readonly approvalRegistry?: ApprovalRegistry;
   readonly activePersona?: () => string;
+  readonly operationRegistry?: OperationRegistry;
 }
 
 async function executeClientTools(opts: ExecuteClientToolsOptions): Promise<AgenticToolCall[]> {
@@ -232,12 +251,7 @@ async function executeClientTools(opts: ExecuteClientToolsOptions): Promise<Agen
       'agentic.tool.source': tool.source ?? 'host',
     });
     try {
-      const ctx: ToolContext = {
-        threadId: opts.threadId,
-        runId: opts.runId,
-        toolCallId: call.toolCallId,
-        signal: opts.signal,
-      };
+      const ctx: ToolContext = buildToolContext(call, opts, tool);
       const parsed = tool.schema.parse(call.args);
 
       // Capability F4 — HITL intercept.
@@ -336,6 +350,62 @@ function maybeQueueForApproval(
       // walks the same ApprovalRegistry transitions the queue page does.
       { name: 'mvk-approval-card', props: { approvalId } },
     ],
+  };
+}
+
+/**
+ * Build the per-call `ToolContext`, including the Capability F5 LRO
+ * surface. Hosts that wired an `OperationRegistry` get fully-functional
+ * `startOperation` / `reportProgress` / `completeOperation` /
+ * `failOperation`; hosts without LRO get safe no-op stubs that still
+ * fulfil the type contract so tools that opportunistically call the
+ * methods don't crash.
+ */
+function buildToolContext(
+  call: AgenticToolCall,
+  opts: ExecuteClientToolsOptions,
+  tool: ToolDef,
+): ToolContext {
+  const reg = opts.operationRegistry;
+  const baseCtx = {
+    threadId: opts.threadId,
+    runId: opts.runId,
+    toolCallId: call.toolCallId,
+    signal: opts.signal,
+  };
+  if (!reg) {
+    return {
+      ...baseCtx,
+      startOperation: (meta: OperationStartMeta) => {
+        // Without a registry, mint a stable id but otherwise no-op.
+        // Tools that depend on observable progress should require a
+        // wired OperationRegistry at boot.
+        opts.telemetry.emit('agentic.tool_call.start', {
+          'agentic.lro.no_registry': true,
+          'agentic.tool.name': tool.name,
+          'agentic.lro.description': meta.description,
+        });
+        return `op-stub-${Date.now()}`;
+      },
+      reportProgress: () => undefined,
+      completeOperation: () => undefined,
+      failOperation: () => undefined,
+    };
+  }
+  return {
+    ...baseCtx,
+    startOperation: (meta: OperationStartMeta) =>
+      reg.start({
+        ...meta,
+        toolName: meta.toolName ?? tool.name,
+        threadId: opts.threadId,
+        runId: opts.runId,
+        toolCallId: call.toolCallId,
+      }),
+    reportProgress: (opId: string, progress: OperationProgress) =>
+      reg.reportProgress(opId, progress),
+    completeOperation: (opId: string, result: unknown) => reg.complete(opId, result),
+    failOperation: (opId: string, error: OperationError) => reg.fail(opId, error),
   };
 }
 

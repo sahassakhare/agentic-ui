@@ -16,9 +16,13 @@ import {
   AGENTIC_TELEMETRY_SINK,
   ApprovalRegistry,
   ComponentRegistry,
+  OperationRegistry,
   ToolRegistry,
   type Approval,
   type ApprovalDef,
+  type OperationError,
+  type OperationProgress,
+  type OperationStartMeta,
   type ToolContext,
   type ToolDef,
 } from '../internal';
@@ -149,6 +153,7 @@ export class ApprovalCardComponent {
   private readonly approvals = inject(ApprovalRegistry);
   private readonly tools = inject(ToolRegistry);
   private readonly components = inject(ComponentRegistry);
+  private readonly operations = inject(OperationRegistry);
   private readonly hostInjector = inject(Injector);
   private readonly persona = inject(AGENTIC_ACTIVE_PERSONA);
   private readonly telemetry = inject(AGENTIC_TELEMETRY_SINK);
@@ -264,6 +269,23 @@ export class ApprovalCardComponent {
         runId: handle?.runId ?? approval.id,
         toolCallId: handle?.toolCallId ?? approval.id,
         signal: new AbortController().signal,
+        // Sidecar tools that happen to be long-running route progress
+        // through the same OperationRegistry the chat-shell uses, so
+        // the post-approve progress widget still works.
+        startOperation: (meta: OperationStartMeta) =>
+          this.operations.start({
+            ...meta,
+            toolName: meta.toolName ?? approval.toolName,
+            threadId: handle?.threadId,
+            runId: handle?.runId,
+            toolCallId: handle?.toolCallId,
+          }),
+        reportProgress: (opId: string, progress: OperationProgress) =>
+          this.operations.reportProgress(opId, progress),
+        completeOperation: (opId: string, result: unknown) =>
+          this.operations.complete(opId, result),
+        failOperation: (opId: string, error: OperationError) =>
+          this.operations.fail(opId, error),
       };
       await tool.handler(approval.args, ctx);
     } catch (err) {
