@@ -84,6 +84,47 @@ Useful smoke test before configuring an API key. Connect any host with
 |---|---|
 | *anything* | Echo agent streams `You said: <your message>` back word-by-word — proves the AG-UI SSE pipeline works end-to-end without burning API credits |
 
+### `demo-ediscovery-shell` + remotes (port 4300)
+
+Enterprise reference application. Host on `:4300` with three federated
+remotes (review on `:4302`, production on `:4303`, search on `:4304`)
+plus a multi-agent orchestrator on `/agents/coordinator/run`. Persona
+switcher in the header drives `RegistryBase.setScopePolicy` — the
+visible tool surface changes per role.
+
+#### Phase 0–8 (collection + holds + production + search + audit + MCP + persona)
+
+| Prompt | Routes to | Renders |
+|---|---|---|
+| *"Add Sarah Chen as a custodian, sarah.chen@acme.example, Engineering"* | collection | `custodianCard` |
+| *"List all custodians on this matter"* | collection | up to 3 `custodianCard`s + summary text |
+| *"Place a legal hold on Sarah Chen — scope: all emails about Project Phoenix from January 2025"* | collection | `legalHoldCard` |
+| *"Show me pending hold acknowledgements"* | collection | filtered `legalHoldCard`s |
+| *"Search documents tagged 'responsive' but not 'privileged'"* | search | result list with custodian + snippet |
+| *"Tag DOC-7891240 as privileged — work-product"* | review | tag chip update |
+| *"Create production set PROD-002 with the responsive non-privileged docs from January"* | production | `productionConfigForm` for sign-off |
+
+#### F1–F6 dynamic-UI capabilities
+
+| Prompt | Capability | What you see |
+|---|---|---|
+| *"Onboard a custodian from the Finance team"* | F1 composable form | `custodianIntakeCard` mounts with Identity + Compliance + Approval + Discovery sections; switching persona toggles supervisor section live |
+| *"Onboard a custodian, type Eleanor for the supervisor"* | F2 live data | Supervisor picker autocomplete populates from the `users` data source (mock directory of 5 reviewers) |
+| *"Open the place-legal-hold wizard"* | F3 workflow | `placeLegalHoldCard` mounts the four-step wizard (scope → custodians → date range → preview); zero custodians selected jumps to matter-setup |
+| *"Release HOLD-001, it's redundant"* (as paralegal) | F4 approval | Tool intercepts; `mvk-approval-card` renders inline; switch persona to Lead Counsel via header to see Approve / Reject; `/approvals` page lists the same record |
+| *"Run TAR classification on the un-tagged corpus for SEC inquiry"* | F5 LRO | `mvk-operation-progress` widget streams pct + phase; sidebar Operations badge ticks; `/operations` page lists active + recent |
+| Drag a PDF onto the chat panel + *"Apply this rubric to the un-tagged set"* | F6 multi-modal | Pending-attachments tray shows the chip; Send delivers `{kind: 'file', filename, uri}` part to the agent |
+
+**Persona switching tests** (header dropdown drives `setScopePolicy` + `AGENTIC_ACTIVE_PERSONA`):
+
+| Persona | Tools visible (chat-rail count) | F4 approval visibility |
+|---|---|---|
+| Lead Counsel | all (~25) | sees every approval in `/approvals`, can sign off |
+| Associate | most | sees `releaseLegalHold` approvals (co-approver) |
+| Paralegal | collection + intake + workflow + LRO | requests trigger HITL on irreversible actions |
+| Lit-Support | search + tagging | requests trigger HITL on `releaseLegalHold` |
+| Vendor Reviewer | tag-only | requests trigger HITL on most mutating tools |
+
 ## Reference — by library feature
 
 ### `ToolRegistry` + `ComponentRegistry` (generative UI)

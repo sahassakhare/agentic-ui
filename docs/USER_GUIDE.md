@@ -298,6 +298,12 @@ This library is opinionated for one shape of work — agent-driven UI in Angular
 | 8 | [MCP — same tools power analyst desktops](#8-mcp--same-tools-power-analyst-desktops) | `@maverick/agentic-ui-mcp` exposes ToolDefs as an MCP server | [mcp-server](./cookbook/mcp-server.md) |
 | 9 | [Observability — distributed tracing per chat turn](#9-observability--distributed-tracing-per-chat-turn) | `AgenticTelemetrySink` + `@maverick/agentic-ui/otel` | [observability](./cookbook/observability.md) |
 | 10 | [Audit trail / chain-of-custody](#10-audit-trail--chain-of-custody) | Pattern (not core lib): `prevHash` / `chainHash` auto-stamping in your data layer | [paralegal-mcp-review](./cookbook/paralegal-mcp-review.md) |
+| 11 | [Composable forms at runtime](#11-composable-forms-at-runtime) | `agenticForm({ composition })` + `CompositionStore` + closed-AST `if` DSL | [composable-intake-form](./cookbook/composable-intake-form.md) |
+| 12 | [Live data fetching from generated UI](#12-live-data-fetching-from-generated-ui) | `ComponentDef.dataSources` + `DataSourceRegistry.getTyped<>()` + mount-time validation | [widgets-with-live-data](./cookbook/widgets-with-live-data.md) |
+| 13 | [Guided multi-step workflows](#13-guided-multi-step-workflows) | `agenticWorkflow({ steps, onComplete })` + `<mvk-workflow-renderer>` | [interactive-workflows](./cookbook/interactive-workflows.md) |
+| 14 | [Human-in-the-loop approval](#14-human-in-the-loop-approval) | `agenticApproval({ tool, required, approverRoles })` + chat-shell intercept | [approval-flow](./cookbook/approval-flow.md) |
+| 15 | [Long-running operations](#15-long-running-operations) | `agenticTool({ longRunning: true })` + `OperationRegistry` + `<mvk-operation-progress>` | [long-running-operations](./cookbook/long-running-operations.md) |
+| 16 | [Multi-modal input](#16-multi-modal-input) | `MessageContent` union + composer paperclip / drag-drop / paste-image | [multi-modal-input](./cookbook/multi-modal-input.md) |
 
 ---
 
@@ -753,6 +759,156 @@ handler: async ({ docId, flag }, ctx) => {
 ```
 
 Pair with use case 4 (persona scope) and use case 9 (OTel) and you have the three-piece compliance story: who *can* do it, who *did* do it, and what happened in the system when they did. The Audit Trail page in the eDiscovery demo verifies the chain on render — a `verified` badge means the hashes match end-to-end; a `break` badge means tampering was detected.
+
+---
+
+### 11. Composable forms at runtime
+
+> **Scenario.** A custodian-onboarding form whose visible sections depend on the matter type, the persona, and the custodian's department. Securities-related matters need a regulatory-disclosure section; paralegal turns need a supervisor-signoff section; Finance custodians need an accounting-system picker. Hard-coding N variants is a dead end.
+
+**Library responsibility.**
+- `agenticForm({ composition: [{ widget, section?, if?, predicate? }, ...] })` declares an ordered list of registered widgets. Each entry's `if` is parsed at registration into a closed-AST DSL (`===`, `!==`, `&&`, `||`, dotted access, parens, literals) and rejected on malformed input. `predicate` is the programmatic escape hatch.
+- `<mvk-form-renderer>`'s composition branch evaluates predicates against the `context` input and mounts surviving widgets via `*ngComponentOutlet` with a per-section child injector providing `COMPOSITION_SLOT`.
+- `CompositionStore` is renderer-scoped and signal-backed; section widgets opt in by `inject(COMPOSITION_SLOT) + inject(CompositionStore)` so values survive section unmount when predicates toggle.
+- A predicate that flips visible→hidden on a dirty slot triggers an inline drop-or-keep banner, never a silent value loss.
+
+**Wiring.**
+
+```ts
+agenticForm({
+  name: 'custodianIntake',
+  composition: [
+    { widget: 'intake-identity-fields',     section: 'Identity' },
+    { widget: 'intake-regulatory-consent',  section: 'Compliance', if: 'matter.type === "securities"' },
+    { widget: 'intake-supervisor-picker',   section: 'Approval',   if: 'persona !== "lead-counsel"' },
+    { widget: 'intake-accounting-systems',  section: 'Discovery',  if: 'department === "Finance"' },
+  ],
+  submit: async (values) => {/* aggregated by widget name */},
+});
+```
+
+Full walkthrough — including the AC-F1-2 drop/keep contract, prototype-pollution defense in path resolution, and the per-slot injector pattern — in the [composable-intake-form](./cookbook/composable-intake-form.md) cookbook.
+
+---
+
+### 12. Live data fetching from generated UI
+
+> **Scenario.** The supervisor-signoff section in use case 11 is an autocomplete that hits `/api/users?prefix=...`. The widget shouldn't bake the URL in — it should declare a logical dependency the host wires per environment. Mock in dev, REST in prod, GraphQL in v2 — without changing the widget code.
+
+**Library responsibility.**
+- `ComponentDef.dataSources?: readonly string[]` declares names the widget consumes. `<mvk-widget-container>` and the form-renderer's composition path validate the names against `DataSourceRegistry` at mount time; a missing source surfaces an inline placeholder citing the widget + missing entries instead of a silently-broken widget at first call.
+- `DataSourceRegistry.getTyped<TQuery, TResult>(name)` returns a typed adapter view. Throws `UnknownDataSourceError` on missing — but mount-time validation runs first, so production callers can rely on resolution.
+- `agenticDataSource({ name, kind, adapter })` registers a source; `restDataSource(name, baseUrl, fetchFn?)` is the convenience for path-encoded REST. Wrapped adapters automatically emit `data_source.query_ms` histograms via the telemetry sink.
+
+**Wiring.**
+
+```ts
+agenticWidget({
+  name: 'supervisor-signoff-picker',
+  component: SupervisorPickerComponent,
+  propsSchema: z.object({}),
+  dataSources: ['users'],          // declared dependency — validated at mount
+});
+
+env.get(DataSourceRegistry).register(
+  agenticDataSource<UserQuery, Promise<readonly User[]>>({
+    name: 'users',
+    kind: 'rest',
+    adapter: async ({ prefix, role }) => fetch(`/api/users?prefix=${prefix}`).then((r) => r.json()),
+  }),
+);
+```
+
+Tools (LLM-initiated) and data sources (UI-initiated) are sister concepts. Both end up calling backend endpoints; tools cost tokens, data sources don't. Full walkthrough in the [widgets-with-live-data](./cookbook/widgets-with-live-data.md) cookbook.
+
+---
+
+### 13. Guided multi-step workflows
+
+> **Scenario.** Placing a legal hold isn't one form — it's a wizard. Step 1: pick keywords. Step 2: pick custodians (zero selected → jump to "matter setup" instead). Step 3: date range. Step 4: preview + send. State must survive Back navigation.
+
+**Library responsibility.**
+- `agenticWorkflow({ steps, onComplete })` declares an ordered list of `WorkflowStep` records keyed by id. Each step references a registered widget; `next` is `string` (unconditional), `null` (terminal), or `(state) => string | null` (branching).
+- The factory validates at registration: non-empty steps, unique ids, string `next` targets resolve, identifier shapes — `AgenticWorkflowError` cites the malformed step.
+- `<mvk-workflow-renderer>` mounts ONE step at a time via `*ngComponentOutlet` with a per-step child injector providing `COMPOSITION_SLOT = step.id`. Reuses the F1 `CompositionStore` so state aggregates across steps and survives Back for free.
+- Terminal-step Submit runs `onComplete(snapshot, ctx)` — same domain handler as the equivalent one-shot tool. One handler, two surfaces (chat tool + wizard).
+
+**Provisional registry note.** Per the r3 plan §9.3.3, F3 ships as `FormDef.workflow?` carried through `FormRegistry`. Promotion to a top-level `WorkflowRegistry` is an ARB decision when 3+ workflows demand it. The `agenticWorkflow({...})` call shape stays stable across either path.
+
+Full walkthrough in the [interactive-workflows](./cookbook/interactive-workflows.md) cookbook.
+
+---
+
+### 14. Human-in-the-loop approval
+
+> **Scenario.** A paralegal asks the agent to deliver a production set to opposing counsel. Delivery is irreversible, and a paralegal doesn't have authority. The agent should draft + queue, lead counsel reviews + signs off, every transition lands in the audit chain. PR-style review for agent-initiated mutations.
+
+**Library responsibility.**
+- `agenticApproval({ tool, required, approverRoles, diffRenderer, signoffMessage })` registers a policy keyed on tool name. The chat-shell's `executeClientTools` consults the registry per call: when `required(args, ctx)` returns true, the tool is **not executed** — an `Approval{pending}` is enqueued and a synthetic `{queued: true, approvalId}` result is returned with a `mvk-approval-card` widget reference so the chat renders the card inline.
+- The card's diff renderer (a host-supplied widget; e.g. `production-summary-diff`) receives `APPROVAL_DIFF_INPUTS` via per-card injector and renders the **literal arg payload** that will execute on Approve — never an LLM-generated summary.
+- Persona enforcement is at the call site (card + queue): a non-approver persona sees a "you cannot approve" message instead of buttons.
+- `AGENTIC_APPROVAL_AUDIT_HOOK` injection token translates every transition into a `tool-approved` / `tool-rejected` audit event. Fire-and-forget contract — throwing hooks do NOT roll back the in-memory transition (per [ADR-009](./adr/0009-approval-intercept-and-audit-hook.md)).
+
+**Wiring.**
+
+```ts
+env.get(ApprovalRegistry).register(
+  agenticApproval({
+    tool: 'exportProductionSet',
+    required: (_args, ctx) => ctx.persona !== 'lead-counsel',
+    approverRoles: ['lead-counsel'],
+    diffRenderer: 'production-summary-diff',
+    signoffMessage: (args) => `Approve delivery of ${args.productionId} to opposing counsel?`,
+  }),
+);
+```
+
+The eDiscovery demo also ships a `/approvals` queue page (`pendingForApprover(activePersona)`) and a sidebar nav badge for cross-session handoff. Full walkthrough in the [approval-flow](./cookbook/approval-flow.md) cookbook.
+
+---
+
+### 15. Long-running operations
+
+> **Scenario.** "Run TAR classification on the un-tagged corpus" — that's 50,000 documents and ~12 minutes. Standard SSE timeouts kill the run. The user wants live progress, the ability to walk away, and a result they can revisit later.
+
+**Library responsibility.**
+- `agenticTool({ longRunning: true })` is an opt-in flag. The chat shell's `ToolContext` always carries `startOperation / reportProgress / completeOperation / failOperation` — tools that don't need them ignore them; tools that do call them route through `OperationRegistry`.
+- Long-running tool handlers return immediately with `{ opId, components: [{ name: 'mvk-operation-progress', props: { opId } }] }`. A background loop calls `ctx.reportProgress(opId, { pct, phase, partialResult })` periodically, then `ctx.completeOperation(opId, result)` or `ctx.failOperation(opId, error)`.
+- `<mvk-operation-progress>` subscribes to `OperationRegistry` for live updates. Same widget renders inline in the chat AND on the `/operations` page — one operation, one component, two surfaces.
+- `AGENTIC_OPERATION_AUDIT_HOOK` mirrors every lifecycle transition (`operation-started` / `-progress` / `-finished` / `-failed`) into the audit chain.
+
+**Wiring.**
+
+```ts
+agenticTool({
+  name: 'runTARClassifier',
+  longRunning: true,
+  schema: z.object({ topic: z.string() }),
+  handler: async ({ topic }, ctx) => {
+    const opId = ctx.startOperation({ description: `TAR-classify "${topic}"`, estDurationMs: 12_000 });
+    void runClassifierBackground(opId, ctx);     // ctx.reportProgress / completeOperation inside
+    return { opId, components: [{ name: 'mvk-operation-progress', props: { opId } }] };
+  },
+});
+```
+
+Cancellation honours `ctx.signal` — when the user aborts the run, the background loop detects the abort on its next tick and calls `failOperation`. Full walkthrough — including cross-session durability via `PersistenceRegistry` — in the [long-running-operations](./cookbook/long-running-operations.md) cookbook.
+
+---
+
+### 16. Multi-modal input
+
+> **Scenario.** A paralegal drops a deposition exhibit (PDF) into the chat: *"What custodian is this addressed to?"* Or pastes a screenshot. Or speaks an instruction. The agent should receive the content as typed multi-part input — not as some lossy text approximation.
+
+**Library responsibility.**
+- `MessageContent` union — `text` / `image` / `file` parts. Mirrors Anthropic / OpenAI / Gemini conventions. `AgenticMessage.content` is `string | readonly MessageContent[]` — backwards-compatible with every existing F1–F5 flow.
+- `<mvk-chat-shell>` composer ships paperclip / drag-drop / paste-from-clipboard affordances out of the box. Pending attachments render as chips above the input; image previews use data URIs; remove buttons drop individual entries.
+- Per-file MIME allow-list + size cap validation client-side (configurable via `acceptedMimeTypes` and `maxBytes` inputs on the chat shell). Rejection surfaces inline; nothing reaches the tray.
+- `BackendCapabilities.multiModal?` advertises support. Backends without it: chat-ref logs `console.warn`, emits a fallback telemetry event, and synthesises a single text string (`[file: name]`, `[image: alt]`) so the LLM at least sees that attachments existed.
+
+**Slice 1 status.** Microphone / `SpeechRecognition` (AC-F6-2) and the server-side upload route (`agUiUploadHandler`) for AV-scanning + signed-URI uploads land in slice 2. Slice 1 inlines bytes as data URIs — fine for demos and small files; production deployments will swap to server URIs at the same call site.
+
+Full walkthrough — including HIPAA gating, cost telemetry, and privacy-on-data-URI considerations — in the [multi-modal-input](./cookbook/multi-modal-input.md) cookbook.
 
 ---
 

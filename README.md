@@ -94,7 +94,7 @@ It's the **plumbing between your app code and the agentic protocols**. You write
 ┌─────────────────────────────────▼────────────────────────────────────┐
 │  @maverick/agentic-ui                                                │
 │    · Chat shell + widget container + form renderer                   │  ← this library
-│    · 13 registries (tool, component, action, form, …) all uniform    │
+│    · 15 registries (tool, component, action, form, …) all uniform    │
 │    · Orchestration loop · runUntilSettled · abort signals            │
 └─────────────────────────────────┬────────────────────────────────────┘
                                   │  AgenticBackend abstraction
@@ -128,7 +128,7 @@ flowchart TB
 
     subgraph LIB["@maverick/agentic-ui (this library)"]
         L1["Chat shell · widget container · form renderer"]:::lib
-        L2["13 registries — Tool · Component · Action · Form · …"]:::lib
+        L2["15 registries — Tool · Component · Action · Form · Approval · Operation · …"]:::lib
         L3["Orchestration loop · runUntilSettled · abort signals"]:::lib
     end
 
@@ -154,7 +154,7 @@ flowchart TB
 
 - **Vendor-agnostic.** AG-UI looks like the leader today; Hashbrown and A2UI are gaining traction. The library treats agent transports as pluggable adapters so you swap backends with a one-line config change, not a chat-shell rewrite.
 - **Microfrontend native.** Multiple teams ship Angular remotes that contribute tools and widgets at runtime via Native Federation (or webpack Module Federation). The host's chat shell discovers them dynamically — no compile-time imports required. An MFE shipped today shows up in tomorrow's chat without redeploying the host.
-- **Registry-uniform.** Thirteen registries — tools, components, actions, intents, forms, validation, persistence, layout, … — share one `Registry<TDef>` shape. Same `register / list / signal / removeBySource` semantics. Same per-persona `setScopePolicy` filter. Add a new registry for your domain in ~30 LOC of base-class extension.
+- **Registry-uniform.** Fifteen registries — tools, components, actions, intents, forms, validation, persistence, layout, approval (F4), operation (F5), … — share one `Registry<TDef>` shape. Same `register / list / signal / removeBySource` semantics. Same per-persona `setScopePolicy` filter. Add a new registry for your domain in ~30 LOC of base-class extension.
 
 If you've ever shipped a chat box where rendering "the flight card" required a `switch` statement on an LLM-emitted string and a separate fetch chain, this library replaces all of that with one `<mvk-chat-shell />` and a typed registry.
 
@@ -165,13 +165,13 @@ Agentic UIs are easy to demo and hard to ship. The pain compounds across six axe
 | # | Problem | What teams build without an abstraction | What this library does |
 |---|---|---|---|
 | 1 | **Protocol churn** — AG-UI, Hashbrown, A2UI all evolve quarterly; picking one is betting on a moving target. | Hand-rolled SSE / WebSocket / NDJSON parser per app, retried per protocol revision; chat-shell rewrites every quarter. | One `AgenticBackend` interface with three shipped adapters; the chat shell never sees the wire format. Swap protocols by changing one provider. |
-| 2 | **Fan-out** — an agentic UI isn't just chat; it's tools + components + validation + persistence + telemetry + audit + federation. Each becomes bespoke. | Each capability shipped as a one-off store / service with its own conventions, life-cycle, signal pattern, and teardown semantics. | One `Registry<TDef>` base class. Thirteen registries (Tool, Component, Action, Form, DataSource, …) all expose the same `register / list / signal / removeBySource / setScopePolicy`. Adding your own registry for a domain concept is ~30 LOC. |
+| 2 | **Fan-out** — an agentic UI isn't just chat; it's tools + components + validation + persistence + telemetry + audit + federation. Each becomes bespoke. | Each capability shipped as a one-off store / service with its own conventions, life-cycle, signal pattern, and teardown semantics. | One `Registry<TDef>` base class. Fifteen registries (Tool, Component, Action, Form, DataSource, Approval, Operation, …) all expose the same `register / list / signal / removeBySource / setScopePolicy`. Adding your own registry for a domain concept is ~30 LOC. |
 | 3 | **Generative UI dispatch** — the LLM emits "render flight-card with these props" as a string; resolving that to a typed Angular component with validated inputs is fiddly. | A growing `switch` over LLM-emitted strings, mounting hard-imported components, no schema validation on props. | `ComponentRegistry.get(name)` + Zod-validated props + `*ngComponentOutlet` mount. The agent's choice of widget is a registry read; missing names show a fallback, not a runtime crash. |
-| 4 | **Microfrontend composition** — multiple teams need to contribute tools and widgets to one chat without recompiling the host or redeploying the shell. | Static imports + central registration list maintained by the host team; every new MFE is a host-team PR. | `defineCapabilityModule` + Native or webpack Federation. Remote loads at runtime, calls `registerAll`, and the next chat turn sees its tools. Unload runs `removeBySource` across all 13 registries in one pass. |
-| 5 | **Governance + persona scope** — regulated domains require per-role tool surfaces. The LLM should not even see tools the active user can't invoke. | Bolt-on input filter in the chat shell only; remotes that come later don't honour it; the audit story is per-app. | `RegistryBase.setScopePolicy(predicate)` filters every `list / get / signal` read — the LLM's tool list, the widget container's resolution, the form renderer's available shapes — uniformly across all 13 registries. Three layers: library enforces, app authorises (predicate), server verifies (trust boundary). |
+| 4 | **Microfrontend composition** — multiple teams need to contribute tools and widgets to one chat without recompiling the host or redeploying the shell. | Static imports + central registration list maintained by the host team; every new MFE is a host-team PR. | `defineCapabilityModule` + Native or webpack Federation. Remote loads at runtime, calls `registerAll`, and the next chat turn sees its tools. Unload runs `removeBySource` across all 15 registries in one pass. |
+| 5 | **Governance + persona scope** — regulated domains require per-role tool surfaces. The LLM should not even see tools the active user can't invoke. | Bolt-on input filter in the chat shell only; remotes that come later don't honour it; the audit story is per-app. | `RegistryBase.setScopePolicy(predicate)` filters every `list / get / signal` read — the LLM's tool list, the widget container's resolution, the form renderer's available shapes — uniformly across all 15 registries. Three layers: library enforces, app authorises (predicate), server verifies (trust boundary). |
 | 6 | **Observability across the SSE boundary** — a chat turn fans out into LLM streaming, multiple tool calls, federation loads, persistence writes. Tracing it end-to-end is non-trivial. | Per-app logs, no correlation between client + server, no W3C trace propagation; debugging slow turns means staring at network tabs. | `AgenticTelemetrySink` emit points baked in from M1 (no-op default). Optional `/otel` entry point ships an OpenTelemetry-backed sink with W3C `traceparent` propagation across the SSE handshake — one trace covers `chat shell → backend → server → LLM → tool → registry`. |
 
-**The architect's net.** You design *one* shape — registries plus pluggable backends plus an MFE-aware host — and protocol shifts, governance changes, and team ownership splits land as configuration changes, not chat-shell rewrites. The library trades a few extra abstractions up front (yes, thirteen registries) for the elimination of bespoke code for the next five years of agent protocol churn.
+**The architect's net.** You design *one* shape — registries plus pluggable backends plus an MFE-aware host — and protocol shifts, governance changes, and team ownership splits land as configuration changes, not chat-shell rewrites. The library trades a few extra abstractions up front (yes, fifteen registries) for the elimination of bespoke code for the next five years of agent protocol churn.
 
 ## Use cases
 
@@ -215,7 +215,7 @@ Sixteen distinct scenarios the library covers, ranked roughly by adoption order.
 ## Features
 
 - **Pluggable agent backends.** A single `AgenticBackend` interface; ship adapters for AG-UI (`@ag-ui/client` HttpAgent + SSE), Hashbrown (NDJSON), and A2UI (`ui-action` event class routed through `ActionRegistry`).
-- **Layered registry system.** Thirteen registries grouped into Core, Extended, and Seam tiers, all sharing one `Registry<TDef>` shape — uniform `register / list / signal / removeBySource` semantics across tools, components, capabilities, backends, MFE remotes, actions, intents, forms, data sources, validation, persistence, layout, and schema transformation.
+- **Layered registry system.** Fifteen registries grouped into Core, Extended, and Seam tiers, all sharing one `Registry<TDef>` shape — uniform `register / list / signal / removeBySource` semantics across tools, components, capabilities, backends, MFE remotes, actions, intents, forms, data sources, validation, persistence, layout, schema transformation, plus the dynamic-UI additions (approval, operation).
 - **Generative UI.** Tool results carrying a `components: [{ name, props }]` field cause the chat shell to render registered Angular components by name through `*ngComponentOutlet`, with Zod-validated props.
 - **MFE federation.** `defineCapabilityModule` packages a remote's tools and widgets; `loadRemoteCapabilities` (Native Federation) and `loadRemoteCapabilitiesMF` (webpack Module Federation) push them into the host's runtime registries. Remote discovery happens through a pluggable `MfeRegistrySource` (static JSON or Spring Boot reference adapters; bring-your-own for Consul, Etcd, etc.).
 - **Schematics.** Ten generators: `ng-add`, `tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `action`, `intent`, `form`. Snapshot-tested.
@@ -271,9 +271,9 @@ The chat shell talks to the registry layer; the registry layer dispatches the ac
 
 ### The registry layer up close
 
-All thirteen registries inherit one base class — `Registry<TDef>` — with identical `register / list / signal / removeBySource / setScopePolicy` semantics. They split into three tiers by adoption stage:
+All fifteen registries inherit one base class — `Registry<TDef>` — with identical `register / list / signal / removeBySource / setScopePolicy` semantics. They split into three tiers by adoption stage:
 
-![Thirteen registries grouped into Core / Extended / Seams, all inheriting one base class](docs/assets/registry-tiers.png)
+![Fifteen registries grouped into Core / Extended / Seams, all inheriting one base class — image still depicts the original 13-registry layout; F4 Approval and F5 Operation slot into the Extended tier](docs/assets/registry-tiers.png)
 
 - **Core (5)** — every agentic UI needs these from day one. Tool, Component, Capability, Backend, MFE.
 - **Extended (4)** — agent-driven UI beyond chat. Action (NgRx-style commands), Intent (NL → tool routing), Form (schema-driven dynamic forms), DataSource (REST/GraphQL/SSE adapters).
@@ -345,7 +345,7 @@ The repository ships **thirteen reference applications** under `examples/`. They
 
 ### 🏛 Flagship — enterprise eDiscovery reference (Phases 0–7 shipped)
 
-A multi-pane regulated-domain reference app built across the eight phases in [docs/plans/ediscovery-app-plan.md](./docs/plans/ediscovery-app-plan.md). Exercises every load-bearing library feature simultaneously: 17 tools across 4 specialists, 3 federated MFE remotes, all 13 registries, tamper-evident chain-of-custody audit, MCP for analyst workstations, persona-scoped permission filtering. **Drop the eight phases in here for the headline architectural story.**
+A multi-pane regulated-domain reference app built across the eight phases in [docs/plans/ediscovery-app-plan.md](./docs/plans/ediscovery-app-plan.md) plus the six dynamic-UI capabilities (F1–F6) from the [r3 plan](./docs/plans/ediscovery-dynamic-ui-plan.md). Exercises every load-bearing library feature simultaneously: 25+ tools across 4 specialists, 3 federated MFE remotes, all 15 registries (including F4 `ApprovalRegistry` + F5 `OperationRegistry`), tamper-evident chain-of-custody audit (extended with `tool-approved` / `tool-rejected` / `operation-*` event kinds), MCP for analyst workstations, persona-scoped permission filtering, `/approvals` queue + `/operations` panel routes. **Drop the eight phases plus F1–F6 in here for the headline architectural story.**
 
 | App | Purpose | Port |
 |-----|---------|------|
@@ -483,12 +483,14 @@ Open <http://localhost:4201>, <http://localhost:4203>, and <http://localhost:420
 | [Sample prompts](./docs/cookbook/sample-prompts.md) | Canonical prompts for every demo and every library feature — paste into the chat, or use as a manual regression suite. |
 | [Production deployment](./docs/cookbook/production-deployment.md) | The `ThreadStateStore` abstraction (Redis / Postgres adapters), rate-limiting, secrets, K8s liveness probes — what changes between localhost and a multi-pod deploy. |
 | [Federation at scale](./docs/cookbook/federation-at-scale.md) | Capability prefetch (manifest-only registration without bundle load) + per-turn tool filtering — what's needed at 50+ remotes / 200+ tools. |
-| [Registries vs. industry](./docs/architecture/registries-vs-industry.md) | Comparison of our 13 registries against agent SDKs (CopilotKit, LangChain, Vercel AI) and plugin platforms (VS Code, Backstage). Governance gaps + integration map onto the existing `RegistryBase`. |
+| [Registries vs. industry](./docs/architecture/registries-vs-industry.md) | Comparison of our 15 registries against agent SDKs (CopilotKit, LangChain, Vercel AI) and plugin platforms (VS Code, Backstage). Governance gaps + integration map onto the existing `RegistryBase`. |
 | [Roadmap](./ROADMAP.md) | Researched extension recommendations + phased plan. Tier 1 (MCP server, user-in-the-loop confirmations, streaming citations, memory registry, cost gates), Tier 2 (streaming structured output, eval adapters, code-interpreter, voice), Tier 3 (deferred). Each item has industry context, API sketch, effort estimate, acceptance criteria, risks. |
 | [ADR-006 — MCP server-side adapter](./docs/adr/0006-mcp-server-side-adapter.md) | Design rationale for `@maverick/agentic-ui-mcp`. **Status: Accepted (implementing).** |
-| [Plan — Enterprise eDiscovery example app](./docs/plans/ediscovery-app-plan.md) | Eight-phase plan for a complex enterprise reference application that exercises every load-bearing library feature simultaneously (federation, multi-agent, MCP, all 13 registries, audit trails, permission scopes). **Status: All 8 phases shipped — see `examples/demo-ediscovery-{shared,server,shell,review,production,search,mcp}/`.** |
+| [Plan — Enterprise eDiscovery example app](./docs/plans/ediscovery-app-plan.md) | Eight-phase plan for a complex enterprise reference application that exercises every load-bearing library feature simultaneously (federation, multi-agent, MCP, all 13 registries from the v1.1 baseline, audit trails, permission scopes). **Status: All 8 phases shipped — see `examples/demo-ediscovery-{shared,server,shell,review,production,search,mcp}/`.** |
+| [Plan — Dynamic-UI program (r3 enterprise spec)](./docs/plans/ediscovery-dynamic-ui-plan.md) | Six-capability program (F1–F6 — composable forms, live data, workflows, approval, long-running operations, multi-modal input) built on top of the eDiscovery flagship. NFRs, threat model, capability G/W/T acceptance criteria, observability + test + release + cost + ops sections, risk register, phase gates with exit criteria. **Status: F1–F6 lib + demo + cookbook + Playwright shipped (F6 slice 1).** |
 | [Expose your tools as an MCP server](./docs/cookbook/mcp-server.md) | Wrap any `ToolDef[]` with `createMcpServer({...})` so Claude Desktop / Cursor / Zed can call your tools. Includes Claude Desktop config snippet, transport choices (stdio / HTTP / embeddable), `beforeCall`/`afterCall` patterns, production checklist. |
 | [Paralegal privilege review in Claude Desktop](./docs/cookbook/paralegal-mcp-review.md) | End-to-end walkthrough of the eDiscovery flagship's MCP server: build, wire into `claude_desktop_config.json`, run a typical privilege-review session, per-user audit attribution, debugging, production hardening. Phase 6 of the [eDiscovery plan](./docs/plans/ediscovery-app-plan.md). |
+| [Context-aware agent — test scenarios](./docs/cookbook/context-aware-agent.md) | Hands-on walkthrough proving the agent's tool surface and rendered UI adapt to persona, matter type, and live data without re-prompting or remounting. Five tests across persona-aware tool filtering (Test 1, 4, 5), F1 reactive predicate composition (Test 2), and F2 live data (Test 3) — plus the three pitfalls we hit and fixed during validation (frozen-prop, missing allow-list, ambiguous prompt). |
 | [eDiscovery end-to-end test suite](./e2e/README.md) | 16 Playwright tests across 6 specs covering every phase of the flagship — `npm run test:e2e`. Auto-skips LLM-driven specs when no Gemini key is configured; `00-smoke` + `05-persona-scope` are LLM-free and run anywhere. |
 | [ADR-008 — Registry scope policy](./docs/adr/0008-registry-scope-policy.md) | Design rationale for `RegistryBase.setScopePolicy` + `RegistryEntry.scopes` field. Filter-on-read decision, before/after migration of the eDiscovery shell, trade-offs. **Status: Accepted (shipped).** |
 | [Integrate into an existing Angular app](./docs/cookbook/integrate-into-existing-angular-app.md) | Step-by-step guide with sequence + flow diagrams: install → tools/widgets → MFE federation → multi-agent orchestration. Each phase is independently shippable. |

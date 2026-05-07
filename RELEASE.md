@@ -3,6 +3,15 @@
 > First stable release of a reusable Angular 21 library and schematics collection
 > for building agentic user interfaces against AG-UI, Hashbrown, or A2UI, with
 > first-class microfrontend federation.
+>
+> **Newer versions.** This document is the v1.0.0 release dossier preserved for
+> historical context. Release notes for v1.1.0 (MCP server-side adapter,
+> federation scaling, registry governance) and v1.2.0 (the six dynamic-UI
+> capabilities F1–F6 — composable forms, live data fetching, workflows,
+> approval, long-running operations, multi-modal input) live in
+> [`projects/agentic-ui/CHANGELOG.md`](./projects/agentic-ui/CHANGELOG.md).
+> Each capability also has a per-capability [cookbook](./docs/cookbook/)
+> walkthrough.
 
 ## Highlights
 

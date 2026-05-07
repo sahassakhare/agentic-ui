@@ -1,10 +1,15 @@
 # Registries vs. industry — comparison and integration map
 
-We ship 13 registries (`Tool`, `Component`, `Capability`, `Backend`,
+We ship 15 registries (`Tool`, `Component`, `Capability`, `Backend`,
 `MfeRegistry`, `Action`, `Intent`, `Form`, `DataSource`, `Validation`,
-`Persistence`, `Layout`, `SchemaTransformer`). Before we take decisions
-about extending or trimming the set, this doc grounds the design
-against production systems with comparable shapes.
+`Persistence`, `Layout`, `SchemaTransformer`, `Approval`, `Operation`).
+The latter two landed in v1.2 as the storage layer for the F4 (HITL)
+and F5 (long-running operations) capabilities — see the
+[r3 dynamic-UI plan](../plans/ediscovery-dynamic-ui-plan.md) for the
+program-level governance and per-capability cookbooks for adopter
+walkthroughs. Before we take decisions about extending or trimming
+the set, this doc grounds the design against production systems with
+comparable shapes.
 
 ## Two reference categories
 
@@ -29,7 +34,7 @@ Angular app *also* want from the agent layer."
 ### Mature plugin / extension platforms (broad surface)
 
 Designed around "many teams contribute features at runtime." Here our
-13 registries look **small**.
+15 registries look **small**.
 
 | System | Their registries / extension points | Patterns adopted today |
 |---|---|---|
@@ -69,7 +74,7 @@ Once you have multiple teams contributing remotes via
 ## Integration map — how each gap fits onto our current code
 
 The structural payoff: every governance feature lands either on the
-shared `RegistryBase<TDef>` (so all 13 inherit at once) or on an
+shared `RegistryBase<TDef>` (so all 15 inherit at once) or on an
 adjacent provider — none requires reshaping the registries.
 
 | Gap | Where it lands | Code surface | Backwards compat |

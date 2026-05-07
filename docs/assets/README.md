@@ -8,7 +8,7 @@ These PNG images are pre-rendered from the `.mmd` (Mermaid) source files in this
 |---|---|---|
 | [`agentic-ui-flow.mmd`](./agentic-ui-flow.mmd) | [`agentic-ui-flow.png`](./agentic-ui-flow.png) | "What is an 'agentic UI?'" section — sequence diagram of one user prompt → five things |
 | [`agentic-ui-architecture.mmd`](./agentic-ui-architecture.mmd) | [`agentic-ui-architecture.png`](./agentic-ui-architecture.png) | "What this library does" section — layered architecture (app → library → adapters → federated remotes) |
-| [`registry-tiers.mmd`](./registry-tiers.mmd) | [`registry-tiers.png`](./registry-tiers.png) | "The registry layer up close" — 13 registries grouped into Core / Extended / Seams |
+| [`registry-tiers.mmd`](./registry-tiers.mmd) | [`registry-tiers.png`](./registry-tiers.png) | "The registry layer up close" — 15 registries grouped into Core / Extended / Seams (Approval + Operation slot into EXTENDED, added by F4 + F5) |
 | _(captured live)_ | [`agentic-ui-in-action.png`](./agentic-ui-in-action.png) | Static hero (used in the deck) — eDiscovery flagship rendering an `app-custodian-card` widget mid-conversation. Captured by [`scripts/capture-readme-screenshot.mjs`](../../scripts/capture-readme-screenshot.mjs) driving Playwright. |
 | _(captured live)_ | [`agentic-ui-in-action.gif`](./agentic-ui-in-action.gif) | **Animated hero** at the top of the README. ~13s loop: prompt typed, agent routes to the collection specialist, `addCustodian` tool fires, `app-custodian-card` mounts. Captured by [`scripts/capture-readme-animation.mjs`](../../scripts/capture-readme-animation.mjs) — Playwright records to `.webm`, ffmpeg-static converts to GIF with a palette-optimised pipeline (~1.6 MB). |
 
