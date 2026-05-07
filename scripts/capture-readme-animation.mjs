@@ -53,10 +53,10 @@ async function run() {
   await page.waitForTimeout(1500);          // initial pause for the viewer
 
   // Type with delay so the typing itself is part of the animation.
-  const composer = page.locator('mvk-chat-shell form.composer input');
+  const composer = page.locator('mvk-chat-shell form.composer input[name="composer"]');
   console.log('→ typing prompt');
   await composer.click();
-  await composer.type('Add Sarah Chen as a custodian on this matter', { delay: 35 });
+  await composer.type('Add Sarah Chen (schen@acme.com, Finance) as a custodian', { delay: 35 });
   await page.waitForTimeout(400);
 
   console.log('→ sending');
