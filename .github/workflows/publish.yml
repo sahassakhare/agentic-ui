@@ -70,7 +70,7 @@ jobs:
       - name: Set up Node 20.19 (matches CI matrix)
         uses: actions/setup-node@v4
         with:
-          node-version: '22.12'
+          node-version: '20.19'
           cache: npm
           # Configures ~/.npmrc with the auth token line for npm publish
           registry-url: 'https://registry.npmjs.org'
