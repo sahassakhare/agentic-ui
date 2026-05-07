@@ -251,6 +251,19 @@ export class ChatShellComponent {
   private readonly backends = inject(BackendRegistry);
   protected readonly activeBackend = computed(() => this.backends.active());
 
+  /**
+   * Programmatically send a text prompt as if the user typed and submitted it.
+   * Lets the host page wire suggestion chips, "try-asking" lists, demo
+   * scripts, etc. Same path as `onSubmit` for the text-only case — does not
+   * touch any pending attachments.
+   */
+  sendMessage(text: string): void {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    this.chat.sendMessage(trimmed);
+    this.draft.set('');
+  }
+
   protected onSubmit(): void {
     const text = this.draft().trim();
     const atts = this.pending();
