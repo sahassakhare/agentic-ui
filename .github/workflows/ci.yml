@@ -44,7 +44,7 @@ jobs:
       # "missing from lock". Pinning to 11.x keeps `npm ci`
       # deterministic.
       - name: Pin npm to 11.x (matches lockfile generator)
-        run: npm install -g npm@11
+        run: npm install -g npm@11.6.2
 
       - name: Install workspace dependencies
         run: npm ci --no-audit --fund=false
