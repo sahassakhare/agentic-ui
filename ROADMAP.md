@@ -19,7 +19,7 @@ already built; the roadmap below is what's *next*, not what's missing.
 
 | Capability | Where | Notes |
 |---|---|---|
-| 13 registries on a uniform `Registry<TDef>` shape | `projects/agentic-ui/src/lib/registries/` | Tool, Component, Capability, Backend, MFE + Action, Intent, Form, DataSource + Validation, Persistence, Layout, SchemaTransformer |
+| 15 registries on a uniform `Registry<TDef>` shape | `projects/agentic-ui/src/lib/registries/` | Tool, Component, Capability, Backend, MFE + Action, Intent, Form, DataSource + Validation, Persistence, Layout, SchemaTransformer + Approval (F4), Operation (F5) |
 | **Conflict resolution policies** | `RegistryBase.conflictPolicy` | `'replace' \| 'throw' \| 'first-wins' \| 'namespace'` |
 | **Lifecycle hook** | `RegistryEntry.onDispose?` | Called from explicit disposer, `removeBySource`, and `'replace'` overrides; errors routed to telemetry |
 | **Federation prefetch** | `prefetchCapabilities({ remote })` | Manifest-only registration without bundle load |
@@ -30,7 +30,13 @@ already built; the roadmap below is what's *next*, not what's missing.
 | **`showToolCalls` chat-shell input** | `<mvk-chat-shell [showToolCalls]>` | Three modes: `'full'` / `'compact'` / `'hidden'` for tool-call rendering verbosity in the transcript. |
 | **Telemetry sink** | `AgenticTelemetrySink` from M1 | OpenTelemetry adapter ships in the lib |
 | **Multi-agent orchestrator (demo)** | `examples/demo-server/` and `examples/demo-ediscovery-server/` | Sticky-by-thread, retry + keyword fallback, error surfacing |
-| **Enterprise reference application** | `examples/demo-ediscovery-{shared,server,shell,review,production,search,mcp}/` | Phases 0–7 of the [eDiscovery plan](./docs/plans/ediscovery-app-plan.md): 17 tools across 4 specialists, 3 federated MFE remotes, all 13 registries exercised, tamper-evident chain-of-custody, MCP for analyst desktops, persona permission filter. |
+| **Enterprise reference application** | `examples/demo-ediscovery-{shared,server,shell,review,production,search,mcp}/` | Phases 0–8 of the [eDiscovery plan](./docs/plans/ediscovery-app-plan.md) PLUS Capabilities F1–F6 from the [r3 plan](./docs/plans/ediscovery-dynamic-ui-plan.md): 25+ tools across 4 specialists, 3 federated MFE remotes, all 15 registries exercised (including F4 `ApprovalRegistry` + F5 `OperationRegistry`), tamper-evident chain-of-custody extended with `tool-approved` / `tool-rejected` / `operation-*` events, MCP for analyst desktops, persona permission filter, `/approvals` queue + `/operations` panel routes. |
+| **F1 — Composable forms at runtime** | `agenticForm({ composition })` + `CompositionStore` + `<mvk-form-renderer>` composition branch | Closed-AST `if` DSL (===, !==, &&, \|\|, dotted access, parens, literals) parsed at registration. `predicate` escape hatch. Drop/keep banner on dirty unmounts. Per [r3 plan](./docs/plans/ediscovery-dynamic-ui-plan.md), [cookbook](./docs/cookbook/composable-intake-form.md). |
+| **F2 — Live data fetching from generated UI** | `ComponentDef.dataSources` + `DataSourceRegistry.getTyped<>()` | Mount-time validation surfaces missing sources as inline placeholder. Adapter swap (mock → REST → GraphQL) without widget changes. `data_source.query_ms` histogram automatic. [Cookbook](./docs/cookbook/widgets-with-live-data.md). |
+| **F3 — Guided multi-step workflows (provisional registry)** | `agenticWorkflow({ steps, onComplete })` + `<mvk-workflow-renderer>` | `next: string \| null \| (state) => string \| null`. Reuses F1 `CompositionStore` so Back preserves prior step values. Carried on `FormDef.workflow?` until ARB ratifies promotion to top-level `WorkflowRegistry`. [Cookbook](./docs/cookbook/interactive-workflows.md). |
+| **F4 — Human-in-the-loop approval** | `agenticApproval({...})` + `ApprovalRegistry` + `<mvk-approval-card>` | Chat-shell intercept queues approval-gated tool calls; `/approvals` page + sidebar badge for cross-persona handoff; `tool-approved` / `tool-rejected` audit-chain events via `AGENTIC_APPROVAL_AUDIT_HOOK`. [ADR-009](./docs/adr/0009-approval-intercept-and-audit-hook.md), [cookbook](./docs/cookbook/approval-flow.md). |
+| **F5 — Long-running operations** | `agenticTool({ longRunning: true })` + `OperationRegistry` + `<mvk-operation-progress>` | `ToolContext` carries `startOperation/reportProgress/completeOperation/failOperation`. `/operations` page + sidebar badge. `operation-{started,progress,finished,failed}` audit events via `AGENTIC_OPERATION_AUDIT_HOOK`. [Cookbook](./docs/cookbook/long-running-operations.md). |
+| **F6 — Multi-modal input (slice 1: composer + types)** | `MessageContent` union + `<mvk-chat-shell>` paperclip / drag-drop / paste-image | Per-file MIME allow-list + size cap client-side. `BackendCapabilities.multiModal?` flag; non-multi-modal backends graceful-degrade with `console.warn` + telemetry. Mic / `SpeechRecognition` and server upload route in slice 2. [Cookbook](./docs/cookbook/multi-modal-input.md). |
 
 ## Roadmap at a glance
 
@@ -142,6 +148,8 @@ Highest distribution multiplier — every existing tool gains a new audience. Va
 ---
 
 ## 1.2 — User-in-the-loop confirmations
+
+> **Superseded by Capability F4 (shipped).** The HITL pattern shipped as a richer surface than this section originally proposed: a typed `ApprovalRegistry`, an `<mvk-approval-card>` widget, a `/approvals` queue page for asynchronous handoff, and an `AGENTIC_APPROVAL_AUDIT_HOOK` that mirrors decisions into the tamper-evident audit chain. See the [approval-flow cookbook](./docs/cookbook/approval-flow.md) and [ADR-009](./docs/adr/0009-approval-intercept-and-audit-hook.md). The original section below is preserved for historical context.
 
 ### Industry context
 
@@ -340,6 +348,8 @@ E2B, Modal, Riza — agents that run arbitrary Python/Node/Bash in a sandbox. Si
 **Effort**: ~1 week including a working E2B adapter. **Risk**: sandbox cost (E2B charges per minute); document.
 
 ## 2.4 — Voice / multimodal backend
+
+> **Partially shipped via Capability F6 (slice 1).** The composer-side multi-modal input — paperclip / drag-drop / paste-image with `MessageContent` typed parts — landed in slice 1. The microphone / `SpeechRecognition` path and the server-side upload route (`agUiUploadHandler`) are F6 slice 2. The fully bidirectional realtime audio + video path (OpenAI Realtime / Gemini Live) is still in scope here as the larger backend-protocol effort. See the [multi-modal-input cookbook](./docs/cookbook/multi-modal-input.md) for the typed input shape that's available now.
 
 OpenAI Realtime API, Gemini Live. Bidirectional audio + video in the same chat session.
 

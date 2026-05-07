@@ -208,5 +208,11 @@ function standaloneCtx() {
     runId: id,
     toolCallId: id,
     signal: new AbortController().signal,
+    // Capability F5 LRO surface — standalone path is synchronous, so
+    // these are typed stubs.
+    startOperation: () => `op-standalone-${Date.now()}`,
+    reportProgress: () => undefined,
+    completeOperation: () => undefined,
+    failOperation: () => undefined,
   };
 }

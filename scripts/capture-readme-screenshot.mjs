@@ -49,8 +49,8 @@ async function main() {
 
   // Drive the chat: type the prompt, send, wait for the assistant's
   // app-custodian-card widget. Same prompt the e2e suite uses.
-  const composer = page.locator('mvk-chat-shell form.composer input');
-  await composer.fill('Add Sarah Chen as a custodian on this matter');
+  const composer = page.locator('mvk-chat-shell form.composer input[name="composer"]');
+  await composer.fill('Add Sarah Chen (schen@acme.com, Finance) as a custodian on this matter');
   await page.locator('mvk-chat-shell form.composer button[type="submit"]').click();
   console.log('→ prompt sent; waiting for custodian-card …');
 

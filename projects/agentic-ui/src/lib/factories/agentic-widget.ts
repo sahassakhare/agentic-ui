@@ -6,6 +6,12 @@ export interface AgenticWidgetConfig {
   readonly name: string;
   readonly component: Type<unknown>;
   readonly propsSchema: ZodTypeAny;
+  /**
+   * Optional list of `DataSourceRegistry` entry names this widget consumes
+   * (Capability F2). Mount-time machinery validates every declared name
+   * resolves before instantiating the component.
+   */
+  readonly dataSources?: readonly string[];
 }
 
 /**
@@ -18,5 +24,6 @@ export function agenticWidget(config: AgenticWidgetConfig): ComponentDef {
     name: config.name,
     component: config.component,
     propsSchema: config.propsSchema,
+    ...(config.dataSources !== undefined ? { dataSources: config.dataSources } : {}),
   };
 }

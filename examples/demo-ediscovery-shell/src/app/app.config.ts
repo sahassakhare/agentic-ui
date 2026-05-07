@@ -10,6 +10,9 @@ import {
 import { provideRouter } from '@angular/router';
 import { loadRemoteModule } from '@angular-architects/native-federation';
 import {
+  AGENTIC_ACTIVE_PERSONA,
+  AGENTIC_APPROVAL_AUDIT_HOOK,
+  AGENTIC_OPERATION_AUDIT_HOOK,
   keywordToolFilter,
   loadRemoteCapabilities,
   MfeRegistryClient,
@@ -20,12 +23,15 @@ import {
   provideStaticJsonMfeRegistry,
   provideToolFilter,
   ToolRegistry,
+  type ApprovalAuditEvent,
   type CapabilityModule,
+  type OperationAuditEvent,
 } from '@maverick/agentic-ui';
+import { appendAudit, isoNow, nextAuditId } from '@maverick/demo-ediscovery-shared';
 
 import { environment } from '../environments/environment';
 import { routes } from './app.routes';
-import { buildTools, registerForms, widgets } from './agentic/agentic';
+import { buildTools, registerApprovals, registerDataSources, registerForms, widgets } from './agentic/agentic';
 import { registerNavigationActions } from './agentic/navigation-actions';
 import { PersonaService } from './services/persona.service';
 
@@ -51,8 +57,16 @@ function telemetryProvider() {
 function bootAgenticCapabilities() {
   return provideAppInitializer(() => {
     const env = inject(EnvironmentInjector);
+    // Data sources MUST register before forms — composition widgets that
+    // declare `dataSources` validate at mount, and mount happens as soon
+    // as the agent surfaces a form-card widget (Capability F2).
+    registerDataSources(env);
     registerForms(env);
     registerNavigationActions(env);
+    // Approval policies (Capability F4) must register before the chat
+    // intercept fires — paralegal turns triggering exportProductionSet
+    // from the moment the shell boots get queued correctly.
+    registerApprovals(env);
     inject(ToolRegistry).registerAll(buildTools(env));
   });
 }
@@ -174,6 +188,77 @@ export const appConfig: ApplicationConfig = {
     provideAgUiBackend({ url: environment.agentUrl }),
     provideStaticJsonMfeRegistry({ url: environment.mfeRegistryUrl }),
     telemetryProvider(),
+    // Capability F4 — wire the approval intercept to read the active
+    // persona from PersonaService. Closing over the singleton keeps the
+    // accessor reactive across every chat-turn intercept.
+    {
+      provide: AGENTIC_ACTIVE_PERSONA,
+      useFactory: () => {
+        const persona = inject(PersonaService);
+        return () => persona.active();
+      },
+    },
+    // Capability F4 — translate every approval transition into an
+    // audit-chain entry (AC-F4-6, r3 plan §7.8). New event kinds:
+    // 'tool-approved' / 'tool-rejected'. The chain primitive auto-stamps
+    // prevHash + chainHash; verifyAuditChain() recomputes hashes on every
+    // read so the new kinds participate in tamper detection automatically.
+    {
+      provide: AGENTIC_APPROVAL_AUDIT_HOOK,
+      useFactory: () => {
+        const persona = inject(PersonaService);
+        return ({ approval, decision, previousStatus }: ApprovalAuditEvent) => {
+          appendAudit({
+            id: nextAuditId(),
+            matterId: environment.matterId,
+            actor: approval.approverPersona ?? persona.active(),
+            action: decision === 'approved' ? 'tool-approved' : 'tool-rejected',
+            target: { type: 'tool', id: approval.toolName },
+            before: {
+              status: previousStatus,
+              args: approval.args,
+              requesterPersona: approval.requesterPersona,
+            },
+            after: {
+              status: decision,
+              comment: approval.comment,
+            },
+            reason: approval.comment,
+            timestamp: approval.decidedAt ?? isoNow(),
+          });
+        };
+      },
+    },
+    // Capability F5 — translate every Operation lifecycle transition
+    // into an audit-chain entry (AC-F5-5, r3 plan §7.8). New event
+    // kinds: 'operation-started' / '-progress' / '-finished' / '-failed'.
+    // Progress events are emitted often; the audit chain captures every
+    // one so chain-of-custody reports include the full lifecycle.
+    {
+      provide: AGENTIC_OPERATION_AUDIT_HOOK,
+      useFactory: () => {
+        const persona = inject(PersonaService);
+        return ({ operation, transition, previousStatus }: OperationAuditEvent) => {
+          appendAudit({
+            id: nextAuditId(),
+            matterId: environment.matterId,
+            actor: persona.active(),
+            action: `operation-${transition}`,
+            target: { type: 'operation', id: operation.opId },
+            before: { status: previousStatus, pct: operation.pct ?? 0 },
+            after: {
+              status: operation.status,
+              pct: operation.pct,
+              phase: operation.phase,
+              result: operation.result,
+              error: operation.error,
+              durationMs: operation.durationMs,
+            },
+            timestamp: isoNow(),
+          });
+        };
+      },
+    },
     // Phase 8 — `setScopePolicy` on ToolRegistry handles the persona
     // filter (in installPersonaScopePolicy below). The chat shell sees
     // the already-filtered tools through ToolRegistry.signal(), so the

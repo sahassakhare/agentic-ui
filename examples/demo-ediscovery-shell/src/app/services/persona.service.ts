@@ -52,19 +52,27 @@ export const PERSONAS: readonly PersonaProfile[] = [
       // Draft productions (no exportProductionSet — that's lead counsel only)
       'createProductionSet', 'assignBatesNumbers', 'redactDocument',
       'generateChainOfCustodyReport',
+      // Custodian intake — associate can prep an intake form for
+      // supervisor sign-off (F1 supervisor section fires on
+      // persona !== 'lead-counsel').
+      'openCustodianIntake', 'generateCustodianIntakeForm',
     ],
   },
   {
     id: 'paralegal',
     label: 'Paralegal',
     initials: 'PL',
-    description: 'Read + tag + TAR; no privilege rulings, no hold ops, no productions',
+    description: 'Intake prep + read + tag + TAR; no privilege rulings, no hold ops, no productions',
     allowedTools: [
       'searchDocuments', 'listCustodians',
       'semanticSearch', 'filterByDateRange', 'filterByCustodians', 'runTARClassifier',
       'tagDocument',
       // Privilege-log SNAPSHOT — paralegals can record but not RULE on privilege
       'addToPrivilegeLog',
+      // Custodian intake — paralegal preps the intake form (F1
+      // supervisor sign-off section appears because persona !==
+      // 'lead-counsel'). The actual addCustodian remains gated.
+      'openCustodianIntake', 'generateCustodianIntakeForm',
     ],
   },
   {
@@ -77,6 +85,8 @@ export const PERSONAS: readonly PersonaProfile[] = [
       'placeLegalHold', 'acknowledgeLegalHold',
       // Limited search — useful for verifying collections completed
       'filterByCustodians', 'filterByDateRange',
+      // F1 intake forms — both predefined and agent-generated
+      'openCustodianIntake', 'generateCustodianIntakeForm',
     ],
   },
   {
