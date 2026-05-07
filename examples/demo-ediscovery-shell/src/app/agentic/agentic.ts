@@ -27,6 +27,7 @@ import { MatterStore } from '../services/matter.store';
 import { PersonaService } from '../services/persona.service';
 import { CustodianCardComponent } from './custodian-card.component';
 import { CustodianIntakeCardComponent } from './custodian-intake-card.component';
+import { DynamicFormCardComponent } from './dynamic-form-card.component';
 import {
   IntakeAccountingSystemsComponent,
   IntakeIdentityComponent,
@@ -65,6 +66,7 @@ export function buildTools(env: EnvironmentInjector): ToolDef[] {
     releaseLegalHoldTool(env) as ToolDef,
     acknowledgeLegalHoldTool(env) as ToolDef,
     openCustodianIntakeTool(env) as ToolDef,
+    generateCustodianIntakeFormTool() as ToolDef,
     openPlaceLegalHoldWorkflowTool() as ToolDef,
     runTARClassifierTool() as ToolDef,
   ];
@@ -128,7 +130,10 @@ export const widgets: ComponentDef[] = [
     component: CustodianIntakeCardComponent,
     propsSchema: z.object({
       matterType: z.string(),
-      persona: z.string(),
+      // Persona is optional — the widget reads the live persona from
+      // PersonaService so the form's predicate context stays reactive
+      // when the user switches persona via the header dropdown.
+      persona: z.string().optional(),
       department: z.string().optional(),
     }),
   }),
@@ -187,6 +192,20 @@ export const widgets: ComponentDef[] = [
     name: 'mvk-operation-progress',
     component: OperationProgressComponent,
     propsSchema: z.object({ opId: z.string() }),
+  }),
+  // ── F1 (Approach 2) — fully agent-generated form ───────────────────────
+  // The agent emits the entire form schema as the tool argument; the
+  // widget validates + renders. Compare with `custodianIntakeCard`
+  // above (Approach 1) which mounts a registered FormDef and gates
+  // pre-built section widgets via predicates.
+  agenticWidget({
+    name: 'dynamicFormCard',
+    component: DynamicFormCardComponent,
+    // Pass-through: the strict shape lives inside the widget
+    // (`dynamicFormSchema` Zod), so the agent can emit any reasonable
+    // form spec and the widget reports parse errors inline if it
+    // misses a constraint.
+    propsSchema: z.object({ schema: z.unknown() }),
   }),
 ];
 
@@ -685,8 +704,12 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
       'user wants to onboard a new custodian. The form renders different ' +
       'sections (compliance disclosure, supervisor sign-off, accounting ' +
       'system picker) based on matter type, persona, and the custodian’s ' +
-      'department. Pass `department` if the user mentioned it; otherwise ' +
-      'leave it blank and the form will skip the accounting-systems section.',
+      'department. CALL THIS TOOL EXACTLY ONCE PER USER REQUEST. Before ' +
+      'calling, extract the department from the user message — phrases ' +
+      'like "from the Finance team", "Engineering custodian", "in Legal" ' +
+      'all map to a department string. Pass it as `department`. Only omit ' +
+      '`department` when the user gave no department hint at all (then the ' +
+      'form skips the accounting-systems section).',
     schema: z.object({
       department: z.string().optional()
         .describe("The custodian's department (e.g. 'Finance', 'Engineering')"),
@@ -710,6 +733,82 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
             `persona **${persona}**${department ? `, department **${department}**` : ''}.`,
         };
       });
+    },
+  });
+}
+
+/**
+ * Capability F1 (Approach 2) — fully agent-generated form.
+ *
+ * Counterpart to {@link openCustodianIntakeTool}. Where Approach 1 lets
+ * the LLM only supply *context* (`matterType`, `persona`, `department`)
+ * and the host composes a predefined catalog via the F1 closed-AST
+ * predicate evaluator, this tool lets the agent emit the *whole form
+ * schema* — title, sections, fields, types, options, required-ness —
+ * each turn. The widget's strict Zod dialect guards the surface
+ * (`dynamicFormSchema`): max 8 sections, max 12 fields/section, string
+ * length caps, allow-listed field types only.
+ *
+ * Trade-offs in flight:
+ * - Pro: any one-off intake the agent invents on the fly; no catalog
+ *   touching needed for new shapes.
+ * - Con: no named-form audit signature, no domain-handler guarantees;
+ *   submit dispatches to a generic mapper that opportunistically calls
+ *   `MatterStore.addCustodian` when `name` + `email` are present.
+ *
+ * Use this tool when the user explicitly asks the agent to "generate"
+ * or "design" a form, or when the form is genuinely one-off. Prefer
+ * `openCustodianIntake` for repeatable workflows that need stable
+ * audit trails.
+ */
+const dynamicFieldSchemaForTool = z.object({
+  name: z.string(),
+  label: z.string(),
+  type: z.enum(['text', 'email', 'textarea', 'select', 'multiselect', 'checkbox', 'number']),
+  required: z.boolean().optional(),
+  placeholder: z.string().optional(),
+  helpText: z.string().optional(),
+  options: z.array(z.string()).optional(),
+});
+
+function generateCustodianIntakeFormTool() {
+  return agenticTool({
+    name: 'generateCustodianIntakeForm',
+    description:
+      'Generate a custodian intake form on the fly. Use when the user ' +
+      'asks the agent to "design", "generate", "author", or "create" a ' +
+      'form rather than open the existing one. Emit the full form ' +
+      'schema yourself — title, sections, fields. Best practice: include ' +
+      'an Identity section with name + email + department fields so the ' +
+      'system can register the resulting custodian. Field types: text, ' +
+      'email, textarea, select, multiselect, checkbox, number. ' +
+      'CALL THIS TOOL EXACTLY ONCE PER USER REQUEST.',
+    schema: z.object({
+      title: z.string().describe('Form title shown at the top of the card'),
+      description: z.string().optional()
+        .describe('One- to two-sentence subtitle explaining the purpose of the form'),
+      submitLabel: z.string().optional().describe('Custom submit button label'),
+      sections: z.array(z.object({
+        title: z.string(),
+        description: z.string().optional(),
+        fields: z.array(dynamicFieldSchemaForTool).min(1),
+      })).min(1).describe('Ordered list of form sections; each must have at least one field'),
+    }),
+    handler: async (schema) => {
+      // The widget validates the schema again with the strict dialect
+      // (`dynamicFormSchema` in dynamic-form-card.component.ts) and
+      // surfaces parse errors inline if anything slipped past Gemini's
+      // schema coercion.
+      return {
+        components: [{
+          name: 'dynamicFormCard',
+          props: { schema },
+        }],
+        markdown:
+          `Generated form **${schema.title}** with ${schema.sections.length} ` +
+          `section${schema.sections.length === 1 ? '' : 's'}, ` +
+          `${schema.sections.reduce((s, sec) => s + sec.fields.length, 0)} fields total.`,
+      };
     },
   });
 }

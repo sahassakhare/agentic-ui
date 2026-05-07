@@ -1,7 +1,114 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
 import { ChatShellComponent, ToolRegistry, CapabilityRegistry } from '@maverick/agentic-ui';
 import { IconComponent } from '../ui/icon.component';
 import { PersonaService } from '../services/persona.service';
+
+/**
+ * Curated prompt catalog surfaced in the right-rail "Try asking" panel.
+ * Single source of truth: a tweaked subset of the prompts in
+ * `docs/cookbook/sample-prompts.md`'s eDiscovery section, grouped so the
+ * 360-px rail stays readable. Each entry can carry a capability tag
+ * (F1–F6) which renders as a small badge so the viewer can see at a
+ * glance which dynamic-UI capability the prompt exercises.
+ *
+ * `requiresAttachment` flags prompts that need a file attached before
+ * sending (F6 multi-modal). Click is disabled in that case and a
+ * tooltip explains the precondition.
+ */
+type Capability = 'F1' | 'F1-dyn' | 'F2' | 'F3' | 'F4' | 'F5' | 'F6';
+
+/** Visible label for each capability badge (CSS class follows the id directly). */
+const CAPABILITY_LABEL: Record<Capability, string> = {
+  'F1':     'F1',
+  'F1-dyn': 'F1*',
+  'F2':     'F2',
+  'F3':     'F3',
+  'F4':     'F4',
+  'F5':     'F5',
+  'F6':     'F6',
+};
+
+/** Tooltip explaining the capability the prompt exercises. */
+const CAPABILITY_TITLE: Record<Capability, string> = {
+  'F1':     'F1 — composable form (predefined catalog + predicate-gated sections)',
+  'F1-dyn': 'F1* — agent-generated form (LLM emits the entire schema; widget renders + validates)',
+  'F2':     'F2 — live data (DataSource adapter feeds widget state)',
+  'F3':     'F3 — guided workflow (multi-step wizard with conditional jumps)',
+  'F4':     'F4 — HITL approval (tool intercept; persona-gated sign-off)',
+  'F5':     'F5 — long-running operation (progress streaming via OperationRegistry)',
+  'F6':     'F6 — multi-modal input (drag a PDF first, then click)',
+};
+
+interface PromptItem {
+  readonly text: string;
+  readonly capability?: Capability;
+  readonly requiresAttachment?: boolean;
+}
+
+interface PromptGroup {
+  readonly id: string;
+  readonly title: string;
+  readonly prompts: readonly PromptItem[];
+}
+
+const PROMPT_GROUPS: readonly PromptGroup[] = [
+  {
+    id: 'custodians',
+    title: 'Custodians',
+    prompts: [
+      { text: 'Open the custodian intake form for a Finance team member', capability: 'F1' },
+      { text: 'Generate a custodian intake form yourself, ask me name, email, department, and any compliance acknowledgements you think are needed', capability: 'F1-dyn' },
+      { text: 'Onboard a custodian, type Eleanor for the supervisor', capability: 'F2' },
+      { text: 'Add Sarah Chen as a custodian, sarah.chen@acme.example, Engineering' },
+      { text: 'List all custodians on this matter' },
+    ],
+  },
+  {
+    id: 'holds',
+    title: 'Legal holds',
+    prompts: [
+      { text: 'Open the place-legal-hold wizard', capability: 'F3' },
+      { text: 'Place a legal hold on Sarah Chen — scope: emails about Project Phoenix from Jan 2025' },
+      { text: 'Show me pending hold acknowledgements' },
+      { text: "Release HOLD-001, it's redundant", capability: 'F4' },
+    ],
+  },
+  {
+    id: 'review',
+    title: 'Search & review',
+    prompts: [
+      { text: "Search documents tagged 'responsive' but not 'privileged'" },
+      { text: 'Find documents about Project Phoenix' },
+      { text: 'Tag DOC-7891240 as privileged — work-product' },
+      { text: 'Mark DOC-7891236 as attorney-client privileged' },
+    ],
+  },
+  {
+    id: 'productions',
+    title: 'Productions',
+    prompts: [
+      { text: 'Create production set PROD-002 with the responsive non-privileged docs from January' },
+    ],
+  },
+  {
+    id: 'operations',
+    title: 'Long-running operations',
+    prompts: [
+      { text: 'Run TAR classification on the un-tagged corpus for SEC inquiry', capability: 'F5' },
+    ],
+  },
+  {
+    id: 'multimodal',
+    title: 'Multi-modal',
+    prompts: [
+      {
+        text: 'Apply this rubric to the un-tagged set',
+        capability: 'F6',
+        requiresAttachment: true,
+      },
+    ],
+  },
+];
 
 /**
  * Right-rail wrapper for `<mvk-chat-shell>`. Adds an enterprise-grade
@@ -49,16 +156,41 @@ import { PersonaService } from '../services/persona.service';
           <svg-icon name="users" [size]="13" />
           <span>Speaking as <strong>{{ persona() }}</strong> · {{ persona() === 'lead-counsel' ? 'full access' : 'scoped tools' }}</span>
         </div>
-        <div class="hints">
-          <p class="hint-title">Try asking</p>
-          <ul>
-            <li>"Add Sarah Chen as a custodian on this matter"</li>
-            <li>"Find documents about Project Phoenix"</li>
-            <li>"Mark DOC-7891236 as attorney-client privileged"</li>
-            <li>"Show pending hold acknowledgements"</li>
-          </ul>
+        <div class="hints" [class.expanded]="hintsExpanded()">
+          <button type="button" class="hint-toggle" (click)="toggleHints()"
+                  [attr.aria-expanded]="hintsExpanded()">
+            <span class="hint-title">Try asking</span>
+            <span class="hint-meta">{{ totalPromptCount() }} prompts</span>
+            <svg-icon name="chevron-down" [size]="14" class="hint-chevron"
+                      [class.rotated]="hintsExpanded()" />
+          </button>
+          @if (hintsExpanded()) {
+            <div class="hint-groups">
+              @for (group of promptGroups; track group.id) {
+                <section class="hint-group">
+                  <h4>{{ group.title }}</h4>
+                  <div class="hint-items">
+                    @for (p of group.prompts; track p.text) {
+                      <button type="button" class="hint-item"
+                              [class.disabled]="p.requiresAttachment"
+                              [disabled]="p.requiresAttachment"
+                              [attr.title]="p.requiresAttachment ? 'Drag a PDF onto the chat first, then click' : 'Send this prompt'"
+                              (click)="runPrompt(p.text)">
+                        @if (p.capability) {
+                          <span class="cap-badge cap-{{p.capability}}"
+                                [attr.title]="capabilityTitle(p.capability)">{{ capabilityLabel(p.capability) }}</span>
+                        }
+                        <span class="hint-text">{{ p.text }}</span>
+                        @if (p.requiresAttachment) { <span class="attach-icon" aria-hidden="true">📎</span> }
+                      </button>
+                    }
+                  </div>
+                </section>
+              }
+            </div>
+          }
         </div>
-        <div class="chat-host"><mvk-chat-shell [showToolCalls]="verbosity()" /></div>
+        <div class="chat-host"><mvk-chat-shell #chatShell [showToolCalls]="verbosity()" /></div>
       }
     </aside>
   `,
@@ -132,21 +264,69 @@ import { PersonaService } from '../services/persona.service';
     .persona-strip strong { color: var(--c-text); text-transform: capitalize; }
 
     .hints {
-      padding: var(--s-3) var(--s-4) var(--s-2);
+      padding: var(--s-2) var(--s-4) var(--s-2);
+      border-bottom: 1px solid var(--c-divider);
+      flex-shrink: 0;
     }
+    .hints.expanded { max-height: 320px; overflow-y: auto; }
+    .hint-toggle {
+      width: 100%; display: flex; align-items: center; gap: var(--s-2);
+      padding: 0.35rem 0.1rem; background: transparent; border: 0; cursor: pointer;
+      color: var(--c-text-mute);
+    }
+    .hint-toggle:hover { color: var(--c-text); }
     .hint-title {
-      margin: 0 0 var(--s-2);
+      flex: 1; text-align: left;
       font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em;
       color: var(--c-text-faint); font-weight: 600;
     }
-    .hints ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-    .hints li {
-      padding: 0.35rem 0.55rem;
-      background: var(--c-surface-1); border: 1px solid var(--c-border);
-      border-radius: var(--r-sm); font-size: 0.78rem; color: var(--c-text-2);
-      cursor: pointer; transition: background var(--t-fast), border-color var(--t-fast);
+    .hint-meta {
+      font-size: 0.65rem; color: var(--c-text-mute);
+      padding: 1px 6px; background: var(--c-surface-2); border-radius: var(--r-pill);
+      font-variant-numeric: tabular-nums;
     }
-    .hints li:hover { background: var(--c-brand-tint); border-color: var(--c-brand-soft); color: var(--c-brand-strong); }
+    .hint-groups { display: grid; gap: var(--s-2); padding-top: 4px; }
+    .hint-group h4 {
+      margin: 0 0 4px; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--c-text-mute);
+    }
+    .hint-items { display: grid; gap: 3px; }
+    .hint-item {
+      display: flex; align-items: center; gap: 0.4rem;
+      width: 100%; padding: 0.35rem 0.55rem; text-align: left;
+      background: var(--c-surface-1); border: 1px solid var(--c-border);
+      border-radius: var(--r-sm); font-size: 0.74rem; color: var(--c-text-2);
+      cursor: pointer; transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+      font-family: inherit;
+    }
+    .hint-item:hover:not(:disabled) {
+      background: var(--c-brand-tint); border-color: var(--c-brand-soft);
+      color: var(--c-brand-strong);
+    }
+    .hint-item.disabled, .hint-item:disabled {
+      opacity: 0.55; cursor: not-allowed;
+    }
+    .hint-item .hint-text { flex: 1; line-height: 1.25; }
+    .hint-item .attach-icon { font-size: 0.85rem; flex-shrink: 0; }
+    .cap-badge {
+      flex-shrink: 0;
+      font-size: 0.58rem; font-weight: 700;
+      padding: 1px 5px; border-radius: 3px;
+      letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
+      color: white; line-height: 1.4;
+    }
+    .cap-F1 { background: #2563eb; }  /* blue — composable form (predefined) */
+    /* F1* — agent-generated form (Approach 2). Same blue family, but a
+       gradient hints at "the LLM authored this". CSS class name uses
+       a numeric suffix because '*' isn't a valid bare class char. */
+    .cap-F1-dyn { background: linear-gradient(90deg, #2563eb 0%, #db2777 100%); }
+    .cap-F2 { background: #0891b2; }  /* cyan — live data */
+    .cap-F3 { background: #7c3aed; }  /* violet — workflow */
+    .cap-F4 { background: #d97706; }  /* amber — approval */
+    .cap-F5 { background: #059669; }  /* green — long-running */
+    .cap-F6 { background: #db2777; }  /* pink — multi-modal */
+    .hint-chevron { transition: transform var(--t-fast); }
+    .hint-chevron.rotated { transform: rotate(180deg); }
 
     .chat-host {
       flex: 1; min-height: 0;
@@ -160,6 +340,7 @@ export class ChatRailComponent {
   private readonly toolRegistry = inject(ToolRegistry);
   private readonly capabilityRegistry = inject(CapabilityRegistry);
   private readonly personaService = inject(PersonaService);
+  private readonly chatShell = viewChild<ChatShellComponent>('chatShell');
 
   protected readonly toolCount = computed(() => this.toolRegistry.signal().length);
   protected readonly persona = this.personaService.active;
@@ -173,6 +354,27 @@ export class ChatRailComponent {
 
   protected readonly collapsed = signal(false);
   toggle(): void { this.collapsed.update((v) => !v); }
+
+  protected readonly promptGroups = PROMPT_GROUPS;
+  protected readonly totalPromptCount = computed(() =>
+    PROMPT_GROUPS.reduce((sum, g) => sum + g.prompts.length, 0),
+  );
+  protected readonly hintsExpanded = signal(false);
+  toggleHints(): void { this.hintsExpanded.update((v) => !v); }
+
+  protected capabilityLabel(c: Capability): string { return CAPABILITY_LABEL[c]; }
+  protected capabilityTitle(c: Capability): string { return CAPABILITY_TITLE[c]; }
+
+  /**
+   * Send a curated prompt as if the user typed it. The prompt panel
+   * collapses after submit so the transcript has the rail's full height.
+   */
+  runPrompt(text: string): void {
+    const shell = this.chatShell();
+    if (!shell) return;
+    shell.sendMessage(text);
+    this.hintsExpanded.set(false);
+  }
 
   /**
    * Tool-call rendering mode forwarded into the library's chat shell.
