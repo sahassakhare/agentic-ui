@@ -175,7 +175,7 @@ Agentic UIs are easy to demo and hard to ship. The pain compounds across six axe
 
 ## Use cases
 
-Fifteen distinct scenarios the library covers, ranked roughly by adoption order. Pick the rows your team will hit; the rest are opt-in via DI.
+Sixteen distinct scenarios the library covers, ranked roughly by adoption order. Pick the rows your team will hit; the rest are opt-in via DI.
 
 | # | Use case | Library seam | Audience |
 |---|---|---|---|
@@ -194,6 +194,7 @@ Fifteen distinct scenarios the library covers, ranked roughly by adoption order.
 | 13 | **Guided multi-step workflows** — one widget per step, conditional `next` branches on aggregated state, Back preserves prior values, terminal Submit runs the same domain handler as the equivalent one-shot tool | `agenticWorkflow({ steps, onComplete })` · `<mvk-workflow-renderer>` ([cookbook](./docs/cookbook/interactive-workflows.md)) | Architects + product |
 | 14 | **Human-in-the-loop approval** — the agent drafts an irreversible action; chat-shell intercept queues it for HITL; senior reviewer approves or rejects from an inline card or the `/approvals` queue page; every transition appends to the same tamper-evident audit chain (`tool-approved` / `tool-rejected`) | `agenticApproval({...})` · `ApprovalRegistry` · `<mvk-approval-card>` · `AGENTIC_APPROVAL_AUDIT_HOOK` ([cookbook](./docs/cookbook/approval-flow.md)) | Execs + architects + compliance |
 | 15 | **Long-running operations** — tools that take minutes return immediately with an `opId`; chat shows live progress inline; `/operations` page lists in-flight + recent across routes; lifecycle (started/progress/finished/failed) participates in the same audit chain | `agenticTool({ longRunning: true, ... })` · `OperationRegistry` · `<mvk-operation-progress>` · `AGENTIC_OPERATION_AUDIT_HOOK` ([cookbook](./docs/cookbook/long-running-operations.md)) | Architects + product + SRE |
+| 16 | **Multi-modal input** — paperclip / drag-drop / paste-image on the chat composer; client-side MIME + size validation; transcript renders text / image / file parts; backends without multi-modal capability text-only fallback with explicit warning | `MessageContent` union · `BackendCapabilities.multiModal` · `<mvk-chat-shell>` composer affordances ([cookbook](./docs/cookbook/multi-modal-input.md)) | Architects + product |
 
 > **Each use case has a dedicated walkthrough in the [User Guide → Use cases](./docs/USER_GUIDE.md#use-cases).** The walkthroughs include scenario, library responsibility, minimal wiring code, and a link to the relevant cookbook entry.
 
