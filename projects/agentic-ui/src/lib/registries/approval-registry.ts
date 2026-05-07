@@ -1,6 +1,58 @@
-import { Injectable, computed, signal, type Signal } from '@angular/core';
+import { Injectable, InjectionToken, computed, inject, signal, type Signal } from '@angular/core';
 import { RegistryBase } from './registry-base';
 import type { Approval, ApprovalDef, ApprovalStatus } from '../types/registry-defs';
+
+/**
+ * Event payload delivered to {@link AGENTIC_APPROVAL_AUDIT_HOOK} after every
+ * successful approval transition. Hosts translate this into their own
+ * audit-chain primitive (Capability F4 — r3 plan §7.8 + AC-F4-6).
+ */
+export interface ApprovalAuditEvent {
+  /** The post-transition approval record (status === decision). */
+  readonly approval: Approval;
+  /** The decision applied. */
+  readonly decision: 'approved' | 'rejected';
+  /** The status the approval held before the transition. */
+  readonly previousStatus: ApprovalStatus;
+}
+
+/**
+ * Hook the host wires to translate approval transitions into their
+ * audit-chain. Default no-op so libraries that don't wire HITL pay
+ * nothing.
+ *
+ * Hook callers MUST be exception-safe: a throwing hook does NOT abort
+ * the transition (the registry already moved state); it logs to the
+ * telemetry sink and continues. The chain-validation property test
+ * surfaces any missing entries on the next read.
+ *
+ * @example
+ * ```ts
+ * provideAppInitializer(() => { ... }) // somewhere in app.config.ts
+ *
+ * { provide: AGENTIC_APPROVAL_AUDIT_HOOK, useFactory: () => {
+ *     const matter = inject(MatterStore);
+ *     return ({ approval, decision, previousStatus }) => {
+ *       appendAudit({
+ *         id: nextAuditId(),
+ *         matterId: matter.matterId,
+ *         actor: approval.approverPersona ?? 'system',
+ *         action: decision === 'approved' ? 'tool-approved' : 'tool-rejected',
+ *         target: { type: 'tool', id: approval.toolName },
+ *         before: { status: previousStatus, args: approval.args, requesterPersona: approval.requesterPersona },
+ *         after:  { status: decision, comment: approval.comment },
+ *         reason: approval.comment,
+ *         timestamp: approval.decidedAt ?? new Date().toISOString(),
+ *       });
+ *     };
+ *   }
+ * }
+ * ```
+ */
+export const AGENTIC_APPROVAL_AUDIT_HOOK = new InjectionToken<(event: ApprovalAuditEvent) => void>(
+  'AGENTIC_APPROVAL_AUDIT_HOOK',
+  { providedIn: 'root', factory: () => () => {} },
+);
 
 /**
  * Registry of approval policies keyed by tool name (Capability F4 — r3
@@ -26,6 +78,13 @@ import type { Approval, ApprovalDef, ApprovalStatus } from '../types/registry-de
 @Injectable({ providedIn: 'root' })
 export class ApprovalRegistry extends RegistryBase<ApprovalDef> {
   protected readonly registryName = 'approval';
+
+  /**
+   * Audit hook injected at construction. Called from {@link transition}
+   * after every successful state change so hosts can mirror the decision
+   * into their audit chain (per AC-F4-6).
+   */
+  private readonly auditHook = inject(AGENTIC_APPROVAL_AUDIT_HOOK);
 
   // ── Pending-approval state ────────────────────────────────────────────────
 
@@ -84,7 +143,14 @@ export class ApprovalRegistry extends RegistryBase<ApprovalDef> {
     return out;
   }
 
-  /** Apply a status transition to an approval. Throws if the id is unknown. */
+  /**
+   * Apply a status transition to an approval. Throws if the id is unknown
+   * or the approval is no longer pending. After a successful transition,
+   * fires the {@link AGENTIC_APPROVAL_AUDIT_HOOK} so hosts can mirror the
+   * decision into their audit chain. Hook failures are swallowed and
+   * surface on the chain-validation property test rather than aborting
+   * the in-memory transition.
+   */
   transition(
     id: string,
     next: 'approved' | 'rejected',
@@ -105,6 +171,16 @@ export class ApprovalRegistry extends RegistryBase<ApprovalDef> {
       decidedAt: fields.decidedAt ?? new Date().toISOString(),
     };
     this.records.update((s) => ({ ...s, [id]: updated }));
+    try {
+      this.auditHook({
+        approval: updated,
+        decision: next,
+        previousStatus: cur.status,
+      });
+    } catch {
+      // Hook failures must not roll back the in-memory transition.
+      // The audit-chain property test catches missing entries on read.
+    }
     return updated;
   }
 

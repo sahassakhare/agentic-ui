@@ -1,9 +1,13 @@
 import { TestBed } from '@angular/core/testing';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 
 import { agenticApproval } from '../factories/agentic-approval';
 import type { Approval } from '../types/registry-defs';
-import { ApprovalRegistry } from './approval-registry';
+import {
+  AGENTIC_APPROVAL_AUDIT_HOOK,
+  ApprovalRegistry,
+  type ApprovalAuditEvent,
+} from './approval-registry';
 
 function makeApproval(overrides: Partial<Approval> = {}): Approval {
   return {
@@ -145,5 +149,92 @@ describe('ApprovalRegistry (Capability F4)', () => {
         registry.transition('appr-1', 'rejected', { approverPersona: 'lead-counsel' }),
       ).toThrow(/already approved/);
     });
+  });
+});
+
+describe('ApprovalRegistry — AGENTIC_APPROVAL_AUDIT_HOOK (Capability F4 / AC-F4-6)', () => {
+  it('fires the audit hook with the post-transition approval + decision', () => {
+    const events: ApprovalAuditEvent[] = [];
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: AGENTIC_APPROVAL_AUDIT_HOOK,
+          useValue: (e: ApprovalAuditEvent) => events.push(e),
+        },
+      ],
+    });
+    const registry = TestBed.inject(ApprovalRegistry);
+    registry.clearApprovals();
+    registry.enqueue(makeApproval());
+
+    registry.transition('appr-1', 'approved', {
+      approverPersona: 'lead-counsel',
+      decidedAt: '2026-05-07T01:00:00.000Z',
+    });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      decision: 'approved',
+      previousStatus: 'pending',
+      approval: {
+        id: 'appr-1',
+        status: 'approved',
+        approverPersona: 'lead-counsel',
+        decidedAt: '2026-05-07T01:00:00.000Z',
+      },
+    });
+  });
+
+  it('fires on rejection with the comment populated', () => {
+    const events: ApprovalAuditEvent[] = [];
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: AGENTIC_APPROVAL_AUDIT_HOOK,
+          useValue: (e: ApprovalAuditEvent) => events.push(e),
+        },
+      ],
+    });
+    const registry = TestBed.inject(ApprovalRegistry);
+    registry.clearApprovals();
+    registry.enqueue(makeApproval());
+
+    registry.transition('appr-1', 'rejected', {
+      approverPersona: 'lead-counsel',
+      comment: 'scope too broad',
+    });
+
+    expect(events[0]).toMatchObject({
+      decision: 'rejected',
+      previousStatus: 'pending',
+      approval: { status: 'rejected', comment: 'scope too broad' },
+    });
+  });
+
+  it('a throwing hook does NOT roll back the transition', () => {
+    const hook = vi.fn(() => { throw new Error('audit-write failed'); });
+    TestBed.configureTestingModule({
+      providers: [{ provide: AGENTIC_APPROVAL_AUDIT_HOOK, useValue: hook }],
+    });
+    const registry = TestBed.inject(ApprovalRegistry);
+    registry.clearApprovals();
+    registry.enqueue(makeApproval());
+
+    // Transition succeeds despite the hook throwing.
+    expect(() =>
+      registry.transition('appr-1', 'approved', { approverPersona: 'lead-counsel' }),
+    ).not.toThrow();
+    expect(hook).toHaveBeenCalledOnce();
+    expect(registry.getApproval('appr-1')?.status).toBe('approved');
+  });
+
+  it('default no-op hook is silent (lib usage without F4 wired)', () => {
+    TestBed.configureTestingModule({});
+    const registry = TestBed.inject(ApprovalRegistry);
+    registry.clearApprovals();
+    registry.enqueue(makeApproval());
+    expect(() =>
+      registry.transition('appr-1', 'approved', { approverPersona: 'lead-counsel' }),
+    ).not.toThrow();
   });
 });
