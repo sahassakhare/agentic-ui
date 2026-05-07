@@ -1,6 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { ApprovalRegistry, CapabilityRegistry, ToolRegistry } from '@maverick/agentic-ui';
+import {
+  ApprovalRegistry,
+  CapabilityRegistry,
+  OperationRegistry,
+  ToolRegistry,
+} from '@maverick/agentic-ui';
 import { PersonaService } from '../services/persona.service';
 import { IconComponent, type IconName } from '../ui/icon.component';
 
@@ -138,6 +143,7 @@ export class SidebarComponent {
   private readonly toolRegistry = inject(ToolRegistry);
   private readonly capabilityRegistry = inject(CapabilityRegistry);
   private readonly approvalRegistry = inject(ApprovalRegistry);
+  private readonly operationRegistry = inject(OperationRegistry);
   private readonly persona = inject(PersonaService);
 
   protected readonly tools = computed(() => this.toolRegistry.signal().length);
@@ -152,6 +158,9 @@ export class SidebarComponent {
     () => this.approvalRegistry.pendingForApprover(this.persona.active()).length,
   );
 
+  /** Active (started + progress) operations — used as the Operations nav badge. */
+  private readonly activeOps = computed(() => this.operationRegistry.active().length);
+
   protected readonly items: readonly NavItem[] = [
     { path: '/', label: 'Dashboard', icon: 'dashboard' },
     { path: '/documents', label: 'Documents', icon: 'documents' },
@@ -165,6 +174,15 @@ export class SidebarComponent {
       icon: 'circle-check',
       badge: () => {
         const n = this.pendingForMe();
+        return n > 0 ? n : null;
+      },
+    },
+    {
+      path: '/operations',
+      label: 'Operations',
+      icon: 'bolt',
+      badge: () => {
+        const n = this.activeOps();
         return n > 0 ? n : null;
       },
     },

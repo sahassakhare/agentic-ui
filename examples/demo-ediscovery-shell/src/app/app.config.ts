@@ -12,6 +12,7 @@ import { loadRemoteModule } from '@angular-architects/native-federation';
 import {
   AGENTIC_ACTIVE_PERSONA,
   AGENTIC_APPROVAL_AUDIT_HOOK,
+  AGENTIC_OPERATION_AUDIT_HOOK,
   keywordToolFilter,
   loadRemoteCapabilities,
   MfeRegistryClient,
@@ -24,6 +25,7 @@ import {
   ToolRegistry,
   type ApprovalAuditEvent,
   type CapabilityModule,
+  type OperationAuditEvent,
 } from '@maverick/agentic-ui';
 import { appendAudit, isoNow, nextAuditId } from '@maverick/demo-ediscovery-shared';
 
@@ -223,6 +225,36 @@ export const appConfig: ApplicationConfig = {
             },
             reason: approval.comment,
             timestamp: approval.decidedAt ?? isoNow(),
+          });
+        };
+      },
+    },
+    // Capability F5 — translate every Operation lifecycle transition
+    // into an audit-chain entry (AC-F5-5, r3 plan §7.8). New event
+    // kinds: 'operation-started' / '-progress' / '-finished' / '-failed'.
+    // Progress events are emitted often; the audit chain captures every
+    // one so chain-of-custody reports include the full lifecycle.
+    {
+      provide: AGENTIC_OPERATION_AUDIT_HOOK,
+      useFactory: () => {
+        const persona = inject(PersonaService);
+        return ({ operation, transition, previousStatus }: OperationAuditEvent) => {
+          appendAudit({
+            id: nextAuditId(),
+            matterId: environment.matterId,
+            actor: persona.active(),
+            action: `operation-${transition}`,
+            target: { type: 'operation', id: operation.opId },
+            before: { status: previousStatus, pct: operation.pct ?? 0 },
+            after: {
+              status: operation.status,
+              pct: operation.pct,
+              phase: operation.phase,
+              result: operation.result,
+              error: operation.error,
+              durationMs: operation.durationMs,
+            },
+            timestamp: isoNow(),
           });
         };
       },

@@ -30,5 +30,9 @@ export const routes: Routes = [
     path: 'approvals',
     loadComponent: () => import('./pages/approvals/approvals.component').then((m) => m.ApprovalsComponent),
   },
+  {
+    path: 'operations',
+    loadComponent: () => import('./pages/operations/operations.component').then((m) => m.OperationsComponent),
+  },
   { path: '**', redirectTo: '' },
 ];

@@ -10,6 +10,7 @@ import {
   ApprovalRegistry,
   DataSourceRegistry,
   FormRegistry,
+  OperationProgressComponent,
   type ComponentDef,
   type FormDef,
   type ToolDef,
@@ -65,6 +66,7 @@ export function buildTools(env: EnvironmentInjector): ToolDef[] {
     acknowledgeLegalHoldTool(env) as ToolDef,
     openCustodianIntakeTool(env) as ToolDef,
     openPlaceLegalHoldWorkflowTool() as ToolDef,
+    runTARClassifierTool() as ToolDef,
   ];
 }
 
@@ -177,6 +179,14 @@ export const widgets: ComponentDef[] = [
     name: 'approval-summary-diff',
     component: ApprovalSummaryDiffComponent,
     propsSchema: z.object({}),
+  }),
+  // ── F5 — long-running operation progress widget ────────────────────────
+  // The chat-shell renders this whenever a long-running tool returns
+  // `components: [{name: 'mvk-operation-progress', props: {opId}}]`.
+  agenticWidget({
+    name: 'mvk-operation-progress',
+    component: OperationProgressComponent,
+    propsSchema: z.object({ opId: z.string() }),
   }),
 ];
 
@@ -715,6 +725,94 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
  * `MatterStore.addLegalHold` — same domain handler as the one-shot
  * `placeLegalHoldTool`, two surfaces.
  */
+/**
+ * Capability F5 demo — simulated TAR (technology-assisted review)
+ * classifier. Exemplifies the LRO contract: the handler returns
+ * promptly with `{ opId }` plus a `mvk-operation-progress` widget;
+ * a background loop drives `reportProgress` over several seconds and
+ * eventually `completeOperation` with the per-batch counts.
+ *
+ * The corpus + scoring are stubs — what matters is the lifecycle.
+ * Production deployments swap the body for the real classifier and
+ * keep the same lifecycle calls.
+ */
+function runTARClassifierTool() {
+  return agenticTool({
+    name: 'runTARClassifier',
+    description:
+      'Run technology-assisted review (TAR) classification on a portion ' +
+      "of the matter's corpus. Returns immediately with an operation id; " +
+      'progress streams to the inline `mvk-operation-progress` widget. ' +
+      'Use this when the user asks to score, classify, or rank documents ' +
+      'against a topic — the classifier is long-running (typically ' +
+      '~10-30 seconds in this demo, minutes in production).',
+    longRunning: true,
+    schema: z.object({
+      topic: z.string().min(1).describe(
+        "Topic to score against, e.g. 'SEC inquiry' or 'Project Phoenix budget overrun'.",
+      ),
+      onlyUntagged: z.boolean().optional().default(true).describe(
+        'When true (default), only score documents without an existing tag.',
+      ),
+    }),
+    handler: async ({ topic, onlyUntagged }, ctx) => {
+      const totalBatches = 8;
+      // Mock estimate of ~12s total — covers ETA rendering exercise.
+      const estDurationMs = totalBatches * 1500;
+      const opId = ctx.startOperation({
+        description: `TAR-classify "${topic}"${onlyUntagged ? ' (untagged only)' : ''}`,
+        estDurationMs,
+      });
+
+      // Background loop. setTimeout chained — survives the handler return.
+      let batch = 0;
+      const partialCounts = { responsive: 0, privileged: 0, hot: 0 };
+
+      const tick = (): void => {
+        if (ctx.signal.aborted) {
+          ctx.failOperation(opId, { code: 'ABORTED', message: 'TAR run aborted.' });
+          return;
+        }
+        batch++;
+        // Stub scoring — random-ish but deterministic-leaning counts.
+        partialCounts.responsive += 60 + Math.floor(Math.random() * 40);
+        partialCounts.privileged += 8 + Math.floor(Math.random() * 12);
+        partialCounts.hot += 2 + Math.floor(Math.random() * 5);
+
+        const pct = Math.round((batch / totalBatches) * 100);
+        ctx.reportProgress(opId, {
+          pct,
+          phase: `scoring batch ${batch} / ${totalBatches}`,
+          partialResult: { ...partialCounts },
+        });
+        if (batch >= totalBatches) {
+          ctx.completeOperation(opId, {
+            topic,
+            onlyUntagged,
+            ...partialCounts,
+            totalScored: partialCounts.responsive + partialCounts.privileged + partialCounts.hot,
+          });
+          return;
+        }
+        setTimeout(tick, 1500);
+      };
+      // Kick off the first batch shortly after the handler returns —
+      // a 200ms delay lets the chat shell mount the progress widget
+      // before the first reportProgress fires.
+      setTimeout(tick, 200);
+
+      return {
+        opId,
+        topic,
+        components: [{ name: 'mvk-operation-progress', props: { opId } }],
+        markdown:
+          `Started TAR classification for **${topic}**. Progress streams ` +
+          `inline; the result lands in the operations panel when complete.`,
+      };
+    },
+  });
+}
+
 function openPlaceLegalHoldWorkflowTool() {
   return agenticTool({
     name: 'openPlaceLegalHoldWorkflow',
