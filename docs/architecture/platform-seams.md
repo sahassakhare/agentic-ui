@@ -317,14 +317,38 @@ inject(ApprovalRegistry).setProviderHook(null);  // detach
 
 ---
 
+## Tier 2 — Server-side seams (M1 R3 — landed)
+
+These seams live in `@maverick/agentic-ui-server` (the runtime's server companion). They aren't accessible from the browser; they're consumed by the agent server (the Hono / Express / etc. process that hosts agents + routes AG-UI events). Documented here for completeness — they're equally part of the platform contract surface.
+
+### `ThreadStateStore<TState>`
+
+Per-thread state persistence. Used by the orchestrator's sticky-by-thread routing so state survives restarts + converges across multi-pod deployments. Async by design (the adapter implementation may cross the wire).
+
+**Signature:** [`projects/agentic-ui-server/src/thread-state-store.ts`](../../projects/agentic-ui-server/src/thread-state-store.ts)
+
+**Default:** `InMemoryThreadStateStore<TState>` ships in `agentic-ui-server`. Adequate for single-pod + tests.
+
+**Production adapters** (NEW — `@maverick/agentic-ui-server-stores` package, M1 R3):
+
+| Adapter | Backed by | Subpath import | Best for |
+|---|---|---|---|
+| `RedisThreadStateStore` | `ioredis ^5.4` (peer dep) | `@maverick/agentic-ui-server-stores/redis` | Lowest write latency; TTL via Redis `EX` |
+| `PostgresThreadStateStore` | `pg ^8.11` (peer dep) | `@maverick/agentic-ui-server-stores/postgres` | Stronger durability; reuse existing Postgres |
+
+Both peer deps are **optional** — install only the adapter you use. Subpath imports keep the unused peer dep from loading. Caller owns the client / pool lifecycle. See [ADR-012](../adr/0012-thread-state-store-adapters.md) for the design rationale.
+
+**Stability:** Public API. Frozen contract per ADR-010 D4. Future adapters (DynamoDB, FoundationDB, Cloudflare Durable Objects) follow the same package-shape recipe.
+
+---
+
 ## What the v3 plan adds (still pending)
 
 | Future seam | Purpose | When |
 |---|---|---|
-| `ThreadStateStore` | Server-side state persistence (Redis / Postgres adapters) | M1 R3 |
 | AG-UI `state` channel | Persona / matter / route reach the LLM as reasoning context | M1 R4 |
 
-These join this document as they ship. Each is purely additive; the existing 11 tokens + 1 method + 12 factories + (now) 1 mirror-hook don't change.
+These join this document as they ship. Each is purely additive; the existing 11 tokens + 1 method + 12 factories + 1 mirror-hook + 1 server-side store interface (with 3 adapters) don't change.
 
 ---
 
