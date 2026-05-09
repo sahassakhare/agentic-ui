@@ -21,7 +21,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "migrate:up": "node-pg-migrate --migrations-dir src/db/migrations -j sql up",
-    "migrate:down": "node-pg-migrate --migrations-dir src/db/migrations -j sql down"
+    "migrate:down": "node-pg-migrate --migrations-dir src/db/migrations -j sql down",
+    "seed:ediscovery": "node --enable-source-maps dist/scripts/seed-ediscovery.js"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",

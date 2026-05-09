@@ -45,12 +45,17 @@ services:
     healthCheckPath: /healthz
     autoDeploy: true
     region: oregon
-    # node-pg-migrate runs once before each deploy lands. Idempotent
-    # — already-applied migrations are skipped. Failures abort the
-    # deploy.
+    # 1. node-pg-migrate brings the schema up to date (idempotent —
+    #    already-applied migrations are skipped).
+    # 2. seed-ediscovery populates the demo tenant with 46
+    #    capabilities + 3 federated MFE remotes + 4 role mappings.
+    #    Idempotent — re-running skips already-present rows. See
+    #    ADR-025 for the seeding strategy.
+    # Failures in either step abort the deploy.
     preDeployCommand: >-
       node node_modules/node-pg-migrate/bin/node-pg-migrate.js
-      --migrations-dir src/db/migrations -j sql up
+      --migrations-dir src/db/migrations -j sql up &&
+      node --enable-source-maps dist/scripts/seed-ediscovery.js
     envVars:
       - key: PORT
         value: "8080"
