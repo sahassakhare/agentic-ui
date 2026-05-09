@@ -284,4 +284,144 @@ describe('RegistryBase onDispose lifecycle hook', () => {
       expect(registry.list().map((t) => t.name)).toEqual(['counsel']);
     });
   });
+
+  // ─────────────────────────────────────────────────────────────────────
+  //  RegistryProviderHook conformance — ADR-011
+  //
+  //  The hook is opt-in. Default behaviour (no hook installed) MUST
+  //  match v1.2 exactly. Adding a hook MUST mirror writes without
+  //  changing the contract observable to consumers.
+  // ─────────────────────────────────────────────────────────────────────
+  describe('provider hook (ADR-011)', () => {
+    interface HookCall {
+      method: 'onRegister' | 'onRemove' | 'onRemoveBySource' | 'onScopePolicyChange';
+      arg: unknown;
+    }
+
+    function makeRecordingHook(
+      throwOn: HookCall['method'] | null = null,
+    ): { calls: HookCall[]; hook: import('./registry-provider-hook').RegistryProviderHook<ToolDef> } {
+      const calls: HookCall[] = [];
+      const maybeThrow = (m: HookCall['method']): void => {
+        if (throwOn === m) throw new Error(`boom from ${m}`);
+      };
+      return {
+        calls,
+        hook: {
+          onRegister: (def) => { calls.push({ method: 'onRegister', arg: def.name }); maybeThrow('onRegister'); },
+          onRemove: (name) => { calls.push({ method: 'onRemove', arg: name }); maybeThrow('onRemove'); },
+          onRemoveBySource: (source) => { calls.push({ method: 'onRemoveBySource', arg: source }); maybeThrow('onRemoveBySource'); },
+          onScopePolicyChange: (policy) => { calls.push({ method: 'onScopePolicyChange', arg: typeof policy }); maybeThrow('onScopePolicyChange'); },
+        },
+      };
+    }
+
+    it('default behaviour with no hook is unchanged from v1.2', () => {
+      // No hook attached. Every existing path must work.
+      const dispose = registry.register({ ...makeTool('alpha'), source: 'host' });
+      expect(registry.list()).toHaveLength(1);
+      registry.register({ ...makeTool('beta'), source: 'host' });
+      expect(registry.list()).toHaveLength(2);
+      dispose();
+      expect(registry.list().map((t) => t.name)).toEqual(['beta']);
+      registry.removeBySource('host');
+      expect(registry.list()).toEqual([]);
+    });
+
+    it('setProviderHook(hook) mirrors register / remove / removeBySource calls', () => {
+      const { calls, hook } = makeRecordingHook();
+      registry.setProviderHook(hook);
+
+      const tool = makeTool('alpha');
+      const dispose = registry.register(tool);
+      expect(calls).toEqual([{ method: 'onRegister', arg: 'alpha' }]);
+
+      dispose();
+      expect(calls.slice(1)).toEqual([{ method: 'onRemove', arg: 'alpha' }]);
+
+      registry.register({ ...makeTool('b1'), source: 'remote:x' });
+      registry.register({ ...makeTool('b2'), source: 'remote:x' });
+      calls.length = 0;
+      registry.removeBySource('remote:x');
+      // Per-entry onRemove first, then onRemoveBySource batch.
+      expect(calls).toEqual([
+        { method: 'onRemove', arg: 'b1' },
+        { method: 'onRemove', arg: 'b2' },
+        { method: 'onRemoveBySource', arg: 'remote:x' },
+      ]);
+    });
+
+    it('setScopePolicy fires onScopePolicyChange (when hook implements it)', () => {
+      const { calls, hook } = makeRecordingHook();
+      registry.setProviderHook(hook);
+      registry.setScopePolicy(() => true);
+      expect(calls).toEqual([{ method: 'onScopePolicyChange', arg: 'function' }]);
+    });
+
+    it('hook errors do not propagate to caller; in-memory write stands', () => {
+      const { hook } = makeRecordingHook('onRegister');
+      registry.setProviderHook(hook);
+
+      // Should not throw despite the hook throwing.
+      expect(() => registry.register(makeTool('alpha'))).not.toThrow();
+      // In-memory state is intact.
+      expect(registry.list().map((t) => t.name)).toEqual(['alpha']);
+    });
+
+    it('reads never consult the hook', () => {
+      const { calls, hook } = makeRecordingHook();
+      registry.register(makeTool('alpha'));
+      registry.setProviderHook(hook);
+      // Reads must not invoke the hook — no onRegister, no onRemove.
+      registry.list();
+      registry.get('alpha');
+      registry.signal();
+      expect(calls).toEqual([]);
+    });
+
+    it('setProviderHook(null) detaches the hook', () => {
+      const { calls, hook } = makeRecordingHook();
+      registry.setProviderHook(hook);
+      registry.register(makeTool('alpha'));
+      expect(calls).toHaveLength(1);
+
+      registry.setProviderHook(null);
+      registry.register(makeTool('beta'));
+      // Still 1 call — the second register did not invoke the hook.
+      expect(calls).toHaveLength(1);
+    });
+
+    it('hook is omitted when onScopePolicyChange is undefined', () => {
+      let registerCalls = 0;
+      const partialHook: import('./registry-provider-hook').RegistryProviderHook<ToolDef> = {
+        onRegister: () => { registerCalls++; },
+        onRemove: () => undefined,
+        onRemoveBySource: () => undefined,
+        // onScopePolicyChange omitted — should be safe.
+      };
+      registry.setProviderHook(partialHook);
+      registry.setScopePolicy(() => true);  // must not throw
+      registry.register(makeTool('alpha'));
+      expect(registerCalls).toBe(1);
+    });
+
+    // Conformance: with-hook vs without-hook reads return the same data.
+    it('reads return identical data with and without a hook installed', () => {
+      // Without hook
+      registry.register(makeTool('a'));
+      registry.register(makeTool('b'));
+      const beforeNames = registry.list().map((t) => t.name).sort();
+
+      // Attach hook
+      const { hook } = makeRecordingHook();
+      registry.setProviderHook(hook);
+      const afterAttachNames = registry.list().map((t) => t.name).sort();
+      expect(afterAttachNames).toEqual(beforeNames);
+
+      // Detach hook
+      registry.setProviderHook(null);
+      const afterDetachNames = registry.list().map((t) => t.name).sort();
+      expect(afterDetachNames).toEqual(beforeNames);
+    });
+  });
 });

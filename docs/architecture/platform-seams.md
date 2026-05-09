@@ -284,17 +284,47 @@ Same shape, for F5 long-running operations. Fires on `started`, `progress`, `fin
 
 ---
 
-## What the v3 plan adds (M1 + future)
+## Tier 1.5 — Opt-in registry mirror (M1 R2 — landed)
 
-The v3 plan introduces three more seams; none have shipped yet, so they're not platform contracts yet:
+### `RegistryBase.setProviderHook(hook)` + `RegistryProviderHook<TDef>`
+
+Opt-in write-through mirror for state-bound registries (Approval, Operation, future Memory). When installed, every register / remove / removeBySource event mirrors to the hook *after* in-memory state updates. Reads never consult the hook. Hook errors land on telemetry, never propagate to callers.
+
+**Signature:** [projects/agentic-ui/src/lib/registries/registry-provider-hook.ts](../../projects/agentic-ui/src/lib/registries/registry-provider-hook.ts)
+
+```ts
+export interface RegistryProviderHook<TDef extends RegistryEntry> {
+  onRegister(def: TDef): void;
+  onRemove(name: string): void;
+  onRemoveBySource(source: string): void;
+  onScopePolicyChange?(policy: RegistryScopePolicy): void;
+}
+
+// Adopter:
+inject(ApprovalRegistry).setProviderHook(redisHook);
+inject(ApprovalRegistry).setProviderHook(null);  // detach
+```
+
+**Stability:** Public API. Frozen contract per ADR-010 D4. Method is sync; hook implementations may dispatch async work internally (e.g., a Redis write) but the registry's API stays sync.
+
+**Restricted to state-bound replayable registries:** Approval, Operation, future Memory. **Not legal** for Tool / Component / Action / Intent / Form / Backend / Mfe / Validation / Persistence / Layout / SchemaTransformer / Capability — those hold Angular class identities (component constructors, tool handlers) that don't round-trip through external state. See [ADR-011](../adr/0011-registry-provider-hook.md) D5.
+
+**When to override:** Multi-pod deployments that need approvals or long-running operations to converge across pods + survive restarts. Pair with the upcoming `ThreadStateStore` adapter (Redis / Postgres) in [@maverick/agentic-ui-server-stores](../../projects/agentic-ui-server-stores/) (M1 R3 — not yet shipped).
+
+**Telemetry events emitted:**
+- `agentic.registry.hook_installed` — once per `setProviderHook` call
+- `agentic.registry.hook_error` — when a hook method throws
+
+---
+
+## What the v3 plan adds (still pending)
 
 | Future seam | Purpose | When |
 |---|---|---|
-| `RegistryProviderHook<TDef>` | Opt-in write-through mirror for Approval / Operation / future Memory registries | M1 R2 |
 | `ThreadStateStore` | Server-side state persistence (Redis / Postgres adapters) | M1 R3 |
 | AG-UI `state` channel | Persona / matter / route reach the LLM as reasoning context | M1 R4 |
 
-These will join this document as they ship. Each is purely additive; the existing 11 tokens + 1 method + 12 factories don't change.
+These join this document as they ship. Each is purely additive; the existing 11 tokens + 1 method + 12 factories + (now) 1 mirror-hook don't change.
 
 ---
 
