@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { CatalogClientService, type UsageAggregate, type UsageEvent } from '../services/catalog-client.service';
 import { autoRefresh } from '../services/auto-refresh.service';
+import { autoStream } from '../services/catalog-stream.service';
 
 @Component({
   selector: 'ops-usage',
@@ -127,6 +128,7 @@ export class UsageComponent {
 
   constructor() {
     this.fetch();
+    autoStream(() => this.fetch(true));
     autoRefresh(() => this.fetch(true));
   }
 

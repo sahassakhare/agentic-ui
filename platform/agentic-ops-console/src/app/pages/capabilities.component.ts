@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { CatalogClientService, type Capability } from '../services/catalog-client.service';
 import { ConfirmDialogComponent } from '../components/confirm-dialog.component';
 import { autoRefresh } from '../services/auto-refresh.service';
+import { autoStream } from '../services/catalog-stream.service';
 
 const CAPABILITY_KINDS = [
   'tool', 'component', 'capability', 'backend', 'mfe', 'action', 'intent',
@@ -211,8 +212,10 @@ export class CapabilitiesComponent {
 
   constructor() {
     this.refresh();
-    // Re-fetch silently on each auto-refresh tick (no spinner; the
-    // table just updates in place).
+    // Real-time: re-fetch on every catalog mutation pushed via SSE.
+    // Falls back to the 8s polling tick when the stream is closed
+    // (CatalogStreamService toggles AutoRefreshService accordingly).
+    autoStream(() => this.refresh(true));
     autoRefresh(() => this.refresh(true));
   }
 

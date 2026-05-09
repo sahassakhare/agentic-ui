@@ -11,6 +11,7 @@ import { roleMappingsRoutes } from './routes/role-mappings.js';
 import { auditRoutes } from './routes/audit.js';
 import { usageRoutes } from './routes/usage.js';
 import { tenantsRoutes } from './routes/tenants.js';
+import { streamRoutes } from './routes/stream.js';
 import { openapiRoutes } from './routes/openapi.js';
 import { logger } from './logger.js';
 
@@ -108,6 +109,7 @@ export function buildApp(deps: AppDeps): Hono {
   v1.route('/catalogs/:tenant/role-mappings', roleMappingsRoutes(deps.pool));
   v1.route('/catalogs/:tenant/audit', auditRoutes(deps.pool));
   v1.route('/catalogs/:tenant/usage', usageRoutes(deps.pool));
+  v1.route('/catalogs/:tenant/stream', streamRoutes());
   app.route('/v1', v1);
 
   return app;

@@ -18,6 +18,7 @@ import {
   updateTenant,
 } from '../repository/tenant-repo.js';
 import { appendAudit } from '../repository/audit-repo.js';
+import { catalogBus } from '../events/catalog-bus.js';
 
 /**
  * `GET    /v1/tenants`               (platform-admin only)
@@ -71,6 +72,17 @@ async function auditTenantMutation(
   // Reset so subsequent SQL in the same transaction doesn't carry
   // the wrong scope into another tenant's view.
   await client.query("SELECT set_config('app.tenant_id', '', true)");
+
+  // Push a real-time event to any SSE subscribers of this tenant
+  // (ADR-027). Keep the payload minimal — clients use it as a hint
+  // to re-fetch, not as a source of truth.
+  catalogBus.emit({
+    tenantId: args.tenantId,
+    entityType: 'tenant',
+    operation: args.operation,
+    entityId: args.tenantId,
+    occurredAt: new Date().toISOString(),
+  });
 }
 
 export function tenantsRoutes(pool: CatalogPool): Hono {

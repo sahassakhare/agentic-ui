@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { AutoRefreshService } from '../services/auto-refresh.service';
+import { CatalogStreamService } from '../services/catalog-stream.service';
 
 @Component({
   selector: 'ops-shell',
@@ -59,12 +60,10 @@ import { AutoRefreshService } from '../services/auto-refresh.service';
           <div class="auto-refresh">
             <span
               class="dot"
-              [class.live]="autoRefresh.running()"
-              [title]="autoRefresh.running() ? 'Auto-refreshing every ' + (autoRefresh.intervalMs() / 1000) + 's' : 'Paused (tab hidden)'"
+              [class.live]="stream.isLive() || autoRefresh.running()"
+              [title]="liveTooltip()"
             ></span>
-            <span class="dim small">
-              {{ autoRefresh.running() ? 'live' : 'paused' }}
-            </span>
+            <span class="dim small">{{ liveLabel() }}</span>
           </div>
           <button class="btn" type="button" (click)="logout()">Sign out</button>
         </footer>
@@ -182,11 +181,24 @@ export class ShellComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   readonly autoRefresh = inject(AutoRefreshService);
+  readonly stream = inject(CatalogStreamService);
 
   readonly authMode = this.auth.authMode;
   readonly principal = this.auth.principal;
   readonly isAdmin = this.auth.isPlatformAdmin;
   readonly tenantInput = signal('');
+
+  liveLabel(): string {
+    if (this.stream.isLive()) return 'live (SSE)';
+    if (this.autoRefresh.running()) return `live (polling ${this.autoRefresh.intervalMs() / 1000}s)`;
+    return 'paused';
+  }
+
+  liveTooltip(): string {
+    if (this.stream.isLive()) return 'Server-Sent Events stream open — sub-second updates.';
+    if (this.autoRefresh.running()) return `SSE unavailable; polling every ${this.autoRefresh.intervalMs() / 1000}s.`;
+    return 'Updates paused (tab hidden).';
+  }
 
   switchTenant(): void {
     const t = this.tenantInput().trim();

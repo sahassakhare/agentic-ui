@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { CatalogClientService, type MfeRemote } from '../services/catalog-client.service';
 import { autoRefresh } from '../services/auto-refresh.service';
+import { autoStream } from '../services/catalog-stream.service';
 
 @Component({
   selector: 'ops-mfes',
@@ -54,6 +55,7 @@ export class MfesComponent {
 
   constructor() {
     this.fetch();
+    autoStream(() => this.fetch(true));
     autoRefresh(() => this.fetch(true));
   }
 
