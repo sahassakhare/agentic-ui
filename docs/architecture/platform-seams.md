@@ -33,7 +33,7 @@ Adopters, contributors, and reviewers should read this as the load-bearing docum
 | `provideAgenticTelemetry(config)` | Factory | n/a | n/a | OTel-backed telemetry sink |
 | `provideAgenticTelemetryConsole()` | Factory | n/a | n/a | Pretty-print console sink |
 
-11 injection tokens · 1 method-shaped contract on every registry · 12 `provideX` factories · 4 audit/telemetry hooks. **No other contract is platform-level.** Anything else is internal.
+12 injection tokens · 2 method-shaped contracts on every registry (`setScopePolicy` + `setProviderHook`) · 12 `provideX` factories · 4 audit/telemetry hooks · 1 server-side store interface with 3 adapters. **No other contract is platform-level.** Anything else is internal.
 
 ---
 
@@ -342,13 +342,40 @@ Both peer deps are **optional** — install only the adapter you use. Subpath im
 
 ---
 
+## Tier 1 (continued) — `AGENTIC_RUN_STATE_PROVIDER` (M1 R4 — landed)
+
+The reasoning-context provider used by `injectAgenticChat()` to populate `AgenticRunInput.state` on every run. Hosts override this to thread persona, matter, active route, or anything else the LLM should be aware of on each turn.
+
+**Signature:** [projects/agentic-ui/src/lib/chat/run-state-provider.ts](../../projects/agentic-ui/src/lib/chat/run-state-provider.ts)
+
+```ts
+type AgenticRunStateProvider = () => Readonly<Record<string, unknown>>;
+
+const AGENTIC_RUN_STATE_PROVIDER = new InjectionToken<AgenticRunStateProvider>(
+  'AGENTIC_RUN_STATE_PROVIDER',
+  { providedIn: 'root', factory: () => () => ({}) },
+);
+```
+
+**Default:** `() => ({})` — equivalent to v1.2 behaviour. AG-UI still sends `state: {}` on the wire when no provider is registered.
+
+**When to override:** any multi-persona host that wants the LLM to *reason* with awareness of the active context. Closing over signals / services / stores in the provider's closure lets the runtime call it once per run for a consistent snapshot.
+
+**Crucial layering:** state is **not** a security boundary. `setScopePolicy` (above) is the trust gate that filters `tools[]` before the request leaves the browser. State only lets the agent phrase responses appropriately. See [ADR-013](../adr/0013-agui-state-channel.md) §D4 for the full layering rationale.
+
+**Stability:** Public API. Frozen contract per ADR-010 D4.
+
+**Wire mapping by backend:**
+- AG-UI: forwarded as `RunAgentInput.state`. Server-side agents read `input.state` and decide what to do (typical: prepend a context block to the system instruction).
+- Hashbrown / A2UI: silently dropped today. Their owners can add a state channel if/when consumer demand justifies it.
+
+---
+
 ## What the v3 plan adds (still pending)
 
-| Future seam | Purpose | When |
-|---|---|---|
-| AG-UI `state` channel | Persona / matter / route reach the LLM as reasoning context | M1 R4 |
+R4 is now landed. R5 (governance hooks: `conflictPolicy`, `onDispose`, `requiredHostVersion`, optional `tags`/`owner`/`lifecycle`) is the next M1 deliverable; most of R5 was already shipped before the v3 plan was written, so the remaining work is small.
 
-These join this document as they ship. Each is purely additive; the existing 11 tokens + 1 method + 12 factories + 1 mirror-hook + 1 server-side store interface (with 3 adapters) don't change.
+These join this document as they ship. Each is purely additive; the existing 12 tokens + 1 method + 12 factories + 1 mirror-hook + 1 server-side store interface (with 3 adapters) don't change.
 
 ---
 

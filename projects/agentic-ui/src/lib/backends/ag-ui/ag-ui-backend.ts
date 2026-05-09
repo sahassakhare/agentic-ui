@@ -55,7 +55,11 @@ export class AgUiBackend implements AgenticBackend {
         runId: input.runId,
         messages: agent.messages,
         tools: convertToolsToAgUi(input.tools),
-        state: {},
+        // Capability M1 R4 — thread the host's reasoning context (persona,
+        // matter, active route, etc.) onto the wire so the agent can phrase
+        // responses appropriately. Default `{}` matches v1.2 when no
+        // AGENTIC_RUN_STATE_PROVIDER is registered. See ADR-013.
+        state: input.state ?? {},
         context: [],
         forwardedProps: {},
       });

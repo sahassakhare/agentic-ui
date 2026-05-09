@@ -48,6 +48,14 @@ export interface RunOrchestratorOptions {
    * LRO needs ignore the methods.
    */
   readonly operationRegistry?: OperationRegistry;
+  /**
+   * Optional reasoning-context provider (Capability M1 R4 — ADR-013).
+   * When set, called once per call to `runUntilSettled`; the result
+   * is forwarded as `AgenticRunInput.state` so the active backend
+   * can thread it to the LLM. Defaults to undefined (no state on
+   * the wire), preserving v1.2 behaviour.
+   */
+  readonly stateProvider?: () => Readonly<Record<string, unknown>>;
 }
 
 interface PendingToolCall {
@@ -77,6 +85,12 @@ export async function runUntilSettled(opts: RunOrchestratorOptions): Promise<voi
   let turnsRemaining = opts.maxLocalTurns;
 
   try {
+    // Resolve the optional reasoning-state provider once per run. The
+    // host's provider may close over signals (persona, matter,
+    // router URL) that change between runs but are stable within
+    // one run — calling it here freezes the snapshot for the loop.
+    const reasoningState = opts.stateProvider?.();
+
     let runInput: AgenticRunInput = {
       threadId: opts.threadId,
       runId: opts.runId,
@@ -84,6 +98,7 @@ export async function runUntilSettled(opts: RunOrchestratorOptions): Promise<voi
       tools: opts.tools,
       widgets: opts.widgets,
       signal: opts.signal,
+      ...(reasoningState !== undefined ? { state: reasoningState } : {}),
     };
 
     while (turnsRemaining-- > 0) {
