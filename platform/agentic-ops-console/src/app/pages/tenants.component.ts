@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { CatalogClientService, type Tenant } from '../services/catalog-client.service';
 import { AuthService } from '../services/auth.service';
 import { ConfirmDialogComponent } from '../components/confirm-dialog.component';
+import { autoRefresh } from '../services/auto-refresh.service';
 
 interface ConfirmAction {
   readonly tenant: Tenant;
@@ -206,10 +207,11 @@ export class TenantsComponent {
       return;
     }
     this.refresh();
+    autoRefresh(() => this.refresh(true));
   }
 
-  refresh(): void {
-    this.loading.set(true);
+  refresh(silent = false): void {
+    if (!silent) this.loading.set(true);
     this.catalog.listTenants(true).subscribe({
       next: (res) => { this.items.set(res.items); this.loading.set(false); },
       error: (err) => {

@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CatalogClientService, type Capability } from '../services/catalog-client.service';
 import { ConfirmDialogComponent } from '../components/confirm-dialog.component';
+import { autoRefresh } from '../services/auto-refresh.service';
 
 const CAPABILITY_KINDS = [
   'tool', 'component', 'capability', 'backend', 'mfe', 'action', 'intent',
@@ -208,10 +209,20 @@ export class CapabilitiesComponent {
   // ── delete state ──────────────────────────────────────────────
   readonly deleteCandidate = signal<Capability | null>(null);
 
-  constructor() { this.refresh(); }
+  constructor() {
+    this.refresh();
+    // Re-fetch silently on each auto-refresh tick (no spinner; the
+    // table just updates in place).
+    autoRefresh(() => this.refresh(true));
+  }
 
-  refresh(): void {
-    this.loading.set(true);
+  /**
+   * @param silent when true, don't flip the loading flag — keeps the
+   *   table stable during background polls instead of flashing the
+   *   "Loading…" placeholder every tick.
+   */
+  refresh(silent = false): void {
+    if (!silent) this.loading.set(true);
     this.catalog.listCapabilities({ limit: 100 }).subscribe({
       next: (res) => {
         this.items.set(res.items);

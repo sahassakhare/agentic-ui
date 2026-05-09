@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../services/auth.service';
+import { AutoRefreshService } from '../services/auto-refresh.service';
 
 @Component({
   selector: 'ops-shell',
@@ -55,6 +56,16 @@ import { AuthService } from '../services/auth.service';
               </div>
             </div>
           }
+          <div class="auto-refresh">
+            <span
+              class="dot"
+              [class.live]="autoRefresh.running()"
+              [title]="autoRefresh.running() ? 'Auto-refreshing every ' + (autoRefresh.intervalMs() / 1000) + 's' : 'Paused (tab hidden)'"
+            ></span>
+            <span class="dim small">
+              {{ autoRefresh.running() ? 'live' : 'paused' }}
+            </span>
+          </div>
           <button class="btn" type="button" (click)="logout()">Sign out</button>
         </footer>
       </aside>
@@ -142,6 +153,25 @@ import { AuthService } from '../services/auth.service';
     }
     .switch-row input:focus { outline: none; border-color: var(--accent); }
     .switch-row .btn { padding: 4px 10px; font-size: 12px; }
+    .auto-refresh {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 0;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--fg-muted);
+      transition: background 0.2s;
+    }
+    .dot.live {
+      background: var(--good);
+      box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.6);
+      animation: pulse 2.5s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0.5); }
+      70%  { box-shadow: 0 0 0 6px rgba(63, 185, 80, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0); }
+    }
     main {
       overflow: auto;
       padding: 24px 32px;
@@ -151,6 +181,7 @@ import { AuthService } from '../services/auth.service';
 export class ShellComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  readonly autoRefresh = inject(AutoRefreshService);
 
   readonly authMode = this.auth.authMode;
   readonly principal = this.auth.principal;
