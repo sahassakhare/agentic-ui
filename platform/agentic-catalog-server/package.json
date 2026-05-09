@@ -1,0 +1,44 @@
+{
+  "name": "@maverick/agentic-catalog-server",
+  "version": "0.1.0",
+  "description": "Capability catalog server — control-plane T2 foundation. Hono + Postgres (RLS) + JWT/JWKS. Multi-tenant capability registry, federated identity, audit trail.",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
+  "bugs": {
+    "url": "https://github.com/sahassakhare/agentic-ui/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sahassakhare/agentic-ui",
+    "directory": "platform/agentic-catalog-server"
+  },
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --enable-source-maps dist/server.js",
+    "dev": "tsx watch src/server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "migrate:up": "node-pg-migrate --migrations-dir src/db/migrations -j sql up",
+    "migrate:down": "node-pg-migrate --migrations-dir src/db/migrations -j sql down"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "@hono/zod-openapi": "^0.18.0",
+    "hono": "^4.6.0",
+    "jose": "^5.9.0",
+    "node-pg-migrate": "^7.6.0",
+    "pg": "^8.11.0",
+    "pino": "^9.5.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.0",
+    "pg-mem": "^3.0.5",
+    "tsx": "^4.19.0",
+    "typescript": "~5.9.0",
+    "vitest": "^4.1.5"
+  }
+}
