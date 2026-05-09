@@ -63,6 +63,60 @@ export interface RegistryEntry {
    * ```
    */
   readonly onDispose?: () => void | Promise<void>;
+  /**
+   * Optional semver-range expressing which host (`@maverick/agentic-ui`)
+   * versions this entry expects. When set, `RegistryBase.register()`
+   * evaluates the range against the lib's compile-time `LIB_VERSION` and
+   * SKIPS registration with a telemetry-logged warning when the host
+   * doesn't satisfy the range.
+   *
+   * Supported syntax: `1.2.3`, `^1.2.3`, `~1.2.3`, `>=1.2.3`, `>1.2.3`,
+   * `<2.0.0`, `<=1.5.0`. See `satisfies()` in `semver-match.ts` for
+   * the full list. Unsupported ranges (compound, pre-release, x-range)
+   * silently return `false` — the entry is treated as incompatible.
+   *
+   * Capability M1 R5 — ADR-014.
+   *
+   * @example
+   * ```ts
+   * agenticTool({
+   *   name: 'releaseLegalHold',
+   *   description: '…',
+   *   schema: z.object({ holdId: z.string() }),
+   *   handler,
+   *   requiredHostVersion: '^1.0.0',  // Compatible with v1.x
+   * })
+   * ```
+   */
+  readonly requiredHostVersion?: string;
+  /**
+   * Free-form tags for catalog filtering. Opaque to the runtime; used
+   * by the future control-plane catalog (Tier 2 in the v3 plan) for
+   * search + lifecycle filtering. Common values: `'beta'`, `'preview'`,
+   * a domain name (`'eDiscovery'`, `'bookings'`), a team
+   * (`'platform-team'`).
+   *
+   * Capability M1 R5 — ADR-014.
+   */
+  readonly tags?: readonly string[];
+  /**
+   * Owning team / squad / individual identifier — opaque to the
+   * runtime, used by the catalog for accountability. Typical shape:
+   * `'team:platform'`, `'@sahassakhare'`, `'compliance@example.com'`.
+   *
+   * Capability M1 R5 — ADR-014.
+   */
+  readonly owner?: string;
+  /**
+   * Lifecycle status. Opaque to `register()` itself but available to
+   * scope policies + the control-plane catalog. A persona-scope
+   * predicate could hide `'deprecated'` entries from production
+   * personas, for example, or refuse to ship a remote that has
+   * `'draft'` capabilities.
+   *
+   * Capability M1 R5 — ADR-014.
+   */
+  readonly lifecycle?: 'draft' | 'published' | 'deprecated' | 'disabled';
 }
 
 /**

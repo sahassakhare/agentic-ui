@@ -20,6 +20,7 @@ export * from './lib/composition';
 export * from './lib/factories';
 export * from './lib/providers';
 export * from './lib/chat';
+export * from './lib/iam';
 export * from './lib/mcp';
 
 // Was @maverick/agentic-ui/components

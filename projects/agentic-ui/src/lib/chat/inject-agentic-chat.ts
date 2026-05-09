@@ -7,6 +7,7 @@ import { OperationRegistry } from '../registries/operation-registry';
 import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
 import type { AgenticMessage, MessageContent } from '../types/agentic-message';
 import { AGENTIC_ACTIVE_PERSONA } from './active-persona';
+import { AGENTIC_RUN_STATE_PROVIDER } from './run-state-provider';
 import { randomId } from './message-utils';
 import { runUntilSettled } from './run-orchestrator';
 import { TOOL_FILTER } from './tool-filter';
@@ -57,6 +58,7 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
   const approvalRegistry = inject(ApprovalRegistry);
   const operationRegistry = inject(OperationRegistry);
   const activePersona = inject(AGENTIC_ACTIVE_PERSONA);
+  const stateProvider = inject(AGENTIC_RUN_STATE_PROVIDER);
 
   const maxLocalTurns = options.maxLocalTurns ?? 10;
   const messages: WritableSignal<readonly AgenticMessage[]> = signal([]);
@@ -149,6 +151,7 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
       approvalRegistry,
       activePersona,
       operationRegistry,
+      stateProvider,
     })
       .catch((err) => {
         if (!(err instanceof DOMException && err.name === 'AbortError')) {

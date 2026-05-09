@@ -1,0 +1,8 @@
+{
+  "name": "@maverick/agentic-ops-console",
+  "version": "0.1.0",
+  "description": "Ops console for the agentic catalog server — read-only viewer over capabilities, MFEs, role mappings, audit chain, and usage. M2 C6 v0 from the platform-evolution plan.",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module"
+}

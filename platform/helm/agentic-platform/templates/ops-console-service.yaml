@@ -1,0 +1,17 @@
+{{- if .Values.opsConsole.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-ops-console
+  labels:
+    {{- include "agentic-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ops-console
+spec:
+  type: {{ .Values.opsConsole.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.opsConsole.service.port }}
+      targetPort: http
+  selector:
+    {{- include "agentic-platform.componentLabels" (dict "Chart" .Chart "Release" .Release "component" "ops-console") | nindent 4 }}
+{{- end }}

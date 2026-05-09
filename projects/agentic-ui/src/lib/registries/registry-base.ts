@@ -1,6 +1,9 @@
 import { computed, inject, Signal, signal } from '@angular/core';
 import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
 import type { RegistryEntry } from '../types/registry-defs';
+import type { RegistryProviderHook } from './registry-provider-hook';
+import { LIB_VERSION } from '../version';
+import { satisfies } from './semver-match';
 
 /**
  * Hook that decides whether an entry is visible at the moment of a
@@ -123,6 +126,54 @@ export abstract class RegistryBase<TDef extends RegistryEntry> implements Regist
     this.telemetry.emit('agentic.registry.scope_policy_set', {
       'registry.name': this.registryName,
     });
+    this.invokeHook((h) => h.onScopePolicyChange?.(policy));
+  }
+
+  /**
+   * Active write-through provider hook. `null` (default) means
+   * in-memory only — every behaviour matches v1.2 exactly. When a
+   * hook is installed, register / remove / removeBySource events
+   * fan out to the hook AFTER the in-memory state is updated. The
+   * hook is opt-in and revocable; pass `null` to detach.
+   *
+   * See [ADR-011](../../../../../docs/adr/0011-registry-provider-hook.md)
+   * for semantics, restricted-registry-class allow-list, and error
+   * handling. See {@link RegistryProviderHook} for the interface.
+   */
+  private readonly providerHook = signal<RegistryProviderHook<TDef> | null>(null);
+
+  /**
+   * Install (or detach with `null`) a {@link RegistryProviderHook}.
+   * The hook fires after every in-memory write, never on reads.
+   * Hook errors are caught and routed to telemetry as
+   * `agentic.registry.hook_error`; they never propagate to the
+   * caller.
+   */
+  setProviderHook(hook: RegistryProviderHook<TDef> | null): void {
+    this.providerHook.set(hook);
+    this.telemetry.emit('agentic.registry.hook_installed', {
+      'registry.name': this.registryName,
+      'registry.hook.attached': hook !== null,
+    });
+  }
+
+  /**
+   * Internal helper — invoke `fn` against the active provider hook
+   * (if any), catching errors so the in-memory write path stays
+   * intact. Errors land on the telemetry sink so operators can
+   * monitor mirror failures without breaking adopters.
+   */
+  private invokeHook(fn: (hook: RegistryProviderHook<TDef>) => void): void {
+    const hook = this.providerHook();
+    if (!hook) return;
+    try {
+      fn(hook);
+    } catch (err) {
+      this.telemetry.emit('agentic.registry.hook_error', {
+        'registry.name': this.registryName,
+        'error.message': err instanceof Error ? err.message : String(err),
+      });
+    }
   }
 
   /**
@@ -149,6 +200,22 @@ export abstract class RegistryBase<TDef extends RegistryEntry> implements Regist
    * @throws  Error when the policy is `'throw'` and the name already exists.
    */
   register(def: TDef): () => void {
+    // ADR-014 — host-version compatibility check. When `def.requiredHostVersion`
+    // is set + doesn't match `LIB_VERSION`, skip registration silently
+    // (telemetry-logged) and return a no-op disposer. Lets federated
+    // remotes ship capabilities pinned to a major + decline to surface
+    // them in incompatible hosts without crashing the host.
+    if (def.requiredHostVersion && !satisfies(LIB_VERSION, def.requiredHostVersion)) {
+      this.telemetry.emit('agentic.registry.host_version_mismatch', {
+        'registry.name': this.registryName,
+        'registry.entry.name': def.name,
+        'registry.entry.source': def.source ?? 'host',
+        'registry.entry.required_host_version': def.requiredHostVersion,
+        'registry.host_version': LIB_VERSION,
+      });
+      return () => {};
+    }
+
     const existing = this.entries().find((e) => e.name === def.name);
 
     if (existing) {
@@ -227,6 +294,11 @@ export abstract class RegistryBase<TDef extends RegistryEntry> implements Regist
       'registry.name': this.registryName,
     });
 
+    // Mirror the write to the provider hook (if any). Fires AFTER
+    // in-memory state is updated so a hook failure leaves in-memory
+    // state intact. See ADR-011.
+    this.invokeHook((h) => h.onRegister(def));
+
     return () => this.removeByName(def.name);
   }
 
@@ -285,7 +357,17 @@ export abstract class RegistryBase<TDef extends RegistryEntry> implements Regist
     });
 
     if (removed.length > 0) {
-      for (const e of removed) void this.runDispose(e);
+      for (const e of removed) {
+        // Per-entry hook fan-out — fires AFTER in-memory removal so
+        // a hook failure can't leave the registry in a half-removed
+        // state. See ADR-011 D3.
+        this.invokeHook((h) => h.onRemove(e.name));
+        void this.runDispose(e);
+      }
+      // Batch-commit hook AFTER all per-entry calls have fired.
+      // Adapters that prefer batch deletes use this; per-entry
+      // adapters can leave it as a no-op.
+      this.invokeHook((h) => h.onRemoveBySource(source));
       this.telemetry.emit('agentic.registry.remove', {
         'registry.name': this.registryName,
         'registry.entry.source': source,
@@ -298,7 +380,10 @@ export abstract class RegistryBase<TDef extends RegistryEntry> implements Regist
   private removeByName(name: string): void {
     const removed = this.entries().find((e) => e.name === name);
     this.entries.update((current) => current.filter((e) => e.name !== name));
-    if (removed) void this.runDispose(removed);
+    if (removed) {
+      this.invokeHook((h) => h.onRemove(name));
+      void this.runDispose(removed);
+    }
   }
 
   /**

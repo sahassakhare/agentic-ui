@@ -1,0 +1,106 @@
+# One-command local platform for self-hosters.
+#
+#   docker compose -f platform/docker-compose.yml up --build
+#
+# After ~60s:
+#   - Postgres on   localhost:5432  (catalog/catalog)
+#   - Catalog API   localhost:8080  (healthz, openapi, /v1/*)
+#   - Ops Console   localhost:4500  (login + 6 read-only views)
+#
+# OIDC: this stack is configured against a "dev issuer" mode where
+# the catalog accepts any JWT signed by the bundled key. **Do not
+# use this in production** — replace OIDC_ISSUER + OIDC_AUDIENCE
+# with your real IdP and remove the dev key mount. See
+# platform/helm/agentic-platform/README.md for the production
+# deployment shape.
+
+name: agentic-platform
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: catalog
+      POSTGRES_PASSWORD: catalog
+      POSTGRES_DB: catalog
+    ports: ["5432:5432"]
+    volumes:
+      - catalog-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U catalog -d catalog"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Tiny static-key JWKS server for local dev. Hosts paste a JWT
+  # signed by the matching private key into the ops console; the
+  # catalog server validates it through the issuer's JWKS endpoint.
+  # In production, OIDC_ISSUER points at your real IdP (Auth0,
+  # Keycloak, Okta, Azure AD, etc.) and this service goes away.
+  dev-jwks:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./local-dev/dev-jwks:/usr/share/nginx/html:ro
+    ports: ["8888:80"]
+
+  catalog-server:
+    build:
+      context: ./agentic-catalog-server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dev-jwks:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgres://catalog:catalog@postgres:5432/catalog
+      DATABASE_POOL_MAX: "10"
+      OIDC_ISSUER: http://dev-jwks/
+      OIDC_JWKS_URI: http://dev-jwks/.well-known/jwks.json
+      OIDC_AUDIENCE: agentic-catalog
+      LOG_LEVEL: info
+      LOG_FORMAT: json
+      PORT: "8080"
+    ports: ["8080:8080"]
+
+  # node-pg-migrate runs once and exits. Compose runs it after
+  # Postgres is healthy and BEFORE the catalog server admits traffic
+  # (catalog blocks readiness on DB anyway, so even without
+  # `depends_on` it'd be eventually-consistent — but the explicit
+  # ordering keeps logs clean).
+  catalog-migrate:
+    build:
+      context: ./agentic-catalog-server
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint:
+      - /nodejs/bin/node
+      - node_modules/node-pg-migrate/bin/node-pg-migrate.js
+      - --migrations-dir
+      - src/db/migrations
+      - -j
+      - sql
+      - up
+    environment:
+      DATABASE_URL: postgres://catalog:catalog@postgres:5432/catalog
+    restart: "no"
+
+  ops-console:
+    build:
+      context: ../
+      dockerfile: platform/agentic-ops-console/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - catalog-server
+    environment:
+      CATALOG_BACKEND: http://catalog-server:8080
+    ports: ["4500:80"]
+
+volumes:
+  catalog-db: {}

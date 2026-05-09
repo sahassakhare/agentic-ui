@@ -1,4 +1,5 @@
 export * from './registry-base';
+export * from './registry-provider-hook';
 export * from './tool-registry';
 export * from './component-registry';
 export * from './backend-registry';

@@ -106,8 +106,17 @@ export class GeminiAgent implements ServerAgent {
     try {
       const contents = convertMessagesToGemini(input.messages, this.thoughtSignatures);
       const tools = convertToolsToGemini(input.tools);
+      // Capability M1 R4 — read RunAgentInput.state and fold it into
+      // the system instruction so the agent's natural-language
+      // responses reflect the active context (persona, matter, route).
+      // NOT a security boundary — that's setScopePolicy on the client.
+      // See ADR-013.
+      const contextBlock = formatContextBlock(input.state);
+      const systemInstruction = contextBlock
+        ? `${this.systemInstruction ?? ''}\n\n${contextBlock}`.trim()
+        : this.systemInstruction;
 
-      const stream = await this.openStreamWithRetry(contents, tools, signal);
+      const stream = await this.openStreamWithRetry(contents, tools, signal, systemInstruction);
 
       const messageId = `msg-${input.runId}`;
       let textStarted = false;
@@ -185,6 +194,7 @@ export class GeminiAgent implements ServerAgent {
     contents: ReturnType<typeof convertMessagesToGemini>,
     tools: FunctionDeclaration[],
     signal: AbortSignal,
+    systemInstruction: string | undefined = this.systemInstruction,
   ): Promise<AsyncIterable<{ candidates?: Array<{ content?: { parts?: Array<{ text?: string; functionCall?: { id?: string; name?: string; args?: unknown }}>}}>}>> {
     const MAX_ATTEMPTS = 4;
     const BASE_DELAY_MS = 500;
@@ -196,7 +206,7 @@ export class GeminiAgent implements ServerAgent {
           model: this.model,
           contents: contents as never,
           config: {
-            systemInstruction: this.systemInstruction,
+            systemInstruction,
             ...(tools.length > 0 ? { tools: [{ functionDeclarations: tools }] } : {}),
             abortSignal: signal,
           } as never,
@@ -216,6 +226,42 @@ export class GeminiAgent implements ServerAgent {
     }
     throw lastErr;
   }
+}
+
+/**
+ * Format the host's reasoning state (M1 R4 — ADR-013) into a short
+ * natural-language paragraph that gets prepended to the system
+ * instruction. The agent reads this on every turn within a run.
+ *
+ * Returns empty string when state is missing / empty so callers
+ * can short-circuit without conditional concatenation.
+ *
+ * Specific to this demo's state shape (`persona`, `matter`,
+ * `activeRoute`). Other servers can format their own state shape
+ * however they prefer — the runtime puts state on the wire; what
+ * the server does with it is the server's choice.
+ */
+function formatContextBlock(state: unknown): string {
+  if (!state || typeof state !== 'object') return '';
+  const s = state as Record<string, unknown>;
+
+  const parts: string[] = [];
+  if (typeof s['persona'] === 'string' && s['persona']) {
+    parts.push(`persona = ${s['persona']}`);
+  }
+  const matter = s['matter'];
+  if (matter && typeof matter === 'object') {
+    const m = matter as Record<string, unknown>;
+    const id = typeof m['id'] === 'string' ? m['id'] : null;
+    const type = typeof m['type'] === 'string' ? m['type'] : null;
+    if (id && type) parts.push(`matter = ${id} (${type})`);
+    else if (id) parts.push(`matter = ${id}`);
+  }
+  if (typeof s['activeRoute'] === 'string' && s['activeRoute']) {
+    parts.push(`active route = ${s['activeRoute']}`);
+  }
+  if (parts.length === 0) return '';
+  return `Current context: ${parts.join(', ')}. Phrase responses appropriately for this context, but do not relax tool-permission rules — that's enforced separately by the host.`;
 }
 
 function isTransient(err: unknown): boolean {

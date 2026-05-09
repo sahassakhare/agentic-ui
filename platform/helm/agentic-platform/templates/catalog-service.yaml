@@ -1,0 +1,17 @@
+{{- if .Values.catalogServer.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-catalog-server
+  labels:
+    {{- include "agentic-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: catalog-server
+spec:
+  type: {{ .Values.catalogServer.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.catalogServer.service.port }}
+      targetPort: http
+  selector:
+    {{- include "agentic-platform.componentLabels" (dict "Chart" .Chart "Release" .Release "component" "catalog-server") | nindent 4 }}
+{{- end }}

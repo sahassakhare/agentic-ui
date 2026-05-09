@@ -1,0 +1,5 @@
+# The dev RSA private key is generated locally and must never land
+# in the repo. The matching public JWKS document is committed
+# (overwritten by mint-dev-key.mjs) so the dev-jwks nginx container
+# has something to serve.
+dev-private.pem

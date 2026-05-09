@@ -1,0 +1,24 @@
+apiVersion: v2
+name: agentic-platform
+description: |
+  Self-managed deployment of the Maverick agentic platform — catalog
+  server (T2) + ops console (read-only viewer). Brings in Postgres
+  optionally; otherwise expects a managed DB connection string.
+
+  Apache 2.0. See platform/helm/agentic-platform/README.md for install
+  + operations + production hardening checklist.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - agentic
+  - catalog
+  - rls
+  - oidc
+  - control-plane
+home: https://github.com/sahassakhare/agentic-ui
+sources:
+  - https://github.com/sahassakhare/agentic-ui
+maintainers:
+  - name: Maverick
+    url: https://github.com/sahassakhare/agentic-ui

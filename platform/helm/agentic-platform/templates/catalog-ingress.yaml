@@ -1,0 +1,32 @@
+{{- if and .Values.catalogServer.enabled .Values.catalogServer.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}-catalog-server
+  labels:
+    {{- include "agentic-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: catalog-server
+  {{- with .Values.catalogServer.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.catalogServer.ingress.className }}
+  {{- if .Values.catalogServer.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.catalogServer.ingress.host }}
+      secretName: {{ .Values.catalogServer.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.catalogServer.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-catalog-server
+                port:
+                  number: {{ .Values.catalogServer.service.port }}
+{{- end }}

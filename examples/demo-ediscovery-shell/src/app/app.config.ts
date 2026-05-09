@@ -7,10 +7,11 @@ import {
   provideZonelessChangeDetection,
   runInInjectionContext,
 } from '@angular/core';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { loadRemoteModule } from '@angular-architects/native-federation';
 import {
   AGENTIC_ACTIVE_PERSONA,
+  AGENTIC_RUN_STATE_PROVIDER,
   AGENTIC_APPROVAL_AUDIT_HOOK,
   AGENTIC_OPERATION_AUDIT_HOOK,
   keywordToolFilter,
@@ -34,6 +35,7 @@ import { routes } from './app.routes';
 import { buildTools, registerApprovals, registerDataSources, registerForms, widgets } from './agentic/agentic';
 import { registerNavigationActions } from './agentic/navigation-actions';
 import { PersonaService } from './services/persona.service';
+import { MatterStore } from './services/matter.store';
 
 function telemetryProvider() {
   switch (environment.telemetry) {
@@ -196,6 +198,25 @@ export const appConfig: ApplicationConfig = {
       useFactory: () => {
         const persona = inject(PersonaService);
         return () => persona.active();
+      },
+    },
+    // Capability M1 R4 — thread persona / matter / active route into the
+    // agent's reasoning context (ADR-013). Snapshot taken once per run by
+    // runUntilSettled. NOT a security boundary — that's setScopePolicy
+    // (ADR-008). State only lets the agent phrase responses appropriately.
+    // PII redaction is the host's responsibility; this provider returns
+    // only the role identifier + the matter id/type, never end-user PII.
+    {
+      provide: AGENTIC_RUN_STATE_PROVIDER,
+      useFactory: () => {
+        const persona = inject(PersonaService);
+        const matter = inject(MatterStore);
+        const router = inject(Router);
+        return () => ({
+          persona: persona.active(),
+          matter: { id: matter.matterId, type: 'securities' as const },
+          activeRoute: router.url,
+        });
       },
     },
     // Capability F4 — translate every approval transition into an
