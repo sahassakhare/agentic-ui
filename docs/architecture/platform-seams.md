@@ -164,7 +164,7 @@ Internal lib logger (separate from `AGENTIC_TELEMETRY_SINK` which is for events)
 
 ### `MFE_REGISTRY_SOURCE`
 
-The **federation discovery seam**. Implementations: `provideStaticJsonMfeRegistry({ url })`, `provideSpringBootMfeRegistry({ url })`. Future: a control-plane-driven REST source (per the v3 plan §10 M3).
+The **federation discovery seam**. Implementations: `provideStaticJsonMfeRegistry({ url })`, `provideSpringBootMfeRegistry({ url })`, `provideRestMfeRegistry({ catalogUrl, tenantId, getToken })` (M2 C1 follow-up — reads from `@maverick/agentic-catalog-server`). Custom implementations supply their own `MfeRegistrySource`.
 
 **Signature:** [projects/agentic-ui/src/lib/mfe/mfe-registry-source.ts:19](../../projects/agentic-ui/src/lib/mfe/mfe-registry-source.ts#L19)
 

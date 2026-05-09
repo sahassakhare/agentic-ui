@@ -4,3 +4,4 @@ export * from './manifest';
 export * from './mfe-registry-source';
 export * from './prefetch-capabilities';
 export * from './spring-boot-mfe-registry';
+export * from './rest-mfe-registry';
