@@ -2,6 +2,8 @@ import { computed, inject, Signal, signal } from '@angular/core';
 import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
 import type { RegistryEntry } from '../types/registry-defs';
 import type { RegistryProviderHook } from './registry-provider-hook';
+import { LIB_VERSION } from '../version';
+import { satisfies } from './semver-match';
 
 /**
  * Hook that decides whether an entry is visible at the moment of a
@@ -198,6 +200,22 @@ export abstract class RegistryBase<TDef extends RegistryEntry> implements Regist
    * @throws  Error when the policy is `'throw'` and the name already exists.
    */
   register(def: TDef): () => void {
+    // ADR-014 — host-version compatibility check. When `def.requiredHostVersion`
+    // is set + doesn't match `LIB_VERSION`, skip registration silently
+    // (telemetry-logged) and return a no-op disposer. Lets federated
+    // remotes ship capabilities pinned to a major + decline to surface
+    // them in incompatible hosts without crashing the host.
+    if (def.requiredHostVersion && !satisfies(LIB_VERSION, def.requiredHostVersion)) {
+      this.telemetry.emit('agentic.registry.host_version_mismatch', {
+        'registry.name': this.registryName,
+        'registry.entry.name': def.name,
+        'registry.entry.source': def.source ?? 'host',
+        'registry.entry.required_host_version': def.requiredHostVersion,
+        'registry.host_version': LIB_VERSION,
+      });
+      return () => {};
+    }
+
     const existing = this.entries().find((e) => e.name === def.name);
 
     if (existing) {

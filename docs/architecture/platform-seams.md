@@ -371,11 +371,30 @@ const AGENTIC_RUN_STATE_PROVIDER = new InjectionToken<AgenticRunStateProvider>(
 
 ---
 
+## Tier 1.5 (continued) — `RegistryEntry` governance metadata (M1 R5 — landed)
+
+Optional fields available on every `RegistryEntry` subtype (`ToolDef`, `ComponentDef`, etc.). Hosts and remotes that don't supply them see no behavior change. See [ADR-014](../adr/0014-governance-hooks.md).
+
+| Field | Type | Enforced by runtime? | Purpose |
+|---|---|---|---|
+| `requiredHostVersion` | `string` (semver range) | ✅ `register()` skips on mismatch | Federation-version compatibility |
+| `tags` | `readonly string[]` | ❌ stored only | Catalog filtering, telemetry partitioning |
+| `owner` | `string` | ❌ stored only | Accountability |
+| `lifecycle` | `'draft' \| 'published' \| 'deprecated' \| 'disabled'` | ❌ stored only — host's scope policy may filter | Lifecycle gating |
+
+Supported semver-range syntax for `requiredHostVersion`: `1.2.3`, `=1.2.3`, `^1.2.3`, `~1.2.3`, `>=1.2.3`, `>1.2.3`, `<2.0.0`, `<=1.2.3`. Compound / x-range / pre-release / build-metadata variants fail-safe to `false` (skipped registration). Full list in [`projects/agentic-ui/src/lib/registries/semver-match.ts`](../../projects/agentic-ui/src/lib/registries/semver-match.ts) — no `semver` dep, ~110 LOC inline matcher.
+
+`LIB_VERSION` lives in [`projects/agentic-ui/src/lib/version.ts`](../../projects/agentic-ui/src/lib/version.ts) and is sync'd by release tooling against `package.json`.
+
+**Telemetry event added:** `agentic.registry.host_version_mismatch` fires when `register()` skips a registration due to incompatibility. Operators monitor this in their pipeline.
+
+---
+
 ## What the v3 plan adds (still pending)
 
-R4 is now landed. R5 (governance hooks: `conflictPolicy`, `onDispose`, `requiredHostVersion`, optional `tags`/`owner`/`lifecycle`) is the next M1 deliverable; most of R5 was already shipped before the v3 plan was written, so the remaining work is small.
+M1 R1–R5 are all landed.
 
-These join this document as they ship. Each is purely additive; the existing 12 tokens + 1 method + 12 factories + 1 mirror-hook + 1 server-side store interface (with 3 adapters) don't change.
+These join this document as they ship. Each is purely additive; the existing 12 tokens + 2 registry methods + 12 factories + 1 mirror-hook + 1 server-side store interface (with 3 adapters) + 4 governance-metadata fields don't change.
 
 ---
 

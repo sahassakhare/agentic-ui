@@ -405,6 +405,42 @@ describe('RegistryBase onDispose lifecycle hook', () => {
       expect(registerCalls).toBe(1);
     });
 
+    // ─────────────────────────────────────────────────────────────────────
+    //  Governance metadata + requiredHostVersion — ADR-014 (M1 R5)
+    // ─────────────────────────────────────────────────────────────────────
+    describe('governance metadata + requiredHostVersion', () => {
+      it('register skips when requiredHostVersion is unsatisfiable', () => {
+        // Lib version is currently 1.1.0; ^99 will not match.
+        const dispose = registry.register({ ...makeTool('alpha'), requiredHostVersion: '^99.0.0' });
+        expect(registry.list()).toEqual([]);
+        // Disposer is a no-op for skipped registrations.
+        expect(() => dispose()).not.toThrow();
+      });
+
+      it('register proceeds when requiredHostVersion is satisfied', () => {
+        registry.register({ ...makeTool('alpha'), requiredHostVersion: '^1.0.0' });
+        expect(registry.list().map((t) => t.name)).toEqual(['alpha']);
+      });
+
+      it('register proceeds when requiredHostVersion is omitted', () => {
+        registry.register(makeTool('alpha'));
+        expect(registry.list()).toHaveLength(1);
+      });
+
+      it('preserves optional metadata fields (tags, owner, lifecycle)', () => {
+        registry.register({
+          ...makeTool('alpha'),
+          tags: ['beta', 'eDiscovery'],
+          owner: 'team:platform',
+          lifecycle: 'published',
+        });
+        const got = registry.get('alpha');
+        expect(got?.tags).toEqual(['beta', 'eDiscovery']);
+        expect(got?.owner).toBe('team:platform');
+        expect(got?.lifecycle).toBe('published');
+      });
+    });
+
     // Conformance: with-hook vs without-hook reads return the same data.
     it('reads return identical data with and without a hook installed', () => {
       // Without hook
