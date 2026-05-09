@@ -1,5 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { CatalogClientService, type RoleMapping } from '../services/catalog-client.service';
+import { autoRefresh } from '../services/auto-refresh.service';
 
 @Component({
   selector: 'ops-role-mappings',
@@ -64,6 +65,12 @@ export class RoleMappingsComponent {
   readonly error = signal<string | null>(null);
 
   constructor() {
+    this.fetch();
+    autoRefresh(() => this.fetch(true));
+  }
+
+  private fetch(silent = false): void {
+    if (!silent) this.loading.set(true);
     this.catalog.listRoleMappings().subscribe({
       next: (res) => { this.items.set(res.items); this.loading.set(false); },
       error: (err) => {

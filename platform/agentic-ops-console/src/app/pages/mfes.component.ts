@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { CatalogClientService, type MfeRemote } from '../services/catalog-client.service';
+import { autoRefresh } from '../services/auto-refresh.service';
 
 @Component({
   selector: 'ops-mfes',
@@ -52,6 +53,12 @@ export class MfesComponent {
   readonly error = signal<string | null>(null);
 
   constructor() {
+    this.fetch();
+    autoRefresh(() => this.fetch(true));
+  }
+
+  private fetch(silent = false): void {
+    if (!silent) this.loading.set(true);
     this.catalog.listMfes().subscribe({
       next: (res) => { this.items.set(res.items); this.loading.set(false); },
       error: (err) => {
