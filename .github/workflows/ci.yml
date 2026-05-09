@@ -99,6 +99,18 @@ jobs:
         working-directory: projects/agentic-ui-server
         run: npm run build
 
+      # @maverick/agentic-ui-server-stores ships Redis + Postgres adapters
+      # for ThreadStateStore (ADR-012, M1 R3). Sibling package; uses
+      # `file:../agentic-ui-server` for its devDep, so install only
+      # works AFTER agentic-ui-server is built. Run unit tests too —
+      # they exercise the adapter logic against mocked clients.
+      - name: Install + build + test @maverick/agentic-ui-server-stores
+        working-directory: projects/agentic-ui-server-stores
+        run: |
+          npm install --no-audit --fund=false
+          npm run build
+          npm test
+
       - name: Compile demo-server (TypeScript → dist/)
         working-directory: examples/demo-server
         run: |
