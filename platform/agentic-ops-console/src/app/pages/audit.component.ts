@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { SlicePipe } from '@angular/common';
 import { CatalogClientService, type AuditVerifyResult } from '../services/catalog-client.service';
 import { autoRefresh } from '../services/auto-refresh.service';
+import { autoStream } from '../services/catalog-stream.service';
 
 @Component({
   selector: 'ops-audit',
@@ -94,6 +95,7 @@ export class AuditComponent {
     this.verify();
     // Re-walk the chain on every tick so operators see new
     // chain-position numbers as catalog mutations land elsewhere.
+    autoStream(() => this.verify(true));
     autoRefresh(() => this.verify(true));
   }
 

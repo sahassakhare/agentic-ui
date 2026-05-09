@@ -16,6 +16,7 @@ import {
   updateCapability,
 } from '../repository/capability-repo.js';
 import { appendAudit } from '../repository/audit-repo.js';
+import { catalogBus } from '../events/catalog-bus.js';
 
 /**
  * `GET    /v1/catalogs/:tenant/capabilities`
@@ -91,6 +92,14 @@ export function capabilitiesRoutes(pool: CatalogPool): Hono {
       return row;
     });
 
+    catalogBus.emit({
+      tenantId: created.tenantId,
+      entityType: 'capability',
+      operation: 'create',
+      entityId: created.id,
+      occurredAt: new Date().toISOString(),
+      summary: { kind: created.kind, name: created.name },
+    });
     c.status(201);
     c.header('Location', `${c.req.path}/${created.id}`);
     return c.json(CapabilitySchema.parse(created));
@@ -122,6 +131,14 @@ export function capabilitiesRoutes(pool: CatalogPool): Hono {
     });
 
     if (!updated) throw new HTTPException(404, { message: 'Capability not found' });
+    catalogBus.emit({
+      tenantId: updated.tenantId,
+      entityType: 'capability',
+      operation: 'update',
+      entityId: updated.id,
+      occurredAt: new Date().toISOString(),
+      summary: { lifecycle: updated.lifecycle },
+    });
     return c.json(CapabilitySchema.parse(updated));
   });
 
@@ -150,6 +167,13 @@ export function capabilitiesRoutes(pool: CatalogPool): Hono {
     });
 
     if (!deleted) throw new HTTPException(404, { message: 'Capability not found' });
+    catalogBus.emit({
+      tenantId: deleted.tenantId,
+      entityType: 'capability',
+      operation: 'delete',
+      entityId: deleted.id,
+      occurredAt: new Date().toISOString(),
+    });
     c.status(204);
     return c.body(null);
   });

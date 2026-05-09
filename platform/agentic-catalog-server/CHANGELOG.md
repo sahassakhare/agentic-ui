@@ -7,14 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 M2 C3 + M3 (audit chain + usage meter) + M4 C7 (tenant lifecycle) +
-M2 C9 (self-managed packaging) + AUTH_MODE escape hatch. Design
-rationale in
+M2 C9 (self-managed packaging) + AUTH_MODE escape hatch + SSE stream.
+Design rationale in
 [ADR-016](../../docs/adr/0016-iam-role-mapping.md),
 [ADR-017](../../docs/adr/0017-audit-chain.md),
 [ADR-018](../../docs/adr/0018-usage-meter.md),
 [ADR-020](../../docs/adr/0020-tenant-lifecycle.md),
 [ADR-021](../../docs/adr/0021-self-managed-packaging.md),
-[ADR-022](../../docs/adr/0022-auth-disabled-mode.md).
+[ADR-022](../../docs/adr/0022-auth-disabled-mode.md),
+[ADR-027](../../docs/adr/0027-catalog-sse-stream.md).
+
+### Added (catalog SSE — ADR-027)
+
+- **`GET /v1/catalogs/{tenant}/stream`** Server-Sent Events endpoint.
+  Long-lived connection; `event: open` first, `event: mutation`
+  per catalog write, `event: ping` every 25s as heartbeat. Per-
+  tenant filtering at the route handler.
+- **`CatalogEventBus`** in-process EventEmitter. Every mutation
+  route (capabilities, mfes, role-mappings, tenants, usage) calls
+  `catalogBus.emit(...)` after the write. Payload is a minimal
+  hint (`kind`, `name`, etc.) — not the full row.
+- **9 new tests.** Single-replica scope; multi-replica via
+  Postgres `LISTEN/NOTIFY` is the documented next slice.
 
 ### Added (AUTH_MODE escape hatch)
 

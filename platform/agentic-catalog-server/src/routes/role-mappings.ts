@@ -18,6 +18,7 @@ import {
   updateRoleMapping,
 } from '../repository/role-mapping-repo.js';
 import { appendAudit } from '../repository/audit-repo.js';
+import { catalogBus } from '../events/catalog-bus.js';
 import { logger } from '../logger.js';
 
 /**
@@ -109,6 +110,13 @@ export function roleMappingsRoutes(pool: CatalogPool): Hono {
       return row;
     });
 
+    catalogBus.emit({
+      tenantId: created.tenantId,
+      entityType: 'role_mapping',
+      operation: 'create',
+      entityId: created.id,
+      occurredAt: new Date().toISOString(),
+    });
     c.status(201);
     c.header('Location', `${c.req.path}/${created.id}`);
     return c.json(RoleMappingSchema.parse(created));
@@ -143,6 +151,13 @@ export function roleMappingsRoutes(pool: CatalogPool): Hono {
     });
 
     if (!updated) throw new HTTPException(404, { message: 'Role mapping not found' });
+    catalogBus.emit({
+      tenantId: updated.tenantId,
+      entityType: 'role_mapping',
+      operation: 'update',
+      entityId: updated.id,
+      occurredAt: new Date().toISOString(),
+    });
     return c.json(RoleMappingSchema.parse(updated));
   });
 
@@ -171,6 +186,13 @@ export function roleMappingsRoutes(pool: CatalogPool): Hono {
     });
 
     if (!ok) throw new HTTPException(404, { message: 'Role mapping not found' });
+    catalogBus.emit({
+      tenantId: principal.tenantId,
+      entityType: 'role_mapping',
+      operation: 'delete',
+      entityId: id,
+      occurredAt: new Date().toISOString(),
+    });
     c.status(204);
     return c.body(null);
   });

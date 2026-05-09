@@ -5,6 +5,7 @@ import { CatalogClientService, type Tenant } from '../services/catalog-client.se
 import { AuthService } from '../services/auth.service';
 import { ConfirmDialogComponent } from '../components/confirm-dialog.component';
 import { autoRefresh } from '../services/auto-refresh.service';
+import { autoStream } from '../services/catalog-stream.service';
 
 interface ConfirmAction {
   readonly tenant: Tenant;
@@ -207,6 +208,7 @@ export class TenantsComponent {
       return;
     }
     this.refresh();
+    autoStream(() => this.refresh(true));
     autoRefresh(() => this.refresh(true));
   }
 

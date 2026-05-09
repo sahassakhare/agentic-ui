@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { CatalogClientService, type RoleMapping } from '../services/catalog-client.service';
 import { autoRefresh } from '../services/auto-refresh.service';
+import { autoStream } from '../services/catalog-stream.service';
 
 @Component({
   selector: 'ops-role-mappings',
@@ -66,6 +67,7 @@ export class RoleMappingsComponent {
 
   constructor() {
     this.fetch();
+    autoStream(() => this.fetch(true));
     autoRefresh(() => this.fetch(true));
   }
 

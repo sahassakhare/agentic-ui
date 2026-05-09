@@ -16,6 +16,7 @@ import {
   updateMfeRemote,
 } from '../repository/mfe-repo.js';
 import { appendAudit } from '../repository/audit-repo.js';
+import { catalogBus } from '../events/catalog-bus.js';
 import { z } from 'zod';
 
 const HealthRecordSchema = z.object({
@@ -63,6 +64,13 @@ export function mfesRoutes(pool: CatalogPool): Hono {
       return row;
     });
 
+    catalogBus.emit({
+      tenantId: created.tenantId,
+      entityType: 'mfe',
+      operation: 'create',
+      entityId: created.name,
+      occurredAt: new Date().toISOString(),
+    });
     c.status(201);
     c.header('Location', `${c.req.path}/${created.name}`);
     return c.json(MfeRemoteSchema.parse(created));
@@ -93,6 +101,13 @@ export function mfesRoutes(pool: CatalogPool): Hono {
     });
 
     if (!updated) throw new HTTPException(404, { message: 'MFE remote not found' });
+    catalogBus.emit({
+      tenantId: updated.tenantId,
+      entityType: 'mfe',
+      operation: 'update',
+      entityId: updated.name,
+      occurredAt: new Date().toISOString(),
+    });
     return c.json(MfeRemoteSchema.parse(updated));
   });
 
@@ -122,6 +137,13 @@ export function mfesRoutes(pool: CatalogPool): Hono {
     });
 
     if (!ok) throw new HTTPException(404, { message: 'MFE remote not found' });
+    catalogBus.emit({
+      tenantId: principal.tenantId,
+      entityType: 'mfe',
+      operation: 'delete',
+      entityId: name,
+      occurredAt: new Date().toISOString(),
+    });
     c.status(204);
     return c.body(null);
   });
