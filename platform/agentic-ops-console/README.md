@@ -1,13 +1,14 @@
 # @maverick/agentic-ops-console
 
-**Read-only ops console over the agentic catalog server.** M2 C6 v0
+**Ops console over the agentic catalog server.** M2 C6 v0 + C6.1
 from the [platform-evolution plan](../../docs/plans/platform-evolution-plan.md).
 Apache 2.0.
 
 This is the operator's view into a running catalog deployment:
 capabilities, MFE remotes, IAM role mappings, audit-chain status,
-usage. v0 is **read-only on purpose** — editing comes in C6.1 once
-the read-side flows are validated against real adopters.
+usage, tenants. C6.1 adds editor surfaces for tenants + capabilities;
+MFE remotes + role mappings stay read-only for now (see
+[ADR-023](../../docs/adr/0023-ops-console-editor-surfaces.md) §D1).
 
 > Heads up: like the catalog server, this package will be extracted
 > to its own repo (`sahassakhare/agentic-platform-control-plane`)
@@ -17,17 +18,20 @@ the read-side flows are validated against real adopters.
 
 ## Status
 
-**M2 C6 v0 — read-only console.** Bundled views:
+**M2 C6 v0 + C6.1 — read views + tenant/capability editors.** Bundled
+views:
 
 | View | Surface |
 |---|---|
-| **Capabilities** | List, kind / lifecycle filters |
-| **MFE remotes** | List with health status |
-| **Role mappings** | List ordered by priority; enabled / disabled badges |
+| **Capabilities** | List + filters; **Register**, in-row **lifecycle dropdown**, **Delete** |
+| **MFE remotes** | Read-only list with health status |
+| **Role mappings** | Read-only list ordered by priority |
 | **Audit chain** | Live verification status; one-click JSONL download |
 | **Usage** | Aggregate by kind + recent events |
+| **Tenants** *(platform-admin only)* | List + **Onboard**, **Suspend** (with reason), **Activate**, **Delete** |
 
-Editing surfaces (create/patch/delete) ship in C6.1.
+Editor surfaces for MFE remotes + role mappings deferred until ops
+feedback shows demand.
 
 ---
 

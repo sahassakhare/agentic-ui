@@ -119,6 +119,32 @@ export class CatalogClientService {
     return this.http.get<CapabilityListResponse>(`${this.base()}/capabilities`, { params });
   }
 
+  createCapability(input: {
+    kind: string;
+    name: string;
+    body: Record<string, unknown>;
+    lifecycle?: 'draft' | 'published' | 'deprecated' | 'disabled';
+    owner?: string | null;
+    tags?: readonly string[];
+    requiredHostVersion?: string | null;
+  }): Observable<Capability> {
+    return this.http.post<Capability>(`${this.base()}/capabilities`, input);
+  }
+
+  patchCapability(id: string, patch: {
+    lifecycle?: 'draft' | 'published' | 'deprecated' | 'disabled';
+    owner?: string | null;
+    tags?: readonly string[];
+    body?: Record<string, unknown>;
+    requiredHostVersion?: string | null;
+  }): Observable<Capability> {
+    return this.http.patch<Capability>(`${this.base()}/capabilities/${encodeURIComponent(id)}`, patch);
+  }
+
+  deleteCapability(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base()}/capabilities/${encodeURIComponent(id)}`);
+  }
+
   listMfes(): Observable<{ items: readonly MfeRemote[] }> {
     return this.http.get<{ items: readonly MfeRemote[] }>(`${this.base()}/mfes`);
   }
@@ -175,5 +201,34 @@ export class CatalogClientService {
 
   getTenant(id: string): Observable<Tenant> {
     return this.http.get<Tenant>(`${environment.catalogBaseUrl}/v1/tenants/${encodeURIComponent(id)}`);
+  }
+
+  createTenant(input: { id: string; displayName: string; quotas?: Record<string, unknown> }): Observable<Tenant> {
+    return this.http.post<Tenant>(`${environment.catalogBaseUrl}/v1/tenants`, input);
+  }
+
+  patchTenant(id: string, patch: { displayName?: string; quotas?: Record<string, unknown> }): Observable<Tenant> {
+    return this.http.patch<Tenant>(
+      `${environment.catalogBaseUrl}/v1/tenants/${encodeURIComponent(id)}`,
+      patch,
+    );
+  }
+
+  suspendTenant(id: string, reason: string): Observable<Tenant> {
+    return this.http.post<Tenant>(
+      `${environment.catalogBaseUrl}/v1/tenants/${encodeURIComponent(id)}/suspend`,
+      { reason },
+    );
+  }
+
+  activateTenant(id: string): Observable<Tenant> {
+    return this.http.post<Tenant>(
+      `${environment.catalogBaseUrl}/v1/tenants/${encodeURIComponent(id)}/activate`,
+      {},
+    );
+  }
+
+  deleteTenant(id: string): Observable<void> {
+    return this.http.delete<void>(`${environment.catalogBaseUrl}/v1/tenants/${encodeURIComponent(id)}`);
   }
 }
