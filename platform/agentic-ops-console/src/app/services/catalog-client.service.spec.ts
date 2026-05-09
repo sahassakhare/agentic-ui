@@ -101,4 +101,84 @@ describe('CatalogClientService', () => {
     req.flush({ items: [] });
     expect((await promise).items).toEqual([]);
   });
+
+  // ── C6.1 mutations ─────────────────────────────────────────
+  it('createCapability POSTs to /capabilities', async () => {
+    const promise = firstValueFrom(client.createCapability({
+      kind: 'tool',
+      name: 'demo-tool',
+      body: { description: 'a tool' },
+      lifecycle: 'published',
+      tags: ['demo'],
+    }));
+    const req = httpTesting.expectOne((r) =>
+      r.method === 'POST' && r.url.endsWith('/v1/catalogs/acme/capabilities'),
+    );
+    expect(req.request.body).toMatchObject({
+      kind: 'tool',
+      name: 'demo-tool',
+      lifecycle: 'published',
+      tags: ['demo'],
+    });
+    req.flush({ id: 'cap-1', kind: 'tool', name: 'demo-tool' });
+    await promise;
+  });
+
+  it('patchCapability PATCHes to /capabilities/:id', async () => {
+    const promise = firstValueFrom(client.patchCapability('cap-1', { lifecycle: 'deprecated' }));
+    const req = httpTesting.expectOne((r) =>
+      r.method === 'PATCH' && r.url.endsWith('/v1/catalogs/acme/capabilities/cap-1'),
+    );
+    expect(req.request.body).toEqual({ lifecycle: 'deprecated' });
+    req.flush({ id: 'cap-1', lifecycle: 'deprecated' });
+    await promise;
+  });
+
+  it('deleteCapability DELETEs /capabilities/:id', async () => {
+    const promise = firstValueFrom(client.deleteCapability('cap-1'));
+    const req = httpTesting.expectOne((r) =>
+      r.method === 'DELETE' && r.url.endsWith('/v1/catalogs/acme/capabilities/cap-1'),
+    );
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    await promise;
+  });
+
+  it('createTenant POSTs to /v1/tenants (platform-level)', async () => {
+    const promise = firstValueFrom(client.createTenant({ id: 'acme', displayName: 'Acme Corp' }));
+    const req = httpTesting.expectOne((r) =>
+      r.method === 'POST' && r.url.endsWith('/v1/tenants'),
+    );
+    expect(req.request.body).toEqual({ id: 'acme', displayName: 'Acme Corp' });
+    req.flush({ id: 'acme', displayName: 'Acme Corp', status: 'active' });
+    await promise;
+  });
+
+  it('suspendTenant POSTs to /v1/tenants/:id/suspend with reason', async () => {
+    const promise = firstValueFrom(client.suspendTenant('acme', 'overdue invoice'));
+    const req = httpTesting.expectOne((r) =>
+      r.method === 'POST' && r.url.endsWith('/v1/tenants/acme/suspend'),
+    );
+    expect(req.request.body).toEqual({ reason: 'overdue invoice' });
+    req.flush({ id: 'acme', status: 'suspended' });
+    await promise;
+  });
+
+  it('activateTenant POSTs to /v1/tenants/:id/activate', async () => {
+    const promise = firstValueFrom(client.activateTenant('acme'));
+    const req = httpTesting.expectOne((r) =>
+      r.method === 'POST' && r.url.endsWith('/v1/tenants/acme/activate'),
+    );
+    expect(req.request.body).toEqual({});
+    req.flush({ id: 'acme', status: 'active' });
+    await promise;
+  });
+
+  it('deleteTenant DELETEs /v1/tenants/:id', async () => {
+    const promise = firstValueFrom(client.deleteTenant('acme'));
+    const req = httpTesting.expectOne((r) =>
+      r.method === 'DELETE' && r.url.endsWith('/v1/tenants/acme'),
+    );
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    await promise;
+  });
 });
