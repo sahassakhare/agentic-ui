@@ -1,0 +1,4 @@
+{
+  "_comment": "Placeholder JWKS for local dev. Replace before first run by following platform/local-dev/README.md — generate a key pair and write the public key here. The catalog server will reject every request until this file is replaced with a real JWKS document.",
+  "keys": []
+}

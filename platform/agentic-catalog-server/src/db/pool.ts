@@ -71,6 +71,34 @@ export async function withTenantScope<T>(
 }
 
 /**
+ * Like {@link withTenantScope} but for **platform-admin** operations
+ * that act *across* tenants (tenant CRUD, fleet-wide reports). Opens
+ * a transaction; the caller can optionally `SET LOCAL app.tenant_id`
+ * inside the transaction (e.g. to write an audit row scoped to a
+ * specific tenant) — but no global tenant scope is set up front.
+ *
+ * Caller is responsible for enforcing platform-admin gating at the
+ * route layer; this helper does NOT check roles.
+ */
+export async function withPlatformScope<T>(
+  pool: CatalogPool,
+  fn: (client: pg.PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch { /* original error wins */ }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Connectivity check used by `/readyz`. Quick `SELECT 1` with a
  * timeout. Returns `false` on any error so probe results stay
  * boolean — log details separately.

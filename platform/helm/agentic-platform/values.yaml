@@ -1,0 +1,154 @@
+# Default values for agentic-platform.
+# Override at install time:
+#
+#   helm install platform platform/helm/agentic-platform \
+#       --set catalogServer.image.tag=0.1.0 \
+#       --set oidc.issuer=https://your-idp.example.com/ \
+#       --set oidc.audience=agentic-catalog \
+#       --set database.external.connectionString=postgres://...
+
+# ─── Image registry settings (apply to every workload) ────────────
+image:
+  registry: ghcr.io/sahassakhare
+  pullPolicy: IfNotPresent
+
+# ─── Catalog server (T2) ──────────────────────────────────────────
+catalogServer:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: agentic-catalog-server
+    tag: "0.1.0"
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 1,    memory: 512Mi }
+  service:
+    type: ClusterIP
+    port: 8080
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+    host: catalog.example.com
+    tls:
+      enabled: false
+      secretName: catalog-tls
+  # Probe paths are baked into the catalog server (ADR-015).
+  probes:
+    liveness:  { path: /healthz, periodSeconds: 10 }
+    readiness: { path: /readyz,  periodSeconds: 5  }
+  config:
+    logLevel: info        # trace | debug | info | warn | error | fatal
+    logFormat: json       # json | pretty (pretty for local dev only)
+    poolMax: 10
+    statementTimeoutMs: 5000
+    shutdownGraceMs: 15000
+    # Override of the role/tenant claim names if your IdP differs.
+    tenantClaim: tenant_id
+    rolesClaim: roles
+    # CSV of personas that require platform-admin to map to.
+    # Default in-app: 'platform-admin,lead-counsel'.
+    protectedPersonas: ""
+
+# ─── Ops Console ──────────────────────────────────────────────────
+opsConsole:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: agentic-ops-console
+    tag: "0.1.0"
+  resources:
+    requests: { cpu: 50m,  memory: 64Mi }
+    limits:   { cpu: 200m, memory: 128Mi }
+  service:
+    type: ClusterIP
+    port: 80
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+    host: ops.example.com
+    tls:
+      enabled: false
+      secretName: ops-console-tls
+  # The console proxies /v1/* to the catalog. By default this points
+  # at the in-cluster catalog Service. Override only if you front
+  # the catalog with an external gateway.
+  catalogBackend: ""    # empty → derive from catalog Service
+
+# ─── OIDC / federated identity ────────────────────────────────────
+# REQUIRED. The catalog rejects every request unless these are wired
+# to your real IdP.
+oidc:
+  # Bearer-token issuer URL. JWKS is auto-discovered at
+  # ${issuer}/.well-known/jwks.json unless `jwksUri` is set.
+  issuer: ""
+  audience: "agentic-catalog"
+  # Optional non-default JWKS URI (Auth0 / Keycloak with custom paths).
+  jwksUri: ""
+
+# ─── Database ────────────────────────────────────────────────────
+# Two modes:
+#
+#   external (recommended for prod): point at a managed Postgres
+#       (RDS, Cloud SQL, Aiven, Neon). The chart does not provision.
+#
+#   bundled (dev / small self-hosters): the chart ships a single-pod
+#       StatefulSet. NOT for production.
+database:
+  external:
+    enabled: false
+    # Either supply a full connection string OR the discrete fields.
+    # The connection string takes precedence when present.
+    connectionString: ""
+    host: ""
+    port: 5432
+    database: catalog
+    username: catalog
+    # Pull the password from an existing secret in the same
+    # namespace, OR set `password` directly (chart will create the
+    # secret). The existingSecret path is preferred for prod.
+    existingSecret: ""
+    existingSecretKey: password
+    password: ""
+  bundled:
+    enabled: true
+    image:
+      repository: postgres
+      tag: "16-alpine"
+    storage:
+      size: 10Gi
+      storageClassName: ""
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits:   { cpu: 500m, memory: 1Gi }
+    auth:
+      database: catalog
+      username: catalog
+      password: catalog    # overwrite via --set or values override
+
+# ─── Migrations ──────────────────────────────────────────────────
+# Helm-native pre-install/pre-upgrade hook that runs node-pg-migrate
+# against the configured database. Disable if your CI runs them
+# externally (recommended for prod).
+migrations:
+  enabled: true
+  ttlSecondsAfterFinished: 600
+
+# ─── Pod-level defaults ──────────────────────────────────────────
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podSecurityContext:
+  runAsNonRoot: true
+  fsGroup: 65532
+
+containerSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]

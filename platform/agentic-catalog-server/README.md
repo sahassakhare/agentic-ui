@@ -10,27 +10,35 @@ This is the system of record for **what capabilities exist, who owns them, what 
 
 ## Status
 
-**M2 C1 — Catalog server foundation.** v0.1.0:
+**M2 C1 + C3 + M3 C4/C5 + M4 C7 — catalog + IAM + audit chain + usage meter + tenant lifecycle.** v0.1.0 + Unreleased:
 
 - Capability CRUD (REST) with soft-delete + lifecycle states
 - MFE remote registry CRUD + health-record endpoint
+- IAM role-mapping CRUD + persona resolution (`POST /role-mappings/resolve`)
+  with privilege-escalation guard on protected personas
+- **Hash-linked audit chain** — tamper-evident `catalog_audit`;
+  `GET /audit/export` (JSONL) + `GET /audit/verify`
+- **Usage meter** — `POST /usage` (idempotent), `GET /usage`
+  (aggregate by kind over a window), `GET /usage/recent`
+- **Tenant lifecycle** — `/v1/tenants/*` (platform-admin only):
+  onboard / patch / suspend (with reason) / activate / soft-delete
 - OIDC/JWT auth with tenant-scope guard + platform-admin override
 - Postgres + RLS multi-tenancy (every read/write scoped to `current_setting('app.tenant_id')`)
-- Append-only audit trail
+- Append-only audit trail (now hash-linked)
 - RFC 7807 error responses (`application/problem+json`)
 - Structured logging (pino) + request id propagation
 - Health probes (`/healthz` liveness, `/readyz` DB connectivity)
 - OpenAPI 3.1 spec at `/v1/openapi.json`
 - Graceful shutdown on SIGTERM/SIGINT
 - Multi-stage distroless Docker image
-- 60 unit + integration tests
+- 140 unit + integration tests
 
-Subsequent slices (NOT in v0.1):
+Subsequent slices (NOT in this branch yet):
 
 - SSE endpoint for live federation updates → v0.2
 - GraphQL gateway → v0.3 (when client diversity justifies)
 - Ops Console UI (separate package) → M2 C6
-- IAM service surface (role mapping editor) → M2 C3 expansion
+- Sigstore / external chain anchoring → M5 (alongside SOC 2 Type II)
 
 ---
 
@@ -85,8 +93,9 @@ Every value documented in [`.env.example`](./.env.example). Validated with Zod a
 | `DATABASE_POOL_MAX` | no | `10` | |
 | `DATABASE_IDLE_MS` | no | `30000` | |
 | `DATABASE_STATEMENT_TIMEOUT_MS` | no | `5000` | |
-| `OIDC_ISSUER` | **yes** | — | URL of your OIDC provider |
-| `OIDC_AUDIENCE` | **yes** | — | `aud` claim required on every JWT |
+| `AUTH_MODE` | no | `oidc` | `oidc` requires JWTs; `disabled` skips all auth (demo / trusted-network only — see [ADR-022](../../docs/adr/0022-auth-disabled-mode.md)) |
+| `OIDC_ISSUER` | **yes** when `AUTH_MODE=oidc` | — | URL of your OIDC provider |
+| `OIDC_AUDIENCE` | **yes** when `AUTH_MODE=oidc` | — | `aud` claim required on every JWT |
 | `OIDC_JWKS_URI` | no | `${OIDC_ISSUER}/.well-known/jwks.json` | |
 | `OIDC_TENANT_CLAIM` | no | `tenant_id` | JWT claim that carries the tenant id |
 | `OIDC_ROLES_CLAIM` | no | `roles` | JWT claim that carries the role list |
@@ -154,6 +163,59 @@ REST + JSON. Full OpenAPI 3.1 spec at `/v1/openapi.json`.
 | DELETE | `/v1/catalogs/{tenant}/mfes/{name}` | Hard-delete (federation-manifest entries don't carry historical value) |
 | POST   | `/v1/catalogs/{tenant}/mfes/{name}/health` | Record a health probe result |
 
+### Role mappings (auth + tenant scope)
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET    | `/v1/catalogs/{tenant}/role-mappings` | List mappings (priority DESC, created_at ASC) |
+| GET    | `/v1/catalogs/{tenant}/role-mappings/{id}` | Read one |
+| POST   | `/v1/catalogs/{tenant}/role-mappings` | Create — protected personas require `platform-admin` role |
+| PATCH  | `/v1/catalogs/{tenant}/role-mappings/{id}` | Update — escalation to a protected persona requires `platform-admin` |
+| DELETE | `/v1/catalogs/{tenant}/role-mappings/{id}` | Delete |
+| POST   | `/v1/catalogs/{tenant}/role-mappings/resolve` | Resolve claim values to a runtime persona (hot-path; runtime adapter calls this on login + persona refresh) |
+
+The protected-persona set is `platform-admin`, `lead-counsel` by default;
+extend via the `CATALOG_PROTECTED_PERSONAS` env var (CSV). Design rationale
+in [ADR-016](../../docs/adr/0016-iam-role-mapping.md).
+
+### Tenants (auth, **platform-admin only**)
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET    | `/v1/tenants` | List all tenants. `?includeDeleted=true` includes soft-deleted. |
+| GET    | `/v1/tenants/{id}` | Read one |
+| POST   | `/v1/tenants` | Onboard a new tenant. Tenant id is immutable. |
+| PATCH  | `/v1/tenants/{id}` | Update displayName + quotas. |
+| POST   | `/v1/tenants/{id}/suspend` | Suspend with `reason` (required) |
+| POST   | `/v1/tenants/{id}/activate` | Resume a suspended tenant |
+| DELETE | `/v1/tenants/{id}` | Soft-delete (data retained; purges via psql) |
+
+Quotas are recorded but **not enforced** by the catalog — hosts read
+them and apply policy at the runtime / gateway boundary. Design
+rationale in [ADR-020](../../docs/adr/0020-tenant-lifecycle.md).
+
+### Audit (auth + tenant scope)
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/v1/catalogs/{tenant}/audit/export` | JSONL stream of audit rows (one per line). Optional `?from=ISO&to=ISO&limit=N`. SIEM-friendly. |
+| GET | `/v1/catalogs/{tenant}/audit/verify` | Server-side chain re-walk; returns `{valid, checkedRows, chainHead, brokenAt}`. |
+
+Every catalog mutation appends a hash-linked entry to `catalog_audit`.
+External verifiers can re-derive `entry_hash` from the JSONL export
+without DB access. Design rationale in [ADR-017](../../docs/adr/0017-audit-chain.md).
+
+### Usage (auth + tenant scope)
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/v1/catalogs/{tenant}/usage` | Append a usage event. Optional `idempotencyKey` for safe retry. |
+| GET  | `/v1/catalogs/{tenant}/usage` | Aggregate `quantity` per `kind` over `?from&to&kind`. |
+| GET  | `/v1/catalogs/{tenant}/usage/recent` | Newest N events for ops debugging (`?limit` 1–1000). |
+
+Stores units, not currency — pricing is a host concern. Design rationale
+in [ADR-018](../../docs/adr/0018-usage-meter.md).
+
 ### Errors
 
 Every non-2xx response is RFC 7807 `application/problem+json`:
@@ -174,12 +236,14 @@ Validation errors (422) include an `errors[]` array of `{path, message}`.
 
 ## Database schema
 
-Three primary tables + one append-only audit:
+Five primary tables + one append-only audit:
 
 - `tenants` — tenant directory
 - `capabilities` — RLS-isolated capability blobs
 - `mfe_remotes` — RLS-isolated federation manifest entries
-- `catalog_audit` — append-only audit log
+- `role_mappings` — RLS-isolated IdP-claim → runtime-persona mappings
+- `usage_events` — RLS-isolated per-tenant consumption stream (units, not currency)
+- `catalog_audit` — append-only, hash-linked audit log
 
 Every read/write goes through `withTenantScope(pool, principal, fn)` which (a) opens a transaction, (b) sets `app.tenant_id` to the principal's tenant, (c) runs the callback. RLS policies on every catalog table enforce `tenant_id = current_setting('app.tenant_id')`. Bypass is via the `BYPASSRLS` Postgres role (assign to platform-admin connections only).
 

@@ -1,0 +1,61 @@
+# syntax=docker/dockerfile:1.7
+#
+# Render-specific build for the ops console: same as Dockerfile,
+# but it patches `environment.prod.ts` to set `authMode: 'disabled'`
+# before the Angular build kicks off. Used by `platform/render.yaml`.
+# Must be invoked from the workspace root (Render does this when
+# `dockerContext: .`).
+
+# ──────────────────────────────────────────────────────────────────────
+# Stage 1 — builder
+# ──────────────────────────────────────────────────────────────────────
+FROM node:22-bookworm-slim AS builder
+
+WORKDIR /workspace
+
+COPY package.json package-lock.json ./
+COPY tsconfig.json angular.json ./
+COPY .npmrc ./
+COPY projects ./projects
+COPY platform/agentic-ops-console ./platform/agentic-ops-console
+COPY scripts ./scripts
+
+RUN npm ci --no-audit --fund=false
+# Build the lib first — ops-console imports nothing from it today,
+# but the workspace's tsconfig path mappings reach into dist/agentic-ui.
+RUN npx ng build agentic-ui --configuration production
+
+# Patch environment.prod.ts to flip authMode to 'disabled' so the
+# bundle compiled here matches the catalog's AUTH_MODE=disabled
+# wiring in platform/render.yaml. We rewrite a single literal — the
+# field exists in the source, we just change its value.
+RUN sed -i "s/authMode: 'oidc'/authMode: 'disabled'/" \
+    platform/agentic-ops-console/src/environments/environment.prod.ts
+
+RUN npx ng build agentic-ops-console --configuration production
+
+# ──────────────────────────────────────────────────────────────────────
+# Stage 2 — runtime (nginx-alpine)
+# ──────────────────────────────────────────────────────────────────────
+FROM nginx:1.27-alpine
+
+COPY --from=builder /workspace/dist/agentic-ops-console/browser /usr/share/nginx/html
+
+# Same nginx template as the prod-shape Dockerfile — reverse-proxies
+# /v1/* to CATALOG_BACKEND.
+COPY platform/agentic-ops-console/nginx.conf.template /etc/nginx/templates/default.conf.template
+
+# Render's `fromService.property: hostport` returns `<service-name>:<port>`
+# without scheme; prefix with http:// for nginx. Render's internal
+# service-mesh terminates TLS for us, so http:// internal is fine.
+ENV CATALOG_BACKEND=""
+
+# Wrap nginx-alpine's entrypoint so we can build the http:// URL from
+# Render's hostport-only injection at runtime.
+ENTRYPOINT ["/bin/sh", "-c", "\
+  if echo \"$CATALOG_BACKEND\" | grep -qv '://'; then \
+    export CATALOG_BACKEND=\"http://${CATALOG_BACKEND}\"; \
+  fi; \
+  exec /docker-entrypoint.sh nginx -g 'daemon off;'"]
+
+EXPOSE 80

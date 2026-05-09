@@ -7,12 +7,30 @@ import { globalErrorHandler, requestIdMiddleware } from './errors.js';
 import { healthRoutes } from './routes/health.js';
 import { capabilitiesRoutes } from './routes/capabilities.js';
 import { mfesRoutes } from './routes/mfes.js';
+import { roleMappingsRoutes } from './routes/role-mappings.js';
+import { auditRoutes } from './routes/audit.js';
+import { usageRoutes } from './routes/usage.js';
+import { tenantsRoutes } from './routes/tenants.js';
 import { openapiRoutes } from './routes/openapi.js';
 import { logger } from './logger.js';
 
 export interface AppDeps {
   readonly pool: CatalogPool;
-  readonly auth: JwtVerifierConfig;
+  /**
+   * OIDC verifier config. Required when `authMode` is `'oidc'` (or
+   * omitted, which defaults to `'oidc'`); ignored when
+   * `authMode = 'disabled'`.
+   */
+  readonly auth?: JwtVerifierConfig;
+  /**
+   * Trust mode for incoming requests.
+   * - `'oidc'` (default): every request must carry a JWT validated
+   *   against `auth.issuer`'s JWKS.
+   * - `'disabled'`: every request is treated as platform-admin with
+   *   tenant scope from the URL path. Demo / trusted-network only —
+   *   see ADR-022.
+   */
+  readonly authMode?: 'oidc' | 'disabled';
   /**
    * CORS origin allow-list. Defaults to `*` in development; production
    * should pin to the ops-console hostname.
@@ -26,7 +44,17 @@ export interface AppDeps {
  */
 export function buildApp(deps: AppDeps): Hono {
   const app = new Hono();
-  const verifier = new JwtVerifier(deps.auth);
+  const authMode = deps.authMode ?? 'oidc';
+  const verifier = authMode === 'oidc'
+    ? new JwtVerifier(
+        deps.auth ?? (() => { throw new Error('auth config required when authMode=oidc'); })(),
+      )
+    : null;
+  if (authMode === 'disabled') {
+    logger.warn(
+      'AUTH_MODE=disabled — JWT verification is OFF. Every request is treated as platform-admin. Demo / trusted-network only. See ADR-022.',
+    );
+  }
 
   // ── Cross-cutting middleware ─────────────────────────────────────
   app.use('*', requestIdMiddleware());
@@ -58,7 +86,7 @@ export function buildApp(deps: AppDeps): Hono {
   app.onError(globalErrorHandler);
 
   // ── Health (no auth) ─────────────────────────────────────────────
-  app.route('/', healthRoutes(deps.pool));
+  app.route('/', healthRoutes(deps.pool, { authMode }));
   // OpenAPI spec — public + unauthenticated. The schema describes
   // only public surface; no secrets leak.
   app.route('/v1', openapiRoutes());
@@ -69,10 +97,17 @@ export function buildApp(deps: AppDeps): Hono {
   // the path tenant matches the JWT claim (or principal is platform-
   // admin).
   const v1 = new Hono();
-  v1.use('*', bearerAuth(verifier));
+  v1.use('*', bearerAuth(verifier, { disabled: authMode === 'disabled' }));
+  // Platform-level routes (NOT tenant-scoped). Mount BEFORE the
+  // /catalogs/:tenant/* tenant-scope middleware so the tenant guard
+  // doesn't fire for /v1/tenants/*.
+  v1.route('/tenants', tenantsRoutes(deps.pool));
   v1.use('/catalogs/:tenant/*', requireTenantScope());
   v1.route('/catalogs/:tenant/capabilities', capabilitiesRoutes(deps.pool));
   v1.route('/catalogs/:tenant/mfes', mfesRoutes(deps.pool));
+  v1.route('/catalogs/:tenant/role-mappings', roleMappingsRoutes(deps.pool));
+  v1.route('/catalogs/:tenant/audit', auditRoutes(deps.pool));
+  v1.route('/catalogs/:tenant/usage', usageRoutes(deps.pool));
   app.route('/v1', v1);
 
   return app;

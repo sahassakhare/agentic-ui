@@ -15,9 +15,19 @@ const ConfigSchema = z.object({
   DATABASE_IDLE_MS: z.coerce.number().int().min(1000).default(30_000),
   DATABASE_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(100).default(5_000),
 
-  // Auth (OIDC)
-  OIDC_ISSUER: z.string().url(),
-  OIDC_AUDIENCE: z.string().min(1),
+  // ── Auth ─────────────────────────────────────────────────────
+  // `oidc` (default): every request must carry a JWT validated against
+  //                   OIDC_ISSUER's JWKS.
+  // `disabled`:       every request is treated as platform-admin with
+  //                   tenant scope from the URL path. ⚠️ DEMO / TRUSTED-
+  //                   NETWORK ONLY — anyone who reaches the catalog has
+  //                   full read+write across every tenant. Documented
+  //                   in ADR-022.
+  AUTH_MODE: z.enum(['oidc', 'disabled']).default('oidc'),
+
+  // OIDC fields — required when AUTH_MODE=oidc, optional otherwise.
+  OIDC_ISSUER: z.string().url().optional(),
+  OIDC_AUDIENCE: z.string().min(1).optional(),
   OIDC_JWKS_URI: z.string().url().optional(),
   OIDC_TENANT_CLAIM: z.string().default('tenant_id'),
   OIDC_ROLES_CLAIM: z.string().default('roles'),
@@ -40,5 +50,17 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): CatalogConfig 
       .join('\n');
     throw new Error(`Configuration invalid:\n${issues}`);
   }
-  return result.data;
+  const config = result.data;
+  // Cross-field invariant: when AUTH_MODE=oidc, the OIDC fields are
+  // required. The Zod schema can't express conditional-required
+  // without verbose union types, so we check here.
+  if (config.AUTH_MODE === 'oidc') {
+    if (!config.OIDC_ISSUER || !config.OIDC_AUDIENCE) {
+      throw new Error(
+        'Configuration invalid:\n  - OIDC_ISSUER and OIDC_AUDIENCE are required when AUTH_MODE=oidc.\n' +
+        '    Set AUTH_MODE=disabled for trusted-network demos (see ADR-022) or wire your OIDC provider.',
+      );
+    }
+  }
+  return config;
 }

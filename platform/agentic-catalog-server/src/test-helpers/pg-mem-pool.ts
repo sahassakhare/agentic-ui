@@ -44,20 +44,42 @@ export function createPgMemPool(options: PgMemPoolOptions = {}): PgMemHandle {
     impure: true,
   });
 
+  // pg-mem ships a tiny stdlib — no `length(text)`. The role-mappings
+  // CHECK constraint uses it, so register a stand-in.
+  db.public.registerFunction({
+    name: 'length',
+    args: [DataType.text],
+    returns: DataType.integer,
+    implementation: (s: string | null) => (s == null ? 0 : s.length),
+  });
+
   // pg-mem also doesn't support GIN indexes (which we use for tags).
   // Strip them; functional behaviour is unaffected (queries still use
   // sequential scan).
   // pg-mem also doesn't grok `ENABLE ROW LEVEL SECURITY` / `CREATE POLICY`
   // / `set_config`. Strip those — RLS isolation is integration-tested
   // separately (or by the operator's actual Postgres).
-  const sqlPath = join(__dirname, '..', 'db', 'migrations', '001_initial.sql');
-  const raw = readFileSync(sqlPath, 'utf-8');
+  // Apply migrations in numerical order. Adding a new migration
+  // requires adding its filename here.
+  const MIGRATIONS = [
+    '001_initial.sql',
+    '002_role_mappings.sql',
+    '003_audit_chain.sql',
+    '004_usage_meter.sql',
+    '005_tenant_lifecycle.sql',
+  ];
+  const raw = MIGRATIONS
+    .map((file) => readFileSync(join(__dirname, '..', 'db', 'migrations', file), 'utf-8'))
+    // Take the up section only (split on the explicit "-- Down Migration"
+    // comment from our migrations file).
+    .map((sql) => sql.split(/--\s*Down Migration/i)[0] ?? sql)
+    .join('\n');
 
-  // Take the up section only (split on the explicit "-- Down Migration"
-  // comment from our migrations file).
-  const upSql = raw.split(/--\s*Down Migration/i)[0] ?? raw;
-
-  const filtered = upSql
+  const filtered = raw
+    // Strip `-- line` comments first; pg-mem's parser can choke on
+    // unusual punctuation inside comment text (backticks, URL-like
+    // strings, etc.). Comments aren't load-bearing in tests anyway.
+    .replace(/--[^\n]*/g, '')
     .replace(/CREATE INDEX[^;]+USING GIN[^;]+;/gi, '')
     .replace(/ALTER TABLE\s+\w+\s+(ENABLE|FORCE)\s+ROW LEVEL SECURITY\s*;/gi, '')
     .replace(/DROP POLICY[^;]+;/gi, '')

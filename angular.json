@@ -115,7 +115,9 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
-          "options": { "port": 4202 },
+          "options": {
+            "port": 4202
+          },
           "configurations": {
             "production": {
               "buildTarget": "demo-monolith:build:production"
@@ -149,15 +151,28 @@
             "tsConfig": "examples/demo-multi-agent/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": [
-              { "glob": "**/*", "input": "examples/demo-multi-agent/public" }
+              {
+                "glob": "**/*",
+                "input": "examples/demo-multi-agent/public"
+              }
             ],
-            "styles": ["examples/demo-multi-agent/src/styles.scss"]
+            "styles": [
+              "examples/demo-multi-agent/src/styles.scss"
+            ]
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "500kB", "maximumError": "1MB" },
-                { "type": "anyComponentStyle", "maximumWarning": "4kB", "maximumError": "8kB" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
               ],
               "outputHashing": "all",
               "fileReplacements": [
@@ -177,10 +192,16 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
-          "options": { "port": 4204 },
+          "options": {
+            "port": 4204
+          },
           "configurations": {
-            "production": { "buildTarget": "demo-multi-agent:build:production" },
-            "development": { "buildTarget": "demo-multi-agent:build:development" }
+            "production": {
+              "buildTarget": "demo-multi-agent:build:production"
+            },
+            "development": {
+              "buildTarget": "demo-multi-agent:build:development"
+            }
           },
           "defaultConfiguration": "development"
         },
@@ -191,7 +212,11 @@
     },
     "demo-feature-tour": {
       "projectType": "application",
-      "schematics": { "@schematics/angular:component": { "style": "scss" } },
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
       "root": "examples/demo-feature-tour",
       "sourceRoot": "examples/demo-feature-tour/src",
       "prefix": "app",
@@ -202,14 +227,29 @@
             "browser": "examples/demo-feature-tour/src/main.ts",
             "tsConfig": "examples/demo-feature-tour/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-            "assets": [{ "glob": "**/*", "input": "examples/demo-feature-tour/public" }],
-            "styles": ["examples/demo-feature-tour/src/styles.scss"]
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "examples/demo-feature-tour/public"
+              }
+            ],
+            "styles": [
+              "examples/demo-feature-tour/src/styles.scss"
+            ]
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "600kB", "maximumError": "1MB" },
-                { "type": "anyComponentStyle", "maximumWarning": "4kB", "maximumError": "8kB" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "600kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
               ],
               "outputHashing": "all",
               "fileReplacements": [
@@ -219,25 +259,41 @@
                 }
               ]
             },
-            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
           },
           "defaultConfiguration": "production"
         },
         "serve": {
           "builder": "@angular/build:dev-server",
-          "options": { "port": 4206 },
+          "options": {
+            "port": 4206
+          },
           "configurations": {
-            "production": { "buildTarget": "demo-feature-tour:build:production" },
-            "development": { "buildTarget": "demo-feature-tour:build:development" }
+            "production": {
+              "buildTarget": "demo-feature-tour:build:production"
+            },
+            "development": {
+              "buildTarget": "demo-feature-tour:build:development"
+            }
           },
           "defaultConfiguration": "development"
         },
-        "test": { "builder": "@angular/build:unit-test" }
+        "test": {
+          "builder": "@angular/build:unit-test"
+        }
       }
     },
     "demo-ediscovery-shell": {
       "projectType": "application",
-      "schematics": { "@schematics/angular:component": { "style": "scss" } },
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
       "root": "examples/demo-ediscovery-shell",
       "sourceRoot": "examples/demo-ediscovery-shell/src",
       "prefix": "app",
@@ -272,22 +328,41 @@
             "port": 0
           }
         },
-        "test": { "builder": "@angular/build:unit-test" },
+        "test": {
+          "builder": "@angular/build:unit-test"
+        },
         "esbuild": {
           "builder": "@angular/build:application",
           "options": {
             "browser": "examples/demo-ediscovery-shell/src/main.ts",
             "tsConfig": "examples/demo-ediscovery-shell/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-            "assets": [{ "glob": "**/*", "input": "examples/demo-ediscovery-shell/public" }],
-            "styles": ["examples/demo-ediscovery-shell/src/styles.scss"],
-            "polyfills": ["es-module-shims"]
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "examples/demo-ediscovery-shell/public"
+              }
+            ],
+            "styles": [
+              "examples/demo-ediscovery-shell/src/styles.scss"
+            ],
+            "polyfills": [
+              "es-module-shims"
+            ]
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "600kB", "maximumError": "1MB" },
-                { "type": "anyComponentStyle", "maximumWarning": "8kB", "maximumError": "16kB" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "600kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "8kB",
+                  "maximumError": "16kB"
+                }
               ],
               "outputHashing": "all",
               "fileReplacements": [
@@ -297,24 +372,38 @@
                 }
               ]
             },
-            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
           },
           "defaultConfiguration": "production"
         },
         "serve-original": {
           "builder": "@angular/build:dev-server",
           "configurations": {
-            "production": { "buildTarget": "demo-ediscovery-shell:esbuild:production" },
-            "development": { "buildTarget": "demo-ediscovery-shell:esbuild:development" }
+            "production": {
+              "buildTarget": "demo-ediscovery-shell:esbuild:production"
+            },
+            "development": {
+              "buildTarget": "demo-ediscovery-shell:esbuild:development"
+            }
           },
           "defaultConfiguration": "development",
-          "options": { "port": 4300 }
+          "options": {
+            "port": 4300
+          }
         }
       }
     },
     "demo-ediscovery-search": {
       "projectType": "application",
-      "schematics": { "@schematics/angular:component": { "style": "scss" } },
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
       "root": "examples/demo-ediscovery-search",
       "sourceRoot": "examples/demo-ediscovery-search/src",
       "prefix": "app",
@@ -323,8 +412,13 @@
           "builder": "@angular-architects/native-federation:build",
           "options": {},
           "configurations": {
-            "production": { "target": "demo-ediscovery-search:esbuild:production" },
-            "development": { "target": "demo-ediscovery-search:esbuild:development", "dev": true }
+            "production": {
+              "target": "demo-ediscovery-search:esbuild:production"
+            },
+            "development": {
+              "target": "demo-ediscovery-search:esbuild:development",
+              "dev": true
+            }
           },
           "defaultConfiguration": "production"
         },
@@ -338,43 +432,76 @@
             "port": 0
           }
         },
-        "test": { "builder": "@angular/build:unit-test" },
+        "test": {
+          "builder": "@angular/build:unit-test"
+        },
         "esbuild": {
           "builder": "@angular/build:application",
           "options": {
             "browser": "examples/demo-ediscovery-search/src/main.ts",
             "tsConfig": "examples/demo-ediscovery-search/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-            "assets": [{ "glob": "**/*", "input": "examples/demo-ediscovery-search/public" }],
-            "styles": ["examples/demo-ediscovery-search/src/styles.scss"],
-            "polyfills": ["es-module-shims"]
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "examples/demo-ediscovery-search/public"
+              }
+            ],
+            "styles": [
+              "examples/demo-ediscovery-search/src/styles.scss"
+            ],
+            "polyfills": [
+              "es-module-shims"
+            ]
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "600kB", "maximumError": "1MB" },
-                { "type": "anyComponentStyle", "maximumWarning": "8kB", "maximumError": "16kB" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "600kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "8kB",
+                  "maximumError": "16kB"
+                }
               ],
               "outputHashing": "all"
             },
-            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
           },
           "defaultConfiguration": "production"
         },
         "serve-original": {
           "builder": "@angular/build:dev-server",
           "configurations": {
-            "production": { "buildTarget": "demo-ediscovery-search:esbuild:production" },
-            "development": { "buildTarget": "demo-ediscovery-search:esbuild:development" }
+            "production": {
+              "buildTarget": "demo-ediscovery-search:esbuild:production"
+            },
+            "development": {
+              "buildTarget": "demo-ediscovery-search:esbuild:development"
+            }
           },
           "defaultConfiguration": "development",
-          "options": { "port": 4304 }
+          "options": {
+            "port": 4304
+          }
         }
       }
     },
     "demo-ediscovery-production": {
       "projectType": "application",
-      "schematics": { "@schematics/angular:component": { "style": "scss" } },
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
       "root": "examples/demo-ediscovery-production",
       "sourceRoot": "examples/demo-ediscovery-production/src",
       "prefix": "app",
@@ -383,8 +510,13 @@
           "builder": "@angular-architects/native-federation:build",
           "options": {},
           "configurations": {
-            "production": { "target": "demo-ediscovery-production:esbuild:production" },
-            "development": { "target": "demo-ediscovery-production:esbuild:development", "dev": true }
+            "production": {
+              "target": "demo-ediscovery-production:esbuild:production"
+            },
+            "development": {
+              "target": "demo-ediscovery-production:esbuild:development",
+              "dev": true
+            }
           },
           "defaultConfiguration": "production"
         },
@@ -398,43 +530,76 @@
             "port": 0
           }
         },
-        "test": { "builder": "@angular/build:unit-test" },
+        "test": {
+          "builder": "@angular/build:unit-test"
+        },
         "esbuild": {
           "builder": "@angular/build:application",
           "options": {
             "browser": "examples/demo-ediscovery-production/src/main.ts",
             "tsConfig": "examples/demo-ediscovery-production/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-            "assets": [{ "glob": "**/*", "input": "examples/demo-ediscovery-production/public" }],
-            "styles": ["examples/demo-ediscovery-production/src/styles.scss"],
-            "polyfills": ["es-module-shims"]
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "examples/demo-ediscovery-production/public"
+              }
+            ],
+            "styles": [
+              "examples/demo-ediscovery-production/src/styles.scss"
+            ],
+            "polyfills": [
+              "es-module-shims"
+            ]
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "600kB", "maximumError": "1MB" },
-                { "type": "anyComponentStyle", "maximumWarning": "8kB", "maximumError": "16kB" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "600kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "8kB",
+                  "maximumError": "16kB"
+                }
               ],
               "outputHashing": "all"
             },
-            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
           },
           "defaultConfiguration": "production"
         },
         "serve-original": {
           "builder": "@angular/build:dev-server",
           "configurations": {
-            "production": { "buildTarget": "demo-ediscovery-production:esbuild:production" },
-            "development": { "buildTarget": "demo-ediscovery-production:esbuild:development" }
+            "production": {
+              "buildTarget": "demo-ediscovery-production:esbuild:production"
+            },
+            "development": {
+              "buildTarget": "demo-ediscovery-production:esbuild:development"
+            }
           },
           "defaultConfiguration": "development",
-          "options": { "port": 4303 }
+          "options": {
+            "port": 4303
+          }
         }
       }
     },
     "demo-ediscovery-review": {
       "projectType": "application",
-      "schematics": { "@schematics/angular:component": { "style": "scss" } },
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
       "root": "examples/demo-ediscovery-review",
       "sourceRoot": "examples/demo-ediscovery-review/src",
       "prefix": "app",
@@ -443,8 +608,13 @@
           "builder": "@angular-architects/native-federation:build",
           "options": {},
           "configurations": {
-            "production": { "target": "demo-ediscovery-review:esbuild:production" },
-            "development": { "target": "demo-ediscovery-review:esbuild:development", "dev": true }
+            "production": {
+              "target": "demo-ediscovery-review:esbuild:production"
+            },
+            "development": {
+              "target": "demo-ediscovery-review:esbuild:development",
+              "dev": true
+            }
           },
           "defaultConfiguration": "production"
         },
@@ -458,37 +628,66 @@
             "port": 0
           }
         },
-        "test": { "builder": "@angular/build:unit-test" },
+        "test": {
+          "builder": "@angular/build:unit-test"
+        },
         "esbuild": {
           "builder": "@angular/build:application",
           "options": {
             "browser": "examples/demo-ediscovery-review/src/main.ts",
             "tsConfig": "examples/demo-ediscovery-review/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-            "assets": [{ "glob": "**/*", "input": "examples/demo-ediscovery-review/public" }],
-            "styles": ["examples/demo-ediscovery-review/src/styles.scss"],
-            "polyfills": ["es-module-shims"]
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "examples/demo-ediscovery-review/public"
+              }
+            ],
+            "styles": [
+              "examples/demo-ediscovery-review/src/styles.scss"
+            ],
+            "polyfills": [
+              "es-module-shims"
+            ]
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "600kB", "maximumError": "1MB" },
-                { "type": "anyComponentStyle", "maximumWarning": "8kB", "maximumError": "16kB" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "600kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "8kB",
+                  "maximumError": "16kB"
+                }
               ],
               "outputHashing": "all"
             },
-            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
           },
           "defaultConfiguration": "production"
         },
         "serve-original": {
           "builder": "@angular/build:dev-server",
           "configurations": {
-            "production": { "buildTarget": "demo-ediscovery-review:esbuild:production" },
-            "development": { "buildTarget": "demo-ediscovery-review:esbuild:development" }
+            "production": {
+              "buildTarget": "demo-ediscovery-review:esbuild:production"
+            },
+            "development": {
+              "buildTarget": "demo-ediscovery-review:esbuild:development"
+            }
           },
           "defaultConfiguration": "development",
-          "options": { "port": 4302 }
+          "options": {
+            "port": 4302
+          }
         }
       }
     },
@@ -703,7 +902,9 @@
     "demo-remote-loyalty": {
       "projectType": "application",
       "schematics": {
-        "@schematics/angular:component": { "style": "scss" }
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
       },
       "root": "examples/demo-remote-loyalty",
       "sourceRoot": "examples/demo-remote-loyalty/src",
@@ -713,8 +914,13 @@
           "builder": "@angular-architects/native-federation:build",
           "options": {},
           "configurations": {
-            "production": { "target": "demo-remote-loyalty:esbuild:production" },
-            "development": { "target": "demo-remote-loyalty:esbuild:development", "dev": true }
+            "production": {
+              "target": "demo-remote-loyalty:esbuild:production"
+            },
+            "development": {
+              "target": "demo-remote-loyalty:esbuild:development",
+              "dev": true
+            }
           },
           "defaultConfiguration": "production"
         },
@@ -728,44 +934,75 @@
             "port": 0
           }
         },
-        "test": { "builder": "@angular/build:unit-test" },
+        "test": {
+          "builder": "@angular/build:unit-test"
+        },
         "esbuild": {
           "builder": "@angular/build:application",
           "options": {
             "browser": "examples/demo-remote-loyalty/src/main.ts",
             "tsConfig": "examples/demo-remote-loyalty/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-            "assets": [{ "glob": "**/*", "input": "examples/demo-remote-loyalty/public" }],
-            "styles": ["examples/demo-remote-loyalty/src/styles.scss"],
-            "polyfills": ["es-module-shims"]
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "examples/demo-remote-loyalty/public"
+              }
+            ],
+            "styles": [
+              "examples/demo-remote-loyalty/src/styles.scss"
+            ],
+            "polyfills": [
+              "es-module-shims"
+            ]
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "500kB", "maximumError": "1MB" },
-                { "type": "anyComponentStyle", "maximumWarning": "4kB", "maximumError": "8kB" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
               ],
               "outputHashing": "all"
             },
-            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
           },
           "defaultConfiguration": "production"
         },
         "serve-original": {
           "builder": "@angular/build:dev-server",
           "configurations": {
-            "production": { "buildTarget": "demo-remote-loyalty:esbuild:production" },
-            "development": { "buildTarget": "demo-remote-loyalty:esbuild:development" }
+            "production": {
+              "buildTarget": "demo-remote-loyalty:esbuild:production"
+            },
+            "development": {
+              "buildTarget": "demo-remote-loyalty:esbuild:development"
+            }
           },
           "defaultConfiguration": "development",
-          "options": { "port": 4203 }
+          "options": {
+            "port": 4203
+          }
         }
       }
     },
     "demo-remote-support": {
       "projectType": "application",
       "schematics": {
-        "@schematics/angular:component": { "style": "scss" }
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
       },
       "root": "examples/demo-remote-support",
       "sourceRoot": "examples/demo-remote-support/src",
@@ -775,8 +1012,13 @@
           "builder": "@angular-architects/native-federation:build",
           "options": {},
           "configurations": {
-            "production": { "target": "demo-remote-support:esbuild:production" },
-            "development": { "target": "demo-remote-support:esbuild:development", "dev": true }
+            "production": {
+              "target": "demo-remote-support:esbuild:production"
+            },
+            "development": {
+              "target": "demo-remote-support:esbuild:development",
+              "dev": true
+            }
           },
           "defaultConfiguration": "production"
         },
@@ -790,37 +1032,150 @@
             "port": 0
           }
         },
-        "test": { "builder": "@angular/build:unit-test" },
+        "test": {
+          "builder": "@angular/build:unit-test"
+        },
         "esbuild": {
           "builder": "@angular/build:application",
           "options": {
             "browser": "examples/demo-remote-support/src/main.ts",
             "tsConfig": "examples/demo-remote-support/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-            "assets": [{ "glob": "**/*", "input": "examples/demo-remote-support/public" }],
-            "styles": ["examples/demo-remote-support/src/styles.scss"],
-            "polyfills": ["es-module-shims"]
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "examples/demo-remote-support/public"
+              }
+            ],
+            "styles": [
+              "examples/demo-remote-support/src/styles.scss"
+            ],
+            "polyfills": [
+              "es-module-shims"
+            ]
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "500kB", "maximumError": "1MB" },
-                { "type": "anyComponentStyle", "maximumWarning": "4kB", "maximumError": "8kB" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
               ],
               "outputHashing": "all"
             },
-            "development": { "optimization": false, "extractLicenses": false, "sourceMap": true }
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
           },
           "defaultConfiguration": "production"
         },
         "serve-original": {
           "builder": "@angular/build:dev-server",
           "configurations": {
-            "production": { "buildTarget": "demo-remote-support:esbuild:production" },
-            "development": { "buildTarget": "demo-remote-support:esbuild:development" }
+            "production": {
+              "buildTarget": "demo-remote-support:esbuild:production"
+            },
+            "development": {
+              "buildTarget": "demo-remote-support:esbuild:development"
+            }
           },
           "defaultConfiguration": "development",
-          "options": { "port": 4205 }
+          "options": {
+            "port": 4205
+          }
+        }
+      }
+    },
+    "agentic-ops-console": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
+      "root": "platform/agentic-ops-console",
+      "sourceRoot": "platform/agentic-ops-console/src",
+      "prefix": "ops",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "platform/agentic-ops-console/src/main.ts",
+            "index": "platform/agentic-ops-console/src/index.html",
+            "tsConfig": "platform/agentic-ops-console/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "platform/agentic-ops-console/public"
+              }
+            ],
+            "styles": [
+              "platform/agentic-ops-console/src/styles.scss"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
+              ],
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "platform/agentic-ops-console/src/environments/environment.ts",
+                  "with": "platform/agentic-ops-console/src/environments/environment.prod.ts"
+                }
+              ]
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "agentic-ops-console:build:production"
+            },
+            "development": {
+              "buildTarget": "agentic-ops-console:build:development"
+            }
+          },
+          "defaultConfiguration": "development",
+          "options": {
+            "port": 4500
+          }
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "platform/agentic-ops-console/tsconfig.spec.json",
+            "include": [
+              "**/*.spec.ts"
+            ]
+          }
         }
       }
     }

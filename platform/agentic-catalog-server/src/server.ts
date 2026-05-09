@@ -21,13 +21,17 @@ async function main(): Promise<void> {
 
   const app = buildApp({
     pool,
-    auth: {
-      issuer: config.OIDC_ISSUER,
-      audience: config.OIDC_AUDIENCE,
-      jwksUri: config.OIDC_JWKS_URI,
-      tenantClaim: config.OIDC_TENANT_CLAIM,
-      rolesClaim: config.OIDC_ROLES_CLAIM,
-    },
+    authMode: config.AUTH_MODE,
+    auth: config.AUTH_MODE === 'oidc'
+      ? {
+          // loadConfig() guarantees these are set when AUTH_MODE=oidc.
+          issuer: config.OIDC_ISSUER!,
+          audience: config.OIDC_AUDIENCE!,
+          jwksUri: config.OIDC_JWKS_URI,
+          tenantClaim: config.OIDC_TENANT_CLAIM,
+          rolesClaim: config.OIDC_ROLES_CLAIM,
+        }
+      : undefined,
   });
 
   const server = serve({

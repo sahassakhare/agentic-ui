@@ -100,3 +100,29 @@ export async function buildIntegrationHarness(): Promise<IntegrationHarness> {
     },
   };
 }
+
+/**
+ * Harness for {@link AppDeps.authMode} `'disabled'`. No JWKS server,
+ * no JWT minting — every request the test fires lands as a synthetic
+ * platform-admin principal scoped to the URL path's tenant. Used to
+ * verify the AUTH_MODE=disabled path that ships for the Render demo
+ * blueprint (ADR-022).
+ */
+export interface DisabledAuthHarness {
+  readonly fetch: (req: Request) => Promise<Response>;
+  readonly pool: PgMemHandle['pool'];
+  readonly destroy: () => Promise<void>;
+}
+
+export async function buildDisabledAuthHarness(): Promise<DisabledAuthHarness> {
+  const dbHandle = createPgMemPool({ seedTenantId: DEFAULT_TENANT });
+  const app = buildApp({
+    pool: dbHandle.pool,
+    authMode: 'disabled',
+  });
+  return {
+    fetch: (req) => app.fetch(req),
+    pool: dbHandle.pool,
+    destroy: async () => { await dbHandle.destroy(); },
+  };
+}

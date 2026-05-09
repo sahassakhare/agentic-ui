@@ -11,14 +11,14 @@ describe('health routes', () => {
     const res = await h.fetch(new Request('http://localhost/healthz'));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ status: 'ok' });
+    expect(body).toEqual({ status: 'ok', authMode: 'oidc' });
   });
 
   it('GET /readyz reports ready when DB is up', async () => {
     const res = await h.fetch(new Request('http://localhost/readyz'));
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ status: 'ready', db: 'ok' });
+    expect(body).toEqual({ status: 'ready', db: 'ok', authMode: 'oidc' });
   });
 
   it('health routes set X-Request-Id', async () => {

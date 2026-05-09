@@ -1,0 +1,66 @@
+# nginx config for the ops console container. Two responsibilities:
+#
+# 1. Serve the Angular SPA bundle from /usr/share/nginx/html, falling
+#    back to index.html for client-side routes (/login, /capabilities,
+#    /tenants, etc.) — without this, deep-links 404.
+#
+# 2. Reverse-proxy /v1/* to the catalog server. This keeps every
+#    catalog request same-origin from the browser's POV (no CORS
+#    pre-flight, no Authorization-header leakage to a third-party
+#    origin). The CATALOG_BACKEND env var is interpolated by
+#    envsubst at container start.
+
+server {
+    listen       80;
+    server_name  _;
+
+    root   /usr/share/nginx/html;
+    index  index.html;
+
+    # Disable directory listing.
+    autoindex off;
+
+    # Long-lived caching for fingerprinted bundles; HTML is fresh.
+    location ~* \.(?:js|css|woff2?|svg|png|jpg|gif|ico)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    location = /index.html {
+        add_header Cache-Control "no-store, no-cache, must-revalidate";
+    }
+
+    # Reverse-proxy catalog API. preserve_*_header_value carries the
+    # request id round-trip so the catalog's structured logs and the
+    # browser's network panel show the same id.
+    location /v1/ {
+        proxy_pass         ${CATALOG_BACKEND};
+        proxy_http_version 1.1;
+        proxy_set_header   Host                $host;
+        proxy_set_header   X-Real-IP           $remote_addr;
+        proxy_set_header   X-Forwarded-For     $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto   $scheme;
+        proxy_set_header   X-Request-Id        $http_x_request_id;
+        proxy_pass_header  X-Request-Id;
+        proxy_read_timeout 30s;
+    }
+
+    # Health probes for k8s.
+    location = /healthz {
+        access_log off;
+        return 200 "ok\n";
+    }
+
+    # SPA fallback: any non-asset, non-/v1 path → index.html so the
+    # Angular router takes over.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Security headers. Hosts that need stricter CSP can override
+    # by mounting a different config.
+    add_header X-Frame-Options              "SAMEORIGIN" always;
+    add_header X-Content-Type-Options       "nosniff" always;
+    add_header Referrer-Policy              "strict-origin-when-cross-origin" always;
+}

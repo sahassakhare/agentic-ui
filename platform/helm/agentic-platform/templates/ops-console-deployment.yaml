@@ -1,0 +1,50 @@
+{{- if .Values.opsConsole.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-ops-console
+  labels:
+    {{- include "agentic-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ops-console
+spec:
+  replicas: {{ .Values.opsConsole.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "agentic-platform.componentLabels" (dict "Chart" .Chart "Release" .Release "component" "ops-console") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "agentic-platform.componentLabels" (dict "Chart" .Chart "Release" .Release "component" "ops-console") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "agentic-platform.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: ops-console
+          image: {{ include "agentic-platform.image" (dict "Values" .Values "repo" .Values.opsConsole.image.repository "tag" .Values.opsConsole.image.tag) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            # nginx writes its pid to /var/run; the read-only fs in
+            # the shared default would block that. Drop the strict
+            # readOnly bit just for this container; everything else
+            # mirrors the cluster default.
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          env:
+            - name: CATALOG_BACKEND
+              value: {{ include "agentic-platform.catalogBackend" . | quote }}
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.opsConsole.resources | nindent 12 }}
+{{- end }}

@@ -10,15 +10,72 @@ declare module 'hono' {
 }
 
 /**
+ * Synthetic principal used when AUTH_MODE=disabled. Always platform-
+ * admin so the privilege guards in the route handlers admit every
+ * request. Tenant id is filled in per-request from the URL path
+ * (`:tenant` param) or falls back to a sentinel for platform routes
+ * that don't have one. `subject` carries the literal `'anonymous'`
+ * so the audit trail records the trust boundary that produced the
+ * write — anyone reviewing the audit later can spot that the row
+ * came from a trusted-network deployment.
+ */
+const ANONYMOUS_PLATFORM_TENANT = '_anonymous';
+
+const PATH_TENANT_RE = /^\/v1\/catalogs\/([^/]+)(?:\/|$)/;
+function extractPathTenant(path: string): string | undefined {
+  const m = PATH_TENANT_RE.exec(path);
+  return m ? decodeURIComponent(m[1]!) : undefined;
+}
+
+function anonymousPrincipal(tenantId: string | undefined): Principal {
+  return {
+    subject: 'anonymous',
+    tenantId: tenantId || ANONYMOUS_PLATFORM_TENANT,
+    roles: ['platform-admin'],
+    displayName: 'anonymous (auth disabled)',
+    issuer: 'auth-disabled',
+  };
+}
+
+export interface BearerAuthOptions {
+  /** When true, the middleware skips JWT verification entirely. */
+  readonly disabled?: boolean;
+}
+
+/**
  * Extract the Bearer token, validate via {@link JwtVerifier}, and
  * attach the resolved {@link Principal} to the Hono context. Threads
  * downstream handlers via `c.get('principal')`.
  *
+ * When `disabled: true` is set, the middleware skips token verification
+ * entirely and synthesises a platform-admin principal scoped to the
+ * URL path's `:tenant` parameter (or `_anonymous` for platform routes).
+ * **Demo / trusted-network only** — see ADR-022.
+ *
  * Failures convert to RFC 7807 problem+json (the global error handler
  * in `errors.ts` formats them).
  */
-export function bearerAuth(verifier: JwtVerifier): MiddlewareHandler {
+export function bearerAuth(
+  verifier: JwtVerifier | null,
+  options: BearerAuthOptions = {},
+): MiddlewareHandler {
   return async (c, next) => {
+    if (options.disabled) {
+      // Tenant comes from the URL path. We parse the path string
+      // directly because route params (`c.req.param('tenant')`) are
+      // only bound AFTER the route handler matches — bearerAuth runs
+      // before that.
+      c.set('principal', anonymousPrincipal(extractPathTenant(c.req.path)));
+      await next();
+      return;
+    }
+
+    if (!verifier) {
+      throw new HTTPException(500, {
+        message: 'bearerAuth misconfigured — verifier required when not disabled',
+      });
+    }
+
     const header = c.req.header('Authorization');
     if (!header || !header.toLowerCase().startsWith('bearer ')) {
       throw new HTTPException(401, {
