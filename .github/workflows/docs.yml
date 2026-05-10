@@ -1,12 +1,25 @@
 name: docs
 
-# Publish the TypeDoc API site to GitHub Pages on every release tag (v*)
-# and on every push to main. Pages must be enabled for the repo with the
-# `GitHub Actions` source.
+# Publish the TypeDoc API site to GitHub Pages.
+#
+# ── ONE-TIME REPO SETUP ──────────────────────────────────────────────
+# Before this workflow can succeed, GitHub Pages must be enabled with
+# the "GitHub Actions" source:
+#   1. https://github.com/sahassakhare/agentic-ui/settings/pages
+#   2. Source: "GitHub Actions" (NOT "Deploy from a branch")
+#   3. Save.
+# Without this, `actions/configure-pages@v5` fails instantly on every
+# run with a 4xx, surfacing as a red mark on every commit.
+#
+# ── WHEN THIS WORKFLOW RUNS ──────────────────────────────────────────
+# Only on tagged releases (v*) and manual dispatch. The previous
+# "every push to main" trigger was removed because the missing repo
+# setting made every commit show a docs-workflow failure regardless
+# of whether the docs change. Once Pages is enabled the trigger can
+# be widened back to `push: branches: [main]`.
 
 on:
   push:
-    branches: [main]
     tags: ['v*']
   workflow_dispatch:
 
