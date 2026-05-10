@@ -7,6 +7,7 @@ import { MatterStore } from '../../services/matter.store';
 import { IconComponent } from '../../ui/icon.component';
 import { StatusBadgeComponent } from '../../ui/status-badge.component';
 import { EmptyStateComponent } from '../../ui/empty-state.component';
+import { AgenticSlotComponent } from '../../ui/agentic-slot.component';
 
 /**
  * Legal holds page. Each hold renders as an expanded card with the
@@ -16,7 +17,7 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
 @Component({
   selector: 'app-holds',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [IconComponent, StatusBadgeComponent, EmptyStateComponent],
+  imports: [IconComponent, StatusBadgeComponent, EmptyStateComponent, AgenticSlotComponent],
   template: `
     <section class="page-head">
       <div>
@@ -25,6 +26,12 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
         <p class="muted">{{ active().length }} active · {{ pending().length }} pending acknowledgement · {{ released().length }} released</p>
       </div>
     </section>
+
+    <!-- Render-target slot (plan R1). Tool handlers like placeLegalHoldTool
+         publish their result widget here when they want it to mount on this
+         page rather than inline in the chat panel. Empty when nothing is
+         pending. -->
+    <mvk-agentic-slot name="holds.primary" />
 
     <div class="kpis">
       <div class="kpi" data-tone="warn">

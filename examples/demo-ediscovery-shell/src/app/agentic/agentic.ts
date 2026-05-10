@@ -1,4 +1,6 @@
 import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
+import { Router } from '@angular/router';
+import { RenderHandoffStore } from '../services/render-handoff.store';
 import {
   agenticApproval,
   agenticDataSource,
@@ -589,7 +591,7 @@ function placeLegalHoldTool(env: EnvironmentInjector) {
       scope: z.string().min(10).describe('Plain-English scope, e.g. "All emails about Project Phoenix from 2024-09 onward"'),
     }),
     handler: async ({ custodianIds, scope }) => {
-      return runInInjectionContext(env, () => {
+      return runInInjectionContext(env, async () => {
         const store = env.get(MatterStore);
         const validIds = custodianIds.filter((id) => store.custodians().some((c) => c.id === id));
         if (validIds.length === 0) {
@@ -607,22 +609,34 @@ function placeLegalHoldTool(env: EnvironmentInjector) {
           issuedAt: isoNow(),
         };
         store.addLegalHold(hold);
+
+        // Render-target routing (plan R1) — stash the hold card in
+        // the holds page's primary slot and navigate the user there.
+        // The chat bubble keeps a small markdown summary + a link;
+        // the actual widget mounts on /holds, where the operator can
+        // see it in context with all other holds.
+        const card = {
+          name: 'legalHoldCard',
+          props: {
+            holdId: hold.id,
+            scope: hold.scope,
+            custodianCount: hold.custodianIds.length,
+            issuedAt: hold.issuedAt,
+            acknowledged: false,
+            released: false,
+          },
+        };
+        env.get(RenderHandoffStore).publish('holds.primary', [card]);
+        await env.get(Router).navigate(['/holds'], { queryParams: { id: hold.id } });
+
         return {
           ...hold,
-          components: [{
-            name: 'legalHoldCard',
-            props: {
-              holdId: hold.id,
-              scope: hold.scope,
-              custodianCount: hold.custodianIds.length,
-              issuedAt: hold.issuedAt,
-              acknowledged: false,
-              released: false,
-            },
-          }],
+          // No `components` — the card mounts on /holds via the slot,
+          // not in the chat panel. Avoids dual mount + matches the
+          // operator's mental model ("legal holds live on /holds").
           markdown:
-            `**Hold issued** — \`${hold.id}\` covering **${validIds.length}** custodian(s).\n\n` +
-            `> ${scope}`,
+            `**Hold issued** — \`${hold.id}\` covering **${validIds.length}** custodian(s). ` +
+            `Opened in [/holds](/holds?id=${hold.id}) — view there.\n\n> ${scope}`,
         };
       });
     },
