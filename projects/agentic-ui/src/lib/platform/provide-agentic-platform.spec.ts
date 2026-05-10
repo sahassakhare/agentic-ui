@@ -2,6 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { provideAgenticPlatform } from './provide-agentic-platform';
 import { CatalogCapabilityRegistrarService } from './provide-catalog-capability-registrar';
+import { CatalogCapabilityAuthorizerService } from './provide-catalog-capability-authorizer';
+import { ToolRegistry } from '../registries/tool-registry';
 import { AGENTIC_ACTIVE_PERSONA } from '../chat/active-persona';
 import { MFE_REGISTRY_SOURCE } from '../mfe/mfe-registry-source';
 import { provideAgenticUi } from '../providers/provide-agentic-ui';
@@ -153,6 +155,32 @@ describe('provideAgenticPlatform', () => {
     // Initializer for registrar should never run; service holds an empty result list.
     const svc = TestBed.inject(CatalogCapabilityRegistrarService);
     expect(svc.results().length).toBe(0);
+  });
+
+  it('capabilityAuthorizer: forwards shared catalogUrl/tenant/getToken; gates registry', async () => {
+    const fx = vi.fn(async () =>
+      new Response(JSON.stringify({
+        items: [{ kind: 'tool', name: 'gap3-disabled', lifecycle: 'disabled' }],
+        total: 1, limit: 500, offset: 0,
+      }), { status: 200 }),
+    ) as unknown as typeof fetch;
+    const allowed: ToolDef = { name: 'gap3-allowed', description: 'd', schema: z.object({}), handler: async () => null };
+    const denied: ToolDef = { name: 'gap3-disabled', description: 'd', schema: z.object({}), handler: async () => null };
+    TestBed.configureTestingModule({
+      providers: [
+        provideAgenticUi({ tools: [allowed, denied] }),
+        provideAgenticPlatform({
+          catalogUrl: 'https://catalog.example.com',
+          tenantId: 'acme',
+          getToken: () => 'tok',
+          capabilityAuthorizer: { fetchFn: fx, refreshIntervalMs: 0 },
+        }),
+      ],
+    });
+    const svc = TestBed.inject(CatalogCapabilityAuthorizerService);
+    await svc.lastRefresh;
+    const tools = TestBed.inject(ToolRegistry);
+    expect(tools.list().map((t) => t.name)).toEqual(['gap3-allowed']);
   });
 
   it('tenantId can be a function (resolved eagerly at provider time)', () => {

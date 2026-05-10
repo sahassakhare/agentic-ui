@@ -23,7 +23,9 @@ export type TelemetryEventName =
   | 'agentic.registry.hook_installed'
   | 'agentic.registry.hook_error'
   | 'agentic.registry.host_version_mismatch'
-  | 'agentic.platform.capability_registrar.sync';
+  | 'agentic.platform.capability_registrar.sync'
+  | 'agentic.platform.capability_authorizer.refresh'
+  | 'agentic.platform.capability_authorizer.refresh_failed';
 
 export interface AgenticTelemetrySink {
   startSpan(name: TelemetryEventName, attributes?: Readonly<Record<string, unknown>>): TelemetrySpan;

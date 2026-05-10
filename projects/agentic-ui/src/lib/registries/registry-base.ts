@@ -130,6 +130,18 @@ export abstract class RegistryBase<TDef extends RegistryEntry> implements Regist
   }
 
   /**
+   * Read the currently-installed scope policy. Useful for composing —
+   * a new policy can wrap the existing one and run an additional
+   * predicate. Hosts rarely need this directly; the platform-tier
+   * authorizer (`provideCatalogCapabilityAuthorizer`) uses it to
+   * compose the catalog-driven deny-list with whatever policy the
+   * host already installed (e.g. `activeScopePolicy(persona)`).
+   */
+  currentScopePolicy(): RegistryScopePolicy {
+    return this.scopePolicy();
+  }
+
+  /**
    * Active write-through provider hook. `null` (default) means
    * in-memory only — every behaviour matches v1.2 exactly. When a
    * hook is installed, register / remove / removeBySource events
