@@ -7,6 +7,7 @@ import { globalErrorHandler, requestIdMiddleware } from './errors.js';
 import { healthRoutes } from './routes/health.js';
 import { capabilitiesRoutes } from './routes/capabilities.js';
 import { mfesRoutes } from './routes/mfes.js';
+import { agentsRoutes } from './routes/agents.js';
 import { roleMappingsRoutes } from './routes/role-mappings.js';
 import { auditRoutes } from './routes/audit.js';
 import { usageRoutes } from './routes/usage.js';
@@ -117,6 +118,7 @@ export function buildApp(deps: AppDeps): Hono {
   v1.use('/catalogs/:tenant/*', requireTenantScope());
   v1.route('/catalogs/:tenant/capabilities', capabilitiesRoutes(deps.pool, deps.embeddings));
   v1.route('/catalogs/:tenant/mfes', mfesRoutes(deps.pool));
+  v1.route('/catalogs/:tenant/agents', agentsRoutes(deps.pool));
   v1.route('/catalogs/:tenant/role-mappings', roleMappingsRoutes(deps.pool));
   v1.route('/catalogs/:tenant/audit', auditRoutes(deps.pool));
   v1.route('/catalogs/:tenant/usage', usageRoutes(deps.pool));

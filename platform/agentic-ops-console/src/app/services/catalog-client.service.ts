@@ -60,6 +60,29 @@ export interface MfeRemote {
   readonly lastHealthAt: string | null;
 }
 
+/**
+ * Agent — per-tenant AgenticBackend deployment (slice AGT / ADR-039).
+ * Distinct from MfeRemote (federation manifest). Heartbeat-driven
+ * status; capabilities is the inventory the agent advertised.
+ */
+export interface Agent {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly name: string;
+  readonly kind: 'ag-ui' | 'hashbrown' | 'a2ui' | 'mcp' | 'custom';
+  readonly manifestUrl: string;
+  readonly version: string | null;
+  readonly requiredHostVersion: string | null;
+  readonly capabilities: readonly string[];
+  readonly status: 'active' | 'degraded' | 'inactive';
+  readonly lastHealthAt: string | null;
+  readonly registeredBy: string;
+  readonly registeredAt: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly softDeletedAt: string | null;
+}
+
 export interface RoleMapping {
   readonly id: string;
   readonly tenantId: string;
@@ -199,6 +222,25 @@ export class CatalogClientService {
 
   deleteMfe(name: string): Observable<void> {
     return this.http.delete<void>(`${this.base()}/mfes/${encodeURIComponent(name)}`);
+  }
+
+  // ── Agents (slice AGT / ADR-039) ──────────────────────────────
+  listAgents(): Observable<{ items: readonly Agent[] }> {
+    return this.http.get<{ items: readonly Agent[] }>(`${this.base()}/agents`);
+  }
+
+  patchAgent(id: string, patch: {
+    manifestUrl?: string;
+    version?: string;
+    requiredHostVersion?: string;
+    capabilities?: readonly string[];
+    status?: 'active' | 'degraded' | 'inactive';
+  }): Observable<Agent> {
+    return this.http.patch<Agent>(`${this.base()}/agents/${encodeURIComponent(id)}`, patch);
+  }
+
+  deleteAgent(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base()}/agents/${encodeURIComponent(id)}`);
   }
 
   listRoleMappings(): Observable<{ items: readonly RoleMapping[] }> {

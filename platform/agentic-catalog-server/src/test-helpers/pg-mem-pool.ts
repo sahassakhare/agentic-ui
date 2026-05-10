@@ -68,6 +68,7 @@ export function createPgMemPool(options: PgMemPoolOptions = {}): PgMemHandle {
     '004_usage_meter.sql',
     '005_tenant_lifecycle.sql',
     '006_capability_embeddings.sql',
+    '007_agents.sql',
   ];
   const raw = MIGRATIONS
     .map((file) => readFileSync(join(__dirname, '..', 'db', 'migrations', file), 'utf-8'))

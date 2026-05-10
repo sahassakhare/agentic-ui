@@ -21,6 +21,10 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/mfes.component').then((m) => m.MfesComponent),
       },
       {
+        path: 'agents',
+        loadComponent: () => import('./pages/agents.component').then((m) => m.AgentsComponent),
+      },
+      {
         path: 'role-mappings',
         loadComponent: () => import('./pages/role-mappings.component').then((m) => m.RoleMappingsComponent),
       },

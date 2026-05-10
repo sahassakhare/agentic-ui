@@ -20,7 +20,8 @@ export type CatalogEntityType =
   | 'role_mapping'
   | 'tenant'
   | 'usage'
-  | 'audit';
+  | 'audit'
+  | 'agent';
 
 export type CatalogOperation = 'create' | 'update' | 'delete' | 'restore';
 
