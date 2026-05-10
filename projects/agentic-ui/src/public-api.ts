@@ -23,6 +23,13 @@ export * from './lib/chat';
 export * from './lib/iam';
 export * from './lib/mcp';
 
+// Single config point for the Maverick agentic platform — closes
+// Gap 4 from the 2026-05-10 platform audit. Wires the catalog
+// integrations (IAM persona resolver, MFE registry; future:
+// capability registrar / authorizer / usage metering) under one
+// provider call.
+export * from './lib/platform';
+
 // Was @maverick/agentic-ui/components
 export * from './lib/components';
 

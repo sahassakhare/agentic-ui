@@ -83,4 +83,47 @@ describe('renderAgenticAppTemplate', () => {
     expect(cfg).toContain('provideAgenticUi');
     expect(cfg).toContain('provideZonelessChangeDetection');
   });
+
+  it('default scaffold does NOT include provideAgenticPlatform', () => {
+    const files = renderAgenticAppTemplate({ name: 'demo' });
+    const cfg = files.find((f) => f.path === 'src/app/app.config.ts')!.content;
+    expect(cfg).not.toContain('provideAgenticPlatform');
+  });
+
+  it('withPlatform: scaffold wires provideAgenticPlatform with catalog URL + tenant', () => {
+    const files = renderAgenticAppTemplate({
+      name: 'demo',
+      catalogUrl: 'https://catalog.example.com',
+      withPlatform: true,
+    });
+    const cfg = files.find((f) => f.path === 'src/app/app.config.ts')!.content;
+    expect(cfg).toContain('provideAgenticPlatform');
+    expect(cfg).toContain(`CATALOG_URL = 'https://catalog.example.com'`);
+    expect(cfg).toContain(`TENANT_ID = 'demo'`);
+    expect(cfg).toContain('personaResolver:');
+    expect(cfg).toContain('mfeRegistry:');
+  });
+
+  it('withPlatform with explicit tenantId override', () => {
+    const files = renderAgenticAppTemplate({
+      name: 'acme-portal',
+      catalogUrl: 'https://catalog.example.com',
+      withPlatform: true,
+      tenantId: 'acme',
+    });
+    const cfg = files.find((f) => f.path === 'src/app/app.config.ts')!.content;
+    expect(cfg).toContain(`TENANT_ID = 'acme'`);
+    expect(cfg).not.toContain(`TENANT_ID = 'acme-portal'`);
+  });
+
+  it('withPlatform without catalogUrl falls back to platform-naive template', () => {
+    const files = renderAgenticAppTemplate({
+      name: 'demo',
+      withPlatform: true,
+      // catalogUrl intentionally omitted
+    });
+    const cfg = files.find((f) => f.path === 'src/app/app.config.ts')!.content;
+    expect(cfg).not.toContain('provideAgenticPlatform');
+    expect(cfg).toContain('provideAgenticUi');
+  });
 });

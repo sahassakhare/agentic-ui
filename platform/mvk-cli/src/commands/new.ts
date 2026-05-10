@@ -7,7 +7,7 @@ import { renderAgenticAppTemplate, validateProjectName } from '../templates/agen
 export const newApp: Command = {
   description: 'Scaffold a new @maverick/agentic-ui Angular app',
   usage:
-    'mvk new app <name> [--dir <path>] [--with-catalog [--tenant <id>]] [--dry-run]',
+    'mvk new app <name> [--dir <path>] [--with-catalog] [--with-platform] [--tenant <id>] [--dry-run]',
   async run(ctx): Promise<number> {
     const name = ctx.args.positional[0];
     if (!name) { emitError('Usage: mvk new app <name>'); return 1; }
@@ -21,6 +21,13 @@ export const newApp: Command = {
     );
     const dryRun = !!ctx.args.flags['dry-run'];
     const withCatalog = !!ctx.args.flags['with-catalog'];
+    const withPlatform = !!ctx.args.flags['with-platform'];
+    const tenantArg = (ctx.args.flags['tenant'] as string | undefined) ?? name;
+
+    if (withPlatform && !ctx.config.catalogUrl) {
+      emitError(`--with-platform requires a --catalog-url (or MVK_CATALOG_URL / 'mvk login'-stored config).`);
+      return 1;
+    }
 
     // Bail out of writes if the target dir is non-empty (avoid
     // clobbering). Allow the dir to exist if it's empty.
@@ -34,7 +41,9 @@ export const newApp: Command = {
 
     const files = renderAgenticAppTemplate({
       name,
-      catalogUrl: withCatalog ? ctx.config.catalogUrl : undefined,
+      catalogUrl: (withCatalog || withPlatform) ? ctx.config.catalogUrl : undefined,
+      withPlatform,
+      tenantId: tenantArg,
     });
 
     if (dryRun) {
