@@ -2,6 +2,7 @@ import {
   DestroyRef,
   Injectable,
   computed,
+  effect,
   inject,
   makeEnvironmentProviders,
   provideEnvironmentInitializer,
@@ -14,6 +15,7 @@ import { ComponentRegistry } from '../registries/component-registry';
 import type { RegistryScopePolicy } from '../registries/registry-base';
 import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
 import type { RegistryEntry } from '../types/registry-defs';
+import { CatalogSseService } from './catalog-sse-service';
 
 /**
  * Configuration for {@link provideCatalogCapabilityAuthorizer}. Closes
@@ -63,6 +65,13 @@ export interface CatalogCapabilityAuthorizerOptions {
 
   /** Override of `globalThis.fetch`. Test seam. */
   readonly fetchFn?: typeof fetch;
+
+  /**
+   * Test seam — override the `EventSource` constructor used by the
+   * SSE service for live mutation updates. Production hosts never
+   * set this. See {@link CatalogSseService} for the contract.
+   */
+  readonly eventSourceFactory?: (url: string) => EventSource;
 }
 
 interface CatalogCapabilityListItem {
@@ -254,8 +263,51 @@ export function provideCatalogCapabilityAuthorizer(
       // Fire-and-forget initial fetch + start polling. Capture the
       // promise on the service so tests + devtools can await it.
       svc.lastRefresh = svc.refresh();
-      const intervalMs = options.refreshIntervalMs ?? 30_000;
-      svc.startPolling(intervalMs);
+
+      // SSE-driven live updates (ADR-035). When SSE is live, push
+      // capability mutations into a refresh; the polling tick stays
+      // as a backup but stretches to keep-alive cadence so we don't
+      // double-call. When SSE falls back, polling reverts to the
+      // configured interval.
+      const sse = inject(CatalogSseService);
+      sse.configure({
+        catalogUrl: options.catalogUrl,
+        tenantId: options.tenantId,
+        getToken: options.getToken,
+        ...(options.eventSourceFactory ? { eventSourceFactory: options.eventSourceFactory } : {}),
+      });
+      const off = sse.onMutation((event) => {
+        if (event.entityType !== 'capability') return;
+        // The mutation event only carries `entityId + operation`,
+        // not the full capability shape. Cheapest correct response
+        // is a full refresh — re-fetch the disabled list and
+        // recompute the deny-set. Latency from operator-toggle to
+        // runtime-effect: ~1 round-trip instead of up-to-30 s poll.
+        svc.lastRefresh = svc.refresh();
+      });
+
+      const baseInterval = options.refreshIntervalMs ?? 30_000;
+      // Tighter polling when SSE is in fallback; loose keep-alive
+      // poll (10x) when SSE is live, so we still recover from any
+      // missed events. The state signal updates the ticker
+      // interval reactively.
+      const KEEP_ALIVE_MULT = 10;
+      const tick = () => {
+        const intervalMs = sse.isLive() ? baseInterval * KEEP_ALIVE_MULT : baseInterval;
+        svc.startPolling(intervalMs);
+      };
+      tick();
+      // Recompute the polling cadence whenever SSE state flips.
+      // (Cheap — runs at most a handful of times per session.)
+      effect(() => { sse.state(); tick(); });
+
+      // Open the SSE connection. Errors here flip the state signal
+      // and the polling cadence falls back automatically.
+      void sse.connect();
+
+      // Cleanup on EnvironmentInjector destroy.
+      const destroyRef = inject(DestroyRef, { optional: true });
+      destroyRef?.onDestroy(() => { off(); sse.disconnect(); });
     }),
   ]);
 }

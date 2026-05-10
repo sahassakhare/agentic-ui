@@ -267,4 +267,127 @@ describe('provideCatalogCapabilityAuthorizer', () => {
     // enabled-tool: scope-less, in-scope; visible.
     expect(visible).toContain('enabled-tool');
   });
+
+  it('SSE-driven refresh: capability mutation event triggers a re-fetch (live updates)', async () => {
+    let callCount = 0;
+    const cycling = recordingFetch(async () => {
+      callCount += 1;
+      const items = callCount === 1
+        ? []  // first fetch: nothing disabled
+        : [{ kind: 'tool', name: 'disabled-tool', lifecycle: 'disabled' }];
+      return new Response(
+        JSON.stringify({ items, total: items.length, limit: 500, offset: 0 }),
+        { status: 200 },
+      );
+    });
+
+    // Stub EventSource — captures the registered listeners so the test
+    // can fire a `mutation` event deterministically.
+    const listeners = new Map<string, ((e: Event) => void)[]>();
+    const stubEs = {
+      readyState: 0,
+      addEventListener: (name: string, h: (e: Event) => void) => {
+        if (!listeners.has(name)) listeners.set(name, []);
+        listeners.get(name)!.push(h);
+      },
+      close: () => {},
+    };
+    const factory = vi.fn((_url: string) => {
+      // Defer the open frame — fire after the test calls a yield.
+      queueMicrotask(() => {
+        stubEs.readyState = 1; // OPEN
+        for (const h of listeners.get('open') ?? []) h(new Event('open'));
+      });
+      return stubEs as unknown as EventSource;
+    });
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideAgenticUi({ tools: [enabledTool, disabledTool] }),
+        provideCatalogCapabilityAuthorizer({
+          catalogUrl: 'https://catalog.example.com',
+          tenantId: 'acme',
+          getToken: () => 'tok',
+          fetchFn: cycling.fn,
+          refreshIntervalMs: 0,
+          eventSourceFactory: factory,
+        }),
+      ],
+    });
+    const svc = TestBed.inject(CatalogCapabilityAuthorizerService);
+    await svc.lastRefresh;
+
+    // First fetch sees nothing disabled.
+    expect(svc.disabledCount()).toBe(0);
+    const tools = TestBed.inject(ToolRegistry);
+    expect(tools.list().map((t) => t.name)).toContain('disabled-tool');
+
+    // Simulate the catalog SSE pushing a capability-mutation event
+    // — operator just toggled `disabled-tool` to disabled.
+    const event = {
+      tenantId: 'acme',
+      entityType: 'capability',
+      operation: 'update',
+      entityId: 'cap-disabled-tool',
+      occurredAt: new Date().toISOString(),
+    };
+    const messageEvent = new MessageEvent('mutation', { data: JSON.stringify(event) });
+    for (const h of listeners.get('mutation') ?? []) h(messageEvent);
+
+    // The event handler triggers a refresh. Await it.
+    await svc.lastRefresh;
+
+    expect(svc.disabledCount()).toBe(1);
+    expect(tools.list().map((t) => t.name)).not.toContain('disabled-tool');
+  });
+
+  it('SSE-driven refresh: non-capability mutations are ignored', async () => {
+    let callCount = 0;
+    const cycling = recordingFetch(async () => {
+      callCount += 1;
+      return new Response(JSON.stringify({ items: [], total: 0, limit: 500, offset: 0 }), { status: 200 });
+    });
+
+    const listeners = new Map<string, ((e: Event) => void)[]>();
+    const factory = vi.fn(() => ({
+      readyState: 1,
+      addEventListener: (name: string, h: (e: Event) => void) => {
+        if (!listeners.has(name)) listeners.set(name, []);
+        listeners.get(name)!.push(h);
+      },
+      close: () => {},
+    }) as unknown as EventSource);
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideAgenticUi({ tools: [enabledTool] }),
+        provideCatalogCapabilityAuthorizer({
+          catalogUrl: 'https://catalog.example.com',
+          tenantId: 'acme',
+          getToken: () => null,
+          fetchFn: cycling.fn,
+          refreshIntervalMs: 0,
+          eventSourceFactory: factory,
+        }),
+      ],
+    });
+    const svc = TestBed.inject(CatalogCapabilityAuthorizerService);
+    await svc.lastRefresh;
+    expect(callCount).toBe(1);
+
+    // Fire an irrelevant mutation (audit, usage, mfe, tenant, role_mapping).
+    for (const irrelevant of ['audit', 'usage', 'mfe', 'tenant', 'role_mapping'] as const) {
+      const messageEvent = new MessageEvent('mutation', {
+        data: JSON.stringify({
+          tenantId: 'acme', entityType: irrelevant, operation: 'create',
+          entityId: 'x', occurredAt: new Date().toISOString(),
+        }),
+      });
+      for (const h of listeners.get('mutation') ?? []) h(messageEvent);
+    }
+
+    await svc.lastRefresh;
+    // No capability events fired → no extra fetches.
+    expect(callCount).toBe(1);
+  });
 });
