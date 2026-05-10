@@ -3,6 +3,8 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { provideAgenticPlatform } from './provide-agentic-platform';
 import { CatalogCapabilityRegistrarService } from './provide-catalog-capability-registrar';
 import { CatalogCapabilityAuthorizerService } from './provide-catalog-capability-authorizer';
+import { CatalogUsageMeteringService } from './provide-catalog-usage-metering';
+import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
 import { ToolRegistry } from '../registries/tool-registry';
 import { AGENTIC_ACTIVE_PERSONA } from '../chat/active-persona';
 import { MFE_REGISTRY_SOURCE } from '../mfe/mfe-registry-source';
@@ -181,6 +183,32 @@ describe('provideAgenticPlatform', () => {
     await svc.lastRefresh;
     const tools = TestBed.inject(ToolRegistry);
     expect(tools.list().map((t) => t.name)).toEqual(['gap3-allowed']);
+  });
+
+  it('usageMetering: forwards shared catalogUrl/tenant/getToken; emits flow to catalog', async () => {
+    const calls: { url: string; init: RequestInit }[] = [];
+    const fx = vi.fn(async (input: string | URL | Request, init: RequestInit = {}) => {
+      const url = typeof input === 'string' ? input : (input as Request).url ?? String(input);
+      calls.push({ url, init });
+      return new Response(JSON.stringify({ id: 'srv-id' }), { status: 201 });
+    }) as unknown as typeof fetch;
+    TestBed.configureTestingModule({
+      providers: [
+        provideAgenticPlatform({
+          catalogUrl: 'https://catalog.example.com',
+          tenantId: 'acme',
+          getToken: () => 'tok',
+          usageMetering: { fetchFn: fx, flushIntervalMs: 0 },
+        }),
+      ],
+    });
+    const sink = TestBed.inject(AGENTIC_TELEMETRY_SINK);
+    const svc = TestBed.inject(CatalogUsageMeteringService);
+    const span = sink.startSpan('agentic.tool_call.start', { 'agentic.tool.name': 'gap2-tool' });
+    span.end({ 'agentic.tool.success': true });
+    await svc.flush();
+    expect(calls.length).toBe(1);
+    expect(calls[0]?.url).toBe('https://catalog.example.com/v1/catalogs/acme/usage');
   });
 
   it('tenantId can be a function (resolved eagerly at provider time)', () => {
