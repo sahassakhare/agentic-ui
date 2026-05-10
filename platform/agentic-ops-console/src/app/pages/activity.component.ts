@@ -1,10 +1,12 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   CatalogStreamService,
   type CatalogMutationEvent,
 } from '../services/catalog-stream.service';
+import { CatalogClientService } from '../services/catalog-client.service';
+import { AuthService } from '../services/auth.service';
 
 const MAX_EVENTS = 200;
 
@@ -64,7 +66,13 @@ interface FeedEntry {
     @if (visible().length === 0) {
       <div class="empty">
         @if (buffer().length === 0) {
-          Waiting for events. Try registering a capability or onboarding a tenant from another browser tab.
+          @if (loadingBacklog()) {
+            Loading recent activity from audit chain...
+          } @else if (backlogError()) {
+            Backlog unavailable — {{ backlogError() }}. Live SSE events will still appear here as mutations happen.
+          } @else {
+            No mutations recorded yet. Try registering a capability or onboarding a tenant from another browser tab.
+          }
         } @else {
           No events match the current filter.
         }
@@ -161,11 +169,17 @@ interface FeedEntry {
 })
 export class ActivityComponent {
   private readonly stream = inject(CatalogStreamService);
+  private readonly catalog = inject(CatalogClientService);
+  private readonly auth = inject(AuthService);
 
   readonly maxEvents = MAX_EVENTS;
   readonly buffer = signal<readonly FeedEntry[]>([]);
+  readonly loadingBacklog = signal<boolean>(false);
+  readonly backlogError = signal<string | null>(null);
   readonly streamLive = this.stream.isLive;
   readonly streamState = this.stream.state;
+
+  private lastBacklogTenant: string | null = null;
 
   entityFilter: EntityFilter = 'all';
   operationFilter: OperationFilter = 'all';
@@ -182,11 +196,62 @@ export class ActivityComponent {
   });
 
   constructor() {
-    // No re-fetch on stream events; we just append. The page is a
-    // pure consumer of CatalogStreamService — it doesn't poll
-    // anything. autoStream() isn't appropriate here because we need
-    // the event payload, not just a "something changed" signal.
+    // Live stream — every mutation prepends to the buffer.
     this.stream.onMutation((event) => this.append(event));
+
+    // Backfill from the audit chain whenever the active tenant
+    // changes. Without this, the page only shows events that
+    // happened *while open* — past mutations look invisible.
+    effect(() => {
+      const principal = this.auth.principal();
+      const tenantId = principal?.tenantId ?? null;
+      if (!tenantId || tenantId === this.lastBacklogTenant) return;
+      this.lastBacklogTenant = tenantId;
+      this.loadBacklog();
+    });
+  }
+
+  private loadBacklog(): void {
+    this.loadingBacklog.set(true);
+    this.backlogError.set(null);
+    this.catalog.recentAudit(MAX_EVENTS).subscribe({
+      next: (resp) => {
+        // Server returns newest-first already. Seed only entries
+        // not already present (in case a live SSE event raced us).
+        const seen = new Set(this.buffer().map((e) => e.id));
+        const seeded: FeedEntry[] = [];
+        for (const raw of resp.items) {
+          // /audit/recent returns the audit row's entity_type as a
+          // free-form string (it may include rows for entity types
+          // older than the SSE union). Coerce to CatalogMutationEvent
+          // by widening the type — display code tolerates unknown
+          // entity types.
+          const event = raw as unknown as CatalogMutationEvent;
+          const entry: FeedEntry = {
+            id: this.makeId(event),
+            receivedAt: Date.parse(event.occurredAt) || Date.now(),
+            event,
+          };
+          if (seen.has(entry.id)) continue;
+          seen.add(entry.id);
+          seeded.push(entry);
+        }
+        // Live events sit at the top; backlog appends below.
+        const merged = [...this.buffer(), ...seeded];
+        if (merged.length > MAX_EVENTS) merged.length = MAX_EVENTS;
+        this.buffer.set(merged);
+        this.loadingBacklog.set(false);
+      },
+      error: (err: { status?: number; message?: string }) => {
+        this.loadingBacklog.set(false);
+        // 404 from older catalogs that don't have /audit/recent yet —
+        // surface a soft message; the live feed still works.
+        const msg = err?.status === 404
+          ? 'this catalog is older than /audit/recent (deploy needs refresh)'
+          : err?.message ?? 'request failed';
+        this.backlogError.set(msg);
+      },
+    });
   }
 
   private append(event: CatalogMutationEvent): void {
@@ -195,6 +260,8 @@ export class ActivityComponent {
       receivedAt: Date.now(),
       event,
     };
+    // Dedup against backlog rows (same id from /audit/recent).
+    if (this.buffer().some((e) => e.id === entry.id)) return;
     const next = [entry, ...this.buffer()];
     if (next.length > MAX_EVENTS) next.length = MAX_EVENTS;
     this.buffer.set(next);

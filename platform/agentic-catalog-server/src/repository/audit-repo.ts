@@ -181,6 +181,31 @@ function rowToAudit(row: {
   };
 }
 
+/**
+ * Fetch the most recent audit rows for the tenant, newest first.
+ * Used by the ops-console activity feed to backfill the buffer on
+ * page load, before the SSE stream starts emitting live events.
+ * Bounded at 500 rows; default 100.
+ */
+export async function listRecentAuditRows(
+  client: pg.PoolClient,
+  tenantId: string,
+  limit: number,
+): Promise<AuditRow[]> {
+  const bounded = Math.max(1, Math.min(500, Math.floor(limit) || 100));
+  const result = await client.query(
+    `SELECT id, tenant_id, occurred_at, actor, request_id, operation,
+            entity_type, entity_id, diff, chain_position, prev_hash,
+            entry_hash
+     FROM catalog_audit
+     WHERE tenant_id = $1
+     ORDER BY occurred_at DESC, chain_position DESC
+     LIMIT ${bounded}`,
+    [tenantId],
+  );
+  return result.rows.map(rowToAudit);
+}
+
 export async function listAuditRowsForExport(
   client: pg.PoolClient,
   tenantId: string,

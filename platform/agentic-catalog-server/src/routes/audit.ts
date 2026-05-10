@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { withTenantScope, type CatalogPool } from '../db/pool.js';
 import {
   listAuditRowsForExport,
+  listRecentAuditRows,
   verifyAuditChain,
   type AuditRow,
 } from '../repository/audit-repo.js';
@@ -31,8 +32,36 @@ const ExportQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100_000).optional(),
 });
 
+const RecentQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+});
+
 export function auditRoutes(pool: CatalogPool): Hono {
   const app = new Hono();
+
+  app.get('/recent', async (c) => {
+    const principal = c.get('principal');
+    const parsed = RecentQuerySchema.safeParse({ limit: c.req.query('limit') });
+    if (!parsed.success) {
+      throw new HTTPException(422, { message: 'Invalid query parameters', cause: parsed.error });
+    }
+    const limit = parsed.data.limit ?? 100;
+    const rows = await withTenantScope(pool, principal, (client) =>
+      listRecentAuditRows(client, principal.tenantId, limit),
+    );
+    // Mirrors the SSE CatalogMutationEvent shape so the activity
+    // feed can prepend without translating fields. `diff` is
+    // collapsed to a small `summary` on the client side.
+    const items = rows.map((r) => ({
+      tenantId: r.tenantId,
+      entityType: r.entityType,
+      operation: r.operation,
+      entityId: r.entityId,
+      occurredAt: r.occurredAt,
+      summary: r.diff ?? undefined,
+    }));
+    return c.json({ items });
+  });
 
   app.get('/export', async (c) => {
     const principal = c.get('principal');

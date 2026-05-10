@@ -70,6 +70,14 @@ export function createPgMemPool(options: PgMemPoolOptions = {}): PgMemHandle {
     '006_capability_embeddings.sql',
     '007_agents.sql',
     '008_policy_bundles.sql',
+    // 009_agents_policy_safety.sql intentionally skipped in tests:
+    // it's an idempotent re-declaration of 007/008 (CREATE TABLE
+    // IF NOT EXISTS) for production deployments where the
+    // pgmigrations ledger fell out of sync with reality. In pg-mem,
+    // 007/008 already created the tables, so 009 is a no-op on
+    // real Postgres but pg-mem's IF NOT EXISTS path goes through a
+    // stricter parser that rejects FK + DEFAULT constraints. Skip
+    // it; integration tests against real Postgres exercise 009.
   ];
   const raw = MIGRATIONS
     .map((file) => readFileSync(join(__dirname, '..', 'db', 'migrations', file), 'utf-8'))

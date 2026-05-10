@@ -104,6 +104,20 @@ export interface AuditVerifyResult {
   readonly brokenAt: { chainPosition: number; reason: string } | null;
 }
 
+/**
+ * Shape of `GET /audit/recent` rows. Mirrors the SSE
+ * CatalogMutationEvent so the activity feed can prepend without
+ * translating fields. `summary` is the audit row's `diff` JSONB.
+ */
+export interface AuditRecentEntry {
+  readonly tenantId: string;
+  readonly entityType: string;
+  readonly operation: 'create' | 'update' | 'delete' | 'restore';
+  readonly entityId: string;
+  readonly occurredAt: string;
+  readonly summary?: Record<string, unknown>;
+}
+
 export interface UsageAggregate {
   readonly from: string | null;
   readonly to: string | null;
@@ -273,6 +287,19 @@ export class CatalogClientService {
 
   verifyAuditChain(): Observable<AuditVerifyResult> {
     return this.http.get<AuditVerifyResult>(`${this.base()}/audit/verify`);
+  }
+
+  /**
+   * Most recent audit rows for the active tenant — newest first.
+   * Used by the activity feed to backfill the buffer on page load
+   * before the SSE stream starts emitting live events.
+   */
+  recentAudit(limit = 100): Observable<{ items: readonly AuditRecentEntry[] }> {
+    const params = new HttpParams().set('limit', String(limit));
+    return this.http.get<{ items: readonly AuditRecentEntry[] }>(
+      `${this.base()}/audit/recent`,
+      { params },
+    );
   }
 
   /**

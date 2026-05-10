@@ -81,4 +81,52 @@ describe('audit routes (M3 C4)', () => {
     const lines = body.trim().split('\n').filter((s) => s.length > 0);
     expect(lines.length).toBeLessThanOrEqual(1);
   });
+
+  it('recent returns JSON {items} mirroring the SSE event shape', async () => {
+    const auth = await h.authHeader();
+    // Ensure at least one audit row exists.
+    await h.fetch(new Request(CAPS, {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'tool', name: 'audited-recent', body: {} }),
+    }));
+
+    const res = await h.fetch(new Request(`${BASE}/recent?limit=10`, {
+      headers: { Authorization: auth },
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body.items)).toBe(true);
+    expect(body.items.length).toBeGreaterThanOrEqual(1);
+    for (const item of body.items) {
+      expect(item).toMatchObject({
+        tenantId: TENANT,
+        operation: expect.any(String),
+        entityType: expect.any(String),
+        entityId: expect.any(String),
+        occurredAt: expect.any(String),
+      });
+    }
+  });
+
+  it('recent newest-first ordering', async () => {
+    const auth = await h.authHeader();
+    const res = await h.fetch(new Request(`${BASE}/recent?limit=50`, {
+      headers: { Authorization: auth },
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const times = body.items.map((i: { occurredAt: string }) => Date.parse(i.occurredAt));
+    for (let i = 1; i < times.length; i++) {
+      expect(times[i - 1]).toBeGreaterThanOrEqual(times[i]);
+    }
+  });
+
+  it('recent 422 on bad limit', async () => {
+    const auth = await h.authHeader();
+    const res = await h.fetch(new Request(`${BASE}/recent?limit=99999`, {
+      headers: { Authorization: auth },
+    }));
+    expect(res.status).toBe(422);
+  });
 });
