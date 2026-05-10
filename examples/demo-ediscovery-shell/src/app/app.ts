@@ -3,6 +3,7 @@ import { RouterOutlet } from '@angular/router';
 import { HeaderComponent } from './layout/header.component';
 import { SidebarComponent } from './layout/sidebar.component';
 import { ChatRailComponent } from './layout/chat-rail.component';
+import { CommandPaletteComponent } from './ui/command-palette.component';
 
 /**
  * Root shell. Three-pane chassis:
@@ -13,7 +14,7 @@ import { ChatRailComponent } from './layout/chat-rail.component';
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, HeaderComponent, SidebarComponent, ChatRailComponent],
+  imports: [RouterOutlet, HeaderComponent, SidebarComponent, ChatRailComponent, CommandPaletteComponent],
   template: `
     <div class="shell">
       <app-sidebar />
@@ -23,6 +24,9 @@ import { ChatRailComponent } from './layout/chat-rail.component';
       </div>
       <app-chat-rail />
     </div>
+    <!-- Cmd/Ctrl+K palette (plan R4). Lives at the root so the
+         hotkey works on every route; renders nothing when closed. -->
+    <mvk-command-palette />
   `,
   styles: `
     :host { display: block; height: 100vh; }
