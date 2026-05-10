@@ -36,4 +36,13 @@ export const environment = {
    */
   catalogUrl: undefined as string | undefined,
   catalogTenantId: 'ediscovery',
+  /**
+   * Enables `provideAgenticPlatform({ usageMetering: {} })` (Gap 2 /
+   * ADR-034). Off in dev because the metering sink wraps
+   * `AGENTIC_TELEMETRY_SINK` and would silently displace the
+   * console output configured by `provideAgenticTelemetryConsole()`.
+   * Prod has `telemetry: 'none'` already, so flipping it on there
+   * has no regression — see environment.prod.ts.
+   */
+  enableUsageMetering: false,
 };

@@ -19,4 +19,8 @@ export const environment = {
   // their existing transports — see environment.ts for the rationale.
   catalogUrl: 'https://agentic-catalog-server.onrender.com',
   catalogTenantId: 'ediscovery',
+  // Prod telemetry is 'none' (no console / OTel sink wired), so the
+  // metering sink wrap is purely additive — no regression. Local dev
+  // leaves this `false` to keep the console sink useful.
+  enableUsageMetering: true,
 };
