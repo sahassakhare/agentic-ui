@@ -290,13 +290,22 @@ export class TopologyComponent {
     this.loading.set(true);
     this.error.set(null);
     try {
-      // Catalog list endpoints cap at 100 entries by default; bump
-      // for the topology view since we want everything.
-      const [caps, mfeRes] = await Promise.all([
-        firstValueFrom(this.catalog.listCapabilities({ limit: 1000 })),
-        firstValueFrom(this.catalog.listMfes()),
-      ]);
-      this.capabilities.set(caps.items);
+      // Catalog list endpoints cap at 100 entries by default and at
+      // 500 max via CapabilityListQuerySchema. Page through results
+      // until total is reached so the topology covers everything.
+      const PAGE = 500;
+      const all: Capability[] = [];
+      let offset = 0;
+      let total = Number.POSITIVE_INFINITY;
+      while (offset < total) {
+        const page = await firstValueFrom(this.catalog.listCapabilities({ limit: PAGE, offset }));
+        all.push(...page.items);
+        total = page.total;
+        offset += page.items.length;
+        if (page.items.length === 0) break; // safety guard against an empty page
+      }
+      const mfeRes = await firstValueFrom(this.catalog.listMfes());
+      this.capabilities.set(all);
       this.mfes.set(mfeRes.items);
     } catch (err) {
       this.error.set(err instanceof Error ? err.message : String(err));
