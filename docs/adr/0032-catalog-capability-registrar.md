@@ -67,16 +67,21 @@ Apps with monolith-style federation (one team, one catalog identity) opt in via 
 
 Rationale for not extending `CapabilityCreateSchema`: the runtime's def shape is more detailed than the catalog needs (Zod schemas don't round-trip; component class identities don't either — see ADR-011 §D5). The catalog stores enough metadata for ops-console search/filter and the future authorizer/usage Tiers; round-tripping the full handler is explicitly out-of-scope.
 
-### D6 — Late-arriving registrations are NOT mirrored (yet)
+### D6 — Late-arriving registrations: host-triggered `resync()`
 
-If a remote MFE is loaded **after** bootstrap (the common case for lazy federation), its capabilities are registered *into the registry* but **not** posted to the catalog by this slice. ADR-011 §D5 explicitly disallows installing a `RegistryProviderHook` on tool/component registries (the tool handler / component constructor can't round-trip through external state, which the hook design assumed).
+If a remote MFE is loaded **after** bootstrap (the common case for lazy federation), its capabilities are registered *into the registry* but the registrar's automatic snapshot has already fired — federated entries land in the registry without flowing to the catalog.
 
-For this slice we accept the boot-snapshot limitation. Late-arrival sync is tracked as a follow-up; the design surface is either:
-
-- Amend ADR-011 to allow write-only-mirror hooks on tool/component registries (the original "no replay-bound" reasoning doesn't apply to write-through mirrors).
+The original ADR-032 slice accepted this as a known limitation, with two design options for follow-up:
+- Amend ADR-011 to allow write-only-mirror hooks on tool/component registries.
 - Have the remote call `CatalogCapabilityRegistrarService.sync(...)` from its own bootstrap.
 
-The second option works today without amending ADR-011, and is the recommended path for federated apps that need catalog visibility for late-loaded remotes.
+**Update — 2026-05-10 (post-eDiscovery integration):** the second path is now the supported pattern. `CatalogCapabilityRegistrarService` exposes `resync()`: it re-snapshots the registries using the configuration captured at boot and re-POSTs every entry. Catalog idempotency (`(tenant_id, kind, name)` UNIQUE) makes already-registered host capabilities return 409 (treated as success), and remote capabilities arriving since boot get the 201.
+
+Hosts call `resync()` from inside their MFE-load `provideAppInitializer` after `Promise.allSettled` over all remote loads resolves. Set `includeRemotes: true` on the registrar's options so the snapshot's source-filter doesn't drop them.
+
+The eDiscovery shell ([`examples/demo-ediscovery-shell/src/app/app.config.ts`](../../examples/demo-ediscovery-shell/src/app/app.config.ts)) is the reference integration: `loadDemoRemotes()` calls `injector.get(CatalogCapabilityRegistrarService, null, {optional: true})?.resync()` after every remote has settled.
+
+ADR-011 §D5's prohibition on provider hooks for tool/component registries stays — `resync()` is host-triggered, not framework-driven, so the same "Angular class identities can't round-trip through external state" reasoning doesn't apply (we never round-trip; we only re-POST what's already in memory).
 
 ### D7 — Wired into provideAgenticPlatform as a per-feature switch
 
@@ -96,7 +101,7 @@ Following the ADR-031 pattern: `capabilityRegistrar?: CapabilityRegistrarFeature
 
 ### Trade-offs
 
-- **No live mirroring of late-registered remotes** (D6). Federated apps with lazy-loaded MFEs see drift between in-memory registry and catalog until the remote self-syncs. Documented as a known follow-up; the boot snapshot covers the host's own tools/widgets, which is the 80% case.
+- **No live mirroring of late-registered remotes** (D6). Federated apps with lazy-loaded MFEs see a brief drift window between in-memory registry and catalog until the host's MFE-load initializer calls `resync()`. ~ Resolved by the host-triggered `resync()` API (D6 §Update — 2026-05-10). The eDiscovery shell is the reference integration. Live SSE-driven mirroring (no host trigger required) remains a follow-up.
 - **`body` jsonb is opaque to the catalog.** The catalog can't query "all tools with `executeIn: 'remote'`" without parsing the jsonb in SQL. Acceptable for now — the catalog API is search-by-tag/lifecycle, not by arbitrary nested fields.
 - **No retry on transient failures.** A flaky network drops capabilities until the next boot. Mitigation: telemetry sink emits per-sync stats so operators can detect a rising failure rate. Retry with backoff is a follow-up.
 

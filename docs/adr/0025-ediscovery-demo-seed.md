@@ -241,14 +241,18 @@ work:
 
 `loadDemoRemotes()` stays in `provideAppInitializer` because it's
 async (Native Federation `loadRemoteModule` returns a Promise).
-**Late-arriving registrations from MFE remotes therefore don't
-flow through the registrar** — they land in the registry but the
-registrar's snapshot already fired. ADR-032 §D6 documents this
-limitation; the seed script continues to cover federated-remote
-capabilities.
+After all remotes finish loading, `loadDemoRemotes()` calls
+`CatalogCapabilityRegistrarService.resync()` so federated tools
+and widgets flow into the catalog too — see ADR-032 §D6's
+2026-05-10 update for the API.
 
-Three switches on `provideAgenticPlatform` are deliberately **NOT**
-enabled for the eDiscovery shell yet:
+The registrar is configured with `includeRemotes: true` so the
+resync snapshot picks up entries with `source: 'remote:*'`. Boot
+snapshot still POSTs only `source: 'host'` entries (host
+capabilities are already registered when the env-init fires);
+the resync after `Promise.allSettled` covers everything else.
+
+### Switches still deliberately off
 
 - **`personaResolver`** — the shell's `PersonaService` is a UI
   dropdown driving demo persona switching, not a JWT-derived
@@ -259,21 +263,30 @@ enabled for the eDiscovery shell yet:
   catalog-driven `RestMfeRegistrySource` is a separate slice
   because it touches the federation runtime's discovery contract,
   not just the host's config surface.
-- **`usageMetering`** — would replace `AGENTIC_TELEMETRY_SINK`
-  with the wrapping sink, displacing the shell's existing
-  console / OTel sink. Opt-in once a host is ready to fold it in
-  via the `delegate` field.
+
+### `usageMetering` — gated on `environment.enableUsageMetering`
+
+The metering sink wraps `AGENTIC_TELEMETRY_SINK` (ADR-034). In dev
+the existing `provideAgenticTelemetryConsole()` would be silently
+displaced, breaking local debugging. So the shell gates the switch
+on `environment.enableUsageMetering`:
+
+- **dev** (`environment.ts`): `false`. Console sink keeps working.
+- **prod** (`environment.prod.ts`): `true`. Prod telemetry was
+  already `'none'` (no sink wired), so the metering wrap is purely
+  additive — no console-output regression.
 
 ### Future of `seed-ediscovery.ts`
 
 The seed script remains the **bootstrap** path for first-deploy
 state (so a fresh ops console doesn't render empty for the
 ~30 seconds before a shell instance boots and self-registers).
-Once the Render `ediscovery-shell` deploy reliably self-registers,
-the script can be reduced to **only** seed entities the runtime
-shell can't auto-register: federated-remote tools (covered by the
-remote's own bootstrap, not the host's), the tenant + role
-mappings (catalog admin work, not runtime work).
+
+Once the Render `ediscovery-shell` deploy reliably self-registers
+**and** the MFE remotes' `resync()` lands their tools, the seed
+script can be reduced to **only** the tenant + role mappings —
+catalog admin work, not runtime work. The runtime shell now
+covers host AND federated capabilities through `resync()`.
 
 For now both mechanisms run; they're idempotent and the registrar's
 409-as-success contract means double-population is a no-op.

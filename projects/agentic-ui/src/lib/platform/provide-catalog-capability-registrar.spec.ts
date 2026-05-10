@@ -235,4 +235,53 @@ describe('provideCatalogCapabilityRegistrar', () => {
     expect(fx.calls.length).toBe(0);
     expect(svc.results().length).toBe(0);
   });
+
+  it('resync() picks up late-arriving registrations (e.g. MFE remotes loaded post-bootstrap)', async () => {
+    const fx = recordingFetch(async () =>
+      new Response(JSON.stringify({}), { status: 201 }),
+    );
+    TestBed.configureTestingModule({
+      providers: [
+        provideAgenticUi({ tools: [sampleTool] }),
+        provideCatalogCapabilityRegistrar({
+          catalogUrl: 'https://catalog.example.com',
+          tenantId: 'acme',
+          getToken: () => null,
+          fetchFn: fx.fn,
+          includeRemotes: true,
+        }),
+      ],
+    });
+    const svc = TestBed.inject(CatalogCapabilityRegistrarService);
+    await svc.lastSync;
+
+    // Initial sync only sees `sample-tool`.
+    expect(fx.calls.length).toBe(1);
+    expect(JSON.parse(String(fx.calls[0]?.init.body)).name).toBe('sample-tool');
+
+    // Simulate a federated remote loading after bootstrap.
+    const lateTool: ToolDef = { ...sampleTool, name: 'late-remote-tool', source: 'remote:bookings' };
+    TestBed.inject(ToolRegistry).register(lateTool);
+
+    // Trigger resync — the host calls this from inside its MFE-load
+    // initializer once remotes have settled.
+    await svc.resync();
+
+    // Both tools have been POSTed; the first re-attempt returns 409
+    // (already exists) and the new one returns 201.
+    expect(fx.calls.length).toBe(3);
+    const lastBodies = fx.calls.slice(1).map((c) => JSON.parse(String(c.init.body)).name);
+    expect(lastBodies).toContain('sample-tool');     // sees 409 from server (mocked 201, treated as created — fine for this test)
+    expect(lastBodies).toContain('late-remote-tool');
+  });
+
+  it('resync() is a no-op when the service was never configured (no provider wired)', async () => {
+    TestBed.configureTestingModule({
+      providers: [provideAgenticUi({})],
+    });
+    const svc = TestBed.inject(CatalogCapabilityRegistrarService);
+    // Should not throw — there's just no config to act on.
+    await svc.resync();
+    expect(svc.results().length).toBe(0);
+  });
 });

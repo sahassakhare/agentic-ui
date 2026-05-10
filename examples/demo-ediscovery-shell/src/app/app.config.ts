@@ -16,6 +16,7 @@ import {
   AGENTIC_RUN_STATE_PROVIDER,
   AGENTIC_APPROVAL_AUDIT_HOOK,
   AGENTIC_OPERATION_AUDIT_HOOK,
+  CatalogCapabilityRegistrarService,
   keywordToolFilter,
   loadRemoteCapabilities,
   MfeRegistryClient,
@@ -108,10 +109,12 @@ function installPersonaScopePolicy() {
 
 /**
  * Conditionally wire `provideAgenticPlatform` so registered tools/widgets
- * auto-POST to the catalog at boot (Gap 1 / ADR-032) and operator-toggled
+ * auto-POST to the catalog at boot (Gap 1 / ADR-032), operator-toggled
  * `lifecycle: 'disabled'` capabilities hide from the registry within ~30s
- * (Gap 3 / ADR-033). Skipped entirely when `environment.catalogUrl` is
- * unset — fully-embedded local dev keeps working unchanged.
+ * (Gap 3 / ADR-033), and tool calls / widget renders / federation loads
+ * post to `/v1/catalogs/{tenant}/usage` (Gap 2 / ADR-034). Skipped
+ * entirely when `environment.catalogUrl` is unset — fully-embedded
+ * local dev keeps working unchanged.
  *
  * Persona resolution and MFE discovery deliberately stay on the host's
  * existing transports:
@@ -119,9 +122,15 @@ function installPersonaScopePolicy() {
  *     dropdown), not the JWT-derived catalog resolver.
  *   - MFE discovery reads `/mfes.json` via `provideStaticJsonMfeRegistry`,
  *     not `RestMfeRegistrySource`.
- *   - `usageMetering` is intentionally NOT enabled here — it would
- *     replace `AGENTIC_TELEMETRY_SINK` and the shell still wants its
- *     console / OTel telemetry. Opt in once a host is ready to swap.
+ *
+ * `usageMetering` is gated on `environment.enableUsageMetering` because
+ * the wrapping sink would silently displace the dev console / OTel
+ * sink. Prod has `telemetry: 'none'` already, so enabling there has
+ * no console-output regression.
+ *
+ * `includeRemotes: true` so federated MFE tools / widgets land in the
+ * catalog too, via `loadDemoRemotes()` calling `registrar.resync()`
+ * after Native Federation finishes loading remotes.
  *
  * Runs AFTER `installPersonaScopePolicy()` so the catalog authorizer
  * composes onto the persona policy (`composeWithCatalogAuthorizer`
@@ -137,8 +146,9 @@ function platformIntegration(): EnvironmentProviders[] {
       // their OIDC client here — return Promise<string> when refresh is
       // async, sync string for static demo tokens.
       getToken: () => null,
-      capabilityRegistrar: {},   // auto-POST host-registered tools/widgets at boot
-      capabilityAuthorizer: {},  // 30s poll for `lifecycle: 'disabled'`; default-allow on fetch failure
+      capabilityRegistrar: { includeRemotes: true },  // host + remotes; loadDemoRemotes triggers resync
+      capabilityAuthorizer: {},                        // 30s poll; default-allow on fetch failure
+      ...(environment.enableUsageMetering ? { usageMetering: {} } : {}),
     }),
   ];
 }
@@ -223,6 +233,20 @@ function loadDemoRemotes() {
           }),
         ),
       );
+
+      // ADR-032 §D6 follow-up — the registrar's bootstrap snapshot
+      // fired before remotes were loaded (Promise<void> initializers
+      // run synchronously; MFE federation is async). Resync now so
+      // federated tools / widgets flow into the catalog. Idempotent
+      // via the catalog's UNIQUE constraint — host capabilities the
+      // initial sync already POSTed return 409 and are recorded as
+      // 'exists'. Non-fatal: if the catalog isn't configured (no
+      // platform integration), the service was never configured and
+      // resync() is a no-op.
+      const registrar = injector.get(CatalogCapabilityRegistrarService, null, { optional: true });
+      if (registrar) {
+        await registrar.resync();
+      }
     });
   });
 }

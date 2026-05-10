@@ -72,14 +72,31 @@ export interface RegistrarSyncEntry {
 }
 
 /**
+ * Captured registrar configuration — the bits the provider's
+ * environment initializer hands off to the service so subsequent
+ * {@link CatalogCapabilityRegistrarService.resync} calls can re-snapshot
+ * the runtime registries without re-threading args.
+ */
+interface RegistrarConfig {
+  readonly options: CatalogCapabilityRegistrarOptions;
+  readonly tools: ToolRegistry;
+  readonly components: ComponentRegistry;
+  readonly includeRemotes: boolean;
+  readonly defaultLifecycle: 'draft' | 'published' | 'deprecated' | 'disabled';
+}
+
+/**
  * Service that owns the registrar's sync state. Hosts can `inject`
- * it directly to inspect last-sync results from devtools or surface
- * a "registered N of M capabilities" badge.
+ * it directly to inspect last-sync results from devtools, surface
+ * a "registered N of M capabilities" badge, OR call
+ * {@link resync} after late-arriving registrations (e.g. MFE remotes
+ * loaded post-bootstrap).
  */
 @Injectable({ providedIn: 'root' })
 export class CatalogCapabilityRegistrarService {
   private readonly entries = signal<readonly RegistrarSyncEntry[]>([]);
   private readonly telemetry = inject(AGENTIC_TELEMETRY_SINK);
+  private cfg: RegistrarConfig | null = null;
 
   readonly results: Signal<readonly RegistrarSyncEntry[]> = this.entries.asReadonly();
 
@@ -89,6 +106,46 @@ export class CatalogCapabilityRegistrarService {
    * sync starts.
    */
   lastSync: Promise<void> | null = null;
+
+  /**
+   * Capture the registrar's config + registry handles. Called by
+   * {@link provideCatalogCapabilityRegistrar}'s environment initializer;
+   * hosts don't call this directly.
+   */
+  configure(cfg: RegistrarConfig): void {
+    this.cfg = cfg;
+  }
+
+  /**
+   * Re-snapshot the runtime registries and POST any new entries.
+   *
+   * Use this after late-arriving registrations — typically MFE remotes
+   * that loaded after the host's bootstrap-time snapshot fired.
+   * Idempotent via the catalog's `(tenant_id, kind, name)` UNIQUE
+   * constraint: already-registered entries return 409 and are recorded
+   * as `'exists'`.
+   *
+   * The host is responsible for setting `includeRemotes: true` if it
+   * wants federated capabilities to flow through (the snapshot
+   * filters by `source` per ADR-032 §D4 — federated remotes are
+   * skipped by default).
+   *
+   * No-op when the service hasn't been configured (i.e.
+   * `provideCatalogCapabilityRegistrar` was never wired). Returns
+   * `Promise<void>` and never throws — failures land on the telemetry
+   * sink and the per-entry `results()` signal.
+   */
+  async resync(): Promise<void> {
+    if (!this.cfg) return;
+    const { options, tools, components, includeRemotes, defaultLifecycle } = this.cfg;
+    const payloads: RegistrarPayload[] = [
+      ...tools.listRaw().filter((e) => isHostEntry(e, includeRemotes))
+        .map((t) => toRegistrarPayload('tool', t, defaultLifecycle)),
+      ...components.listRaw().filter((e) => isHostEntry(e, includeRemotes))
+        .map((w) => toRegistrarPayload('component', w, defaultLifecycle)),
+    ];
+    await this.sync(options, payloads);
+  }
 
   async sync(
     options: CatalogCapabilityRegistrarOptions,
@@ -241,19 +298,17 @@ export function provideCatalogCapabilityRegistrar(
       const tools = inject(ToolRegistry);
       const widgets = inject(ComponentRegistry);
 
-      const includeRemotes = options.includeRemotes ?? false;
-      const defaultLifecycle = options.defaultLifecycle ?? 'published';
-
-      const payloads: RegistrarPayload[] = [
-        ...tools.listRaw().filter((e) => isHostEntry(e, includeRemotes))
-          .map((t) => toRegistrarPayload('tool', t, defaultLifecycle)),
-        ...widgets.listRaw().filter((e) => isHostEntry(e, includeRemotes))
-          .map((w) => toRegistrarPayload('component', w, defaultLifecycle)),
-      ];
+      svc.configure({
+        options,
+        tools,
+        components: widgets,
+        includeRemotes: options.includeRemotes ?? false,
+        defaultLifecycle: options.defaultLifecycle ?? 'published',
+      });
 
       // Fire-and-forget. Boot never blocks. We capture the promise on
       // the service so tests + devtools can await the result.
-      svc.lastSync = svc.sync(options, payloads);
+      svc.lastSync = svc.resync();
     }),
   ]);
 }
