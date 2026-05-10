@@ -33,6 +33,21 @@ export interface CapabilityListResponse {
   readonly offset: number;
 }
 
+/**
+ * Search hit shape from `GET /capabilities/search` (slice SEM-A /
+ * ADR-038). The base `Capability` is extended with a `_score`
+ * cosine-similarity field in [0, 1] (higher = more similar).
+ */
+export type CapabilitySearchHit = Capability & { readonly _score: number };
+
+export interface CapabilitySearchResponse {
+  readonly items: readonly CapabilitySearchHit[];
+  readonly query: string;
+  readonly kind: string | null;
+  readonly topK: number;
+  readonly provider: string;
+}
+
 export interface MfeRemote {
   readonly id: string;
   readonly tenantId: string;
@@ -117,6 +132,20 @@ export class CatalogClientService {
     if (query.limit !== undefined) params = params.set('limit', String(query.limit));
     if (query.offset !== undefined) params = params.set('offset', String(query.offset));
     return this.http.get<CapabilityListResponse>(`${this.base()}/capabilities`, { params });
+  }
+
+  /**
+   * Semantic search via pgvector (slice SEM-A / ADR-038). Returns
+   * capabilities ranked by cosine similarity with a `_score` field
+   * in [0, 1]. The catalog returns 422 problem+json when
+   * EMBEDDING_PROVIDER=noop (default) — callers fall back to
+   * `listCapabilities({ kind, ... })` keyword-only flow.
+   */
+  searchCapabilities(query: { q: string; kind?: string; topK?: number }): Observable<CapabilitySearchResponse> {
+    let params = new HttpParams().set('q', query.q);
+    if (query.kind) params = params.set('kind', query.kind);
+    if (query.topK !== undefined) params = params.set('topK', String(query.topK));
+    return this.http.get<CapabilitySearchResponse>(`${this.base()}/capabilities/search`, { params });
   }
 
   createCapability(input: {

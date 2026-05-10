@@ -1,7 +1,11 @@
 import { Component, inject, signal } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CatalogClientService, type Capability } from '../services/catalog-client.service';
+import {
+  CatalogClientService,
+  type Capability,
+  type CapabilitySearchHit,
+} from '../services/catalog-client.service';
 import { ConfirmDialogComponent } from '../components/confirm-dialog.component';
 import { autoRefresh } from '../services/auto-refresh.service';
 import { autoStream } from '../services/catalog-stream.service';
@@ -18,18 +22,84 @@ type Lifecycle = (typeof LIFECYCLES)[number];
 
 @Component({
   selector: 'ops-capabilities',
-  imports: [DatePipe, FormsModule, ConfirmDialogComponent],
+  imports: [DatePipe, DecimalPipe, FormsModule, ConfirmDialogComponent],
   template: `
     <div class="header">
       <h1>Capabilities</h1>
       <button class="btn primary" type="button" (click)="openCreate()">+ Register capability</button>
     </div>
 
+    <!-- ── Search bar (slice SEM-B / ADR-038) ────────────────── -->
+    <div class="search-bar">
+      <input
+        type="search"
+        placeholder="Semantic search — e.g. 'tools that handle legal documents'"
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+        (keydown.enter)="runSearch()"
+      />
+      <button class="btn ghost" type="button" (click)="runSearch()" [disabled]="searching()">
+        {{ searching() ? 'Searching…' : '🔍 Search' }}
+      </button>
+      @if (searchHits() !== null) {
+        <button class="btn ghost" type="button" (click)="clearSearch()">✕ Clear</button>
+      }
+      @if (searchProvider(); as p) {
+        <span class="chip dim">via {{ p }}</span>
+      }
+    </div>
+    @if (searchInfo(); as info) {
+      <div class="info">{{ info }}</div>
+    }
+
     @if (error(); as err) {
       <div class="error">Failed: {{ err }}</div>
     }
     @if (loading()) {
       <p class="dim">Loading…</p>
+    } @else if (searchHits(); as hits) {
+      <!-- ── Search results (replaces the table when active) ── -->
+      @if (hits.length === 0) {
+        <div class="empty">No results for "{{ lastQuery() }}". Try different terms or clear the search.</div>
+      } @else {
+        <table>
+          <thead>
+            <tr>
+              <th class="score-col">Score</th>
+              <th>Name</th>
+              <th>Kind</th>
+              <th>Lifecycle</th>
+              <th>Owner</th>
+              <th>Tags</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (hit of hits; track hit.id) {
+              <tr>
+                <td class="score-col">
+                  <div class="score-bar">
+                    <div class="score-fill" [style.width.%]="hit._score * 100"></div>
+                  </div>
+                  <span class="score-text mono">{{ hit._score | number: '1.3-3' }}</span>
+                </td>
+                <td class="mono">{{ hit.name }}</td>
+                <td>{{ hit.kind }}</td>
+                <td>
+                  <span class="lifecycle-pill"
+                        [class.good]="hit.lifecycle === 'published'"
+                        [class.warn]="hit.lifecycle === 'deprecated'"
+                        [class.bad]="hit.lifecycle === 'disabled'">
+                    {{ hit.lifecycle }}
+                  </span>
+                </td>
+                <td>{{ hit.owner ?? '—' }}</td>
+                <td>{{ hit.tags.join(', ') || '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        <p class="dim">{{ hits.length }} ranked results · semantic similarity in [0, 1]</p>
+      }
     } @else if (items().length === 0) {
       <div class="empty">No capabilities registered for this tenant yet.</div>
     } @else {
@@ -184,6 +254,44 @@ type Lifecycle = (typeof LIFECYCLES)[number];
     .dialog-actions {
       display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;
     }
+
+    /* Search bar (slice SEM-B / ADR-038) */
+    .search-bar {
+      display: flex; align-items: center; gap: 8px;
+      margin: 8px 0; flex-wrap: wrap;
+    }
+    .search-bar input {
+      flex: 1; min-width: 280px;
+      background: var(--bg-elev); color: var(--fg);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 8px 12px; font: inherit;
+    }
+    .search-bar input:focus { outline: none; border-color: var(--accent); }
+    .info {
+      background: var(--bg-elev-2); color: var(--fg-muted);
+      padding: 8px 12px; border-radius: 6px; margin-bottom: 8px;
+      font-size: 0.875rem;
+    }
+    .chip { background: var(--bg-elev-2); padding: 2px 8px; border-radius: 999px; font-size: 0.8125rem; }
+    .chip.dim { color: var(--fg-muted); }
+
+    /* Score column (search-results table) */
+    .score-col { width: 140px; }
+    .score-bar {
+      width: 100px; height: 6px; background: var(--bg-elev-2);
+      border-radius: 3px; overflow: hidden; display: inline-block;
+      vertical-align: middle; margin-right: 6px;
+    }
+    .score-fill { height: 100%; background: var(--accent); }
+    .score-text { font-size: 0.75rem; color: var(--fg-muted); }
+
+    .lifecycle-pill {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-size: 0.75rem; background: var(--bg-elev-2);
+    }
+    .lifecycle-pill.good { background: #14532d; color: #86efac; }
+    .lifecycle-pill.warn { background: #713f12; color: #fcd34d; }
+    .lifecycle-pill.bad { background: #7f1d1d; color: #fca5a5; }
   `],
 })
 export class CapabilitiesComponent {
@@ -196,6 +304,19 @@ export class CapabilitiesComponent {
   readonly total = signal(0);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+
+  // ── search state (slice SEM-B / ADR-038) ──────────────────────
+  // `searchHits` is null when no search is active (table renders the
+  // listCapabilities() result). Non-null = search-results mode (table
+  // renders ranked hits with score). 422 from the catalog (semantic
+  // search not configured) sets `searchInfo` and leaves `searchHits`
+  // null so the table keeps showing the regular list.
+  readonly searchQuery = signal('');
+  readonly searching = signal(false);
+  readonly searchHits = signal<readonly CapabilitySearchHit[] | null>(null);
+  readonly searchProvider = signal<string | null>(null);
+  readonly searchInfo = signal<string | null>(null);
+  readonly lastQuery = signal('');
 
   // ── create state ──────────────────────────────────────────────
   readonly showCreate = signal(false);
@@ -237,6 +358,50 @@ export class CapabilitiesComponent {
         this.loading.set(false);
       },
     });
+  }
+
+  // ── semantic search flow (slice SEM-B / ADR-038) ──────────────
+  runSearch(): void {
+    const q = this.searchQuery().trim();
+    if (!q) {
+      this.clearSearch();
+      return;
+    }
+    this.searching.set(true);
+    this.searchInfo.set(null);
+    this.lastQuery.set(q);
+    this.catalog.searchCapabilities({ q, topK: 50 }).subscribe({
+      next: (res) => {
+        this.searchHits.set(res.items);
+        this.searchProvider.set(res.provider);
+        this.searching.set(false);
+      },
+      error: (err) => {
+        this.searching.set(false);
+        this.searchHits.set(null);
+        this.searchProvider.set(null);
+        const status = err?.status as number | undefined;
+        const detail = err?.error?.detail ?? err?.message ?? 'unknown error';
+        if (status === 422) {
+          // Catalog has no embedding provider wired — surface the
+          // actionable message but leave the list view intact so
+          // operators can still scan with the keyword filter.
+          this.searchInfo.set(detail);
+        } else if (status === 503) {
+          this.searchInfo.set(`Embedding provider unreachable. Try again in a moment, or filter by kind/tag instead. (${detail})`);
+        } else {
+          this.error.set(`Search failed: ${detail}`);
+        }
+      },
+    });
+  }
+
+  clearSearch(): void {
+    this.searchQuery.set('');
+    this.searchHits.set(null);
+    this.searchProvider.set(null);
+    this.searchInfo.set(null);
+    this.lastQuery.set('');
   }
 
   // ── create flow ───────────────────────────────────────────────

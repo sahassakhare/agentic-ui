@@ -162,6 +162,33 @@ The application code path that handles "no embedding provider" produces no `vect
 - catalog tests: 165 → **178** (+13 = 10 provider + 3 search-route)
 - lib tests: 453 (unchanged)
 - mvk-cli tests: 53 (unchanged)
-- ops-console tests: 71 (unchanged)
-- **Total: 755/755 passing**
+- ops-console tests: 71 (unchanged at SEM-A; +6 in slice SEM-B → 77)
+- **Total post-SEM-A: 755/755 passing**
 - Catalog build clean. Migration 006 idempotent.
+
+---
+
+## Slice SEM-B (2026-05-10) — ops console search UI
+
+The matching UI shipped alongside the backend. New surface in [`capabilities.component.ts`](../../platform/agentic-ops-console/src/app/pages/capabilities.component.ts):
+
+- **Search bar** at the top of the capabilities page — natural-language input + 🔍 Search button + ✕ Clear button + a "via {provider}" chip after a successful search.
+- **Ranked-results table** replaces the regular table when a search is active. Each row shows a score bar (0–100% width based on cosine similarity), the numeric score, capability name + kind + lifecycle (color-coded pill) + owner + tags.
+- **Graceful 422 fallback** — when the catalog returns "Semantic search is not configured" (default `noop` mode), the UI shows the catalog's own actionable message in an info banner and **leaves the regular list view intact** so operators can keep working with kind/lifecycle filters.
+- **503 transient-error fallback** — provider unreachable (rate-limited, downtime) shows a "try again" message; doesn't poison the existing list view.
+- **500+ errors** surface to the page-level error banner so they're not silently swallowed.
+
+New service method on `CatalogClientService`:
+
+```ts
+searchCapabilities(query: { q: string; kind?: string; topK?: number }): Observable<CapabilitySearchResponse>
+```
+
+`CapabilitySearchHit = Capability & { _score: number }` so existing `Capability` consumers compose without a cast.
+
+### SEM-B verification
+
+- 6 new unit tests on [`capabilities.component.spec.ts`](../../platform/agentic-ops-console/src/app/pages/capabilities.component.spec.ts) — successful search hits/provider, 422 not-configured (info-banner), 503 unreachable (info-banner), 500+ (error-banner), empty-query no-op + clear, full clear-state.
+- Production build clean.
+
+ops-console tests: 71 → **77** (+6).
