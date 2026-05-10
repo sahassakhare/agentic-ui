@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -6,26 +6,16 @@ import {
   type CatalogMutationEvent,
 } from '../services/catalog-stream.service';
 import {
-  CatalogClientService,
-  type AuditRecentEntry,
-} from '../services/catalog-client.service';
-import { AuthService } from '../services/auth.service';
-
-const MAX_EVENTS = 200;
+  ActivityFeedService,
+  type FeedEntry,
+} from '../services/activity-feed.service';
 
 type EntityFilter = 'all' | string;
 type OperationFilter = 'all' | CatalogMutationEvent['operation'];
 
-interface FeedEntry {
-  readonly id: string;
-  readonly receivedAt: number;
-  /** Raw event from SSE (small) OR audit row (richer). Audit rows
-   *  carry actor + requestId + chainPosition; SSE events do not. */
-  readonly event: CatalogMutationEvent;
-  readonly actor: string | null;
-  readonly requestId: string | null;
-  readonly chainPosition: number | null;
-}
+// Re-export so tests / callers can import the buffer entry shape
+// from this page module if they prefer.
+export type { FeedEntry } from '../services/activity-feed.service';
 
 interface DayBucket {
   readonly dateKey: string;
@@ -287,21 +277,18 @@ interface DayBucket {
 })
 export class ActivityComponent {
   private readonly stream = inject(CatalogStreamService);
-  private readonly catalog = inject(CatalogClientService);
-  private readonly auth = inject(AuthService);
+  private readonly feed = inject(ActivityFeedService);
 
-  readonly maxEvents = MAX_EVENTS;
-  readonly buffer = signal<readonly FeedEntry[]>([]);
-  readonly loadingBacklog = signal<boolean>(false);
-  readonly backlogError = signal<string | null>(null);
+  readonly maxEvents = this.feed.maxEvents;
+  readonly buffer = this.feed.buffer;
+  readonly loadingBacklog = this.feed.loadingBacklog;
+  readonly backlogError = this.feed.backlogError;
   readonly streamLive = this.stream.isLive;
   readonly streamState = this.stream.state;
 
-  private lastBacklogTenant: string | null = null;
-
   /** Filters are signals so the `visible` computed reacts to them
-   *  (and the [(ngModel)] two-way binding keeps the template in sync
-   *  via the `entityFilter()` / `entityFilter.set(...)` accessor). */
+   *  (and the [ngModel] / (ngModelChange) accessor keeps the
+   *  template in sync). */
   readonly entityFilter = signal<EntityFilter>('all');
   readonly operationFilter = signal<OperationFilter>('all');
   readonly sortDir = signal<'asc' | 'desc'>('desc');
@@ -344,85 +331,12 @@ export class ActivityComponent {
     }));
   });
 
-  constructor() {
-    this.stream.onMutation((event) => this.append(event));
-
-    effect(() => {
-      const principal = this.auth.principal();
-      const tenantId = principal?.tenantId ?? null;
-      if (!tenantId || tenantId === this.lastBacklogTenant) return;
-      this.lastBacklogTenant = tenantId;
-      this.loadBacklog();
-    });
-  }
-
-  private loadBacklog(): void {
-    this.loadingBacklog.set(true);
-    this.backlogError.set(null);
-    this.catalog.recentAudit(MAX_EVENTS).subscribe({
-      next: (resp) => {
-        const seen = new Set(this.buffer().map((e) => e.id));
-        const seeded: FeedEntry[] = [];
-        for (const raw of resp.items) {
-          const entry = this.fromAuditRow(raw);
-          if (seen.has(entry.id)) continue;
-          seen.add(entry.id);
-          seeded.push(entry);
-        }
-        const merged = [...this.buffer(), ...seeded];
-        if (merged.length > MAX_EVENTS) merged.length = MAX_EVENTS;
-        this.buffer.set(merged);
-        this.loadingBacklog.set(false);
-      },
-      error: (err: { status?: number; message?: string }) => {
-        this.loadingBacklog.set(false);
-        const msg = err?.status === 404
-          ? 'this catalog is older than /audit/recent (deploy needs refresh)'
-          : err?.message ?? 'request failed';
-        this.backlogError.set(msg);
-      },
-    });
-  }
-
   reload(): void {
-    this.lastBacklogTenant = null;
-    this.buffer.set([]);
-    const principal = this.auth.principal();
-    if (principal?.tenantId) {
-      this.lastBacklogTenant = principal.tenantId;
-      this.loadBacklog();
-    }
+    this.feed.reload();
   }
 
-  private append(event: CatalogMutationEvent): void {
-    const entry: FeedEntry = {
-      id: this.makeId(event),
-      receivedAt: Date.now(),
-      event,
-      actor: null,
-      requestId: null,
-      chainPosition: null,
-    };
-    if (this.buffer().some((e) => e.id === entry.id)) return;
-    const next = [entry, ...this.buffer()];
-    if (next.length > MAX_EVENTS) next.length = MAX_EVENTS;
-    this.buffer.set(next);
-  }
-
-  private fromAuditRow(raw: AuditRecentEntry): FeedEntry {
-    const event = raw as unknown as CatalogMutationEvent;
-    return {
-      id: this.makeId(event),
-      receivedAt: Date.parse(event.occurredAt) || Date.now(),
-      event,
-      actor: raw.actor ?? null,
-      requestId: raw.requestId ?? null,
-      chainPosition: raw.chainPosition ?? null,
-    };
-  }
-
-  private makeId(event: CatalogMutationEvent): string {
-    return `${event.occurredAt}-${event.entityId}-${event.operation}`;
+  clear(): void {
+    this.feed.clear();
   }
 
   /**
@@ -501,10 +415,6 @@ export class ActivityComponent {
     if (h < 24) return `${h}h ago`;
     const d = Math.round(h / 24);
     return `${d}d ago`;
-  }
-
-  clear(): void {
-    this.buffer.set([]);
   }
 }
 

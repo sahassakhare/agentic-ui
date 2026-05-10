@@ -23,6 +23,9 @@ import { autoStream } from '../services/catalog-stream.service';
 // Register the cose-bilkent layout extension once per process.
 cytoscape.use(coseBilkent);
 
+const MIN_ZOOM = 0.2;
+const MAX_ZOOM = 4.0;
+
 type LifecycleFilter = 'all' | 'published' | 'draft' | 'deprecated' | 'disabled';
 
 interface NodeMeta {
@@ -67,6 +70,13 @@ interface NodeMeta {
             <option value="disabled">Disabled</option>
           </select>
         </label>
+        <div class="zoom-group" role="group" aria-label="Zoom controls">
+          <button class="btn ghost zoom" type="button" (click)="zoomOut()"  title="Zoom out (Ctrl + -)">−</button>
+          <span class="zoom-pct" title="Current zoom">{{ zoomPct() }}%</span>
+          <button class="btn ghost zoom" type="button" (click)="zoomIn()"   title="Zoom in (Ctrl + +)">+</button>
+          <button class="btn ghost"      type="button" (click)="fitToView()" title="Fit all to view">⤢ Fit</button>
+          <button class="btn ghost"      type="button" (click)="resetZoom()" title="Reset zoom + center">⌂</button>
+        </div>
         <button class="btn ghost" type="button" (click)="relayout()" title="Recompute layout">
           ⟳ Relayout
         </button>
@@ -192,6 +202,26 @@ interface NodeMeta {
     .filters { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
     .filters label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
     .view-toggle { font-size: 0.875rem; }
+
+    /* Toolbar zoom group — tight pill cluster like a map widget. */
+    .zoom-group {
+      display: inline-flex; align-items: stretch;
+      border: 1px solid var(--border);
+      border-radius: 0.375rem;
+      overflow: hidden;
+      background: var(--bg-elev);
+    }
+    .zoom-group .btn { border-radius: 0; border: none; border-right: 1px solid var(--border); padding: 0.375rem 0.5rem; }
+    .zoom-group .btn:last-child { border-right: none; }
+    .zoom-group .btn.zoom { font-weight: 700; min-width: 28px; }
+    .zoom-pct {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 48px; padding: 0 0.5rem;
+      font-size: 12px; font-family: var(--mono);
+      color: var(--fg-muted);
+      background: var(--bg);
+      border-right: 1px solid var(--border);
+    }
 
     .stats {
       display: flex; align-items: center; gap: 1.5rem;
@@ -321,6 +351,11 @@ export class TopologyGraphComponent implements AfterViewInit {
   });
 
   private cy: Core | null = null;
+
+  /** Current zoom level (0..N). 1.0 = fit. Updated on every cy
+   *  zoom event so the % readout stays live. */
+  protected readonly zoom = signal<number>(1);
+  protected readonly zoomPct = computed(() => Math.round(this.zoom() * 100));
 
   constructor() {
     void this.refresh();
@@ -455,8 +490,14 @@ export class TopologyGraphComponent implements AfterViewInit {
       elements: this.elements(),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       style: stylesheet as any,
+      minZoom: MIN_ZOOM,
+      maxZoom: MAX_ZOOM,
+      wheelSensitivity: 0.25,
     });
 
+    // Keep the % readout in the toolbar in sync with whatever the
+    // user does — scroll, pinch, programmatic zoom calls.
+    this.cy.on('zoom', () => this.zoom.set(this.cy?.zoom() ?? 1));
     this.cy.on('tap', 'node', (e: EventObject) => this.onNodeTap(e));
     // Promote on hover so dense areas remain readable.
     this.cy.on('mouseover', 'node[kind = "capability"]', (e: EventObject) => {
@@ -486,6 +527,49 @@ export class TopologyGraphComponent implements AfterViewInit {
 
   protected relayout(): void {
     this.runLayout();
+  }
+
+  /** Zoom in 1.25x around the canvas centre. */
+  protected zoomIn(): void {
+    if (!this.cy) return;
+    this.zoomBy(1.25);
+  }
+
+  /** Zoom out 0.8x around the canvas centre. */
+  protected zoomOut(): void {
+    if (!this.cy) return;
+    this.zoomBy(1 / 1.25);
+  }
+
+  /** Re-fit all elements within the viewport. */
+  protected fitToView(): void {
+    if (!this.cy) return;
+    this.cy.fit(undefined, 48);
+    this.zoom.set(this.cy.zoom());
+  }
+
+  /** Reset zoom to 1.0 and recenter. */
+  protected resetZoom(): void {
+    if (!this.cy) return;
+    this.cy.reset();
+    this.cy.center();
+    this.zoom.set(this.cy.zoom());
+  }
+
+  private zoomBy(factor: number): void {
+    if (!this.cy) return;
+    const cy = this.cy;
+    const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, cy.zoom() * factor));
+    const ext = cy.extent();
+    cy.zoom({
+      level: next,
+      renderedPosition: {
+        x: cy.width() / 2,
+        y: cy.height() / 2,
+      },
+    });
+    void ext;  // touch unused so eslint is quiet about the local
+    this.zoom.set(cy.zoom());
   }
 
   private runLayout(): void {
