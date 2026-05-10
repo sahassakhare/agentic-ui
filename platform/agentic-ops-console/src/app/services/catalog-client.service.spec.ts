@@ -173,6 +173,80 @@ describe('CatalogClientService', () => {
     await promise;
   });
 
+  it('createMfe POSTs to /mfes', async () => {
+    const promise = firstValueFrom(client.createMfe({
+      name: 'bookings',
+      manifestUrl: 'https://b.example.com/remoteEntry.json',
+      version: '1.0.0',
+      exposes: { tools: ['bookFlight'] },
+    }));
+    const req = httpTesting.expectOne((r) =>
+      r.method === 'POST' && r.url.endsWith('/v1/catalogs/acme/mfes'),
+    );
+    expect(req.request.body).toMatchObject({
+      name: 'bookings',
+      manifestUrl: 'https://b.example.com/remoteEntry.json',
+    });
+    req.flush({ id: 'm-1', name: 'bookings' });
+    await promise;
+  });
+
+  it('patchMfe PATCHes by name', async () => {
+    const promise = firstValueFrom(client.patchMfe('bookings', { version: '1.0.1' }));
+    const req = httpTesting.expectOne((r) =>
+      r.method === 'PATCH' && r.url.endsWith('/v1/catalogs/acme/mfes/bookings'),
+    );
+    expect(req.request.body).toEqual({ version: '1.0.1' });
+    req.flush({ id: 'm-1', name: 'bookings', version: '1.0.1' });
+    await promise;
+  });
+
+  it('deleteMfe DELETEs by name', async () => {
+    const promise = firstValueFrom(client.deleteMfe('bookings'));
+    const req = httpTesting.expectOne((r) =>
+      r.method === 'DELETE' && r.url.endsWith('/v1/catalogs/acme/mfes/bookings'),
+    );
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    await promise;
+  });
+
+  it('createRoleMapping POSTs to /role-mappings', async () => {
+    const promise = firstValueFrom(client.createRoleMapping({
+      claimPath: 'groups',
+      claimValue: 'engineering@acme.com',
+      runtimePersona: 'paralegal',
+      priority: 100,
+    }));
+    const req = httpTesting.expectOne((r) =>
+      r.method === 'POST' && r.url.endsWith('/v1/catalogs/acme/role-mappings'),
+    );
+    expect(req.request.body).toMatchObject({
+      claimValue: 'engineering@acme.com',
+      runtimePersona: 'paralegal',
+    });
+    req.flush({ id: 'rm-1', runtimePersona: 'paralegal' });
+    await promise;
+  });
+
+  it('patchRoleMapping PATCHes by id', async () => {
+    const promise = firstValueFrom(client.patchRoleMapping('rm-1', { enabled: false }));
+    const req = httpTesting.expectOne((r) =>
+      r.method === 'PATCH' && r.url.endsWith('/v1/catalogs/acme/role-mappings/rm-1'),
+    );
+    expect(req.request.body).toEqual({ enabled: false });
+    req.flush({ id: 'rm-1', enabled: false });
+    await promise;
+  });
+
+  it('deleteRoleMapping DELETEs by id', async () => {
+    const promise = firstValueFrom(client.deleteRoleMapping('rm-1'));
+    const req = httpTesting.expectOne((r) =>
+      r.method === 'DELETE' && r.url.endsWith('/v1/catalogs/acme/role-mappings/rm-1'),
+    );
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    await promise;
+  });
+
   it('deleteTenant DELETEs /v1/tenants/:id', async () => {
     const promise = firstValueFrom(client.deleteTenant('acme'));
     const req = httpTesting.expectOne((r) =>

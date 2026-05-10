@@ -24,8 +24,8 @@ views:
 | View | Surface |
 |---|---|
 | **Capabilities** | List + filters; **Register**, in-row **lifecycle dropdown**, **Delete** |
-| **MFE remotes** | Read-only list with health status |
-| **Role mappings** | Read-only list ordered by priority |
+| **MFE remotes** | List + **Register**, **Edit**, **Delete** ([ADR-028](../../docs/adr/0028-ops-console-c61b-editors.md)) |
+| **Role mappings** | List + **Add**, **Edit**, in-row **Enable/Disable** toggle, **Delete** ([ADR-028](../../docs/adr/0028-ops-console-c61b-editors.md)) |
 | **Audit chain** | Live verification status; one-click JSONL download |
 | **Usage** | Aggregate by kind + recent events |
 | **Tenants** *(platform-admin only)* | List + **Onboard**, **Suspend** (with reason), **Activate**, **Delete** |
