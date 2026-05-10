@@ -49,6 +49,53 @@ import { EmptyStateComponent } from '../ui/empty-state.component';
                     sub="immutable chain-of-custody trail" />
     </section>
 
+    <!-- Trimodal launcher (plan R3) — same registry definitions, three triggers.
+         Proves the agentic UI tier is surface-independent: chat is one trigger,
+         not the only trigger. -->
+    <section class="trimodal panel" aria-labelledby="trimodal-h2">
+      <header class="panel-h">
+        <div>
+          <h2 id="trimodal-h2">Launch from any surface</h2>
+          <p class="muted">
+            Same registered form / workflow definition. Three triggers — chat,
+            direct page, headless LLM (Cmd+K). Audit row is identical regardless
+            of which one fired.
+          </p>
+        </div>
+      </header>
+
+      <table class="trimodal-grid">
+        <thead>
+          <tr>
+            <th scope="col">Capability</th>
+            <th scope="col">Chat</th>
+            <th scope="col">Direct page</th>
+            <th scope="col">Cmd+K (LLM)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Custodian intake (form)</th>
+            <td><code>"onboard a Finance custodian"</code></td>
+            <td><a routerLink="/intake/custodian" [queryParams]="{ department: 'Finance' }" class="link">→ /intake/custodian</a></td>
+            <td><span class="muted">"add finance person to project phoenix"</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Place legal hold (workflow)</th>
+            <td><code>"place a legal hold"</code></td>
+            <td><a routerLink="/workflows/place-hold" class="link">→ /workflows/place-hold</a></td>
+            <td><span class="muted">"hold custodians for matter X"</span></td>
+          </tr>
+          <tr>
+            <th scope="row">Production preview</th>
+            <td><code>"preview production"</code></td>
+            <td><a routerLink="/productions" class="link">→ /productions</a></td>
+            <td><span class="muted">"show me the next production batch"</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
     <div class="two-col">
       <section class="panel">
         <header class="panel-h">
@@ -218,6 +265,33 @@ import { EmptyStateComponent } from '../ui/empty-state.component';
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: var(--s-4); margin-bottom: var(--s-6);
+    }
+
+    /* Trimodal launcher — three triggers, one definition. */
+    .trimodal { margin-bottom: var(--s-6); }
+    .trimodal-grid { width: 100%; border-collapse: collapse; }
+    .trimodal-grid th, .trimodal-grid td {
+      text-align: left; padding: var(--s-3) var(--s-4);
+      border-bottom: 1px solid var(--c-border); font-size: var(--fs-sm);
+    }
+    .trimodal-grid thead th {
+      font-weight: 600; color: var(--c-text-2);
+      text-transform: uppercase; font-size: var(--fs-xs); letter-spacing: 0.04em;
+    }
+    .trimodal-grid tbody th { font-weight: 600; color: var(--c-text); }
+    .trimodal-grid code {
+      font-family: ui-monospace, monospace; font-size: 0.8125rem;
+      background: var(--c-surface-2, var(--c-surface-0));
+      padding: 0.0625rem 0.3125rem; border-radius: var(--r-1);
+    }
+    .trimodal-grid .link { color: var(--c-accent); text-decoration: none; }
+    .trimodal-grid .link:hover { text-decoration: underline; }
+    .trimodal-grid tbody tr:last-child th, .trimodal-grid tbody tr:last-child td { border-bottom: none; }
+    @media (max-width: 900px) {
+      .trimodal-grid thead { display: none; }
+      .trimodal-grid tbody tr { display: grid; grid-template-columns: 1fr; gap: 0.25rem; padding: var(--s-3) 0; border-bottom: 1px solid var(--c-border); }
+      .trimodal-grid tbody th, .trimodal-grid tbody td { padding: 0; border: none; }
+      .trimodal-grid tbody td::before { content: attr(data-label) ': '; color: var(--c-text-2); font-size: var(--fs-xs); }
     }
 
     .two-col {
