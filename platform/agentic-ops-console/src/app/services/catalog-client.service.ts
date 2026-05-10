@@ -149,8 +149,55 @@ export class CatalogClientService {
     return this.http.get<{ items: readonly MfeRemote[] }>(`${this.base()}/mfes`);
   }
 
+  createMfe(input: {
+    name: string;
+    manifestUrl: string;
+    version?: string | null;
+    requiredHostVersion?: string | null;
+    exposes?: Record<string, readonly string[]>;
+  }): Observable<MfeRemote> {
+    return this.http.post<MfeRemote>(`${this.base()}/mfes`, input);
+  }
+
+  patchMfe(name: string, patch: {
+    manifestUrl?: string;
+    version?: string | null;
+    requiredHostVersion?: string | null;
+    exposes?: Record<string, readonly string[]>;
+  }): Observable<MfeRemote> {
+    return this.http.patch<MfeRemote>(`${this.base()}/mfes/${encodeURIComponent(name)}`, patch);
+  }
+
+  deleteMfe(name: string): Observable<void> {
+    return this.http.delete<void>(`${this.base()}/mfes/${encodeURIComponent(name)}`);
+  }
+
   listRoleMappings(): Observable<{ items: readonly RoleMapping[] }> {
     return this.http.get<{ items: readonly RoleMapping[] }>(`${this.base()}/role-mappings`);
+  }
+
+  createRoleMapping(input: {
+    claimPath?: string;
+    claimValue: string;
+    runtimePersona: string;
+    priority?: number;
+    enabled?: boolean;
+    description?: string | null;
+  }): Observable<RoleMapping> {
+    return this.http.post<RoleMapping>(`${this.base()}/role-mappings`, input);
+  }
+
+  patchRoleMapping(id: string, patch: {
+    runtimePersona?: string;
+    priority?: number;
+    enabled?: boolean;
+    description?: string | null;
+  }): Observable<RoleMapping> {
+    return this.http.patch<RoleMapping>(`${this.base()}/role-mappings/${encodeURIComponent(id)}`, patch);
+  }
+
+  deleteRoleMapping(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base()}/role-mappings/${encodeURIComponent(id)}`);
   }
 
   verifyAuditChain(): Observable<AuditVerifyResult> {
