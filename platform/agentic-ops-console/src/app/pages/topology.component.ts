@@ -1,12 +1,8 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom } from 'rxjs';
-import {
-  CatalogClientService,
-  type Capability,
-  type MfeRemote,
-} from '../services/catalog-client.service';
+import type { Capability, MfeRemote } from '../services/catalog-client.service';
+import { TopologyDataService } from '../services/topology-data.service';
 import { autoStream } from '../services/catalog-stream.service';
 
 type LifecycleFilter = 'all' | 'published' | 'draft' | 'deprecated' | 'disabled';
@@ -55,6 +51,9 @@ interface Topology {
     <div class="header">
       <h1>Topology</h1>
       <div class="filters">
+        <a routerLink="/topology/graph" class="btn ghost view-toggle">
+          📈 Graph view
+        </a>
         <label>
           Lifecycle
           <select [ngModel]="lifecycleFilter()" (ngModelChange)="lifecycleFilter.set($event)">
@@ -200,13 +199,13 @@ interface Topology {
   `],
 })
 export class TopologyComponent {
-  private readonly catalog = inject(CatalogClientService);
+  private readonly data = inject(TopologyDataService);
   private readonly router = inject(Router);
 
-  protected readonly capabilities = signal<readonly Capability[]>([]);
-  protected readonly mfes = signal<readonly MfeRemote[]>([]);
-  protected readonly loading = signal<boolean>(true);
-  protected readonly error = signal<string | null>(null);
+  protected readonly capabilities = this.data.capabilities;
+  protected readonly mfes = this.data.mfes;
+  protected readonly loading = this.data.loading;
+  protected readonly error = this.data.error;
 
   protected readonly lifecycleFilter = signal<LifecycleFilter>('all');
 
@@ -286,32 +285,8 @@ export class TopologyComponent {
     autoStream(() => { void this.refresh(); });
   }
 
-  protected async refresh(): Promise<void> {
-    this.loading.set(true);
-    this.error.set(null);
-    try {
-      // Catalog list endpoints cap at 100 entries by default and at
-      // 500 max via CapabilityListQuerySchema. Page through results
-      // until total is reached so the topology covers everything.
-      const PAGE = 500;
-      const all: Capability[] = [];
-      let offset = 0;
-      let total = Number.POSITIVE_INFINITY;
-      while (offset < total) {
-        const page = await firstValueFrom(this.catalog.listCapabilities({ limit: PAGE, offset }));
-        all.push(...page.items);
-        total = page.total;
-        offset += page.items.length;
-        if (page.items.length === 0) break; // safety guard against an empty page
-      }
-      const mfeRes = await firstValueFrom(this.catalog.listMfes());
-      this.capabilities.set(all);
-      this.mfes.set(mfeRes.items);
-    } catch (err) {
-      this.error.set(err instanceof Error ? err.message : String(err));
-    } finally {
-      this.loading.set(false);
-    }
+  protected refresh(): Promise<void> {
+    return this.data.refresh();
   }
 
   protected kindsOf(group: TopologyGroup): readonly string[] {

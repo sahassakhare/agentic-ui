@@ -1121,6 +1121,9 @@
             ],
             "styles": [
               "platform/agentic-ops-console/src/styles.scss"
+            ],
+            "allowedCommonJsDependencies": [
+              "cytoscape-cose-bilkent"
             ]
           },
           "configurations": {
