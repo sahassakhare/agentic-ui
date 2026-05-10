@@ -26,6 +26,7 @@ import { CatalogStreamService } from '../services/catalog-stream.service';
           <a routerLink="/role-mappings" routerLinkActive="active">Role mappings</a>
           <a routerLink="/audit" routerLinkActive="active">Audit chain</a>
           <a routerLink="/usage" routerLinkActive="active">Usage</a>
+          <a routerLink="/activity" routerLinkActive="active">Activity</a>
           @if (isAdmin()) {
             <div class="nav-section dim">PLATFORM</div>
             <a routerLink="/tenants" routerLinkActive="active">Tenants</a>
