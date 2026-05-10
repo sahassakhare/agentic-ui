@@ -203,10 +203,14 @@ maintenance burden without payoff.
   [ADR-019](./0019-ops-console-design.md)).
 - **Shell completions** (`bash` / `zsh` / `fish`). Generate from
   the command tree; defer until adopter feedback shows demand.
-- **`mvk new <project>` scaffolding.** Generate a new agentic-ui
-  app + register it against the catalog. Substantial — touches
-  the runtime tier's schematics package and the catalog seed
-  story. Useful but out of CLI v1 scope.
+- ~~**`mvk new <project>` scaffolding.**~~ **Closed in a follow-up
+  slice.** `mvk new app <name>` ships an 11-file inline-templated
+  Angular app preconfigured with `@maverick/agentic-ui`. Optional
+  `--with-catalog` onboards a tenant + registers a sample `echo`
+  capability so the new app shows up immediately in the catalog.
+  Lighter than shelling out to `ng new` (no 500 MB Angular CLI
+  install required); adopters extend from a focused minimal
+  starting point.
 - **Plugin system.** `mvk plugin install <name>`. Maybe at M7
   when the community catalog lands.
 - **Output formatters beyond JSON / tables.** YAML, CSV, etc.

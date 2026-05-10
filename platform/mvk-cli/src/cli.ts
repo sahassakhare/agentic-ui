@@ -14,6 +14,7 @@ import {
 import { auditVerify, auditExport } from './commands/audit.js';
 import { usageAggregate, usageRecent } from './commands/usage.js';
 import { healthCommand, readyCommand } from './commands/health.js';
+import { newApp } from './commands/new.js';
 
 const ROOT: CommandTree = {
   login: loginCommand,
@@ -44,6 +45,9 @@ const ROOT: CommandTree = {
   },
   health: healthCommand,
   ready: readyCommand,
+  new: {
+    app: newApp,
+  },
 };
 
 const VERSION = '0.1.0';
