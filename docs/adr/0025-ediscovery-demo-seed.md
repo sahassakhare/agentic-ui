@@ -258,11 +258,24 @@ the resync after `Promise.allSettled` covers everything else.
   dropdown driving demo persona switching, not a JWT-derived
   identity. Production hosts will swap to `personaResolver`; demos
   keep the dropdown.
-- **`mfeRegistry`** — the shell continues to read MFE manifests
-  from the static JSON file (`/mfes.json`). Migrating to the
-  catalog-driven `RestMfeRegistrySource` is a separate slice
-  because it touches the federation runtime's discovery contract,
-  not just the host's config surface.
+
+### `mfeRegistry` — wired (post-A2)
+
+The shell uses catalog-driven MFE discovery when `environment.catalogUrl`
+is set. `RestMfeRegistrySource` polls
+`GET /v1/catalogs/{tenant}/mfes` every 30s; `staticFallbackUrl: '/mfes.json'`
+keeps the runtime resilient if the catalog is unreachable
+mid-session. Local dev with no catalog still uses the static JSON
+file directly via a sibling `provideStaticJsonMfeRegistry` provider
+outside the `platformIntegration()` branch.
+
+The catalog stores `name + manifestUrl + version + status`;
+`RestMfeRegistrySource.toRemoteSpec` maps `name → remoteName` and
+`manifestUrl → remoteEntry` so the runtime sees the same shape as
+the static JSON path. The catalog ignores the `?env=` filter
+(line 162 of `rest-mfe-registry.ts`) because it scopes by tenant
+instead — sufficient for the eDiscovery deploy where one tenant ==
+one env.
 
 ### `usageMetering` — gated on `environment.enableUsageMetering`
 

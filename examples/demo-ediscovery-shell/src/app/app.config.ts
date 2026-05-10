@@ -116,12 +116,15 @@ function installPersonaScopePolicy() {
  * entirely when `environment.catalogUrl` is unset — fully-embedded
  * local dev keeps working unchanged.
  *
- * Persona resolution and MFE discovery deliberately stay on the host's
- * existing transports:
+ * Persona resolution stays on the host's existing transport:
  *   - `AGENTIC_ACTIVE_PERSONA` reads `PersonaService.active()` (UI
  *     dropdown), not the JWT-derived catalog resolver.
- *   - MFE discovery reads `/mfes.json` via `provideStaticJsonMfeRegistry`,
- *     not `RestMfeRegistrySource`.
+ *
+ * MFE discovery uses the catalog when `catalogUrl` is set
+ * (Gap A2 / RestMfeRegistrySource against `/v1/catalogs/{tenant}/mfes`),
+ * with `/mfes.json` as a `staticFallbackUrl` resilience net. Local dev
+ * with no catalog still uses the static JSON file directly via the
+ * `provideStaticJsonMfeRegistry` branch outside `platformIntegration()`.
  *
  * `usageMetering` is gated on `environment.enableUsageMetering` because
  * the wrapping sink would silently displace the dev console / OTel
@@ -148,6 +151,13 @@ function platformIntegration(): EnvironmentProviders[] {
       getToken: () => null,
       capabilityRegistrar: { includeRemotes: true },  // host + remotes; loadDemoRemotes triggers resync
       capabilityAuthorizer: {},                        // 30s poll; default-allow on fetch failure
+      // Catalog-driven MFE discovery — replaces /mfes.json with
+      // GET /v1/catalogs/{tenant}/mfes. Polls every 30s for live
+      // updates. `staticFallbackUrl` keeps the runtime resilient
+      // if the catalog is unreachable mid-session: the fallback
+      // file ships with the app at /mfes.json (Render static-asset
+      // serving covers it).
+      mfeRegistry: { refreshIntervalMs: 30_000, staticFallbackUrl: environment.mfeRegistryUrl },
       ...(environment.enableUsageMetering ? { usageMetering: {} } : {}),
     }),
   ];
@@ -258,7 +268,15 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideAgenticUi({ widgets }),
     provideAgUiBackend({ url: environment.agentUrl }),
-    provideStaticJsonMfeRegistry({ url: environment.mfeRegistryUrl }),
+    // MFE discovery: catalog when configured, static JSON otherwise.
+    // The catalog branch lives inside `platformIntegration()` (it's
+    // a switch on `provideAgenticPlatform`); this static-JSON branch
+    // covers the no-catalog dev path. Wire-format parity is handled
+    // by `RestMfeRegistrySource.toRemoteSpec` (name→remoteName,
+    // manifestUrl→remoteEntry).
+    ...(environment.catalogUrl
+      ? []
+      : [provideStaticJsonMfeRegistry({ url: environment.mfeRegistryUrl })]),
     telemetryProvider(),
     // Capability F4 — wire the approval intercept to read the active
     // persona from PersonaService. Closing over the singleton keeps the
