@@ -196,3 +196,84 @@ simple enough that this swap is a localized change.
 - Idempotency tested end-to-end against the deployed Render catalog
   by running the seed twice — second run reports "X already
   present" for every entity.
+
+---
+
+## Update — 2026-05-10 (post-audit migration)
+
+The [2026-05-10 platform audit](../audit/2026-05-10-platform-audit.md)
+flagged the seed script's drift surface as **Gap 1**: every new tool
+or widget added to the eDiscovery shell required a parallel edit to
+`seed-ediscovery.ts` and a redeploy, or the catalog's view of the
+tenant fell out of date. [ADR-032](./0032-catalog-capability-registrar.md)
+shipped the runtime-side `provideCatalogCapabilityRegistrar` that
+auto-POSTs registered tools/widgets at boot, eliminating the drift
+surface for hosts that wire it.
+
+The eDiscovery shell now wires `provideAgenticPlatform` conditionally
+(see [`examples/demo-ediscovery-shell/src/app/app.config.ts`](../../examples/demo-ediscovery-shell/src/app/app.config.ts)):
+
+- **Local dev** (`environment.catalogUrl: undefined`) — fully
+  embedded; no catalog round trips. Every existing flow keeps
+  working unchanged.
+- **Render prod** (`environment.catalogUrl: https://agentic-catalog-server.onrender.com`) —
+  on boot, every tool / widget the shell registers POSTs to the
+  catalog (idempotent via `(tenant_id, kind, name)`). The
+  capability authorizer polls `?lifecycle=disabled` every 30s; an
+  operator who toggles `releaseLegalHold` to `disabled` in the ops
+  console sees the running shell stop offering the tool within
+  one tick.
+
+Two ordering changes were required to make the boot-time registrar
+work:
+
+1. `bootAgenticCapabilities()` — the host's tool/form/data-source
+   registration — moved from `provideAppInitializer` (runs during
+   the `APP_INITIALIZER` phase) to `provideEnvironmentInitializer`
+   (runs at injector creation, synchronously). The registrar is
+   itself an environment initializer; both run in provider-array
+   order, so tools must register first.
+2. `installPersonaScopePolicy()` — same conversion. Runs **before**
+   `provideAgenticPlatform({...})` in the array so the catalog
+   authorizer composes onto the persona policy via
+   `RegistryBase.currentScopePolicy()` (ADR-033 §D5), instead of
+   overwriting it.
+
+`loadDemoRemotes()` stays in `provideAppInitializer` because it's
+async (Native Federation `loadRemoteModule` returns a Promise).
+**Late-arriving registrations from MFE remotes therefore don't
+flow through the registrar** — they land in the registry but the
+registrar's snapshot already fired. ADR-032 §D6 documents this
+limitation; the seed script continues to cover federated-remote
+capabilities.
+
+Three switches on `provideAgenticPlatform` are deliberately **NOT**
+enabled for the eDiscovery shell yet:
+
+- **`personaResolver`** — the shell's `PersonaService` is a UI
+  dropdown driving demo persona switching, not a JWT-derived
+  identity. Production hosts will swap to `personaResolver`; demos
+  keep the dropdown.
+- **`mfeRegistry`** — the shell continues to read MFE manifests
+  from the static JSON file (`/mfes.json`). Migrating to the
+  catalog-driven `RestMfeRegistrySource` is a separate slice
+  because it touches the federation runtime's discovery contract,
+  not just the host's config surface.
+- **`usageMetering`** — would replace `AGENTIC_TELEMETRY_SINK`
+  with the wrapping sink, displacing the shell's existing
+  console / OTel sink. Opt-in once a host is ready to fold it in
+  via the `delegate` field.
+
+### Future of `seed-ediscovery.ts`
+
+The seed script remains the **bootstrap** path for first-deploy
+state (so a fresh ops console doesn't render empty for the
+~30 seconds before a shell instance boots and self-registers).
+Once the Render `ediscovery-shell` deploy reliably self-registers,
+the script can be reduced to **only** seed entities the runtime
+shell can't auto-register: federated-remote tools (covered by the
+remote's own bootstrap, not the host's), the tenant + role
+mappings (catalog admin work, not runtime work).
+
+For now both mechanisms run; they're idempotent and the registrar's
+409-as-success contract means double-population is a no-op.

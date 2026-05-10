@@ -7,15 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 M2 C3 + M3 (audit chain + usage meter) + M4 C7 (tenant lifecycle) +
-M2 C9 (self-managed packaging) + AUTH_MODE escape hatch + SSE stream.
-Design rationale in
+M2 C9 (self-managed packaging) + AUTH_MODE escape hatch + SSE stream
++ runtime-tier integration support (audit Gaps 1–4). Design rationale
+in
 [ADR-016](../../docs/adr/0016-iam-role-mapping.md),
 [ADR-017](../../docs/adr/0017-audit-chain.md),
 [ADR-018](../../docs/adr/0018-usage-meter.md),
 [ADR-020](../../docs/adr/0020-tenant-lifecycle.md),
 [ADR-021](../../docs/adr/0021-self-managed-packaging.md),
 [ADR-022](../../docs/adr/0022-auth-disabled-mode.md),
-[ADR-027](../../docs/adr/0027-catalog-sse-stream.md).
+[ADR-027](../../docs/adr/0027-catalog-sse-stream.md),
+[ADR-032](../../docs/adr/0032-catalog-capability-registrar.md).
+
+### Fixed (capability create — 409 on duplicate)
+
+- **`POST /v1/catalogs/{tenant}/capabilities`** now pre-checks
+  `(kind, name)` against `findCapabilityByName` and surfaces
+  **409 + RFC-7807 `Conflict`** problem+json on duplicate, instead
+  of letting the postgres unique-violation (sqlstate 23505)
+  propagate as a 500. Mirrors the existing pattern in
+  `tenants.ts:118-126`.
+- Required by the runtime tier's
+  `provideCatalogCapabilityRegistrar`
+  ([ADR-032](../../docs/adr/0032-catalog-capability-registrar.md))
+  and any other idempotent client (replay scripts, infra-as-code)
+  that POSTs the same capability multiple times across deploys.
+- Catalog tests: 164 → 165 (+1 covering the 409 contract).
 
 ### Added (multi-replica SSE — ADR-029)
 

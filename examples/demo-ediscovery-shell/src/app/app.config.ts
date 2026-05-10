@@ -4,8 +4,10 @@ import {
   inject,
   provideAppInitializer,
   provideBrowserGlobalErrorListeners,
+  provideEnvironmentInitializer,
   provideZonelessChangeDetection,
   runInInjectionContext,
+  type EnvironmentProviders,
 } from '@angular/core';
 import { provideRouter, Router } from '@angular/router';
 import { loadRemoteModule } from '@angular-architects/native-federation';
@@ -17,6 +19,7 @@ import {
   keywordToolFilter,
   loadRemoteCapabilities,
   MfeRegistryClient,
+  provideAgenticPlatform,
   provideAgenticTelemetry,
   provideAgenticTelemetryConsole,
   provideAgenticUi,
@@ -55,9 +58,15 @@ function telemetryProvider() {
  * before the chat shell renders. Tools and form factories need an
  * `EnvironmentInjector` because their handlers capture `MatterStore`
  * via `runInInjectionContext`.
+ *
+ * Runs as `provideEnvironmentInitializer` (not `provideAppInitializer`)
+ * so the catalog capability registrar — also an environment initializer —
+ * sees the populated `ToolRegistry` / `ComponentRegistry` when it
+ * fires. Initializer order is provider-array order, so this MUST come
+ * before `provideAgenticPlatform({...})`.
  */
 function bootAgenticCapabilities() {
-  return provideAppInitializer(() => {
+  return provideEnvironmentInitializer(() => {
     const env = inject(EnvironmentInjector);
     // Data sources MUST register before forms — composition widgets that
     // declare `dataSources` validate at mount, and mount happens as soon
@@ -90,11 +99,48 @@ function bootAgenticCapabilities() {
  * per-turn budget is bounded inside the role-allowed set.
  */
 function installPersonaScopePolicy() {
-  return provideAppInitializer(() => {
+  return provideEnvironmentInitializer(() => {
     const persona = inject(PersonaService);
     const tools = inject(ToolRegistry);
     tools.setScopePolicy((entry) => persona.canInvoke(persona.active(), entry.name));
   });
+}
+
+/**
+ * Conditionally wire `provideAgenticPlatform` so registered tools/widgets
+ * auto-POST to the catalog at boot (Gap 1 / ADR-032) and operator-toggled
+ * `lifecycle: 'disabled'` capabilities hide from the registry within ~30s
+ * (Gap 3 / ADR-033). Skipped entirely when `environment.catalogUrl` is
+ * unset — fully-embedded local dev keeps working unchanged.
+ *
+ * Persona resolution and MFE discovery deliberately stay on the host's
+ * existing transports:
+ *   - `AGENTIC_ACTIVE_PERSONA` reads `PersonaService.active()` (UI
+ *     dropdown), not the JWT-derived catalog resolver.
+ *   - MFE discovery reads `/mfes.json` via `provideStaticJsonMfeRegistry`,
+ *     not `RestMfeRegistrySource`.
+ *   - `usageMetering` is intentionally NOT enabled here — it would
+ *     replace `AGENTIC_TELEMETRY_SINK` and the shell still wants its
+ *     console / OTel telemetry. Opt in once a host is ready to swap.
+ *
+ * Runs AFTER `installPersonaScopePolicy()` so the catalog authorizer
+ * composes onto the persona policy (`composeWithCatalogAuthorizer`
+ * AND's both predicates — see ADR-033 §D5).
+ */
+function platformIntegration(): EnvironmentProviders[] {
+  if (!environment.catalogUrl) return [];
+  return [
+    provideAgenticPlatform({
+      catalogUrl: environment.catalogUrl,
+      tenantId: environment.catalogTenantId,
+      // AUTH_MODE=disabled demo deploy (ADR-022). Production hosts wire
+      // their OIDC client here — return Promise<string> when refresh is
+      // async, sync string for static demo tokens.
+      getToken: () => null,
+      capabilityRegistrar: {},   // auto-POST host-registered tools/widgets at boot
+      capabilityAuthorizer: {},  // 30s poll for `lifecycle: 'disabled'`; default-allow on fetch failure
+    }),
+  ];
 }
 
 /**
@@ -285,8 +331,13 @@ export const appConfig: ApplicationConfig = {
     // the already-filtered tools through ToolRegistry.signal(), so the
     // tool filter only carries the per-turn keyword budget now.
     provideToolFilter(keywordToolFilter({ maxTools: 12, floor: 5 })),
+    // Order matters — environment initializers fire in registration
+    // order. Tools register, persona policy installs, then the catalog
+    // platform layer (registrar reads the populated registry; authorizer
+    // composes onto the persona policy via currentScopePolicy()).
     bootAgenticCapabilities(),
     installPersonaScopePolicy(),
+    ...platformIntegration(),
     loadDemoRemotes(),
   ],
 };

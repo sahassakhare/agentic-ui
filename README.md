@@ -221,6 +221,7 @@ Sixteen distinct scenarios the library covers, ranked roughly by adoption order.
 - **Schematics.** Ten generators: `ng-add`, `tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `action`, `intent`, `form`. Snapshot-tested.
 - **Observability.** `AgenticTelemetrySink` emit points are baked into the orchestrator and registries from M1; the optional OpenTelemetry-backed sink ships with W3C trace context propagation across SSE.
 - **Federation-safe single primary entry.** All public API exports through one entry point so Native Federation can share the runtime as a singleton across host and remote (see [ADR-005](./docs/adr/0005-single-primary-entry.md)). Tree-shaking is preserved by `"sideEffects": false`.
+- **Platform integration in one provider.** `provideAgenticPlatform({...})` wires every catalog adapter through a single shared `catalogUrl` / `tenantId` / `getToken` config: IAM persona resolver, federated MFE registry source, **capability registrar** (auto-POST every registered tool/widget at boot — closes the catalog-drift gap from [ADR-025](./docs/adr/0025-ediscovery-demo-seed.md)), **capability authorizer** (catalog `lifecycle: 'disabled'` toggles hide entries from `ToolRegistry` / `ComponentRegistry` reads — closes the "ops console disable button is decorative" gap), and **usage metering** (every tool call / widget render / federation load posts to `/v1/catalogs/{tenant}/usage`). All four are opt-in per-feature switches; `false` or omission skips. Apps without `provideAgenticPlatform` see zero behaviour change. See [ADRs 031](./docs/adr/0031-provide-agentic-platform.md) / [032](./docs/adr/0032-catalog-capability-registrar.md) / [033](./docs/adr/0033-catalog-capability-authorizer.md) / [034](./docs/adr/0034-catalog-usage-metering.md) and the [2026-05-10 platform audit](./docs/audit/2026-05-10-platform-audit.md).
 
 ## Architecture
 
@@ -338,6 +339,39 @@ export class App {}
 ```
 
 For tools, widgets, MFE federation, and the full step-by-step walkthrough that builds the federated demo, see the [User Guide](./docs/USER_GUIDE.md).
+
+### Wire the catalog platform (optional)
+
+Run a [Maverick catalog server](./platform/agentic-catalog-server/) and a single
+provider line gives the app live persona resolution, federated MFE
+discovery, automatic capability registration, catalog-driven
+capability authorization, and usage metering — all opt-in:
+
+```ts
+// src/app/app.config.ts
+import { provideAgenticUi, provideAgenticPlatform } from '@maverick/agentic-ui';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideZonelessChangeDetection(),
+    provideAgenticUi({ tools: [...], widgets: [...] }),
+    provideAgenticPlatform({
+      catalogUrl: 'https://catalog.example.com',
+      tenantId: 'acme',
+      getToken: () => oidc.getAccessToken(),
+      personaResolver:      { defaultPersona: 'paralegal' },
+      mfeRegistry:          { refreshIntervalMs: 30_000 },
+      capabilityRegistrar:  {},   // auto-POST registered tools/widgets at boot
+      capabilityAuthorizer: {},   // catalog 'disabled' toggles hide from registry
+      usageMetering:        {},   // tool calls → POST /usage
+    }),
+  ],
+};
+```
+
+`mvk new app demo --with-platform` (from the [`mvk` CLI](./platform/mvk-cli/)) scaffolds this for you.
+
+Each feature switch is independently opt-in; the app stays embedded-first when none of them is set. Closes Gaps 1–4 from the [2026-05-10 platform audit](./docs/audit/2026-05-10-platform-audit.md). See [ADRs 031–034](./docs/adr/) for the design rationale.
 
 ## Demo applications
 
@@ -486,6 +520,11 @@ Open <http://localhost:4201>, <http://localhost:4203>, and <http://localhost:420
 | [Registries vs. industry](./docs/architecture/registries-vs-industry.md) | Comparison of our 15 registries against agent SDKs (CopilotKit, LangChain, Vercel AI) and plugin platforms (VS Code, Backstage). Governance gaps + integration map onto the existing `RegistryBase`. |
 | [Roadmap](./ROADMAP.md) | Researched extension recommendations + phased plan. Tier 1 (MCP server, user-in-the-loop confirmations, streaming citations, memory registry, cost gates), Tier 2 (streaming structured output, eval adapters, code-interpreter, voice), Tier 3 (deferred). Each item has industry context, API sketch, effort estimate, acceptance criteria, risks. |
 | [ADR-006 — MCP server-side adapter](./docs/adr/0006-mcp-server-side-adapter.md) | Design rationale for `@maverick/agentic-ui-mcp`. **Status: Accepted (implementing).** |
+| [Platform audit — 2026-05-10](./docs/audit/2026-05-10-platform-audit.md) | Industry-standard scorecard (Auth/AuthZ, Multi-tenancy, Audit, API design, Real-time, Observability, Reliability, Security, Operational, Governance) + four runtime↔platform integration gaps + prioritized recommendations. **Status: Gaps 4 / 1 / 3 / 2 closed by ADR-031–034 (shipped).** |
+| [ADR-031 — `provideAgenticPlatform`](./docs/adr/0031-provide-agentic-platform.md) | Single-config-point composite provider. Closes audit Gap 4. **Status: Accepted (shipped).** |
+| [ADR-032 — Catalog capability registrar](./docs/adr/0032-catalog-capability-registrar.md) | Boot-time auto-POST of registered tools/widgets to the catalog; idempotent via `(tenant, kind, name)` UNIQUE constraint. Server-side: `POST capabilities` returns 409 (not 500) on duplicate. Closes audit Gap 1. **Status: Accepted (shipped).** |
+| [ADR-033 — Catalog capability authorizer](./docs/adr/0033-catalog-capability-authorizer.md) | Catalog-driven deny-list composed onto registry scope policy; 30s polling, default-allow on fetch failure. New public `RegistryBase.currentScopePolicy()`. Closes audit Gap 3. **Status: Accepted (shipped).** |
+| [ADR-034 — Catalog usage metering](./docs/adr/0034-catalog-usage-metering.md) | Wraps `AGENTIC_TELEMETRY_SINK` so tool call / widget render / federation load events become catalog usage POSTs; batched flush; `delegate` preserves the host's existing sink. Closes audit Gap 2. **Status: Accepted (shipped).** |
 | [Plan — Enterprise eDiscovery example app](./docs/plans/ediscovery-app-plan.md) | Eight-phase plan for a complex enterprise reference application that exercises every load-bearing library feature simultaneously (federation, multi-agent, MCP, all 13 registries from the v1.1 baseline, audit trails, permission scopes). **Status: All 8 phases shipped — see `examples/demo-ediscovery-{shared,server,shell,review,production,search,mcp}/`.** |
 | [Plan — Dynamic-UI program (r3 enterprise spec)](./docs/plans/ediscovery-dynamic-ui-plan.md) | Six-capability program (F1–F6 — composable forms, live data, workflows, approval, long-running operations, multi-modal input) built on top of the eDiscovery flagship. NFRs, threat model, capability G/W/T acceptance criteria, observability + test + release + cost + ops sections, risk register, phase gates with exit criteria. **Status: F1–F6 lib + demo + cookbook + Playwright shipped (F6 slice 1).** |
 | [Plan — Platform evolution (v3 — fully open-source)](./docs/plans/platform-evolution-plan.md) | Three-tier platform direction (runtime / control plane / ecosystem), all Apache 2.0, layered sustainability (sponsorship + services + hosted). M1–M8 milestones over 24–36 months. **Status: M1 R1–R5 shipped — platform-seams map, RegistryProviderHook, Redis/Postgres ThreadStateStore adapters (`@maverick/agentic-ui-server-stores`), AG-UI state channel, governance hooks (requiredHostVersion / tags / owner / lifecycle).** |
