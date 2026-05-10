@@ -146,26 +146,33 @@ interface Topology {
     .filters label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
 
     .summary { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; padding: 0.5rem 0; }
-    .chip { background: #f1f5f9; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.8125rem; }
-    .chip.dim { color: #64748b; }
-    .chip.status-active { background: #dcfce7; color: #166534; }
-    .chip.status-degraded { background: #fef9c3; color: #854d0e; }
-    .chip.status-inactive { background: #fee2e2; color: #991b1b; }
+    .chip {
+      background: var(--bg-elev);
+      color: var(--fg);
+      border: 1px solid var(--border);
+      padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.8125rem;
+    }
+    .chip.dim { color: var(--fg-muted); }
+    .chip.status-active { background: rgba(63, 185, 80, 0.15); color: var(--good); border-color: var(--good); }
+    .chip.status-degraded { background: rgba(210, 153, 34, 0.15); color: var(--warn); border-color: var(--warn); }
+    .chip.status-inactive { background: rgba(248, 81, 73, 0.15); color: var(--bad); border-color: var(--bad); }
 
     .tree { display: flex; flex-direction: column; gap: 0.75rem; }
     .group {
-      border: 1px solid #e2e8f0;
+      border: 1px solid var(--border);
       border-radius: 0.5rem;
       padding: 0.75rem 1rem;
-      background: #fff;
+      background: var(--bg-elev);
+      color: var(--fg);
     }
-    .group.host-direct { background: #fafafa; }
+    .group.host-direct { background: var(--bg-elev-2); }
     .group > summary {
       display: flex;
       align-items: center;
       gap: 0.5rem;
       cursor: pointer;
       font-weight: 500;
+      color: var(--fg);
     }
     .group > summary::-webkit-details-marker { display: none; }
     .kind-icon { font-size: 1.125rem; }
@@ -174,13 +181,15 @@ interface Topology {
     .manifest-row {
       margin: 0.5rem 0 0.75rem 1.75rem;
       font-size: 0.8125rem;
+      color: var(--fg-muted);
     }
     .manifest-row code {
-      background: #f1f5f9; padding: 0.125rem 0.375rem; border-radius: 0.25rem;
+      background: var(--bg-elev-2); color: var(--fg);
+      padding: 0.125rem 0.375rem; border-radius: 0.25rem;
     }
 
     .kind-block { margin: 0.75rem 0 0.5rem 1.75rem; }
-    .kind-block h4 { margin: 0 0 0.5rem 0; font-size: 0.875rem; color: #475569; }
+    .kind-block h4 { margin: 0 0 0.5rem 0; font-size: 0.875rem; color: var(--fg-muted); }
 
     /* Each capability row stacks: name on top, tags + owner on a
        second line. Prevents overflow when tags/owners are long. */
@@ -200,13 +209,14 @@ interface Topology {
     }
     .cap-list a {
       display: inline-flex; align-items: center; gap: 0.5rem;
-      color: inherit; text-decoration: none;
+      color: var(--fg); text-decoration: none;
       min-width: 0; flex: 1;
     }
-    .cap-list a:hover .cap-name { text-decoration: underline; }
+    .cap-list a:hover .cap-name { text-decoration: underline; color: var(--accent); }
     .cap-list .cap-name {
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       min-width: 0;
+      color: var(--fg);
     }
     .cap-list .row2 {
       display: flex; flex-wrap: wrap; gap: 0.25rem 0.5rem;
@@ -223,20 +233,21 @@ interface Topology {
 
     .tags { display: inline-flex; flex-wrap: wrap; gap: 0.25rem; min-width: 0; }
     .tag {
-      font-size: 0.6875rem; background: #e0f2fe; color: #075985;
+      font-size: 0.6875rem; background: rgba(88, 166, 255, 0.15); color: var(--accent);
+      border: 1px solid rgba(88, 166, 255, 0.35);
       padding: 0 0.25rem; border-radius: 0.25rem;
       white-space: nowrap;
     }
     .owner {
-      font-size: 0.75rem; color: #94a3b8;
+      font-size: 0.75rem; color: var(--fg-muted);
       margin-left: auto;
       white-space: nowrap; max-width: 14ch;
       overflow: hidden; text-overflow: ellipsis;
     }
 
-    .empty { padding: 1.5rem; background: #fafafa; border-radius: 0.5rem; color: #64748b; }
-    .error { background: #fee2e2; color: #991b1b; padding: 0.75rem; border-radius: 0.375rem; margin-bottom: 0.75rem; }
-    .dim { color: #64748b; }
+    .empty { padding: 1.5rem; background: var(--bg-elev); border-radius: 0.5rem; color: var(--fg-muted); }
+    .error { background: rgba(248, 81, 73, 0.15); color: var(--bad); border: 1px solid var(--bad); padding: 0.75rem; border-radius: 0.375rem; margin-bottom: 0.75rem; }
+    .dim { color: var(--fg-muted); }
   `],
 })
 export class TopologyComponent {
