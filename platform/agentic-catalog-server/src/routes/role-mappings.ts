@@ -18,7 +18,7 @@ import {
   updateRoleMapping,
 } from '../repository/role-mapping-repo.js';
 import { appendAudit } from '../repository/audit-repo.js';
-import { catalogBus } from '../events/catalog-bus.js';
+import { publishCatalogEvent } from '../events/publisher.js';
 import { logger } from '../logger.js';
 
 /**
@@ -110,7 +110,7 @@ export function roleMappingsRoutes(pool: CatalogPool): Hono {
       return row;
     });
 
-    catalogBus.emit({
+    publishCatalogEvent({
       tenantId: created.tenantId,
       entityType: 'role_mapping',
       operation: 'create',
@@ -151,7 +151,7 @@ export function roleMappingsRoutes(pool: CatalogPool): Hono {
     });
 
     if (!updated) throw new HTTPException(404, { message: 'Role mapping not found' });
-    catalogBus.emit({
+    publishCatalogEvent({
       tenantId: updated.tenantId,
       entityType: 'role_mapping',
       operation: 'update',
@@ -186,7 +186,7 @@ export function roleMappingsRoutes(pool: CatalogPool): Hono {
     });
 
     if (!ok) throw new HTTPException(404, { message: 'Role mapping not found' });
-    catalogBus.emit({
+    publishCatalogEvent({
       tenantId: principal.tenantId,
       entityType: 'role_mapping',
       operation: 'delete',

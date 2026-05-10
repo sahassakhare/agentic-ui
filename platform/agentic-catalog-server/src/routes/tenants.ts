@@ -18,7 +18,7 @@ import {
   updateTenant,
 } from '../repository/tenant-repo.js';
 import { appendAudit } from '../repository/audit-repo.js';
-import { catalogBus } from '../events/catalog-bus.js';
+import { publishCatalogEvent } from '../events/publisher.js';
 
 /**
  * `GET    /v1/tenants`               (platform-admin only)
@@ -76,7 +76,7 @@ async function auditTenantMutation(
   // Push a real-time event to any SSE subscribers of this tenant
   // (ADR-027). Keep the payload minimal — clients use it as a hint
   // to re-fetch, not as a source of truth.
-  catalogBus.emit({
+  publishCatalogEvent({
     tenantId: args.tenantId,
     entityType: 'tenant',
     operation: args.operation,

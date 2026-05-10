@@ -12,7 +12,7 @@ import {
   appendUsage,
   listRecentUsage,
 } from '../repository/usage-repo.js';
-import { catalogBus } from '../events/catalog-bus.js';
+import { publishCatalogEvent } from '../events/publisher.js';
 
 /**
  * `POST /v1/catalogs/:tenant/usage` — append a usage event.
@@ -36,7 +36,7 @@ export function usageRoutes(pool: CatalogPool): Hono {
     const event = await withTenantScope(pool, principal, (client) =>
       appendUsage(client, principal.tenantId, body),
     );
-    catalogBus.emit({
+    publishCatalogEvent({
       tenantId: event.tenantId,
       entityType: 'usage',
       operation: 'create',

@@ -17,6 +17,29 @@ Design rationale in
 [ADR-022](../../docs/adr/0022-auth-disabled-mode.md),
 [ADR-027](../../docs/adr/0027-catalog-sse-stream.md).
 
+### Added (multi-replica SSE — ADR-029)
+
+- **`pg LISTEN/NOTIFY` cross-replica fan-out.** Every replica opens
+  a dedicated LISTEN connection on `catalog_events`; mutation
+  routes call `pg_notify` so events reach SSE clients connected to
+  any replica. Closes the ADR-027 §D5 gap that was leaving Helm
+  adopters (`replicaCount: 2+`) with partial event streams.
+- **`publishCatalogEvent` indirection.** Routes call this single
+  hook instead of importing `catalogBus` directly. Default
+  publisher (tests + dev) emits in-process only; `server.ts`
+  swaps in the multi-replica publisher at boot.
+- **Self-echo filter** — every notification carries an
+  `originReplicaId`; the LISTEN handler skips events that
+  originated locally (already delivered via the in-process bus
+  with <1ms latency). Net: each SSE client sees each event
+  exactly once.
+- **Reconnect-with-backoff** for the LISTEN connection (2s →
+  30s cap). Server stays healthy even when pg is unreachable;
+  single-replica behaviour persists until LISTEN reconnects.
+- **8 new tests** — publisher routing (3) + handler self-echo
+  filter logic (5). Real-pg integration tests are deferred to a
+  testcontainers harness slice.
+
 ### Added (catalog SSE — ADR-027)
 
 - **`GET /v1/catalogs/{tenant}/stream`** Server-Sent Events endpoint.
