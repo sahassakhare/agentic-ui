@@ -96,10 +96,13 @@ export function createPgMemPool(options: PgMemPoolOptions = {}): PgMemHandle {
     .replace(/CREATE OR REPLACE FUNCTION[\s\S]*?\$\$[\s\S]*?\$\$\s+LANGUAGE\s+\w+\s*;/gi, '')
     .replace(/DROP\s+TRIGGER\s+IF\s+EXISTS[^;]+;/gi, '')
     .replace(/CREATE\s+TRIGGER[^;]+EXECUTE\s+FUNCTION[^;]+;/gi, '')
-    // pg-mem doesn't support pgvector. Strip the extension bootstrap,
-    // the vector(N) column add, and the HNSW index. The application
-    // skips embedding writes when no provider is configured (test
-    // path), so the column being absent in pg-mem is safe.
+    // pg-mem doesn't support pgvector. Strip the entire DO $$...$$
+    // block from migration 006 (it conditionally creates the
+    // extension + column + index). The application skips embedding
+    // writes when no provider is configured (test path), so the
+    // column being absent in pg-mem is safe.
+    .replace(/DO\s+\$\$[\s\S]*?vector[\s\S]*?END\s+\$\$\s*;?/gi, '')
+    // Earlier (pre-defensive) shape — keep for older test setups.
     .replace(/CREATE\s+EXTENSION[^;]*?vector[^;]*?;/gi, '')
     .replace(/ALTER\s+TABLE\s+capabilities\s+ADD\s+COLUMN[^;]*?embedding[^;]*?;/gi, '')
     .replace(/CREATE\s+INDEX[^;]*?capabilities_embedding_idx[^;]*?;/gi, '')
