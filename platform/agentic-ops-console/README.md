@@ -28,10 +28,8 @@ views:
 | **Role mappings** | List + **Add**, **Edit**, in-row **Enable/Disable** toggle, **Delete** ([ADR-028](../../docs/adr/0028-ops-console-c61b-editors.md)) |
 | **Audit chain** | Live verification status; one-click JSONL download |
 | **Usage** | Aggregate by kind + recent events |
+| **Activity** | Live mutation feed via SSE with entity / operation filters ([ADR-030](../../docs/adr/0030-ops-console-activity-feed.md)) |
 | **Tenants** *(platform-admin only)* | List + **Onboard**, **Suspend** (with reason), **Activate**, **Delete** |
-
-Editor surfaces for MFE remotes + role mappings deferred until ops
-feedback shows demand.
 
 ---
 
