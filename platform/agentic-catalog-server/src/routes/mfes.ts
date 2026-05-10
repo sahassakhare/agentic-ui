@@ -16,7 +16,7 @@ import {
   updateMfeRemote,
 } from '../repository/mfe-repo.js';
 import { appendAudit } from '../repository/audit-repo.js';
-import { catalogBus } from '../events/catalog-bus.js';
+import { publishCatalogEvent } from '../events/publisher.js';
 import { z } from 'zod';
 
 const HealthRecordSchema = z.object({
@@ -64,7 +64,7 @@ export function mfesRoutes(pool: CatalogPool): Hono {
       return row;
     });
 
-    catalogBus.emit({
+    publishCatalogEvent({
       tenantId: created.tenantId,
       entityType: 'mfe',
       operation: 'create',
@@ -101,7 +101,7 @@ export function mfesRoutes(pool: CatalogPool): Hono {
     });
 
     if (!updated) throw new HTTPException(404, { message: 'MFE remote not found' });
-    catalogBus.emit({
+    publishCatalogEvent({
       tenantId: updated.tenantId,
       entityType: 'mfe',
       operation: 'update',
@@ -137,7 +137,7 @@ export function mfesRoutes(pool: CatalogPool): Hono {
     });
 
     if (!ok) throw new HTTPException(404, { message: 'MFE remote not found' });
-    catalogBus.emit({
+    publishCatalogEvent({
       tenantId: principal.tenantId,
       entityType: 'mfe',
       operation: 'delete',

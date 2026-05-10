@@ -3,6 +3,10 @@ import { loadConfig } from './config.js';
 import { createPool } from './db/pool.js';
 import { buildApp } from './app.js';
 import { logger } from './logger.js';
+import { catalogBus } from './events/catalog-bus.js';
+import { setCatalogEventPublisher } from './events/publisher.js';
+import { PgNotifyListener } from './events/pg-notify-listener.js';
+import { REPLICA_ID } from './events/replica-id.js';
 
 /**
  * Process entry point. Loads config, opens the pool, builds the
@@ -17,6 +21,24 @@ async function main(): Promise<void> {
     max: config.DATABASE_POOL_MAX,
     idleTimeoutMillis: config.DATABASE_IDLE_MS,
     statementTimeoutMs: config.DATABASE_STATEMENT_TIMEOUT_MS,
+  });
+
+  // ── Multi-replica SSE plumbing (ADR-029) ─────────────────────
+  // Open a dedicated LISTEN connection on the same DATABASE_URL.
+  // Mutation routes call publishCatalogEvent(...) which we wire
+  // here to do BOTH local bus emit (for this replica's SSE clients)
+  // AND pg_notify (so other replicas see the event). The listener's
+  // notification handler filters self-echo via REPLICA_ID.
+  const pgNotify = new PgNotifyListener({ pool, bus: catalogBus, replicaId: REPLICA_ID });
+  await pgNotify.start();
+  setCatalogEventPublisher({
+    publish: (event) => {
+      // Fire-and-forget — pg_notify is best-effort cross-replica.
+      // Local bus emit happens inside publishLocalAndRemote synchronously
+      // BEFORE the awaited query, so local SSE clients see the event
+      // immediately even if pg_notify is slow.
+      void pgNotify.publishLocalAndRemote(event);
+    },
   });
 
   const app = buildApp({
@@ -47,6 +69,8 @@ async function main(): Promise<void> {
 
   // Graceful shutdown — drain in-flight, close pool, exit clean.
   setupGracefulShutdown(server, async () => {
+    logger.info('closing pg LISTEN connection');
+    await pgNotify.stop();
     logger.info('closing DB pool');
     await pool.end();
   }, config.SHUTDOWN_GRACE_MS);

@@ -16,7 +16,7 @@ import {
   updateCapability,
 } from '../repository/capability-repo.js';
 import { appendAudit } from '../repository/audit-repo.js';
-import { catalogBus } from '../events/catalog-bus.js';
+import { publishCatalogEvent } from '../events/publisher.js';
 
 /**
  * `GET    /v1/catalogs/:tenant/capabilities`
@@ -92,7 +92,7 @@ export function capabilitiesRoutes(pool: CatalogPool): Hono {
       return row;
     });
 
-    catalogBus.emit({
+    publishCatalogEvent({
       tenantId: created.tenantId,
       entityType: 'capability',
       operation: 'create',
@@ -131,7 +131,7 @@ export function capabilitiesRoutes(pool: CatalogPool): Hono {
     });
 
     if (!updated) throw new HTTPException(404, { message: 'Capability not found' });
-    catalogBus.emit({
+    publishCatalogEvent({
       tenantId: updated.tenantId,
       entityType: 'capability',
       operation: 'update',
@@ -167,7 +167,7 @@ export function capabilitiesRoutes(pool: CatalogPool): Hono {
     });
 
     if (!deleted) throw new HTTPException(404, { message: 'Capability not found' });
-    catalogBus.emit({
+    publishCatalogEvent({
       tenantId: deleted.tenantId,
       entityType: 'capability',
       operation: 'delete',
