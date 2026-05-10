@@ -274,25 +274,37 @@ export class TopologyGraphComponent implements AfterViewInit {
           'text-valign': 'bottom',
           'text-margin-y': 4,
           'color': '#e6edf3',
-          'font-size': 10,
-          'width': 18, 'height': 18,
+          'font-size': 9,
+          'text-wrap': 'wrap',
+          'text-max-width': '90px',
+          'width': 16, 'height': 16,
           'border-width': 1, 'border-color': '#1f2937',
         },
+      },
+      {
+        // Highlight selected node + dim non-neighbours.
+        selector: 'node[kind = "capability"]:selected',
+        style: { 'border-width': 2, 'border-color': '#58a6ff', 'font-size': 11 },
       },
       {
         selector: 'node[kind = "group"]',
         style: {
           'background-color': 'data(color)',
-          'background-opacity': 0.15,
+          'background-opacity': 0.12,
           'border-color': 'data(borderColor)',
-          'border-width': 1,
+          'border-width': 2,
           'shape': 'round-rectangle',
           'label': 'data(label)',
           'color': '#e6edf3',
-          'font-size': 13, 'font-weight': 600,
+          'font-size': 12, 'font-weight': 600,
           'text-valign': 'top',
-          'text-margin-y': -8,
-          'padding': '24px',
+          'text-halign': 'center',
+          'text-margin-y': -14,
+          'text-background-color': '#0e1116',
+          'text-background-opacity': 0.85,
+          'text-background-padding': '4px',
+          'text-background-shape': 'roundrectangle',
+          'padding': '36px',
         },
       },
       {
@@ -360,15 +372,22 @@ export class TopologyGraphComponent implements AfterViewInit {
     const layout = this.cy.layout({
       name: layoutName,
       animate: nodeCount < 100,
-      animationDuration: 350,
+      animationDuration: 400,
       fit: true,
-      padding: 24,
+      padding: 32,
       // cose-bilkent-specific options ignored by other layouts.
-      idealEdgeLength: 90,
-      nodeRepulsion: 4500,
-      gravity: 0.25,
-      gravityRangeCompound: 1.5,
-      nestingFactor: 0.1,
+      // Tuned for ediscovery-scale (50+ capabilities across 3-5 groups)
+      // — bumped repulsion + edge length so labels don't overlap;
+      // tile:true packs compound children into a grid (less sparse
+      // than pure force-directed at this density).
+      idealEdgeLength: 140,
+      nodeRepulsion: 12_000,
+      gravity: 0.15,
+      gravityRangeCompound: 2.0,
+      nestingFactor: 0.4,
+      tile: true,
+      tilingPaddingVertical: 18,
+      tilingPaddingHorizontal: 18,
       randomize: false,
       // suppress @typescript-eslint via cast — extension options aren't typed.
     } as Parameters<Core['layout']>[0]);
@@ -489,7 +508,11 @@ function pushCapability(
       id: `cap:${cap.id}`,
       parent: parentId,
       kind: 'capability',
-      label: cap.name,
+      // Truncate at 18 chars so labels don't collide with neighbours
+      // at default zoom; full name is still visible in the side
+      // panel on click. cap.name in `meta.capability` keeps the raw
+      // value for tooltips/lookups.
+      label: cap.name.length > 18 ? cap.name.slice(0, 16) + '…' : cap.name,
       color: lifecycleColor(cap.lifecycle),
       shape: kindShape(cap.kind),
       meta: { kind: 'capability', capability: cap } satisfies NodeMeta,

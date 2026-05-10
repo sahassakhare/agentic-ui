@@ -111,19 +111,23 @@ interface Topology {
                   <ul class="cap-list">
                     @for (cap of group.capabilitiesByKind[kind]!; track cap.id) {
                       <li>
-                        <a [routerLink]="['/capabilities']" [queryParams]="{ focus: cap.id }">
-                          <span class="dot lifecycle-{{ cap.lifecycle }}"
-                                [title]="'lifecycle: ' + cap.lifecycle"></span>
-                          <span class="cap-name">{{ cap.name }}</span>
-                        </a>
+                        <div class="row1">
+                          <a [routerLink]="['/capabilities']" [queryParams]="{ focus: cap.id }">
+                            <span class="dot lifecycle-{{ cap.lifecycle }}"
+                                  [title]="'lifecycle: ' + cap.lifecycle"></span>
+                            <span class="cap-name">{{ cap.name }}</span>
+                          </a>
+                          @if (cap.owner) { <span class="owner">{{ cap.owner }}</span> }
+                        </div>
                         @if (cap.tags.length > 0) {
-                          <span class="tags">
-                            @for (tag of cap.tags; track tag) {
-                              <span class="tag">{{ tag }}</span>
-                            }
-                          </span>
+                          <div class="row2">
+                            <span class="tags">
+                              @for (tag of cap.tags; track tag) {
+                                <span class="tag">{{ tag }}</span>
+                              }
+                            </span>
+                          </div>
                         }
-                        @if (cap.owner) { <span class="owner">{{ cap.owner }}</span> }
                       </li>
                     }
                   </ul>
@@ -178,10 +182,38 @@ interface Topology {
     .kind-block { margin: 0.75rem 0 0.5rem 1.75rem; }
     .kind-block h4 { margin: 0 0 0.5rem 0; font-size: 0.875rem; color: #475569; }
 
-    .cap-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.25rem 1rem; }
-    .cap-list li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
-    .cap-list a { display: inline-flex; align-items: center; gap: 0.5rem; color: inherit; text-decoration: none; }
+    /* Each capability row stacks: name on top, tags + owner on a
+       second line. Prevents overflow when tags/owners are long. */
+    .cap-list {
+      list-style: none; padding: 0; margin: 0;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 0.625rem 1rem;
+    }
+    .cap-list li {
+      display: flex; flex-direction: column; gap: 0.125rem;
+      padding: 0.25rem 0;
+      min-width: 0;
+    }
+    .cap-list .row1 {
+      display: flex; align-items: center; gap: 0.5rem;
+      min-width: 0;
+    }
+    .cap-list a {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      color: inherit; text-decoration: none;
+      min-width: 0; flex: 1;
+    }
     .cap-list a:hover .cap-name { text-decoration: underline; }
+    .cap-list .cap-name {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      min-width: 0;
+    }
+    .cap-list .row2 {
+      display: flex; flex-wrap: wrap; gap: 0.25rem 0.5rem;
+      align-items: center;
+      padding-left: 1rem;
+      min-width: 0;
+    }
 
     .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
     .dot.lifecycle-published { background: #16a34a; }
@@ -189,9 +221,18 @@ interface Topology {
     .dot.lifecycle-deprecated { background: #94a3b8; }
     .dot.lifecycle-disabled { background: #dc2626; }
 
-    .tags { display: inline-flex; gap: 0.25rem; }
-    .tag { font-size: 0.6875rem; background: #e0f2fe; color: #075985; padding: 0 0.25rem; border-radius: 0.25rem; }
-    .owner { font-size: 0.75rem; color: #94a3b8; margin-left: auto; }
+    .tags { display: inline-flex; flex-wrap: wrap; gap: 0.25rem; min-width: 0; }
+    .tag {
+      font-size: 0.6875rem; background: #e0f2fe; color: #075985;
+      padding: 0 0.25rem; border-radius: 0.25rem;
+      white-space: nowrap;
+    }
+    .owner {
+      font-size: 0.75rem; color: #94a3b8;
+      margin-left: auto;
+      white-space: nowrap; max-width: 14ch;
+      overflow: hidden; text-overflow: ellipsis;
+    }
 
     .empty { padding: 1.5rem; background: #fafafa; border-radius: 0.5rem; color: #64748b; }
     .error { background: #fee2e2; color: #991b1b; padding: 0.75rem; border-radius: 0.375rem; margin-bottom: 0.75rem; }
