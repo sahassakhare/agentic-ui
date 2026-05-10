@@ -304,6 +304,7 @@ This library is opinionated for one shape of work — agent-driven UI in Angular
 | 14 | [Human-in-the-loop approval](#14-human-in-the-loop-approval) | `agenticApproval({ tool, required, approverRoles })` + chat-shell intercept | [approval-flow](./cookbook/approval-flow.md) |
 | 15 | [Long-running operations](#15-long-running-operations) | `agenticTool({ longRunning: true })` + `OperationRegistry` + `<mvk-operation-progress>` | [long-running-operations](./cookbook/long-running-operations.md) |
 | 16 | [Multi-modal input](#16-multi-modal-input) | `MessageContent` union + composer paperclip / drag-drop / paste-image | [multi-modal-input](./cookbook/multi-modal-input.md) |
+| 17 | [Wire the catalog platform](#17-wire-the-catalog-platform) | `provideAgenticPlatform({...})` — single composite provider for IAM persona + MFE registry + capability registrar / authorizer + usage metering | [ADR-031](./adr/0031-provide-agentic-platform.md) |
 
 ---
 
@@ -912,6 +913,78 @@ Full walkthrough — including HIPAA gating, cost telemetry, and privacy-on-data
 
 ---
 
+### 17. Wire the catalog platform
+
+> **Scenario.** Your runtime app already works embedded — tools register in code, widgets render inline, MFE remotes load from a JSON file. Now an operator asks: *"Where do I see what tools the running apps actually expose? Why did toggling `releaseLegalHold` to `disabled` in the ops console do nothing? Why is the Usage page always empty?"* You need the runtime to integrate with the [Maverick catalog server](../platform/agentic-catalog-server/) — but you don't want to wire 4–5 separate providers and thread the same three config values through each.
+
+**Library responsibility.**
+
+`provideAgenticPlatform({...})` ([ADR-031](./adr/0031-provide-agentic-platform.md)) is a **single composite provider** that wires every catalog adapter through one shared `catalogUrl` / `tenantId` / `getToken`. Each integration is opt-in via its own per-feature options object; pass `false` to skip, omit the key to skip by default. Closes Gaps 4 / 1 / 3 / 2 from the [2026-05-10 platform audit](./audit/2026-05-10-platform-audit.md).
+
+| Feature switch | What it does | ADR |
+|---|---|---|
+| `personaResolver` | OIDC user → runtime persona via `POST /role-mappings/resolve` | [ADR-016](./adr/0016-iam-role-mapping.md) |
+| `mfeRegistry` | Federated MFE manifest discovery via `GET /mfes` | [ADR-003](./adr/0003-pluggable-mfe-registry-source.md) |
+| `capabilityRegistrar` | On boot, POST every registered tool/widget to the catalog. Idempotent via `(tenant_id, kind, name)` UNIQUE constraint — repeat boots see 409 per entry, treated as success. | [ADR-032](./adr/0032-catalog-capability-registrar.md) |
+| `capabilityAuthorizer` | Polls `?lifecycle=disabled`; installs a composing scope policy on `ToolRegistry` + `ComponentRegistry` so disabled entries vanish from `list()` / `get()` reads. | [ADR-033](./adr/0033-catalog-capability-authorizer.md) |
+| `usageMetering` | Wraps `AGENTIC_TELEMETRY_SINK` so tool call / widget render / federation load events become `POST /v1/catalogs/{tenant}/usage` posts (batched, fire-and-forget). | [ADR-034](./adr/0034-catalog-usage-metering.md) |
+
+**Wiring.**
+
+```ts
+// src/app/app.config.ts
+import { ApplicationConfig, provideZonelessChangeDetection } from '@angular/core';
+import {
+  provideAgenticUi,
+  provideAgenticPlatform,
+  provideAgUiBackend,
+} from '@maverick/agentic-ui';
+
+const CATALOG_URL = 'https://catalog.example.com';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideZonelessChangeDetection(),
+    provideAgenticUi({ tools: [...], widgets: [...] }),
+    provideAgUiBackend({ url: '/api/agents/gemini/run' }),
+    provideAgenticPlatform({
+      catalogUrl: CATALOG_URL,
+      tenantId: 'acme',                         // or () => readTenantFromSubdomain()
+      getToken: () => oidc.getAccessToken(),    // null/undefined OK for AUTH_MODE=disabled
+      personaResolver:      { defaultPersona: 'paralegal' },
+      mfeRegistry:          { refreshIntervalMs: 30_000 },
+      capabilityRegistrar:  {},      // defaults: lifecycle 'published', host-only
+      capabilityAuthorizer: {},      // defaults: 30s poll, default-allow on fetch fail
+      usageMetering:        {},      // defaults: 5s flush, 100-event batch
+    }),
+  ],
+};
+```
+
+**Or scaffold it.** From the [`mvk` CLI](../platform/mvk-cli/):
+
+```bash
+mvk login --catalog-url https://catalog.example.com --token $TOKEN
+mvk new app demo --with-platform --tenant acme
+# Generated src/app/app.config.ts is pre-wired with provideAgenticPlatform.
+```
+
+**What changes for operators.**
+
+- The capabilities page in the ops console populates from the live registrar (no more hand-curated [`ADR-025` seed](./adr/0025-ediscovery-demo-seed.md) drift).
+- Toggling a capability to `disabled` in the ops console makes it disappear from the running app's chat shell within ~30s — no rebuild, no app restart.
+- The Usage page populates with real workload data; per-tenant quota policy decisions get a real signal to act on.
+
+**What changes for developers.**
+
+- `toolRegistry.register(...)` still works exactly as before. Every feature is opt-in; apps that don't call `provideAgenticPlatform` see zero behaviour change. Embedded-first stays embedded-first.
+- Hosts with their own telemetry sink wire it via `usageMetering: { delegate: myCustomSink }` so existing telemetry continues to flow alongside catalog metering.
+- Persona policies the host installs (e.g. `activeScopePolicy(persona)`) compose with the authorizer — the authorizer reads the existing policy via `RegistryBase.currentScopePolicy()` and AND's the catalog's deny-list with it. Both gates fire.
+
+**Default-allow + degrade-gracefully.** The authorizer's `onInitialFetchFailure: 'allow'` default means a catalog outage doesn't break the consumer app — capabilities stay visible until the next 30s tick lands. Apps that demand strict closed-allowlist semantics (compliance-heavy deployments where stale-disabled is worse than offline) opt in via `onInitialFetchFailure: 'deny'`.
+
+---
+
 ## Where to go next
 
 - Look at [`examples/demo-remote-bookings/src/app/capability.ts`](../examples/demo-remote-bookings/src/app/capability.ts) to see how the remote contributes tools/widgets.
@@ -920,6 +993,7 @@ Full walkthrough — including HIPAA gating, cost telemetry, and privacy-on-data
   - [Federate an MFE](./cookbook/federate-an-mfe.md)
   - [Swap the backend](./cookbook/swap-backend.md)
   - [Observability](./cookbook/observability.md)
+- Wire your app to a catalog server: [ADR-031](./adr/0031-provide-agentic-platform.md) walks through `provideAgenticPlatform` end-to-end. The [2026-05-10 platform audit](./audit/2026-05-10-platform-audit.md) explains *why* each of the four feature switches exists and what was missing before.
 - Generate your own tool / widget / backend with the schematics:
   ```bash
   npx ng g @maverick/agentic-ui:tool myTool --project=demo-monolith

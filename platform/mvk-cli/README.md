@@ -112,6 +112,21 @@ mvk new app demo --with-catalog
 # After install + start, the new app's tenant + 'echo' tool show up in
 # `mvk capability list --tenant demo`.
 
+# Pre-wire the runtime↔platform integration (ADR-031):
+mvk new app demo --with-platform --tenant acme
+# The generated src/app/app.config.ts imports both provideAgenticUi
+# AND provideAgenticPlatform with the catalog URL + tenant baked in.
+# personaResolver + mfeRegistry are enabled with sane defaults; the
+# host fills in getToken from their OIDC client.
+#
+# Requires --catalog-url (or MVK_CATALOG_URL / `mvk login`-stored
+# config). Without it the CLI errors out — the platform-wired
+# scaffold can't run with no catalog.
+
+# --with-catalog and --with-platform compose: onboard a tenant + register
+# a sample capability AND scaffold the platform-wired app.
+mvk new app demo --with-catalog --with-platform --tenant acme
+
 # Dry-run prints the plan without writing files:
 mvk new app demo --dry-run --json
 ```
@@ -120,6 +135,12 @@ The scaffold is intentionally minimal (no `ng new` shell-out, no
 500 MB Angular CLI install). Adopters edit `src/app/app.config.ts`
 to wire their backend, register tools / widgets / forms, then mount
 the chat shell or any runtime component from `app.component.ts`.
+
+For the full `provideAgenticPlatform` API (per-feature switches for
+capability registrar, authorizer, and usage metering — closing audit
+Gaps 1–4) see
+[ADR-031](../../docs/adr/0031-provide-agentic-platform.md) and the
+[2026-05-10 platform audit](../../docs/audit/2026-05-10-platform-audit.md).
 
 ### 5. Audit + usage
 
@@ -187,6 +208,8 @@ mvk health             /healthz
 mvk ready              /readyz (DB connectivity)
 
 mvk new app <name>     scaffold a new @maverick/agentic-ui Angular app
+                       (--with-catalog: onboard tenant + sample capability;
+                        --with-platform: pre-wire provideAgenticPlatform)
 
 mvk tenant list        list all tenants
 mvk tenant get <id>    get one tenant
