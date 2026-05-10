@@ -1,6 +1,7 @@
 import { serve, type ServerType } from '@hono/node-server';
 import { loadConfig } from './config.js';
 import { createPool } from './db/pool.js';
+import { ensureCriticalSchema } from './db/ensure-schema.js';
 import { buildApp } from './app.js';
 import { logger } from './logger.js';
 import { catalogBus } from './events/catalog-bus.js';
@@ -24,6 +25,12 @@ async function main(): Promise<void> {
     idleTimeoutMillis: config.DATABASE_IDLE_MS,
     statementTimeoutMs: config.DATABASE_STATEMENT_TIMEOUT_MS,
   });
+
+  // Defensive schema ensure for tables observed missing on Render
+  // even when preDeployCommand-driven migrations should have applied
+  // them. Idempotent; ~5ms on a healthy DB. See ensure-schema.ts for
+  // the why.
+  await ensureCriticalSchema(pool);
 
   // ── Multi-replica SSE plumbing (ADR-029) ─────────────────────
   // Open a dedicated LISTEN connection on the same DATABASE_URL.
