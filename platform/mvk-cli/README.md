@@ -99,7 +99,29 @@ cat caps.jsonl | mvk capability register --tenant acme --bulk
 mvk capability list --tenant acme --kind tool
 ```
 
-### 4. Audit + usage
+### 4. Scaffold a new app
+
+```bash
+mvk new app demo
+# → ./demo/  (11 files: package.json, angular.json, tsconfig*, src/main.ts,
+#              src/app/{app.config,app.component}.ts, src/index.html, src/styles.scss,
+#              .gitignore, README.md)
+
+# Combine with the catalog: onboard a tenant + register a sample capability
+mvk new app demo --with-catalog
+# After install + start, the new app's tenant + 'echo' tool show up in
+# `mvk capability list --tenant demo`.
+
+# Dry-run prints the plan without writing files:
+mvk new app demo --dry-run --json
+```
+
+The scaffold is intentionally minimal (no `ng new` shell-out, no
+500 MB Angular CLI install). Adopters edit `src/app/app.config.ts`
+to wire their backend, register tools / widgets / forms, then mount
+the chat shell or any runtime component from `app.component.ts`.
+
+### 5. Audit + usage
 
 ```bash
 mvk audit verify --tenant acme
@@ -163,6 +185,8 @@ mvk login              save catalog URL + token
 mvk whoami             show config (token redacted)
 mvk health             /healthz
 mvk ready              /readyz (DB connectivity)
+
+mvk new app <name>     scaffold a new @maverick/agentic-ui Angular app
 
 mvk tenant list        list all tenants
 mvk tenant get <id>    get one tenant
