@@ -18,6 +18,11 @@ import {
   provideCatalogCapabilityAuthorizer,
   type CatalogCapabilityAuthorizerOptions,
 } from './provide-catalog-capability-authorizer';
+import {
+  provideCatalogUsageMetering,
+  type CatalogUsageMeteringOptions,
+} from './provide-catalog-usage-metering';
+import type { AgenticTelemetrySink } from '../telemetry/telemetry-sink';
 
 /**
  * Single configuration point for consumer apps integrating with the
@@ -111,6 +116,18 @@ export interface AgenticPlatformOptions {
    * defaults (default-allow, 30s polling) or `false` to skip.
    */
   readonly capabilityAuthorizer?: CapabilityAuthorizerFeatureOptions | false;
+
+  /**
+   * Usage metering — wraps `AGENTIC_TELEMETRY_SINK` so every tool
+   * call, widget render, and federation load becomes a usage event
+   * posted to `POST /v1/catalogs/{tenant}/usage`. Idempotent +
+   * batched.
+   *
+   * Closes Gap 2 from the 2026-05-10 platform audit. Pass `{}` for
+   * defaults (5s flush interval, 100-event batch) or `false` to
+   * skip.
+   */
+  readonly usageMetering?: UsageMeteringFeatureOptions | false;
 }
 
 /** IAM persona resolver options — tenant + token come from the platform-level config. */
@@ -143,6 +160,15 @@ export interface CapabilityRegistrarFeatureOptions {
 export interface CapabilityAuthorizerFeatureOptions {
   readonly refreshIntervalMs?: number;
   readonly onInitialFetchFailure?: 'allow' | 'deny';
+  /** Override of `globalThis.fetch`. Test seam. */
+  readonly fetchFn?: typeof fetch;
+}
+
+/** Usage metering options — tenant + token come from the platform-level config. */
+export interface UsageMeteringFeatureOptions {
+  readonly delegate?: AgenticTelemetrySink;
+  readonly flushIntervalMs?: number;
+  readonly maxBatchSize?: number;
   /** Override of `globalThis.fetch`. Test seam. */
   readonly fetchFn?: typeof fetch;
 }
@@ -219,6 +245,21 @@ export function provideAgenticPlatform(
       ...(opts.fetchFn ? { fetchFn: opts.fetchFn } : {}),
     };
     childProviders.push(provideCatalogCapabilityAuthorizer(authCfg));
+  }
+
+  // ── Usage metering (Gap 2 / ADR-034) ──
+  if (options.usageMetering !== false && options.usageMetering !== undefined) {
+    const opts = options.usageMetering;
+    const meterCfg: CatalogUsageMeteringOptions = {
+      catalogUrl: options.catalogUrl,
+      tenantId,
+      getToken: options.getToken,
+      ...(opts.delegate ? { delegate: opts.delegate } : {}),
+      ...(opts.flushIntervalMs !== undefined ? { flushIntervalMs: opts.flushIntervalMs } : {}),
+      ...(opts.maxBatchSize !== undefined ? { maxBatchSize: opts.maxBatchSize } : {}),
+      ...(opts.fetchFn ? { fetchFn: opts.fetchFn } : {}),
+    };
+    childProviders.push(provideCatalogUsageMetering(meterCfg));
   }
 
   return makeEnvironmentProviders(childProviders);
