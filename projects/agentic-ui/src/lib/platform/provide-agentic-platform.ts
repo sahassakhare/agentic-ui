@@ -14,6 +14,10 @@ import {
   provideCatalogCapabilityRegistrar,
   type CatalogCapabilityRegistrarOptions,
 } from './provide-catalog-capability-registrar';
+import {
+  provideCatalogCapabilityAuthorizer,
+  type CatalogCapabilityAuthorizerOptions,
+} from './provide-catalog-capability-authorizer';
 
 /**
  * Single configuration point for consumer apps integrating with the
@@ -94,6 +98,19 @@ export interface AgenticPlatformOptions {
    * defaults (lifecycle: 'published', host-only) or `false` to skip.
    */
   readonly capabilityRegistrar?: CapabilityRegistrarFeatureOptions | false;
+
+  /**
+   * Capability authorizer — fetches the catalog's disabled-list at
+   * boot, polls for live updates, and gates `ToolRegistry` +
+   * `ComponentRegistry` reads via a composed scope policy. An
+   * operator who toggles a capability to `disabled` in the ops
+   * console sees the runtime stop offering it on the next refresh
+   * tick.
+   *
+   * Closes Gap 3 from the 2026-05-10 platform audit. Pass `{}` for
+   * defaults (default-allow, 30s polling) or `false` to skip.
+   */
+  readonly capabilityAuthorizer?: CapabilityAuthorizerFeatureOptions | false;
 }
 
 /** IAM persona resolver options — tenant + token come from the platform-level config. */
@@ -118,6 +135,14 @@ export interface MfeRegistryOptions {
 export interface CapabilityRegistrarFeatureOptions {
   readonly defaultLifecycle?: 'draft' | 'published' | 'deprecated' | 'disabled';
   readonly includeRemotes?: boolean;
+  /** Override of `globalThis.fetch`. Test seam. */
+  readonly fetchFn?: typeof fetch;
+}
+
+/** Capability authorizer options — tenant + token come from the platform-level config. */
+export interface CapabilityAuthorizerFeatureOptions {
+  readonly refreshIntervalMs?: number;
+  readonly onInitialFetchFailure?: 'allow' | 'deny';
   /** Override of `globalThis.fetch`. Test seam. */
   readonly fetchFn?: typeof fetch;
 }
@@ -180,6 +205,20 @@ export function provideAgenticPlatform(
       ...(opts.fetchFn ? { fetchFn: opts.fetchFn } : {}),
     };
     childProviders.push(provideCatalogCapabilityRegistrar(regCfg));
+  }
+
+  // ── Capability authorizer (Gap 3 / ADR-033) ──
+  if (options.capabilityAuthorizer !== false && options.capabilityAuthorizer !== undefined) {
+    const opts = options.capabilityAuthorizer;
+    const authCfg: CatalogCapabilityAuthorizerOptions = {
+      catalogUrl: options.catalogUrl,
+      tenantId,
+      getToken: options.getToken,
+      ...(opts.refreshIntervalMs !== undefined ? { refreshIntervalMs: opts.refreshIntervalMs } : {}),
+      ...(opts.onInitialFetchFailure !== undefined ? { onInitialFetchFailure: opts.onInitialFetchFailure } : {}),
+      ...(opts.fetchFn ? { fetchFn: opts.fetchFn } : {}),
+    };
+    childProviders.push(provideCatalogCapabilityAuthorizer(authCfg));
   }
 
   return makeEnvironmentProviders(childProviders);
