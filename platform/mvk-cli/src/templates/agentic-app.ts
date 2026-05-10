@@ -13,6 +13,14 @@ export interface ScaffoldVars {
   readonly name: string;
   /** Optional catalog URL for `--with-catalog` registrations. */
   readonly catalogUrl?: string;
+  /**
+   * When true, scaffold the app preconfigured with
+   * `provideAgenticPlatform` wiring. Requires `catalogUrl`.
+   * Defaults to false for the platform-naive starter.
+   */
+  readonly withPlatform?: boolean;
+  /** Optional tenant id for the platform wiring; defaults to project name. */
+  readonly tenantId?: string;
 }
 
 interface TemplateFile {
@@ -33,7 +41,7 @@ export function renderAgenticAppTemplate(vars: ScaffoldVars): readonly TemplateF
     { path: 'src/main.ts', content: mainTs() },
     { path: 'src/index.html', content: indexHtml(name) },
     { path: 'src/styles.scss', content: stylesScss() },
-    { path: 'src/app/app.config.ts', content: appConfigTs() },
+    { path: 'src/app/app.config.ts', content: appConfigTs(vars) },
     { path: 'src/app/app.component.ts', content: appComponentTs(name) },
   ];
 }
@@ -266,7 +274,10 @@ html, body {
 `;
 }
 
-function appConfigTs(): string {
+function appConfigTs(vars: ScaffoldVars): string {
+  if (vars.withPlatform && vars.catalogUrl) {
+    return appConfigWithPlatformTs(vars);
+  }
   return `import {
   ApplicationConfig,
   provideBrowserGlobalErrorListeners,
@@ -293,6 +304,65 @@ export const appConfig: ApplicationConfig = {
       widgets: [
         // { kind: 'component', name: 'my-card', selector: 'my-card', ... }
       ],
+    }),
+    // Add your backend here:
+    //   provideAgUiBackend({ url: 'http://localhost:3000' })
+    //   provideHashbrownBackend(...)
+    //   provideA2uiBackend(...)
+  ],
+};
+`;
+}
+
+function appConfigWithPlatformTs(vars: ScaffoldVars): string {
+  const tenant = vars.tenantId ?? vars.name;
+  return `import {
+  ApplicationConfig,
+  provideBrowserGlobalErrorListeners,
+  provideZonelessChangeDetection,
+} from '@angular/core';
+import {
+  provideAgenticUi,
+  provideAgenticPlatform,
+} from '@maverick/agentic-ui';
+
+/**
+ * Wire your tools / widgets / forms here. The arrays below start
+ * empty — register concrete entries to see them surface in the
+ * runtime's chat shell, dynamic-form widgets, etc.
+ *
+ * provideAgenticPlatform connects this app to the Maverick catalog
+ * server: per-tenant IAM persona resolution + federated MFE
+ * discovery. Tenant + token come from a single options object so
+ * future platform features (capability registrar / authorizer /
+ * usage metering) plug in without re-threading config through
+ * multiple providers. Closes Gap 4 from the 2026-05-10 platform
+ * audit.
+ */
+const CATALOG_URL = '${vars.catalogUrl}';
+const TENANT_ID = '${tenant}';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideBrowserGlobalErrorListeners(),
+    provideZonelessChangeDetection(),
+    provideAgenticUi({
+      tools: [
+        // { kind: 'tool', name: 'echo', description: '...', execute: ... }
+      ],
+      widgets: [
+        // { kind: 'component', name: 'my-card', selector: 'my-card', ... }
+      ],
+    }),
+    provideAgenticPlatform({
+      catalogUrl: CATALOG_URL,
+      tenantId: TENANT_ID,
+      // For demo deployments running AUTH_MODE=disabled (no IdP),
+      // return null. Production deployments wire this to your OIDC
+      // client (Auth0 / msal-js / oidc-client-ts).
+      getToken: () => null,
+      personaResolver: { defaultPersona: 'default' },
+      mfeRegistry: { refreshIntervalMs: 30_000 },
     }),
     // Add your backend here:
     //   provideAgUiBackend({ url: 'http://localhost:3000' })
