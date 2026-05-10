@@ -174,6 +174,29 @@ describe('capabilities routes', () => {
     expect(last.rows[0]).toMatchObject({ operation: 'create', entity_type: 'capability' });
   });
 
+  it('POST 409 on duplicate (kind, name) — idempotent registrar pattern', async () => {
+    const auth = await h.authHeader();
+    const body = JSON.stringify({
+      kind: 'tool',
+      name: 'duplicate-tool',
+      body: { description: 'first' },
+    });
+    const first = await h.fetch(new Request(BASE, {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body,
+    }));
+    expect(first.status).toBe(201);
+    const second = await h.fetch(new Request(BASE, {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body,
+    }));
+    expect(second.status).toBe(409);
+    const problem = await second.json();
+    expect(problem.title).toBe('Conflict');
+  });
+
   it('list filtering by kind via query param', async () => {
     const auth = await h.authHeader();
     await h.fetch(new Request(BASE, {

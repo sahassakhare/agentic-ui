@@ -1,8 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { provideAgenticPlatform } from './provide-agentic-platform';
+import { CatalogCapabilityRegistrarService } from './provide-catalog-capability-registrar';
 import { AGENTIC_ACTIVE_PERSONA } from '../chat/active-persona';
 import { MFE_REGISTRY_SOURCE } from '../mfe/mfe-registry-source';
+import { provideAgenticUi } from '../providers/provide-agentic-ui';
+import { z } from 'zod';
+import type { ToolDef } from '../types/registry-defs';
 
 const NEVER_CALLED = (() => {
   throw new Error('fetch should not be called in this test');
@@ -99,6 +103,56 @@ describe('provideAgenticPlatform', () => {
     });
     expect(TestBed.inject(AGENTIC_ACTIVE_PERSONA)()).toBe('');
     expect(TestBed.inject(MFE_REGISTRY_SOURCE)).toBeDefined();
+  });
+
+  it('capabilityRegistrar: forwards shared catalogUrl/tenant/getToken into the registrar', async () => {
+    const fx = vi.fn(async () => new Response(JSON.stringify({}), { status: 201 })) as unknown as typeof fetch;
+    const tool: ToolDef = {
+      name: 'gap1-tool',
+      description: 'gap-1 wiring check',
+      schema: z.object({}),
+      handler: async () => null,
+    };
+    TestBed.configureTestingModule({
+      providers: [
+        provideAgenticUi({ tools: [tool] }),
+        provideAgenticPlatform({
+          catalogUrl: 'https://catalog.example.com',
+          tenantId: 'acme',
+          getToken: () => 'tok',
+          capabilityRegistrar: { fetchFn: fx },
+        }),
+      ],
+    });
+    const svc = TestBed.inject(CatalogCapabilityRegistrarService);
+    await svc.lastSync;
+    expect(svc.results().length).toBe(1);
+    expect(svc.results()[0]?.name).toBe('gap1-tool');
+    expect(svc.results()[0]?.status).toBe('created');
+  });
+
+  it('capabilityRegistrar: false skips the registrar entirely', () => {
+    const fx = vi.fn(async () => new Response(JSON.stringify({}), { status: 201 })) as unknown as typeof fetch;
+    TestBed.configureTestingModule({
+      providers: [
+        provideAgenticUi({ tools: [{
+          name: 't',
+          description: 'd',
+          schema: z.object({}),
+          handler: async () => null,
+        } satisfies ToolDef] }),
+        provideAgenticPlatform({
+          catalogUrl: 'https://catalog.example.com',
+          tenantId: 'acme',
+          getToken: () => 'tok',
+          capabilityRegistrar: false,
+          mfeRegistry: { fetchFn: fx },
+        }),
+      ],
+    });
+    // Initializer for registrar should never run; service holds an empty result list.
+    const svc = TestBed.inject(CatalogCapabilityRegistrarService);
+    expect(svc.results().length).toBe(0);
   });
 
   it('tenantId can be a function (resolved eagerly at provider time)', () => {
