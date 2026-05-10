@@ -8,6 +8,7 @@ import { setCatalogEventPublisher } from './events/publisher.js';
 import { PgNotifyListener } from './events/pg-notify-listener.js';
 import { REPLICA_ID } from './events/replica-id.js';
 import { makeEmbeddingProvider } from './embeddings/provider.js';
+import { makeOpaClient } from './policy/opa-client.js';
 
 /**
  * Process entry point. Loads config, opens the pool, builds the
@@ -56,10 +57,18 @@ async function main(): Promise<void> {
     logger.info({ provider: embeddings.name, dim: embeddings.dim }, 'semantic search enabled');
   }
 
+  // Optional OPA client for policy decisions (slice OPA-A / ADR-040).
+  // Unset -> noop client; /policy/decide returns 422 "not configured."
+  const opa = makeOpaClient(config.OPA_URL ? { url: config.OPA_URL, timeoutMs: config.OPA_TIMEOUT_MS } : null);
+  if (opa.enabled) {
+    logger.info({ url: opa.url }, 'OPA policy decisions enabled');
+  }
+
   const app = buildApp({
     pool,
     authMode: config.AUTH_MODE,
     embeddings,
+    opa,
     auth: config.AUTH_MODE === 'oidc'
       ? {
           // loadConfig() guarantees these are set when AUTH_MODE=oidc.

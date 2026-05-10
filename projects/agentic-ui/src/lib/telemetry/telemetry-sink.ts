@@ -29,7 +29,9 @@ export type TelemetryEventName =
   | 'agentic.platform.sse.opened'
   | 'agentic.platform.sse.fallback'
   | 'agentic.platform.sse.event_received'
-  | 'agentic.platform.sse.parse_error';
+  | 'agentic.platform.sse.parse_error'
+  | 'agentic.platform.opa.decision'
+  | 'agentic.platform.opa.decision_failed';
 
 export interface AgenticTelemetrySink {
   startSpan(name: TelemetryEventName, attributes?: Readonly<Record<string, unknown>>): TelemetrySpan;

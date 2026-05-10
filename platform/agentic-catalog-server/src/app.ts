@@ -8,6 +8,7 @@ import { healthRoutes } from './routes/health.js';
 import { capabilitiesRoutes } from './routes/capabilities.js';
 import { mfesRoutes } from './routes/mfes.js';
 import { agentsRoutes } from './routes/agents.js';
+import { policyRoutes } from './routes/policy.js';
 import { roleMappingsRoutes } from './routes/role-mappings.js';
 import { auditRoutes } from './routes/audit.js';
 import { usageRoutes } from './routes/usage.js';
@@ -16,6 +17,7 @@ import { streamRoutes } from './routes/stream.js';
 import { openapiRoutes } from './routes/openapi.js';
 import { logger } from './logger.js';
 import type { EmbeddingProvider } from './embeddings/provider.js';
+import { makeOpaClient, type OpaClient } from './policy/opa-client.js';
 
 export interface AppDeps {
   readonly pool: CatalogPool;
@@ -44,6 +46,13 @@ export interface AppDeps {
    * the provider is configured.
    */
   readonly embeddings?: EmbeddingProvider;
+  /**
+   * Optional OPA client for the policy decision endpoint
+   * (slice OPA-A / ADR-040). When unset, /policy/decide returns
+   * 422 "not configured." Bundle CRUD endpoints work regardless —
+   * adopters can stage rego while waiting on the OPA sidecar.
+   */
+  readonly opa?: OpaClient;
   /**
    * CORS origin allow-list. Defaults to `*` in development; production
    * should pin to the ops-console hostname.
@@ -119,6 +128,7 @@ export function buildApp(deps: AppDeps): Hono {
   v1.route('/catalogs/:tenant/capabilities', capabilitiesRoutes(deps.pool, deps.embeddings));
   v1.route('/catalogs/:tenant/mfes', mfesRoutes(deps.pool));
   v1.route('/catalogs/:tenant/agents', agentsRoutes(deps.pool));
+  v1.route('/catalogs/:tenant/policy', policyRoutes(deps.pool, deps.opa ?? makeOpaClient(null)));
   v1.route('/catalogs/:tenant/role-mappings', roleMappingsRoutes(deps.pool));
   v1.route('/catalogs/:tenant/audit', auditRoutes(deps.pool));
   v1.route('/catalogs/:tenant/usage', usageRoutes(deps.pool));

@@ -52,6 +52,14 @@ const ConfigSchema = z.object({
   EMBEDDING_API_URL: z.string().url().optional(),
   EMBEDDING_MODEL: z.string().optional(),
   EMBEDDING_DIM: z.coerce.number().int().min(1).max(8192).default(1536),
+
+  // ── OPA (slice OPA-A / ADR-040) ──────────────────────────────
+  // When set, enables /policy/bundles + /policy/decide endpoints.
+  // OPA itself runs as a sidecar (Docker compose service /
+  // Kubernetes sidecar container); the catalog forwards decision
+  // calls. Unset = decision endpoint returns 422 "OPA not configured".
+  OPA_URL: z.string().url().optional(),
+  OPA_TIMEOUT_MS: z.coerce.number().int().min(100).max(30_000).default(2000),
 });
 
 export type CatalogConfig = z.infer<typeof ConfigSchema>;
