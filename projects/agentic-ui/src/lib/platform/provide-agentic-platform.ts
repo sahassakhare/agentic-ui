@@ -10,6 +10,10 @@ import {
   provideRestMfeRegistry,
   type RestMfeRegistryOptions,
 } from '../mfe/rest-mfe-registry';
+import {
+  provideCatalogCapabilityRegistrar,
+  type CatalogCapabilityRegistrarOptions,
+} from './provide-catalog-capability-registrar';
 
 /**
  * Single configuration point for consumer apps integrating with the
@@ -79,6 +83,17 @@ export interface AgenticPlatformOptions {
    * `false` to skip.
    */
   readonly mfeRegistry?: MfeRegistryOptions | false;
+
+  /**
+   * Capability registrar — on Angular bootstrap, POSTs each
+   * code-registered tool / widget to the catalog
+   * (`POST /v1/catalogs/{tenant}/capabilities`). Idempotent — 409s
+   * on repeat boots are treated as success.
+   *
+   * Closes Gap 1 from the 2026-05-10 platform audit. Pass `{}` for
+   * defaults (lifecycle: 'published', host-only) or `false` to skip.
+   */
+  readonly capabilityRegistrar?: CapabilityRegistrarFeatureOptions | false;
 }
 
 /** IAM persona resolver options — tenant + token come from the platform-level config. */
@@ -95,6 +110,14 @@ export interface PersonaResolverOptions {
 export interface MfeRegistryOptions {
   readonly refreshIntervalMs?: number;
   readonly staticFallbackUrl?: string;
+  /** Override of `globalThis.fetch`. Test seam. */
+  readonly fetchFn?: typeof fetch;
+}
+
+/** Capability registrar options — tenant + token come from the platform-level config. */
+export interface CapabilityRegistrarFeatureOptions {
+  readonly defaultLifecycle?: 'draft' | 'published' | 'deprecated' | 'disabled';
+  readonly includeRemotes?: boolean;
   /** Override of `globalThis.fetch`. Test seam. */
   readonly fetchFn?: typeof fetch;
 }
@@ -143,6 +166,20 @@ export function provideAgenticPlatform(
       ...(opts.fetchFn ? { fetchFn: opts.fetchFn } : {}),
     };
     childProviders.push(provideRestMfeRegistry(mfeCfg));
+  }
+
+  // ── Capability registrar (Gap 1 / ADR-032) ──
+  if (options.capabilityRegistrar !== false && options.capabilityRegistrar !== undefined) {
+    const opts = options.capabilityRegistrar;
+    const regCfg: CatalogCapabilityRegistrarOptions = {
+      catalogUrl: options.catalogUrl,
+      tenantId,
+      getToken: options.getToken,
+      ...(opts.defaultLifecycle !== undefined ? { defaultLifecycle: opts.defaultLifecycle } : {}),
+      ...(opts.includeRemotes !== undefined ? { includeRemotes: opts.includeRemotes } : {}),
+      ...(opts.fetchFn ? { fetchFn: opts.fetchFn } : {}),
+    };
+    childProviders.push(provideCatalogCapabilityRegistrar(regCfg));
   }
 
   return makeEnvironmentProviders(childProviders);

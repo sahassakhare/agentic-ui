@@ -11,6 +11,7 @@ import { withTenantScope, type CatalogPool } from '../db/pool.js';
 import {
   createCapability,
   findCapabilityById,
+  findCapabilityByName,
   listCapabilities,
   softDeleteCapability,
   updateCapability,
@@ -74,6 +75,17 @@ export function capabilitiesRoutes(pool: CatalogPool): Hono {
     const body = CapabilityCreateSchema.parse(await c.req.json());
 
     const created = await withTenantScope(pool, principal, async (client) => {
+      // Pre-check duplicate (tenant, kind, name) — surface 409 instead
+      // of letting the unique-violation propagate as a 500. Matches
+      // tenants.ts pattern. Important for idempotent registrars (the
+      // runtime's provideCatalogCapabilityRegistrar treats 409 as
+      // "already exists, success").
+      const existing = await findCapabilityByName(client, body.kind, body.name);
+      if (existing) {
+        throw new HTTPException(409, {
+          message: `Capability "${body.kind}/${body.name}" already exists`,
+        });
+      }
       const row = await createCapability(
         client,
         tenantId,
