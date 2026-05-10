@@ -198,12 +198,42 @@ rationale in [ADR-020](../../docs/adr/0020-tenant-lifecycle.md).
 
 | Method | Path | Purpose |
 |---|---|---|
+| GET | `/v1/catalogs/{tenant}/audit/recent` | JSON `{items: [...]}` mirroring the SSE event shape + `actor` / `requestId` / `chainPosition`. Newest-first. `?limit=N` (1–500, default 100). Used by the ops console activity feed for backlog. |
 | GET | `/v1/catalogs/{tenant}/audit/export` | JSONL stream of audit rows (one per line). Optional `?from=ISO&to=ISO&limit=N`. SIEM-friendly. |
 | GET | `/v1/catalogs/{tenant}/audit/verify` | Server-side chain re-walk; returns `{valid, checkedRows, chainHead, brokenAt}`. |
 
 Every catalog mutation appends a hash-linked entry to `catalog_audit`.
 External verifiers can re-derive `entry_hash` from the JSONL export
 without DB access. Design rationale in [ADR-017](../../docs/adr/0017-audit-chain.md).
+
+### Agents (auth + tenant scope)
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET    | `/v1/catalogs/{tenant}/agents` | List all agents for the tenant. |
+| GET    | `/v1/catalogs/{tenant}/agents/{id}` | Read one agent. |
+| POST   | `/v1/catalogs/{tenant}/agents` | Register a new agent. 409 if `name` already exists (idempotent registrar pattern). |
+| PATCH  | `/v1/catalogs/{tenant}/agents/{id}` | Update agent metadata (status, version, manifestUrl, …). |
+| POST   | `/v1/catalogs/{tenant}/agents/{id}/heartbeat` | Mark the agent alive — refreshes `last_health_at`. Skips audit (too frequent). |
+| DELETE | `/v1/catalogs/{tenant}/agents/{id}` | Soft-delete the agent. |
+
+`@maverick/agentic-ui-server-registrar` is the recommended caller from
+agent-server bootstrap. Design rationale in
+[ADR-039](../../docs/adr/0039-agent-auto-registration.md).
+
+### Policy bundles + decision (auth + tenant scope)
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET    | `/v1/catalogs/{tenant}/policy/bundles` | List rego bundles for the tenant. |
+| POST   | `/v1/catalogs/{tenant}/policy/bundles` | Create / register a bundle. |
+| PATCH  | `/v1/catalogs/{tenant}/policy/bundles/{id}` | Update rego source / activate / deactivate. |
+| DELETE | `/v1/catalogs/{tenant}/policy/bundles/{id}` | Delete. |
+| POST   | `/v1/catalogs/{tenant}/policy/decide` | Forward `{input}` to the configured OPA sidecar; returns the decision. 422 when `OPA_URL` is unset. |
+
+Catalog stores rego; OPA sidecar evaluates. At most one active bundle
+per tenant (partial unique index). Design rationale in
+[ADR-040](../../docs/adr/0040-opa-policy-integration.md).
 
 ### Usage (auth + tenant scope)
 
@@ -236,14 +266,26 @@ Validation errors (422) include an `errors[]` array of `{path, message}`.
 
 ## Database schema
 
-Five primary tables + one append-only audit:
+Seven primary tables + one append-only audit:
 
 - `tenants` — tenant directory
 - `capabilities` — RLS-isolated capability blobs
 - `mfe_remotes` — RLS-isolated federation manifest entries
 - `role_mappings` — RLS-isolated IdP-claim → runtime-persona mappings
+- `agents` — RLS-isolated AgenticBackend deployments + heartbeat status (ADR-039)
+- `policy_bundles` — RLS-isolated rego bundles for the OPA decision endpoint (ADR-040)
 - `usage_events` — RLS-isolated per-tenant consumption stream (units, not currency)
 - `catalog_audit` — append-only, hash-linked audit log
+
+Plus an optional `capabilities.embedding` `vector(1536)` column (ADR-038)
+when pgvector is available — gated on `EMBEDDING_PROVIDER` env, off by default.
+
+The catalog server runs `ensureCriticalSchema(pool)` at startup as a
+defensive backstop — `CREATE TABLE IF NOT EXISTS` for `agents` +
+`policy_bundles` so a deploy where `preDeployCommand` migrations
+silently skipped runs is still self-healing. Migrations remain
+authoritative; this is belt-and-braces for unreliable deploy
+environments.
 
 Every read/write goes through `withTenantScope(pool, principal, fn)` which (a) opens a transaction, (b) sets `app.tenant_id` to the principal's tenant, (c) runs the callback. RLS policies on every catalog table enforce `tenant_id = current_setting('app.tenant_id')`. Bypass is via the `BYPASSRLS` Postgres role (assign to platform-admin connections only).
 

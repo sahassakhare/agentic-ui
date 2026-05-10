@@ -26,19 +26,41 @@ we already built. ADR-027 §Out-of-scope explicitly flagged it as
 
 ## Decision
 
-### D1 — Pure consumer of `CatalogStreamService`; no new service
+### D1 — `ActivityFeedService` (root-scoped) consumes SSE + audit-log backlog
 
-The activity page subscribes to `CatalogStreamService.onMutation`
-and appends events to an in-memory ring buffer. No new HTTP
-endpoint, no new stream, no new service. The plumbing already
-exists.
+> **Updated 2026-05-11** — original D1 chose "pure consumer of
+> `CatalogStreamService`; no new service", on the trade-off that
+> closing the tab loses the buffer. Operator feedback after the
+> 2026-05-10 deploy: "activity is not retained" — the empty-feed
+> flicker on every page navigation made the feature feel broken.
+> The original trade-off was wrong; revising.
 
-This is deliberately minimal. Building a "history" feature that
-fetches past events from `catalog_audit/export` would be a
-different feature (per-tenant timeline, with filtering and
-pagination) — useful, but not what operators asked for. They want
-**live**, and they accept the trade-off that closing the tab
-loses the buffer.
+The activity page reads from a root-scoped `ActivityFeedService`.
+The service:
+
+- Subscribes to `CatalogStreamService.onMutation` once at
+  construction and prepends each event to an in-memory ring
+  buffer.
+- Calls `catalog.recentAudit(limit)` (new endpoint
+  `GET /v1/catalogs/{tenant}/audit/recent`) the first time a
+  tenant becomes available, and again whenever the active tenant
+  changes.
+- Exposes `buffer()` / `loadingBacklog()` / `backlogError()` /
+  `lastSyncedAt()` signals + `reload()` / `clear()` methods.
+
+`ActivityComponent` is a thin display layer that reads the
+service signals and composes a per-view UI (filters, sort, day
+grouping). Switching pages and coming back is instant — the
+service buffer survives component teardown.
+
+`/audit/recent` was added because `/audit/export` returns JSONL
+intended for SIEM consumers; the UI wanted a small JSON shape
+mirroring the SSE event (with `actor` / `requestId` /
+`chainPosition` extras). Limit bounded 1–500, default 100.
+
+Composite-id dedup (`occurredAt + entityId + operation`) prevents
+double-counting when a row exists in both the backlog and a live
+SSE event.
 
 ### D2 — Ring buffer of 200 events, newest at the head
 
