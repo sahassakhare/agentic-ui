@@ -21,4 +21,19 @@ export const environment = {
   mfeRegistryUrl: '/mfes.json',
   /** Environment passed to `MfeRegistryClient.discover()`. */
   mfeEnv: 'dev',
+  /**
+   * Optional Maverick catalog server URL. When set, `provideAgenticPlatform`
+   * wires the runtime to the catalog: registered tools/widgets auto-POST
+   * at boot (Gap 1 / ADR-032), and operator-disabled capabilities hide
+   * from the registry within ~30s (Gap 3 / ADR-033). Leave `undefined`
+   * for fully-embedded local dev — every existing flow keeps working
+   * exactly as before.
+   *
+   * Persona resolution stays under the host's `PersonaService` (UI
+   * dropdown, not JWT-derived) and MFE discovery stays on the static
+   * JSON manifest — those switches are opt-in once a host is ready
+   * to fold them in.
+   */
+  catalogUrl: undefined as string | undefined,
+  catalogTenantId: 'ediscovery',
 };

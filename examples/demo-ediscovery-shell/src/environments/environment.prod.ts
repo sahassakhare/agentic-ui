@@ -12,4 +12,11 @@ export const environment = {
   telemetry: 'none' as 'none' | 'console' | 'otel',
   mfeRegistryUrl: '/mfes.json',
   mfeEnv: 'prod',
+  // Live demo catalog (AUTH_MODE=disabled per ADR-022). When set, the
+  // shell's tools/widgets auto-register against this catalog at boot
+  // and the ops console's "disable capability" toggles take effect on
+  // the running app within ~30s. Persona + MFE discovery remain on
+  // their existing transports — see environment.ts for the rationale.
+  catalogUrl: 'https://agentic-catalog-server.onrender.com',
+  catalogTenantId: 'ediscovery',
 };

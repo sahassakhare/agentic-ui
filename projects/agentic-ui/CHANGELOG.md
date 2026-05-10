@@ -44,7 +44,172 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added — runtime ↔ platform integration (audit Gaps 4 / 1 / 3 / 2)
+
+Closes the four runtime-tier integration gaps from the
+[2026-05-10 platform audit](../../docs/audit/2026-05-10-platform-audit.md).
+Before this slice the runtime tier shipped only **2 of 6** adapters
+that talk to the catalog server (`provideCatalogActivePersona` +
+`RestMfeRegistrySource`); a consumer app integrating the platform
+reached for `curl` for everything else. After this slice, **one
+provider line** wires every adapter:
+
+```ts
+provideAgenticPlatform({
+  catalogUrl: 'https://catalog.example.com',
+  tenantId: 'acme',
+  getToken: () => oidc.getAccessToken(),
+  personaResolver:       { defaultPersona: 'paralegal' },
+  mfeRegistry:           { refreshIntervalMs: 30_000 },
+  capabilityRegistrar:   {},     // Gap 1 — auto-POST tools/widgets at boot
+  capabilityAuthorizer:  {},     // Gap 3 — catalog disables hide entries
+  usageMetering:         {},     // Gap 2 — telemetry → POST /usage
+})
+```
+
+Every feature is **opt-in via per-key options**; passing `false`
+or omitting the key skips it. Apps that want only IAM persona
+resolution still pass exactly one provider — they just leave the
+other keys off.
+
+#### `provideAgenticPlatform` — single config point (Gap 4 / [ADR-031](../../docs/adr/0031-provide-agentic-platform.md))
+
+- New composite provider in `@maverick/agentic-ui` that wires
+  `provideCatalogActivePersona` + `provideRestMfeRegistry` +
+  (newly added) capability registrar / authorizer / usage metering
+  under one shared `catalogUrl` / `tenantId` / `getToken`.
+- `tenantId` accepts `string | (() => string)` for hosts that
+  derive tenant from a subdomain or route param.
+- `mvk new app --with-platform` scaffold flag generates an
+  `app.config.ts` pre-wired with `provideAgenticPlatform`. CLI
+  validates `--catalog-url` is set (or `MVK_CATALOG_URL` /
+  `mvk login` config).
+
+#### `provideCatalogCapabilityRegistrar` — auto-register at boot (Gap 1 / [ADR-032](../../docs/adr/0032-catalog-capability-registrar.md))
+
+- Walks `ToolRegistry` + `ComponentRegistry` on Angular bootstrap;
+  POSTs each entry to `POST /v1/catalogs/{tenant}/capabilities`.
+- Idempotent via the catalog's existing `(tenant_id, kind, name)`
+  UNIQUE constraint — repeat boots see 409 per entry, treated as
+  success.
+- Fire-and-forget — boot never blocks on the catalog round trip;
+  `CatalogCapabilityRegistrarService.results()` exposes per-entry
+  sync outcomes for devtools / status badges.
+- `includeRemotes: false` by default (federated MFE remotes
+  self-register through their own bootstrap); `true` for monolith
+  federation where the host owns catalog identity.
+- Closes [ADR-025](../../docs/adr/0025-ediscovery-demo-seed.md)
+  drift — the eDiscovery seed becomes a starter, not a permanent
+  hand-curated mirror.
+
+#### `provideCatalogCapabilityAuthorizer` — catalog-as-allowlist (Gap 3 / [ADR-033](../../docs/adr/0033-catalog-capability-authorizer.md))
+
+- Fetches `?lifecycle=disabled` from the catalog at boot, polls
+  every 30s; installs a **composing** scope policy on
+  `ToolRegistry` + `ComponentRegistry` that AND's the catalog's
+  deny-list with whatever scope policy the host already wired
+  (e.g. `activeScopePolicy(persona)`).
+- New public `RegistryBase.currentScopePolicy()` accessor — hosts
+  composing multiple policies (persona + catalog + custom flag)
+  read the existing one without reaching into the private signal.
+- **Default-allow** on initial-fetch failure — catalog outage
+  doesn't break the consumer app. Apps that want strict
+  closed-allowlist semantics opt in via
+  `onInitialFetchFailure: 'deny'`.
+- An operator who toggles a capability to `disabled` in the ops
+  console sees the runtime stop offering it within ~30s. SSE-based
+  live updates documented as out-of-scope follow-up.
+
+#### `provideCatalogUsageMetering` — telemetry-driven usage events (Gap 2 / [ADR-034](../../docs/adr/0034-catalog-usage-metering.md))
+
+- Wraps `AGENTIC_TELEMETRY_SINK` so every `agentic.tool_call.*`
+  span end (note: end, not start — captures success/failure),
+  `agentic.widget.render`, and `agentic.federation.load.end`
+  becomes a usage event posted asynchronously to
+  `POST /v1/catalogs/{tenant}/usage`.
+- Skips HITL approval-queued tool calls (they didn't actually
+  run).
+- Background batch flush — default 5s interval, 100-event cap;
+  bounded memory, bounded round-trip count.
+- `delegate` option preserves the host's existing telemetry sink:
+  pass `{ delegate: myCustomSink }` and your sink keeps receiving
+  every event alongside catalog metering.
+
+#### Server-side: `POST capabilities` returns 409 (not 500) on duplicate
+
+- The catalog's create-capability route now pre-checks
+  `(kind, name)` and returns 409 + RFC-7807 `Conflict` problem on
+  duplicate, instead of letting the postgres unique-violation
+  propagate as 500. Mirrors the existing pattern in `tenants.ts`.
+  Required for the registrar's "treat 409 as success" idempotency
+  contract.
+
+### Tests
+
+**408 → 441 lib tests** (+33). New coverage:
+
+- Gap 4 composite provider: 8 TestBed tests (no-feature, persona-only,
+  mfe-only, both-on, explicit `false`, dynamic-tenant function,
+  registrar wiring through composite, authorizer wiring through
+  composite, metering wiring through composite).
+- Gap 1 registrar: 9 tests (3 payload-mapping + 6 wiring: boot POST,
+  409 idempotency, server-failure, host-only filter, AUTH_MODE
+  disabled, empty-registry safety).
+- Gap 3 authorizer: 7 tests (compose with persona, closed-allowlist,
+  hide disabled entries, default-allow on fetch failure, deny on
+  fetch failure, polling cadence, compose ordering).
+- Gap 2 metering: 7 tests (tool-call queue, approval-queued skip,
+  widget/federation events, delegate forwarding, time-based flush,
+  size-based flush, failed-POST counter).
+
+CLI: 49 → 53 tests (+4 covering `--with-platform`).
+Catalog: 164 → 165 tests (+1 covering 409 on duplicate).
+**Total: 718/718 passing across all four suites.**
+
+### Architecture decisions
+
+- [ADR-031 — provideAgenticPlatform single config point](../../docs/adr/0031-provide-agentic-platform.md)
+- [ADR-032 — Catalog capability registrar](../../docs/adr/0032-catalog-capability-registrar.md)
+- [ADR-033 — Catalog capability authorizer](../../docs/adr/0033-catalog-capability-authorizer.md)
+- [ADR-034 — Catalog usage metering](../../docs/adr/0034-catalog-usage-metering.md)
+
+### Compatibility
+
+- No breaking changes. All four providers are opt-in; consumer
+  apps that don't call `provideAgenticPlatform` (or call it
+  without the new feature switches) see zero behaviour change.
+- `provideCatalogUsageMetering` does replace `AGENTIC_TELEMETRY_SINK`
+  when wired, but the new `delegate` field exists exactly to
+  preserve the host's existing sink — migration is "move your
+  sink into `delegate`."
+- New public API surface: `RegistryBase.currentScopePolicy()` —
+  thin getter, no behavioural change.
+
+### eDiscovery flagship updates
+
+- **Reference platform integration shipped.** The eDiscovery shell
+  ([`examples/demo-ediscovery-shell`](../../examples/demo-ediscovery-shell/))
+  now wires `provideAgenticPlatform` conditionally: local dev
+  (`environment.catalogUrl: undefined`) stays fully embedded with
+  zero catalog round trips, the Render prod build
+  (`https://agentic-catalog-server.onrender.com`) self-registers
+  its tool / widget surface at boot and honours
+  `lifecycle: 'disabled'` operator toggles within ~30s. Closes
+  the [ADR-025](../../docs/adr/0025-ediscovery-demo-seed.md)
+  drift surface flagged as Gap 1 in the
+  [2026-05-10 platform audit](../../docs/audit/2026-05-10-platform-audit.md).
+- **Initializer ordering.** `bootAgenticCapabilities()` and
+  `installPersonaScopePolicy()` moved from `provideAppInitializer`
+  to `provideEnvironmentInitializer` so the registrar's environment
+  initializer sees the populated registries and the authorizer's
+  policy composes onto the persona policy (not vice-versa). Pure
+  refactor — no behavioural change for consumers. See ADR-025's
+  2026-05-10 update.
+- **`personaResolver`, `mfeRegistry`, `usageMetering` deliberately
+  not yet enabled** for the eDiscovery shell — the persona dropdown
+  is a UI demo concern, the static-JSON MFE registry is a separate
+  migration, and the existing console / OTel telemetry sink is
+  preserved. Each is straightforward to opt into when needed.
 
 ## [1.2.0] — 2026-05-07
 
