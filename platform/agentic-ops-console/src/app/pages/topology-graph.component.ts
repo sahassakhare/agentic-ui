@@ -168,8 +168,16 @@ interface NodeMeta {
     .shape-component::before { content: '⬡'; color: var(--fg-muted); margin-right: 0.25rem; }
     .shape-form::before { content: '◆'; color: var(--fg-muted); margin-right: 0.25rem; }
 
-    .graph-container { display: grid; grid-template-columns: 1fr auto; gap: 1rem; min-height: 600px; }
-    .cy-host { width: 100%; min-height: 600px; background: var(--bg-elev); border-radius: 0.5rem; }
+    .graph-container {
+      display: grid; grid-template-columns: 1fr auto; gap: 1rem;
+      /* Big canvas — force-directed layouts need real estate. */
+      min-height: calc(100vh - 280px);
+    }
+    .cy-host {
+      width: 100%;
+      min-height: calc(100vh - 280px);
+      background: var(--bg-elev); border-radius: 0.5rem;
+    }
 
     .side-panel {
       width: 320px; max-width: 90vw;
@@ -270,21 +278,32 @@ export class TopologyGraphComponent implements AfterViewInit {
         style: {
           'background-color': 'data(color)',
           'shape': 'data(shape)',
-          'label': 'data(label)',
-          'text-valign': 'bottom',
-          'text-margin-y': 4,
-          'color': '#e6edf3',
-          'font-size': 9,
-          'text-wrap': 'wrap',
-          'text-max-width': '90px',
-          'width': 16, 'height': 16,
+          // Labels only render at sufficient zoom; below that, the
+          // graph shows just dots and the operator zooms into a
+          // section to read names. Same UX as OpenShift / Argo CD's
+          // topology pages with 100+ entities.
+          'label': '',
+          'width': 22, 'height': 22,
           'border-width': 1, 'border-color': '#1f2937',
         },
       },
       {
-        // Highlight selected node + dim non-neighbours.
-        selector: 'node[kind = "capability"]:selected',
-        style: { 'border-width': 2, 'border-color': '#58a6ff', 'font-size': 11 },
+        // Hover/selected state: full label + bigger node.
+        selector: 'node[kind = "capability"]:active, node[kind = "capability"]:selected',
+        style: {
+          'label': 'data(label)',
+          'text-valign': 'bottom',
+          'text-margin-y': 6,
+          'color': '#e6edf3',
+          'font-size': 11,
+          'text-background-color': '#0e1116',
+          'text-background-opacity': 0.95,
+          'text-background-padding': '4px',
+          'text-background-shape': 'roundrectangle',
+          'border-width': 2, 'border-color': '#58a6ff',
+          'width': 26, 'height': 26,
+          'z-index': 999,
+        },
       },
       {
         selector: 'node[kind = "group"]',
@@ -351,6 +370,32 @@ export class TopologyGraphComponent implements AfterViewInit {
     });
 
     this.cy.on('tap', 'node', (e: EventObject) => this.onNodeTap(e));
+    // Hover-to-reveal label: cytoscape doesn't fire :hover via CSS
+    // pseudo-class, so toggle a class on the node and let stylesheet
+    // handle the visual.
+    this.cy.on('mouseover', 'node[kind = "capability"]', (e: EventObject) => {
+      e.target.addClass('hovered');
+    });
+    this.cy.on('mouseout', 'node[kind = "capability"]', (e: EventObject) => {
+      e.target.removeClass('hovered');
+    });
+    // Add stylesheet for the hover class — same surface as :selected.
+    this.cy.style()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .selector('node[kind = "capability"].hovered' as any)
+      .style({
+        'label': 'data(label)',
+        'text-valign': 'bottom',
+        'text-margin-y': 6,
+        'color': '#e6edf3',
+        'font-size': 11,
+        'text-background-color': '#0e1116',
+        'text-background-opacity': 0.95,
+        'text-background-padding': '4px',
+        'text-background-shape': 'roundrectangle',
+        'z-index': 998,
+      } as never)
+      .update();
     this.runLayout();
   }
 
@@ -380,15 +425,18 @@ export class TopologyGraphComponent implements AfterViewInit {
       // — bumped repulsion + edge length so labels don't overlap;
       // tile:true packs compound children into a grid (less sparse
       // than pure force-directed at this density).
-      idealEdgeLength: 140,
-      nodeRepulsion: 12_000,
-      gravity: 0.15,
-      gravityRangeCompound: 2.0,
-      nestingFactor: 0.4,
-      tile: true,
-      tilingPaddingVertical: 18,
-      tilingPaddingHorizontal: 18,
-      randomize: false,
+      idealEdgeLength: 200,
+      nodeRepulsion: 50_000,
+      gravity: 0.05,
+      gravityRangeCompound: 3.0,
+      nestingFactor: 1.2,
+      // tile:false lets compound children spread freely under
+      // force-directed pressure — produces bigger compound boxes
+      // that push each other apart instead of tile-packed islands
+      // that overlap.
+      tile: false,
+      randomize: true,
+      numIter: 2500,
       // suppress @typescript-eslint via cast — extension options aren't typed.
     } as Parameters<Core['layout']>[0]);
     layout.run();
