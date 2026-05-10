@@ -49,15 +49,18 @@ export function auditRoutes(pool: CatalogPool): Hono {
     const rows = await withTenantScope(pool, principal, (client) =>
       listRecentAuditRows(client, principal.tenantId, limit),
     );
-    // Mirrors the SSE CatalogMutationEvent shape so the activity
-    // feed can prepend without translating fields. `diff` is
-    // collapsed to a small `summary` on the client side.
+    // Mirrors the SSE CatalogMutationEvent shape with extra
+    // audit-log fields (actor, requestId, chainPosition) so the
+    // activity feed can render rich rows without a second fetch.
     const items = rows.map((r) => ({
       tenantId: r.tenantId,
       entityType: r.entityType,
       operation: r.operation,
       entityId: r.entityId,
       occurredAt: r.occurredAt,
+      actor: r.actor,
+      requestId: r.requestId,
+      chainPosition: r.chainPosition,
       summary: r.diff ?? undefined,
     }));
     return c.json({ items });

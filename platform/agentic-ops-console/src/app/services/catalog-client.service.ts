@@ -106,8 +106,11 @@ export interface AuditVerifyResult {
 
 /**
  * Shape of `GET /audit/recent` rows. Mirrors the SSE
- * CatalogMutationEvent so the activity feed can prepend without
- * translating fields. `summary` is the audit row's `diff` JSONB.
+ * CatalogMutationEvent shape plus the audit-log extras
+ * (actor, requestId, chainPosition) so the activity feed can
+ * render rich rows. `summary` is the audit row's `diff` JSONB
+ * — `{after}` for create/restore, `{before, after}` for update,
+ * `{before}` for delete.
  */
 export interface AuditRecentEntry {
   readonly tenantId: string;
@@ -115,6 +118,9 @@ export interface AuditRecentEntry {
   readonly operation: 'create' | 'update' | 'delete' | 'restore';
   readonly entityId: string;
   readonly occurredAt: string;
+  readonly actor: string;
+  readonly requestId: string | null;
+  readonly chainPosition: number | null;
   readonly summary?: Record<string, unknown>;
 }
 

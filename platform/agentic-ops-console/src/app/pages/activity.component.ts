@@ -5,18 +5,32 @@ import {
   CatalogStreamService,
   type CatalogMutationEvent,
 } from '../services/catalog-stream.service';
-import { CatalogClientService } from '../services/catalog-client.service';
+import {
+  CatalogClientService,
+  type AuditRecentEntry,
+} from '../services/catalog-client.service';
 import { AuthService } from '../services/auth.service';
 
 const MAX_EVENTS = 200;
 
-type EntityFilter = 'all' | CatalogMutationEvent['entityType'];
+type EntityFilter = 'all' | string;
 type OperationFilter = 'all' | CatalogMutationEvent['operation'];
 
 interface FeedEntry {
   readonly id: string;
   readonly receivedAt: number;
+  /** Raw event from SSE (small) OR audit row (richer). Audit rows
+   *  carry actor + requestId + chainPosition; SSE events do not. */
   readonly event: CatalogMutationEvent;
+  readonly actor: string | null;
+  readonly requestId: string | null;
+  readonly chainPosition: number | null;
+}
+
+interface DayBucket {
+  readonly dateKey: string;
+  readonly dateLabel: string;
+  readonly entries: readonly FeedEntry[];
 }
 
 @Component({
@@ -32,26 +46,29 @@ interface FeedEntry {
       }
     </div>
     <p class="dim">
-      Real-time feed of catalog mutations on this tenant. Each
-      mutation lands here within 100ms via the SSE stream
+      Audit-chain backed feed of catalog mutations on this tenant.
+      Past entries are loaded from the immutable audit log; live
+      mutations land within 100ms via the SSE stream
       ({{ streamState() }}). The buffer holds the most recent
-      {{ maxEvents }} events; older entries fall off the bottom.
+      {{ maxEvents }} events.
     </p>
 
     <div class="filters">
       <label class="dim small">Entity</label>
-      <select [(ngModel)]="entityFilter" class="filter-select">
+      <select [ngModel]="entityFilter()" (ngModelChange)="entityFilter.set($event)" class="filter-select">
         <option value="all">All</option>
         <option value="capability">Capability</option>
         <option value="mfe">MFE remote</option>
         <option value="role_mapping">Role mapping</option>
         <option value="tenant">Tenant</option>
+        <option value="agent">Agent</option>
+        <option value="policy_bundle">Policy bundle</option>
         <option value="usage">Usage</option>
         <option value="audit">Audit</option>
       </select>
 
       <label class="dim small">Operation</label>
-      <select [(ngModel)]="operationFilter" class="filter-select">
+      <select [ngModel]="operationFilter()" (ngModelChange)="operationFilter.set($event)" class="filter-select">
         <option value="all">All</option>
         <option value="create">Create</option>
         <option value="update">Update</option>
@@ -59,11 +76,18 @@ interface FeedEntry {
         <option value="restore">Restore</option>
       </select>
 
+      <label class="dim small">Sort</label>
+      <select [ngModel]="sortDir()" (ngModelChange)="sortDir.set($event)" class="filter-select">
+        <option value="desc">Newest first</option>
+        <option value="asc">Oldest first</option>
+      </select>
+
+      <button class="btn small" type="button" (click)="reload()">⟳ Reload</button>
       <button class="btn small" type="button" (click)="clear()">Clear</button>
-      <span class="dim small spacer">{{ visible().length }} / {{ buffer().length }} shown</span>
+      <span class="dim small spacer">{{ visibleCount() }} / {{ buffer().length }} shown</span>
     </div>
 
-    @if (visible().length === 0) {
+    @if (visibleCount() === 0) {
       <div class="empty">
         @if (buffer().length === 0) {
           @if (loadingBacklog()) {
@@ -71,39 +95,75 @@ interface FeedEntry {
           } @else if (backlogError()) {
             Backlog unavailable — {{ backlogError() }}. Live SSE events will still appear here as mutations happen.
           } @else {
-            No mutations recorded yet. Try registering a capability or onboarding a tenant from another browser tab.
+            No mutations recorded yet for this tenant.
           }
         } @else {
           No events match the current filter.
         }
       </div>
     } @else {
-      <ul class="feed">
-        @for (entry of visible(); track entry.id) {
-          <li class="entry">
-            <div class="dot" [class]="dotClass(entry.event)"></div>
-            <div class="body">
-              <div class="line1">
-                <span class="badge" [class.good]="entry.event.operation === 'create'" [class.warn]="entry.event.operation === 'update'" [class.bad]="entry.event.operation === 'delete'">
-                  {{ entry.event.operation }}
-                </span>
-                <span class="entity-type">{{ entry.event.entityType }}</span>
-                <span class="entity-id mono">{{ entry.event.entityId }}</span>
-              </div>
-              @if (entry.event.summary && summaryEntries(entry.event.summary).length > 0) {
-                <div class="line2 mono small">
-                  @for (s of summaryEntries(entry.event.summary); track s.k) {
-                    <span class="kv">{{ s.k }}=<span class="kv-v">{{ s.v }}</span></span>
+      @for (bucket of grouped(); track bucket.dateKey) {
+        <h3 class="day-header">
+          <span>{{ bucket.dateLabel }}</span>
+          <span class="dim small">{{ bucket.entries.length }} events</span>
+        </h3>
+        <ul class="feed">
+          @for (entry of bucket.entries; track entry.id) {
+            <li class="entry" [class.op-create]="entry.event.operation === 'create'"
+                              [class.op-update]="entry.event.operation === 'update'"
+                              [class.op-delete]="entry.event.operation === 'delete'"
+                              [class.op-restore]="entry.event.operation === 'restore'">
+              <div class="rail"></div>
+              <div class="body">
+                <div class="line1">
+                  <span class="op-badge">{{ entry.event.operation }}</span>
+                  <span class="entity-type">{{ entityLabel(entry.event.entityType) }}</span>
+                  <span class="title">{{ describeEntry(entry) }}</span>
+                </div>
+                <div class="line2">
+                  <span class="meta-item" title="Actor">
+                    <span class="meta-icon">●</span>
+                    {{ entry.actor ?? 'unknown' }}
+                  </span>
+                  <span class="meta-item mono" title="Entity id">
+                    {{ shortId(entry.event.entityId) }}
+                  </span>
+                  @if (entry.chainPosition != null) {
+                    <span class="meta-item mono dim" title="Audit chain position">
+                      #{{ entry.chainPosition }}
+                    </span>
+                  }
+                  @if (entry.requestId) {
+                    <span class="meta-item mono dim" title="Request id">
+                      req {{ shortId(entry.requestId) }}
+                    </span>
                   }
                 </div>
-              }
-            </div>
-            <div class="time dim small">
-              {{ entry.event.occurredAt | date: 'HH:mm:ss.SSS' }}
-            </div>
-          </li>
-        }
-      </ul>
+                @if (changedFields(entry).length > 0) {
+                  <div class="line3">
+                    @for (f of changedFields(entry); track f.field) {
+                      <span class="diff-chip">
+                        <span class="diff-field">{{ f.field }}</span>
+                        @if (entry.event.operation === 'update') {
+                          <span class="diff-before">{{ f.before }}</span>
+                          <span class="diff-arrow">→</span>
+                          <span class="diff-after">{{ f.after }}</span>
+                        } @else {
+                          <span class="diff-after">{{ f.after }}</span>
+                        }
+                      </span>
+                    }
+                  </div>
+                }
+              </div>
+              <div class="time-block">
+                <div class="time-abs">{{ entry.event.occurredAt | date: 'HH:mm:ss' }}</div>
+                <div class="time-rel dim small">{{ relativeTime(entry.event.occurredAt) }}</div>
+              </div>
+            </li>
+          }
+        </ul>
+      }
     }
   `,
   styles: [`
@@ -113,6 +173,7 @@ interface FeedEntry {
       padding: 12px; border: 1px solid var(--border); border-radius: 8px;
       margin: 16px 0;
       background: var(--bg-elev);
+      flex-wrap: wrap;
     }
     .filter-select {
       background: var(--bg);
@@ -135,35 +196,92 @@ interface FeedEntry {
       100% { box-shadow: 0 0 0 0 rgba(63, 185, 80, 0); }
     }
 
+    .day-header {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin: 24px 0 8px 0;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--fg-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .day-header:first-child { margin-top: 0; }
+
     .feed { list-style: none; padding: 0; margin: 0; }
     .entry {
       display: grid;
-      grid-template-columns: 16px 1fr auto;
+      grid-template-columns: 4px 1fr auto;
       gap: 12px;
-      align-items: start;
-      padding: 10px 0;
+      align-items: stretch;
+      padding: 10px 12px;
       border-bottom: 1px solid var(--border);
+      transition: background 120ms;
     }
-    .dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
+    .entry:hover { background: var(--bg-elev); }
+
+    .rail {
+      border-radius: 2px;
       background: var(--fg-muted);
-      margin-top: 6px;
     }
-    .dot.create { background: var(--good); }
-    .dot.update { background: var(--warn); }
-    .dot.delete { background: var(--bad); }
+    .entry.op-create  .rail { background: var(--good); }
+    .entry.op-update  .rail { background: var(--warn); }
+    .entry.op-delete  .rail { background: var(--bad); }
+    .entry.op-restore .rail { background: var(--accent); }
+
     .body { min-width: 0; }
-    .line1 { display: flex; align-items: center; gap: 8px; }
-    .entity-type { color: var(--fg-muted); }
-    .entity-id { color: var(--fg); }
+    .line1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .op-badge {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--bg-elev-2);
+      color: var(--fg);
+    }
+    .op-create  .op-badge { background: rgba(63,185,80,0.18);  color: var(--good); }
+    .op-update  .op-badge { background: rgba(210,153,34,0.18); color: var(--warn); }
+    .op-delete  .op-badge { background: rgba(248,81,73,0.18);  color: var(--bad); }
+    .op-restore .op-badge { background: rgba(88,166,255,0.18); color: var(--accent); }
+
+    .entity-type {
+      font-size: 12px;
+      color: var(--fg-muted);
+      text-transform: lowercase;
+    }
+    .title { font-weight: 500; color: var(--fg); }
+
     .line2 {
       margin-top: 4px;
-      display: flex; flex-wrap: wrap; gap: 8px;
+      display: flex; flex-wrap: wrap; gap: 12px;
+      font-size: 12px;
+      color: var(--fg-muted);
     }
-    .kv { background: var(--bg-elev); border-radius: 4px; padding: 1px 6px; }
-    .kv-v { color: var(--fg); }
-    .time { white-space: nowrap; }
+    .meta-item { display: inline-flex; align-items: center; gap: 4px; }
+    .meta-icon { font-size: 8px; opacity: 0.6; }
+    .mono { font-family: var(--mono); font-size: 11.5px; }
+
+    .line3 { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .diff-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--bg-elev-2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 11px;
+    }
+    .diff-field { color: var(--fg-muted); font-family: var(--mono); }
+    .diff-before { color: var(--bad); text-decoration: line-through; opacity: 0.85; max-width: 14ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .diff-arrow { color: var(--fg-muted); }
+    .diff-after { color: var(--good); max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .time-block { text-align: right; white-space: nowrap; }
+    .time-abs { font-size: 12px; font-family: var(--mono); color: var(--fg); }
+    .time-rel { font-size: 11px; }
     .btn.small { padding: 3px 8px; font-size: 11px; }
   `],
 })
@@ -181,27 +299,54 @@ export class ActivityComponent {
 
   private lastBacklogTenant: string | null = null;
 
-  entityFilter: EntityFilter = 'all';
-  operationFilter: OperationFilter = 'all';
+  /** Filters are signals so the `visible` computed reacts to them
+   *  (and the [(ngModel)] two-way binding keeps the template in sync
+   *  via the `entityFilter()` / `entityFilter.set(...)` accessor). */
+  readonly entityFilter = signal<EntityFilter>('all');
+  readonly operationFilter = signal<OperationFilter>('all');
+  readonly sortDir = signal<'asc' | 'desc'>('desc');
 
   readonly visible = computed(() => {
     const ents = this.buffer();
-    const e = this.entityFilter;
-    const o = this.operationFilter;
-    if (e === 'all' && o === 'all') return ents;
-    return ents.filter((entry) =>
-      (e === 'all' || entry.event.entityType === e) &&
-      (o === 'all' || entry.event.operation === o),
-    );
+    const e = this.entityFilter();
+    const o = this.operationFilter();
+    const filtered = (e === 'all' && o === 'all')
+      ? ents
+      : ents.filter((entry) =>
+          (e === 'all' || entry.event.entityType === e) &&
+          (o === 'all' || entry.event.operation === o),
+        );
+    if (this.sortDir() === 'asc') {
+      return [...filtered].reverse();
+    }
+    return filtered;
+  });
+
+  readonly visibleCount = computed(() => this.visible().length);
+
+  readonly grouped = computed<readonly DayBucket[]>(() => {
+    const buckets = new Map<string, FeedEntry[]>();
+    const labels = new Map<string, string>();
+    for (const entry of this.visible()) {
+      const date = new Date(entry.event.occurredAt);
+      if (Number.isNaN(date.getTime())) continue;
+      const key = date.toISOString().slice(0, 10); // YYYY-MM-DD
+      if (!buckets.has(key)) {
+        buckets.set(key, []);
+        labels.set(key, formatDayLabel(date));
+      }
+      buckets.get(key)!.push(entry);
+    }
+    return Array.from(buckets.entries()).map(([dateKey, entries]) => ({
+      dateKey,
+      dateLabel: labels.get(dateKey) ?? dateKey,
+      entries,
+    }));
   });
 
   constructor() {
-    // Live stream — every mutation prepends to the buffer.
     this.stream.onMutation((event) => this.append(event));
 
-    // Backfill from the audit chain whenever the active tenant
-    // changes. Without this, the page only shows events that
-    // happened *while open* — past mutations look invisible.
     effect(() => {
       const principal = this.auth.principal();
       const tenantId = principal?.tenantId ?? null;
@@ -216,27 +361,14 @@ export class ActivityComponent {
     this.backlogError.set(null);
     this.catalog.recentAudit(MAX_EVENTS).subscribe({
       next: (resp) => {
-        // Server returns newest-first already. Seed only entries
-        // not already present (in case a live SSE event raced us).
         const seen = new Set(this.buffer().map((e) => e.id));
         const seeded: FeedEntry[] = [];
         for (const raw of resp.items) {
-          // /audit/recent returns the audit row's entity_type as a
-          // free-form string (it may include rows for entity types
-          // older than the SSE union). Coerce to CatalogMutationEvent
-          // by widening the type — display code tolerates unknown
-          // entity types.
-          const event = raw as unknown as CatalogMutationEvent;
-          const entry: FeedEntry = {
-            id: this.makeId(event),
-            receivedAt: Date.parse(event.occurredAt) || Date.now(),
-            event,
-          };
+          const entry = this.fromAuditRow(raw);
           if (seen.has(entry.id)) continue;
           seen.add(entry.id);
           seeded.push(entry);
         }
-        // Live events sit at the top; backlog appends below.
         const merged = [...this.buffer(), ...seeded];
         if (merged.length > MAX_EVENTS) merged.length = MAX_EVENTS;
         this.buffer.set(merged);
@@ -244,8 +376,6 @@ export class ActivityComponent {
       },
       error: (err: { status?: number; message?: string }) => {
         this.loadingBacklog.set(false);
-        // 404 from older catalogs that don't have /audit/recent yet —
-        // surface a soft message; the live feed still works.
         const msg = err?.status === 404
           ? 'this catalog is older than /audit/recent (deploy needs refresh)'
           : err?.message ?? 'request failed';
@@ -254,36 +384,189 @@ export class ActivityComponent {
     });
   }
 
+  reload(): void {
+    this.lastBacklogTenant = null;
+    this.buffer.set([]);
+    const principal = this.auth.principal();
+    if (principal?.tenantId) {
+      this.lastBacklogTenant = principal.tenantId;
+      this.loadBacklog();
+    }
+  }
+
   private append(event: CatalogMutationEvent): void {
     const entry: FeedEntry = {
       id: this.makeId(event),
       receivedAt: Date.now(),
       event,
+      actor: null,
+      requestId: null,
+      chainPosition: null,
     };
-    // Dedup against backlog rows (same id from /audit/recent).
     if (this.buffer().some((e) => e.id === entry.id)) return;
     const next = [entry, ...this.buffer()];
     if (next.length > MAX_EVENTS) next.length = MAX_EVENTS;
     this.buffer.set(next);
   }
 
+  private fromAuditRow(raw: AuditRecentEntry): FeedEntry {
+    const event = raw as unknown as CatalogMutationEvent;
+    return {
+      id: this.makeId(event),
+      receivedAt: Date.parse(event.occurredAt) || Date.now(),
+      event,
+      actor: raw.actor ?? null,
+      requestId: raw.requestId ?? null,
+      chainPosition: raw.chainPosition ?? null,
+    };
+  }
+
   private makeId(event: CatalogMutationEvent): string {
-    // Composite id: occurredAt + entityId + operation should be
-    // unique within the buffer window. Avoids extra UUID dep.
     return `${event.occurredAt}-${event.entityId}-${event.operation}`;
   }
 
-  dotClass(event: CatalogMutationEvent): string {
-    return event.operation;
+  /**
+   * Human-readable headline for the entry. Pulls `name`/`kind` from
+   * the audit row's diff so the operator sees "place-hold-custodians"
+   * instead of a UUID. Falls back gracefully when the diff shape is
+   * missing or unfamiliar.
+   */
+  describeEntry(entry: FeedEntry): string {
+    const obj = pickEntityObject(entry.event.summary);
+    if (obj) {
+      const name = stringField(obj, 'name');
+      const kind = stringField(obj, 'kind');
+      if (name && kind) return `${name} (${kind})`;
+      if (name) return name;
+    }
+    return entry.event.entityId;
   }
 
-  summaryEntries(summary: Readonly<Record<string, unknown>>): { k: string; v: string }[] {
-    return Object.entries(summary)
-      .filter(([, v]) => v != null)
-      .map(([k, v]) => ({ k, v: String(v) }));
+  /**
+   * Field-level changes shown as diff chips. For `update` ops, list
+   * fields whose `before`/`after` differ. For other ops, surface the
+   * top scalar fields of the after-object (name, kind, lifecycle,
+   * status) so the operator gets context without a click-through.
+   */
+  changedFields(entry: FeedEntry): { field: string; before: string; after: string }[] {
+    const summary = entry.event.summary;
+    if (!summary) return [];
+    const before = summary['before'] as Record<string, unknown> | undefined;
+    const after = summary['after'] as Record<string, unknown> | undefined;
+
+    if (entry.event.operation === 'update' && before && after) {
+      const out: { field: string; before: string; after: string }[] = [];
+      const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+      for (const k of keys) {
+        if (HIDDEN_DIFF_KEYS.has(k)) continue;
+        const b = scalarize(before[k]);
+        const a = scalarize(after[k]);
+        if (b === a) continue;
+        out.push({ field: k, before: b, after: a });
+        if (out.length >= 5) break;
+      }
+      return out;
+    }
+
+    // Non-update — show salient fields from the surviving object.
+    const obj = after ?? before;
+    if (!obj) return [];
+    const out: { field: string; before: string; after: string }[] = [];
+    for (const k of SALIENT_FIELDS) {
+      const v = scalarize(obj[k]);
+      if (v && v !== '—') out.push({ field: k, before: '', after: v });
+      if (out.length >= 4) break;
+    }
+    return out;
+  }
+
+  entityLabel(entityType: string): string {
+    return ENTITY_LABELS[entityType] ?? entityType;
+  }
+
+  shortId(id: string): string {
+    if (id.length <= 12) return id;
+    return id.slice(0, 8) + '…';
+  }
+
+  relativeTime(iso: string): string {
+    const t = Date.parse(iso);
+    if (Number.isNaN(t)) return '';
+    const ms = Date.now() - t;
+    const s = Math.round(ms / 1000);
+    if (s < 60) return `${s}s ago`;
+    const m = Math.round(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.round(m / 60);
+    if (h < 24) return `${h}h ago`;
+    const d = Math.round(h / 24);
+    return `${d}d ago`;
   }
 
   clear(): void {
     this.buffer.set([]);
   }
+}
+
+const HIDDEN_DIFF_KEYS = new Set([
+  'id', 'tenantId', 'createdAt', 'updatedAt', 'createdBy',
+  'softDeletedAt', 'registeredAt', 'registeredBy', 'lastHealthAt',
+]);
+
+const SALIENT_FIELDS = ['name', 'kind', 'lifecycle', 'status', 'manifestUrl', 'owner'];
+
+const ENTITY_LABELS: Record<string, string> = {
+  capability: 'capability',
+  mfe: 'MFE remote',
+  role_mapping: 'role mapping',
+  tenant: 'tenant',
+  agent: 'agent',
+  policy_bundle: 'policy bundle',
+  usage: 'usage',
+  audit: 'audit',
+};
+
+function pickEntityObject(summary: Record<string, unknown> | undefined): Record<string, unknown> | null {
+  if (!summary) return null;
+  const after = summary['after'];
+  if (after && typeof after === 'object' && !Array.isArray(after)) {
+    return after as Record<string, unknown>;
+  }
+  const before = summary['before'];
+  if (before && typeof before === 'object' && !Array.isArray(before)) {
+    return before as Record<string, unknown>;
+  }
+  return null;
+}
+
+function stringField(obj: Record<string, unknown>, key: string): string | null {
+  const v = obj[key];
+  return typeof v === 'string' && v.length > 0 ? v : null;
+}
+
+function scalarize(v: unknown): string {
+  if (v == null) return '—';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (Array.isArray(v)) return v.length === 0 ? '[]' : `[${v.length}]`;
+  if (typeof v === 'object') return '{…}';
+  return String(v);
+}
+
+function formatDayLabel(date: Date): string {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+  if (sameDay(date, today)) return 'Today';
+  if (sameDay(date, yesterday)) return 'Yesterday';
+  return date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }

@@ -79,16 +79,53 @@ interface NodeMeta {
       <p class="dim">Loading…</p>
     }
 
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-num">{{ counts().total }}</div>
+        <div class="stat-label">capabilities</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num good">{{ counts().published }}</div>
+        <div class="stat-label">published</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num warn">{{ counts().draft }}</div>
+        <div class="stat-label">draft</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num dim">{{ counts().deprecated }}</div>
+        <div class="stat-label">deprecated</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num bad">{{ counts().disabled }}</div>
+        <div class="stat-label">disabled</div>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat">
+        <div class="stat-num">{{ counts().mfes }}</div>
+        <div class="stat-label">MFE remotes</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">{{ counts().groups }}</div>
+        <div class="stat-label">groups</div>
+      </div>
+    </div>
+
     <div class="legend">
-      <span class="legend-title">Legend:</span>
+      <span class="legend-title">Lifecycle</span>
       <span class="legend-item"><span class="dot lifecycle-published"></span>published</span>
       <span class="legend-item"><span class="dot lifecycle-draft"></span>draft</span>
       <span class="legend-item"><span class="dot lifecycle-deprecated"></span>deprecated</span>
       <span class="legend-item"><span class="dot lifecycle-disabled"></span>disabled</span>
       <span class="legend-sep">·</span>
+      <span class="legend-title">Kind</span>
       <span class="legend-item shape-tool">tool</span>
       <span class="legend-item shape-component">component</span>
       <span class="legend-item shape-form">form</span>
+      <span class="legend-item shape-action">action</span>
+      <span class="legend-item shape-datasource">datasource</span>
+      <span class="legend-sep">·</span>
+      <span class="legend-hint dim">click a node for details · scroll to zoom · drag to pan</span>
     </div>
 
     <div class="graph-container">
@@ -156,17 +193,38 @@ interface NodeMeta {
     .filters label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
     .view-toggle { font-size: 0.875rem; }
 
-    .legend {
-      display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;
-      padding: 0.375rem 0.75rem; background: rgba(255,255,255,0.04);
-      border-radius: 0.375rem; margin-bottom: 0.5rem; font-size: 0.8125rem;
+    .stats {
+      display: flex; align-items: center; gap: 1.5rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
     }
-    .legend-title { color: var(--fg-muted); font-weight: 500; }
-    .legend-item { display: inline-flex; align-items: center; gap: 0.25rem; }
-    .legend-sep { color: var(--fg-muted); }
-    .shape-tool::before { content: '●'; color: var(--fg-muted); margin-right: 0.25rem; }
-    .shape-component::before { content: '⬡'; color: var(--fg-muted); margin-right: 0.25rem; }
-    .shape-form::before { content: '◆'; color: var(--fg-muted); margin-right: 0.25rem; }
+    .stat { display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
+    .stat-num { font-size: 22px; font-weight: 700; color: var(--fg); }
+    .stat-num.good { color: var(--good); }
+    .stat-num.warn { color: var(--warn); }
+    .stat-num.bad  { color: var(--bad); }
+    .stat-num.dim  { color: var(--fg-muted); }
+    .stat-label { font-size: 11px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+    .stat-sep { width: 1px; height: 32px; background: var(--border); }
+
+    .legend {
+      display: flex; gap: 0.625rem; align-items: center; flex-wrap: wrap;
+      padding: 0.5rem 0.875rem; background: rgba(255,255,255,0.03);
+      border-radius: 0.375rem; margin-bottom: 0.625rem; font-size: 0.8125rem;
+    }
+    .legend-title { color: var(--fg-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.6875rem; }
+    .legend-item { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--fg); }
+    .legend-sep { color: var(--border); }
+    .legend-hint { font-size: 0.75rem; }
+    .shape-tool::before       { content: '●'; color: var(--fg-muted); margin-right: 0.25rem; }
+    .shape-component::before  { content: '⬡'; color: var(--fg-muted); margin-right: 0.25rem; }
+    .shape-form::before       { content: '◆'; color: var(--fg-muted); margin-right: 0.25rem; }
+    .shape-action::before     { content: '▭'; color: var(--fg-muted); margin-right: 0.25rem; }
+    .shape-datasource::before { content: '⬢'; color: var(--fg-muted); margin-right: 0.25rem; }
 
     .graph-container {
       display: grid; grid-template-columns: 1fr auto; gap: 1rem;
@@ -233,6 +291,23 @@ export class TopologyGraphComponent implements AfterViewInit {
   protected readonly lifecycleFilter = signal<LifecycleFilter>('all');
   protected readonly selected = signal<NodeMeta | null>(null);
 
+  /** Header stats summary — small computed so the template is dumb. */
+  protected readonly counts = computed(() => {
+    const caps = this.capabilities();
+    const mfes = this.mfes();
+    const acc = { total: caps.length, published: 0, draft: 0, deprecated: 0, disabled: 0,
+                  mfes: mfes.length, groups: 0 };
+    for (const c of caps) acc[c.lifecycle] = (acc[c.lifecycle] ?? 0) + 1;
+    // Groups = host-direct (always) + one per registered MFE + orphans.
+    const orphanSources = new Set<string>();
+    for (const c of caps) {
+      const src = typeof c.body['source'] === 'string' ? c.body['source'] : 'host';
+      if (src !== 'host' && !mfes.some((m) => m.name === src)) orphanSources.add(src);
+    }
+    acc.groups = 1 + mfes.length + orphanSources.size;
+    return acc;
+  });
+
   /**
    * The set of cytoscape elements (nodes + edges) computed from
    * the current capabilities/MFEs/filter state. We keep this as a
@@ -278,29 +353,32 @@ export class TopologyGraphComponent implements AfterViewInit {
         style: {
           'background-color': 'data(color)',
           'shape': 'data(shape)',
-          // Labels only render at sufficient zoom; below that, the
-          // graph shows just dots and the operator zooms into a
-          // section to read names. Same UX as OpenShift / Argo CD's
-          // topology pages with 100+ entities.
-          'label': '',
-          'width': 22, 'height': 22,
-          'border-width': 1, 'border-color': '#1f2937',
+          // Always-on label so the topology is legible at default
+          // zoom — operators shouldn't have to hover every dot to
+          // figure out what's there. Truncated upstream so the
+          // string is short enough to not collide with neighbours.
+          'label': 'data(label)',
+          'text-valign': 'bottom',
+          'text-margin-y': 4,
+          'color': '#c9d1d9',
+          'font-size': 9,
+          'text-background-color': '#0e1116',
+          'text-background-opacity': 0.7,
+          'text-background-padding': '2px',
+          'text-background-shape': 'roundrectangle',
+          'width': 18, 'height': 18,
+          'border-width': 1.5, 'border-color': '#0e1116',
         },
       },
       {
-        // Hover/selected state: full label + bigger node.
+        // Hover/selected: emphasised, on top, full styling.
         selector: 'node[kind = "capability"]:active, node[kind = "capability"]:selected',
         style: {
-          'label': 'data(label)',
-          'text-valign': 'bottom',
-          'text-margin-y': 6,
-          'color': '#e6edf3',
-          'font-size': 11,
-          'text-background-color': '#0e1116',
-          'text-background-opacity': 0.95,
+          'color': '#ffffff',
+          'font-size': 12, 'font-weight': 600,
+          'text-background-opacity': 1,
           'text-background-padding': '4px',
-          'text-background-shape': 'roundrectangle',
-          'border-width': 2, 'border-color': '#58a6ff',
+          'border-width': 3, 'border-color': '#58a6ff',
           'width': 26, 'height': 26,
           'z-index': 999,
         },
@@ -380,29 +458,22 @@ export class TopologyGraphComponent implements AfterViewInit {
     });
 
     this.cy.on('tap', 'node', (e: EventObject) => this.onNodeTap(e));
-    // Hover-to-reveal label: cytoscape doesn't fire :hover via CSS
-    // pseudo-class, so toggle a class on the node and let stylesheet
-    // handle the visual.
+    // Promote on hover so dense areas remain readable.
     this.cy.on('mouseover', 'node[kind = "capability"]', (e: EventObject) => {
       e.target.addClass('hovered');
     });
     this.cy.on('mouseout', 'node[kind = "capability"]', (e: EventObject) => {
       e.target.removeClass('hovered');
     });
-    // Add stylesheet for the hover class — same surface as :selected.
     this.cy.style()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .selector('node[kind = "capability"].hovered' as any)
       .style({
-        'label': 'data(label)',
-        'text-valign': 'bottom',
-        'text-margin-y': 6,
-        'color': '#e6edf3',
-        'font-size': 11,
-        'text-background-color': '#0e1116',
-        'text-background-opacity': 0.95,
-        'text-background-padding': '4px',
-        'text-background-shape': 'roundrectangle',
+        'color': '#ffffff',
+        'font-size': 11, 'font-weight': 600,
+        'text-background-opacity': 1,
+        'border-width': 2, 'border-color': '#58a6ff',
+        'width': 22, 'height': 22,
         'z-index': 998,
       } as never)
       .update();
@@ -427,27 +498,27 @@ export class TopologyGraphComponent implements AfterViewInit {
     const layout = this.cy.layout({
       name: layoutName,
       animate: nodeCount < 100,
-      animationDuration: 400,
+      animationDuration: 500,
       fit: true,
-      padding: 32,
-      // cose-bilkent-specific options ignored by other layouts.
-      // Tuned for ediscovery-scale (50+ capabilities across 3-5 groups)
-      // — bumped repulsion + edge length so labels don't overlap;
-      // tile:true packs compound children into a grid (less sparse
-      // than pure force-directed at this density).
-      idealEdgeLength: 200,
-      nodeRepulsion: 50_000,
-      gravity: 0.05,
-      gravityRangeCompound: 3.0,
-      nestingFactor: 1.2,
-      // tile:false lets compound children spread freely under
-      // force-directed pressure — produces bigger compound boxes
-      // that push each other apart instead of tile-packed islands
-      // that overlap.
-      tile: false,
-      randomize: true,
+      padding: 48,
+      // Tuned for an enterprise topology look: orderly tile-packed
+      // children inside each compound (predictable rows of dots,
+      // not random force-directed sprays), generous repulsion +
+      // gravityRangeCompound so the compounds themselves spread
+      // apart enough to read every group's title and the always-on
+      // capability labels don't collide.
+      idealEdgeLength: 120,
+      nodeRepulsion: 30_000,
+      gravity: 0.15,
+      gravityRangeCompound: 2.5,
+      nestingFactor: 1.0,
+      // Tile children = grid-pack inside each compound. Padding
+      // keeps labels from butting up to the compound border.
+      tile: true,
+      tilingPaddingVertical: 28,
+      tilingPaddingHorizontal: 14,
+      randomize: false,
       numIter: 2500,
-      // suppress @typescript-eslint via cast — extension options aren't typed.
     } as Parameters<Core['layout']>[0]);
     layout.run();
   }
