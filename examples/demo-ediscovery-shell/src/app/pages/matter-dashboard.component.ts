@@ -92,6 +92,12 @@ import { EmptyStateComponent } from '../ui/empty-state.component';
             <td><a routerLink="/productions" class="link">→ /productions</a></td>
             <td><span class="muted">"show me the next production batch"</span></td>
           </tr>
+          <tr>
+            <th scope="row">Place hold + collect (multi-actor)</th>
+            <td><span class="muted">— wizard is page-only —</span></td>
+            <td><a routerLink="/workflows/place-hold-and-collect" class="link">→ /workflows/place-hold-and-collect</a></td>
+            <td><span class="muted">— wizard is page-only —</span></td>
+          </tr>
         </tbody>
       </table>
     </section>

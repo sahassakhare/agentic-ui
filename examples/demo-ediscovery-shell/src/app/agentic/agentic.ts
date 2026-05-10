@@ -45,6 +45,13 @@ import {
   PlaceHoldMatterSetupComponent,
   PlaceHoldPreviewComponent,
 } from './place-hold-steps.component';
+import {
+  ApprovalStepComponent,
+  CollectPreviewStepComponent,
+  CollectStepComponent,
+  CustodianSelectStepComponent,
+  MatterSetupStepComponent,
+} from './place-hold-collect-steps.component';
 
 /**
  * Phase 1 — collection-domain tools, widgets, and an intake form.
@@ -163,6 +170,32 @@ export const widgets: ComponentDef[] = [
   agenticWidget({
     name: 'place-hold-matter-setup',
     component: PlaceHoldMatterSetupComponent,
+    propsSchema: z.object({}),
+  }),
+  // ── R5 — placeLegalHoldAndCollect step widgets (multi-actor + HITL + LRO)
+  agenticWidget({
+    name: 'collect-step-matter-setup',
+    component: MatterSetupStepComponent,
+    propsSchema: z.object({}),
+  }),
+  agenticWidget({
+    name: 'collect-step-custodians',
+    component: CustodianSelectStepComponent,
+    propsSchema: z.object({}),
+  }),
+  agenticWidget({
+    name: 'collect-step-approval',
+    component: ApprovalStepComponent,
+    propsSchema: z.object({}),
+  }),
+  agenticWidget({
+    name: 'collect-step-collect',
+    component: CollectStepComponent,
+    propsSchema: z.object({}),
+  }),
+  agenticWidget({
+    name: 'collect-step-preview',
+    component: CollectPreviewStepComponent,
     propsSchema: z.object({}),
   }),
   // F3 workflow-card wrapper.
@@ -436,6 +469,81 @@ export function registerForms(env: EnvironmentInjector): void {
             custodianIds: validIds,
             scope,
             issuedAt: isoNow(),
+          });
+        });
+      },
+    }) as FormDef,
+  );
+
+  // ── R5 — placeLegalHoldAndCollect (multi-actor + HITL + LRO) ─────────────
+  //
+  // Five-step workflow that exercises three patterns the simpler
+  // `placeLegalHold` doesn't cover:
+  //   1. Persona gating — each step checks PersonaService.active()
+  //      and shows a "waiting on …" panel when the wrong persona is
+  //      seated. Operator switches via the header to advance.
+  //   2. HITL pause — step 3 (approval) is gated to senior-counsel.
+  //      Lead-counsel drafts; senior-counsel approves; lead-counsel
+  //      collects. Three persona switches across the flow.
+  //   3. Long-running step — step 4 simulates a 5s collection job
+  //      with progress bar + status messages.
+  //
+  // onComplete runs the same MatterStore.addLegalHold() the simpler
+  // workflow does — single source of truth for the audit chain.
+  env.get(FormRegistry).register(
+    agenticWorkflow({
+      name: 'placeLegalHoldAndCollect',
+      description:
+        'Multi-actor wizard that drafts, gets senior-counsel approval, sends ' +
+        'the notice, and collects documents. Five steps across two personas.',
+      steps: [
+        { id: 'matter-setup',  widget: 'collect-step-matter-setup',  section: 'Setup',     next: 'custodians' },
+        {
+          id: 'custodians',
+          widget: 'collect-step-custodians',
+          section: 'Custodians',
+          next: (state) => {
+            const ids = (state['custodians'] as readonly string[] | undefined) ?? [];
+            return ids.length === 0 ? 'matter-setup' : 'approval';
+          },
+        },
+        { id: 'approval',      widget: 'collect-step-approval',      section: 'Approval',   next: 'collect' },
+        { id: 'collect',       widget: 'collect-step-collect',       section: 'Collection', next: 'preview' },
+        { id: 'preview',       widget: 'collect-step-preview',       section: 'Done',       next: null },
+      ],
+      onComplete: async (state) => {
+        runInInjectionContext(env, () => {
+          const setup = (state['matter-setup'] as { matterId?: string; scope?: string } | undefined) ?? {};
+          const approval = (state['approval'] as { approved?: boolean } | undefined) ?? {};
+          const custodianIds = (state['custodians'] as readonly string[] | undefined) ?? [];
+          const collectStatus = (state['collect'] as { phase?: string } | undefined)?.phase ?? 'unknown';
+
+          if (approval.approved !== true) {
+            // eslint-disable-next-line no-console
+            console.warn('[placeLegalHoldAndCollect] completed without approval — skipping audit write');
+            return;
+          }
+
+          const store = env.get(MatterStore);
+          const validIds = custodianIds.filter((id) =>
+            store.custodians().some((c) => c.id === id),
+          );
+          if (validIds.length === 0) {
+            // eslint-disable-next-line no-console
+            console.warn('[placeLegalHoldAndCollect] no valid custodians — skipping addLegalHold');
+            return;
+          }
+
+          store.addLegalHold({
+            id: nextLegalHoldId(),
+            matterId: store.matterId,
+            custodianIds: validIds,
+            scope: setup.scope || 'Hold issued via place-hold-and-collect workflow.',
+            issuedAt: isoNow(),
+          });
+          // eslint-disable-next-line no-console
+          console.info('[placeLegalHoldAndCollect] complete', {
+            matterId: setup.matterId, custodians: validIds.length, collectStatus,
           });
         });
       },

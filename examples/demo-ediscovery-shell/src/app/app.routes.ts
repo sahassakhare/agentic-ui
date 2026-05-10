@@ -45,5 +45,9 @@ export const routes: Routes = [
     path: 'workflows/place-hold',
     loadComponent: () => import('./pages/workflows/place-hold.page').then((m) => m.PlaceHoldPage),
   },
+  {
+    path: 'workflows/place-hold-and-collect',
+    loadComponent: () => import('./pages/workflows/place-hold-and-collect.page').then((m) => m.PlaceHoldAndCollectPage),
+  },
   { path: '**', redirectTo: '' },
 ];
