@@ -7,6 +7,7 @@ import { catalogBus } from './events/catalog-bus.js';
 import { setCatalogEventPublisher } from './events/publisher.js';
 import { PgNotifyListener } from './events/pg-notify-listener.js';
 import { REPLICA_ID } from './events/replica-id.js';
+import { makeEmbeddingProvider } from './embeddings/provider.js';
 
 /**
  * Process entry point. Loads config, opens the pool, builds the
@@ -41,9 +42,24 @@ async function main(): Promise<void> {
     },
   });
 
+  // Optional embedding provider for semantic capability search
+  // (slice SEM-A / ADR-038). `noop` mode (default) is a no-op; the
+  // search endpoint returns 422 until adopters opt in via env vars.
+  const embeddings = makeEmbeddingProvider({
+    provider: config.EMBEDDING_PROVIDER,
+    ...(config.EMBEDDING_API_KEY ? { apiKey: config.EMBEDDING_API_KEY } : {}),
+    ...(config.EMBEDDING_API_URL ? { apiUrl: config.EMBEDDING_API_URL } : {}),
+    ...(config.EMBEDDING_MODEL ? { model: config.EMBEDDING_MODEL } : {}),
+    dim: config.EMBEDDING_DIM,
+  });
+  if (embeddings.enabled) {
+    logger.info({ provider: embeddings.name, dim: embeddings.dim }, 'semantic search enabled');
+  }
+
   const app = buildApp({
     pool,
     authMode: config.AUTH_MODE,
+    embeddings,
     auth: config.AUTH_MODE === 'oidc'
       ? {
           // loadConfig() guarantees these are set when AUTH_MODE=oidc.

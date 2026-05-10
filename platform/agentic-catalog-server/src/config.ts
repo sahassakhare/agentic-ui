@@ -38,6 +38,20 @@ const ConfigSchema = z.object({
 
   // Operations
   SHUTDOWN_GRACE_MS: z.coerce.number().int().min(0).default(15_000),
+
+  // ── Embeddings (slice SEM-A / ADR-038) ───────────────────────
+  // Default `noop` keeps the install + first-run friction-free —
+  // semantic search returns 422 "embeddings not configured" until
+  // adopters opt in. Adopters set EMBEDDING_PROVIDER=openai|cohere|
+  // ollama plus EMBEDDING_API_KEY (where applicable) + optional
+  // EMBEDDING_MODEL / EMBEDDING_API_URL / EMBEDDING_DIM.
+  // The migration's `vector(N)` column dim must match
+  // EMBEDDING_DIM — re-run an ALTER TABLE if switching providers.
+  EMBEDDING_PROVIDER: z.enum(['noop', 'openai', 'cohere', 'ollama']).default('noop'),
+  EMBEDDING_API_KEY: z.string().optional(),
+  EMBEDDING_API_URL: z.string().url().optional(),
+  EMBEDDING_MODEL: z.string().optional(),
+  EMBEDDING_DIM: z.coerce.number().int().min(1).max(8192).default(1536),
 });
 
 export type CatalogConfig = z.infer<typeof ConfigSchema>;

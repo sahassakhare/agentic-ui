@@ -14,6 +14,7 @@ import { tenantsRoutes } from './routes/tenants.js';
 import { streamRoutes } from './routes/stream.js';
 import { openapiRoutes } from './routes/openapi.js';
 import { logger } from './logger.js';
+import type { EmbeddingProvider } from './embeddings/provider.js';
 
 export interface AppDeps {
   readonly pool: CatalogPool;
@@ -32,6 +33,16 @@ export interface AppDeps {
    *   see ADR-022.
    */
   readonly authMode?: 'oidc' | 'disabled';
+  /**
+   * Optional embedding provider for semantic capability search
+   * (slice SEM-A / ADR-038). When unset, the server runs without
+   * embedding generation; the search endpoint returns 422
+   * "embeddings not configured" but every other route works
+   * unchanged. Capabilities created while the provider is `noop`
+   * have NULL embeddings; the backfill CLI fills them in once
+   * the provider is configured.
+   */
+  readonly embeddings?: EmbeddingProvider;
   /**
    * CORS origin allow-list. Defaults to `*` in development; production
    * should pin to the ops-console hostname.
@@ -104,7 +115,7 @@ export function buildApp(deps: AppDeps): Hono {
   // doesn't fire for /v1/tenants/*.
   v1.route('/tenants', tenantsRoutes(deps.pool));
   v1.use('/catalogs/:tenant/*', requireTenantScope());
-  v1.route('/catalogs/:tenant/capabilities', capabilitiesRoutes(deps.pool));
+  v1.route('/catalogs/:tenant/capabilities', capabilitiesRoutes(deps.pool, deps.embeddings));
   v1.route('/catalogs/:tenant/mfes', mfesRoutes(deps.pool));
   v1.route('/catalogs/:tenant/role-mappings', roleMappingsRoutes(deps.pool));
   v1.route('/catalogs/:tenant/audit', auditRoutes(deps.pool));

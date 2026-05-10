@@ -22,7 +22,8 @@
     "test:watch": "vitest",
     "migrate:up": "node-pg-migrate --migrations-dir src/db/migrations -j sql up",
     "migrate:down": "node-pg-migrate --migrations-dir src/db/migrations -j sql down",
-    "seed:ediscovery": "node --enable-source-maps dist/scripts/seed-ediscovery.js"
+    "seed:ediscovery": "node --enable-source-maps dist/scripts/seed-ediscovery.js",
+    "backfill:embeddings": "node --enable-source-maps dist/scripts/backfill-embeddings.js"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",

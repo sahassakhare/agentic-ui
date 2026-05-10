@@ -67,6 +67,7 @@ export function createPgMemPool(options: PgMemPoolOptions = {}): PgMemHandle {
     '003_audit_chain.sql',
     '004_usage_meter.sql',
     '005_tenant_lifecycle.sql',
+    '006_capability_embeddings.sql',
   ];
   const raw = MIGRATIONS
     .map((file) => readFileSync(join(__dirname, '..', 'db', 'migrations', file), 'utf-8'))
@@ -93,6 +94,13 @@ export function createPgMemPool(options: PgMemPoolOptions = {}): PgMemHandle {
     .replace(/CREATE OR REPLACE FUNCTION[\s\S]*?\$\$[\s\S]*?\$\$\s+LANGUAGE\s+\w+\s*;/gi, '')
     .replace(/DROP\s+TRIGGER\s+IF\s+EXISTS[^;]+;/gi, '')
     .replace(/CREATE\s+TRIGGER[^;]+EXECUTE\s+FUNCTION[^;]+;/gi, '')
+    // pg-mem doesn't support pgvector. Strip the extension bootstrap,
+    // the vector(N) column add, and the HNSW index. The application
+    // skips embedding writes when no provider is configured (test
+    // path), so the column being absent in pg-mem is safe.
+    .replace(/CREATE\s+EXTENSION[^;]*?vector[^;]*?;/gi, '')
+    .replace(/ALTER\s+TABLE\s+capabilities\s+ADD\s+COLUMN[^;]*?embedding[^;]*?;/gi, '')
+    .replace(/CREATE\s+INDEX[^;]*?capabilities_embedding_idx[^;]*?;/gi, '')
     ;
 
   const adapter = db.adapters.createPg();

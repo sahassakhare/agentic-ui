@@ -13,11 +13,17 @@ import {
   findCapabilityById,
   findCapabilityByName,
   listCapabilities,
+  searchCapabilitiesByEmbedding,
   softDeleteCapability,
   updateCapability,
+  updateCapabilityEmbedding,
 } from '../repository/capability-repo.js';
 import { appendAudit } from '../repository/audit-repo.js';
 import { publishCatalogEvent } from '../events/publisher.js';
+import {
+  buildEmbeddingText,
+  type EmbeddingProvider,
+} from '../embeddings/provider.js';
 
 /**
  * `GET    /v1/catalogs/:tenant/capabilities`
@@ -33,7 +39,10 @@ import { publishCatalogEvent } from '../events/publisher.js';
  * All write paths append a `catalog_audit` row inside the same
  * transaction as the data write — atomic by construction.
  */
-export function capabilitiesRoutes(pool: CatalogPool): Hono {
+export function capabilitiesRoutes(
+  pool: CatalogPool,
+  embeddings?: EmbeddingProvider,
+): Hono {
   const app = new Hono();
 
   // ── LIST ────────────────────────────────────────────────────────
@@ -50,6 +59,57 @@ export function capabilitiesRoutes(pool: CatalogPool): Hono {
       total: result.total,
       limit: query.limit,
       offset: query.offset,
+    });
+  });
+
+  // ── SEARCH (semantic — slice SEM-A / ADR-038) ───────────────────
+  // GET /v1/catalogs/{tenant}/capabilities/search?q=<query>&kind=<k>&topK=20
+  // Returns capabilities ranked by cosine similarity of their stored
+  // embedding to the query embedding. When no embedding provider is
+  // configured (EMBEDDING_PROVIDER=noop, the default), returns 422
+  // problem+json so adopters know to flip the env var. Note: this
+  // route MUST come before `/:id` so the literal path doesn't match
+  // the UUID matcher.
+  app.get('/search', async (c) => {
+    // Input validation runs first so client errors take precedence
+    // over server-config errors: callers get actionable 422s on bad
+    // q/topK regardless of whether semantic search is wired.
+    const q = c.req.query('q')?.trim();
+    if (!q) {
+      throw new HTTPException(422, { message: '`q` query parameter is required' });
+    }
+    const kind = c.req.query('kind') ?? undefined;
+    const topKRaw = c.req.query('topK');
+    const topK = topKRaw ? Number.parseInt(topKRaw, 10) : 20;
+    if (Number.isNaN(topK) || topK < 1 || topK > 100) {
+      throw new HTTPException(422, { message: '`topK` must be an integer between 1 and 100' });
+    }
+    if (!embeddings?.enabled) {
+      throw new HTTPException(422, {
+        message: 'Semantic search is not configured. Set EMBEDDING_PROVIDER=openai|cohere|ollama (with the matching API key) and re-deploy. See ADR-038.',
+      });
+    }
+
+    const queryEmbedding = await embeddings.embed(q);
+    if (!queryEmbedding) {
+      throw new HTTPException(503, {
+        message: 'Embedding provider unreachable; semantic search temporarily unavailable. Falling back to ?q= keyword filter is the suggested workaround.',
+      });
+    }
+
+    const principal = c.get('principal');
+    const hits = await withTenantScope(pool, principal, (client) =>
+      searchCapabilitiesByEmbedding(client, { embedding: queryEmbedding, kind, topK }),
+    );
+    return c.json({
+      items: hits.map((h) => ({
+        ...CapabilitySchema.parse(h.capability),
+        _score: h.score,
+      })),
+      query: q,
+      kind: kind ?? null,
+      topK,
+      provider: embeddings.name,
     });
   });
 
@@ -74,6 +134,21 @@ export function capabilitiesRoutes(pool: CatalogPool): Hono {
     const tenantId = principal.tenantId;
     const body = CapabilityCreateSchema.parse(await c.req.json());
 
+    // Compute the embedding BEFORE we open the transaction so a slow
+    // upstream embedding API doesn't hold the DB connection. The
+    // provider returns null on `noop` mode and on errors; null
+    // embeddings are stored as NULL and the row is searchable only
+    // by the keyword filter until the backfill CLI runs.
+    let embedding: readonly number[] | null = null;
+    if (embeddings?.enabled) {
+      embedding = await embeddings.embed(buildEmbeddingText({
+        kind: body.kind,
+        name: body.name,
+        tags: body.tags,
+        body: body.body,
+      }));
+    }
+
     const created = await withTenantScope(pool, principal, async (client) => {
       // Pre-check duplicate (tenant, kind, name) — surface 409 instead
       // of letting the unique-violation propagate as a 500. Matches
@@ -91,6 +166,7 @@ export function capabilitiesRoutes(pool: CatalogPool): Hono {
         tenantId,
         body,
         auditActor(principal),
+        embedding,
       );
       await appendAudit(client, {
         tenantId,

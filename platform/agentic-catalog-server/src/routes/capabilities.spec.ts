@@ -209,4 +209,36 @@ describe('capabilities routes', () => {
     const body = await res.json();
     expect(body.items.every((i: { kind: string }) => i.kind === 'component')).toBe(true);
   });
+
+  // ── Semantic search (slice SEM-A / ADR-038) ─────────────────────
+  it('GET /search returns 422 when EMBEDDING_PROVIDER=noop (default) — graceful degrade', async () => {
+    const auth = await h.authHeader();
+    const res = await h.fetch(new Request(`${BASE}/search?q=legal+holds`, {
+      headers: { Authorization: auth },
+    }));
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.title).toBe('Unprocessable Entity');
+    expect(body.detail).toMatch(/Semantic search is not configured/);
+  });
+
+  it('GET /search returns 422 when q is missing', async () => {
+    const auth = await h.authHeader();
+    const res = await h.fetch(new Request(`${BASE}/search`, {
+      headers: { Authorization: auth },
+    }));
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.detail).toMatch(/`q` query parameter is required/);
+  });
+
+  it('GET /search rejects topK out of [1,100]', async () => {
+    const auth = await h.authHeader();
+    const res = await h.fetch(new Request(`${BASE}/search?q=foo&topK=999`, {
+      headers: { Authorization: auth },
+    }));
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.detail).toMatch(/topK.*1 and 100/);
+  });
 });

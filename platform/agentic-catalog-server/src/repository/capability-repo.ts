@@ -145,7 +145,37 @@ export async function createCapability(
   tenantId: string,
   input: CapabilityCreate,
   createdBy: string,
+  embedding: readonly number[] | null = null,
 ): Promise<Capability> {
+  // Only reference the embedding column when we actually have one to
+  // store. The column defaults to NULL in the migration; omitting it
+  // from the INSERT keeps the SQL portable across pg-mem (test
+  // harness — no `vector` type) and real pgvector-enabled Postgres.
+  if (embedding) {
+    const result = await client.query<CapabilityRow>(
+      `INSERT INTO capabilities
+         (tenant_id, kind, name, body, lifecycle, owner, tags, required_host_version, created_by, embedding)
+       VALUES ($1, $2, $3, $4::JSONB, $5, $6, $7, $8, $9, $10::vector)
+       RETURNING id, tenant_id, kind, name, body, lifecycle, owner, tags,
+                 required_host_version, created_at, updated_at, created_by,
+                 soft_deleted_at`,
+      [
+        tenantId,
+        input.kind,
+        input.name,
+        JSON.stringify(input.body),
+        input.lifecycle,
+        input.owner ?? null,
+        input.tags,
+        input.requiredHostVersion ?? null,
+        createdBy,
+        formatVector(embedding),
+      ],
+    );
+    const row = result.rows[0];
+    if (!row) throw new Error('INSERT returned no rows — should be impossible');
+    return rowToCapability(row);
+  }
   const result = await client.query<CapabilityRow>(
     `INSERT INTO capabilities
        (tenant_id, kind, name, body, lifecycle, owner, tags, required_host_version, created_by)
@@ -168,6 +198,73 @@ export async function createCapability(
   const row = result.rows[0];
   if (!row) throw new Error('INSERT returned no rows — should be impossible');
   return rowToCapability(row);
+}
+
+/**
+ * Update a capability's embedding column. Used by the backfill CLI
+ * + by re-embedding after PATCH on body/tags/name fields. No-op
+ * when embedding is null (we never write NULL via this helper —
+ * NULL is the column default and only set via INSERT-without-column).
+ */
+export async function updateCapabilityEmbedding(
+  client: pg.PoolClient,
+  id: string,
+  embedding: readonly number[],
+): Promise<void> {
+  await client.query(
+    `UPDATE capabilities SET embedding = $2::vector WHERE id = $1`,
+    [id, formatVector(embedding)],
+  );
+}
+
+/**
+ * Semantic-search query result: capability + cosine similarity score
+ * (1.0 = identical, 0.0 = orthogonal). Higher is better.
+ */
+export interface CapabilitySearchHit {
+  readonly capability: Capability;
+  readonly score: number;
+}
+
+export async function searchCapabilitiesByEmbedding(
+  client: pg.PoolClient,
+  query: {
+    readonly embedding: readonly number[];
+    readonly kind?: string;
+    readonly topK: number;
+  },
+): Promise<CapabilitySearchHit[]> {
+  const where: string[] = ['embedding IS NOT NULL', 'soft_deleted_at IS NULL'];
+  const params: unknown[] = [formatVector(query.embedding)];
+  let idx = 2;
+  if (query.kind) {
+    where.push(`kind = $${idx++}`);
+    params.push(query.kind);
+  }
+  params.push(query.topK);
+  const result = await client.query<CapabilityRow & { score: string }>(
+    `SELECT id, tenant_id, kind, name, body, lifecycle, owner, tags,
+            required_host_version, created_at, updated_at, created_by,
+            soft_deleted_at,
+            (1 - (embedding <=> $1::vector))::float8 AS score
+       FROM capabilities
+      WHERE ${where.join(' AND ')}
+      ORDER BY embedding <=> $1::vector
+      LIMIT $${idx}`,
+    params,
+  );
+  return result.rows.map((row) => ({
+    capability: rowToCapability(row),
+    score: Number(row.score),
+  }));
+}
+
+/**
+ * pgvector accepts vectors in literal form `[v1,v2,v3]`. We format
+ * here so callers don't need to think about it.
+ */
+function formatVector(v: readonly number[]): string {
+  return `[${v.join(',')}]`;
 }
 
 export async function updateCapability(
