@@ -2,20 +2,29 @@ import { effect, EnvironmentInjector, runInInjectionContext, signal } from '@ang
 import { injectAgenticChat, type AgenticMessage } from '@maverick/agentic-ui';
 
 /**
- * One-shot, headless LLM call (plan R4 — "no-chat, but LLM
- * interaction"). Runs the same backend / tools / widget registry the
- * chat shell uses, but without mounting the chat UI: send a single
- * prompt, await all tool calls + widget renders to settle, return
- * the structured result.
+ * One-shot, headless LLM call (plan R4 -- "no-chat, but LLM
+ * interaction"). Runs the same backend / tools / widget registry
+ * the chat shell uses, without mounting a chat transcript: send a
+ * single prompt, await all tool calls + widget renders to settle,
+ * return the structured result.
  *
  * Used by:
- *   - the Cmd+K command palette (action-router preset),
- *   - dashboard "smart action" buttons (templated prompt),
+ *   - the Cmd+K command palette (default caller; navigates on
+ *     route-aware tool results, otherwise mounts widgets in the
+ *     palette's own primary slot),
+ *   - future dashboard "smart action" buttons (templated prompt),
  *   - inline NL inputs that need typed args (parameter-extractor
  *     preset).
  *
  * The chat shell stays the canonical conversational surface; this
  * helper proves the registry is surface-independent.
+ *
+ * **Implementation note** -- the first version of this helper had
+ * a settle-detection race (the effect's first fire occasionally
+ * resolved with `loading=false` before sendMessage had flipped it
+ * to `true`) and a system-prompt prefix that confused Gemini's
+ * tool picking. Both fixed in 2026-05-11: prompt goes through
+ * untouched, settle gated on hasStarted && !loading.
  */
 export interface HeadlessRunResult {
   /** Composite text output (markdown deltas concatenated). */
@@ -31,34 +40,22 @@ export interface HeadlessRunResult {
 }
 
 export interface HeadlessRunOptions {
-  /** The natural-language input. Capped at 500 chars to keep prompts
-   *  small and costs predictable. */
+  /** The natural-language input. Capped at 500 chars to keep
+   *  prompts small and costs predictable. */
   readonly prompt: string;
-  /** Optional system prompt override. Defaults to the action-router
-   *  preset which biases the LLM toward picking exactly one tool. */
-  readonly system?: string;
-  /** Maximum wall-clock to wait for the LLM to settle (default 25s). */
+  /** Maximum wall-clock to wait for the LLM to settle. */
   readonly timeoutMs?: number;
   /** Optional `AbortSignal` from a UI-level cancel button. */
   readonly signal?: AbortSignal;
 }
 
-const DEFAULT_SYSTEM = `You are an action-router. Read the user's
-single request and pick exactly one tool to satisfy it. Fill the
-tool's arguments from the request. Do not converse — return the
-tool result and a single short sentence summarising what you did.
-If no tool fits, say so plainly in one sentence.`;
-
 const MAX_PROMPT_LEN = 500;
 const DEFAULT_TIMEOUT_MS = 25_000;
 
 /**
- * Run a one-shot headless prompt. MUST be called inside an injection
- * context (use `runInInjectionContext(env, () => runHeadless(...))`
- * from a non-Angular caller).
- *
- * @returns a promise that resolves once the run settles (no more
- * pending tool calls). Rejects on timeout or backend error.
+ * Run a one-shot headless prompt. MUST be called inside an
+ * injection context (use `runHeadlessIn(env, ...)` from non-Angular
+ * callers).
  */
 export function runHeadless(opts: HeadlessRunOptions): Promise<HeadlessRunResult> {
   const prompt = opts.prompt.slice(0, MAX_PROMPT_LEN).trim();
@@ -72,26 +69,23 @@ export function runHeadless(opts: HeadlessRunOptions): Promise<HeadlessRunResult
   const chat = injectAgenticChat();
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  // The chat layer doesn't expose a per-call system prompt seam, so
-  // we prefix the system instruction onto the user content. Backends
-  // see one user message; the bias still lands. Adopters who want a
-  // dedicated system message provide it at the backend layer.
-  const systemPrefix = opts.system ?? DEFAULT_SYSTEM;
-  chat.sendMessage(`[Mode: action-router]\n${systemPrefix}\n\n[Request]\n${prompt}`);
-
   return new Promise<HeadlessRunResult>((resolve, reject) => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let stopFn: (() => void) | undefined;
-    let aborted = false;
+    let finished = false;
+    /** Did we observe isLoading flip to true? Settle is only
+     *  legitimate after the run has demonstrably started. */
+    const hasStarted = signal(false);
 
-    const finish = (result: HeadlessRunResult) => {
+    const finish = (result: HeadlessRunResult): void => {
+      if (finished) return;
+      finished = true;
       if (timer) clearTimeout(timer);
       stopFn?.();
       resolve(result);
     };
 
-    const abort = () => {
-      aborted = true;
+    const onAbort = (): void => {
       chat.stop();
       finish({
         markdown: '', widgets: [], toolCalls: [],
@@ -100,20 +94,23 @@ export function runHeadless(opts: HeadlessRunOptions): Promise<HeadlessRunResult
     };
 
     if (opts.signal) {
-      if (opts.signal.aborted) { abort(); return; }
-      opts.signal.addEventListener('abort', abort, { once: true });
+      if (opts.signal.aborted) { onAbort(); return; }
+      opts.signal.addEventListener('abort', onAbort, { once: true });
     }
 
     timer = setTimeout(() => {
-      if (!aborted) {
+      if (!finished) {
         chat.stop();
         reject(new Error(`headless run timed out after ${timeoutMs}ms`));
       }
     }, timeoutMs);
 
-    // Watch the chat state. Settle when it stops loading AND there
-    // are messages with tool results / widgets / final markdown.
-    const settled = signal(false);
+    // Watch the chat state. Settle only AFTER we've seen
+    // isLoading flip to true (i.e. the run actually started) and
+    // then back to false (i.e. the run actually finished). Avoids
+    // the original race where the effect's first fire saw
+    // `loading=false, messages=[]` and immediately resolved with
+    // an empty result.
     const ref = effect(() => {
       const loading = chat.isLoading();
       const err = chat.error();
@@ -125,13 +122,19 @@ export function runHeadless(opts: HeadlessRunOptions): Promise<HeadlessRunResult
         });
         return;
       }
-      if (!loading && messages.length > 0 && !settled()) {
-        settled.set(true);
-        // Last assistant message is the one we care about.
+      if (loading) {
+        hasStarted.set(true);
+        return;
+      }
+      if (hasStarted() && !loading) {
         finish(projectResult(messages));
       }
     });
-    stopFn = () => ref.destroy();
+    stopFn = (): void => ref.destroy();
+
+    // Send AFTER the effect is registered so the loading flip is
+    // captured by hasStarted on the very first effect tick.
+    chat.sendMessage(prompt);
   });
 }
 
@@ -147,8 +150,6 @@ export function runHeadlessIn(
 }
 
 function projectResult(messages: readonly AgenticMessage[]): HeadlessRunResult {
-  // Collect every assistant message after the user's prompt — the
-  // orchestrator may emit several when multiple tool calls fire.
   const assistantMsgs = messages.filter((m) => m.role === 'assistant');
   const widgets: { name: string; props: unknown }[] = [];
   const toolCalls: { name: string; args: unknown; result?: unknown }[] = [];

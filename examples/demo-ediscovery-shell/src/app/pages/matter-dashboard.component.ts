@@ -9,6 +9,7 @@ import { KpiCardComponent } from '../ui/kpi-card.component';
 import { StatusBadgeComponent, type StatusTone } from '../ui/status-badge.component';
 import { TagChipComponent } from '../ui/tag-chip.component';
 import { EmptyStateComponent } from '../ui/empty-state.component';
+import { AgenticSlotComponent } from '../ui/agentic-slot.component';
 
 /**
  * Matter dashboard. The default landing page for any user — gives a
@@ -22,7 +23,7 @@ import { EmptyStateComponent } from '../ui/empty-state.component';
 @Component({
   selector: 'app-matter-dashboard',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, RouterLink, IconComponent, KpiCardComponent, StatusBadgeComponent, TagChipComponent, EmptyStateComponent],
+  imports: [DecimalPipe, RouterLink, IconComponent, KpiCardComponent, StatusBadgeComponent, TagChipComponent, EmptyStateComponent, AgenticSlotComponent],
   template: `
     <section class="page-head">
       <div>
@@ -35,6 +36,12 @@ import { EmptyStateComponent } from '../ui/empty-state.component';
         <span class="pill range">Bates range <code>{{ bates }}</code></span>
       </div>
     </section>
+
+    <!-- Cmd+K palette overflow slot. Tools triggered headlessly
+         from the palette that emit widgets without navigating land
+         here so the operator sees the result without the chat
+         shell mounting them. Empty when there's nothing pending. -->
+    <mvk-agentic-slot name="palette.primary" />
 
     <!-- KPI grid -->
     <section class="kpi-grid">

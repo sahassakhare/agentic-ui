@@ -1,30 +1,34 @@
 import {
-  ChangeDetectionStrategy, Component, computed,
+  ChangeDetectionStrategy, Component, computed, EnvironmentInjector,
   HostListener, inject, signal,
 } from '@angular/core';
-import { ChatBridgeService } from '../services/chat-bridge.service';
+import { runHeadlessIn } from '../agentic/headless';
+import { RenderHandoffStore } from '../services/render-handoff.store';
 
 /**
- * Command palette — a Cmd+K natural-language entry point that drives
- * the same registered tools the chat shell does, but with a
- * lighter, keyboard-first surface (plan R4 — "no-chat, but LLM
- * interaction").
+ * Command palette -- Cmd+K / Ctrl+K natural-language entry point.
  *
- * Implementation note: the palette forwards every prompt to the
- * SAME chat shell mounted in the right rail (via ChatBridgeService).
- * Earlier the palette spun up an independent headless chat thread,
- * but that surface had subtle settle-detection races AND no UI
- * feedback while the agent worked. Routing through the existing
- * chat shell gets the operator streaming text + tool calls + widget
- * mounts for free, and there's one auditable thread instead of two.
- *
- * Lifecycle:
- *   - Cmd/Ctrl+K toggles the modal from anywhere in the shell.
- *   - On submit the prompt fires through the bridge into the chat
- *     shell. The palette closes; the rail (auto-opened) shows the
- *     agent's response live.
- *   - The chat shell + rail handle navigation when a tool emits
- *     route-target widgets (legalHoldCard mounts on /holds, etc.).
+ * Behaviour (plan R4, refined 2026-05-11):
+ *   - Press the shortcut anywhere in the shell -> modal opens.
+ *   - Type a prompt, hit Enter (or click "Run") -> a one-shot,
+ *     headless agent run via `runHeadlessIn()`. The chat shell is
+ *     NOT involved -- the LLM picks one tool, the tool runs, and
+ *     any side-effect (navigation, widget mount) happens directly
+ *     in the app. The chat panel stays untouched.
+ *   - During the run the palette shows a spinner + the prompt.
+ *   - When the run finishes:
+ *       * If the tool navigated (router state changed mid-run),
+ *         the palette closes -- the user is already on the
+ *         destination page with the widget mounted.
+ *       * If the tool returned widgets but didn't navigate, the
+ *         palette publishes them to the `palette.primary` slot
+ *         and closes. The hosting page's slot mounts them.
+ *       * If the tool only returned markdown (no widgets, no
+ *         navigation), the palette stays open with the markdown
+ *         visible -- gives the user a confirmation + somewhere
+ *         to retry / refine.
+ *       * On error / no tool match, surface the message and stay
+ *         open.
  */
 @Component({
   selector: 'mvk-command-palette',
@@ -48,24 +52,54 @@ import { ChatBridgeService } from '../services/chat-bridge.service';
                  (keydown.escape)="close()"
                  placeholder="e.g. place a legal hold for Project Phoenix"
                  maxlength="500"
+                 [disabled]="loading()"
                  autofocus />
 
           <div class="actions">
             <button class="btn primary" type="button" (click)="run()"
                     [disabled]="!canRun()">
-              Send to agent
+              @if (loading()) {
+                <span class="spinner" aria-hidden="true"></span>
+                Running…
+              } @else {
+                Run
+              }
             </button>
             <span class="hint">{{ prompt().length }}/500</span>
-            @if (!bridgeReady()) {
-              <span class="warn">Chat shell not mounted yet — open it from the right rail first.</span>
+            @if (loading()) {
+              <button class="btn ghost" type="button" (click)="cancel()">Cancel</button>
             }
           </div>
 
-          <p class="explain dim">
-            The agent sees the same tools and registers as the chat
-            on the right. Whatever it picks renders there; the
-            palette is just a keyboard shortcut.
-          </p>
+          @if (loading()) {
+            <p class="status">
+              <span class="dot pulse" aria-hidden="true"></span>
+              Agent is thinking. The action will happen here in the app — no chat panel needed.
+            </p>
+          } @else if (result(); as r) {
+            @if (r.errored) {
+              <div class="alert error">
+                <strong>Couldn't complete that.</strong>
+                <p>{{ r.error || 'Try rephrasing or use the menu.' }}</p>
+              </div>
+            } @else if (r.markdown) {
+              <div class="alert ok">
+                <p class="markdown">{{ r.markdown }}</p>
+                @if (r.toolCalls.length > 0) {
+                  <p class="dim small">
+                    Ran <code>{{ r.toolCalls[0]?.name }}</code>{{ r.toolCalls.length > 1 ? ' (+' + (r.toolCalls.length - 1) + ' more)' : '' }}.
+                  </p>
+                }
+              </div>
+            }
+          } @else {
+            <p class="explain dim">
+              Press <kbd>Enter</kbd> to run. The agent picks one
+              tool and the result lands directly in the app — a
+              form opens on its page, a widget mounts on the
+              right route, etc. The chat panel stays out of the way.
+            </p>
+          }
         </div>
       </div>
     }
@@ -109,34 +143,74 @@ import { ChatBridgeService } from '../services/chat-bridge.service';
       outline: 2px solid transparent; outline-offset: -1px;
     }
     .input:focus { outline-color: var(--c-accent, #3b82f6); }
+    .input:disabled { background: var(--c-surface-2, #f8fafc); cursor: wait; }
     .actions { display: flex; align-items: center; gap: 0.625rem; margin-top: 0.625rem; flex-wrap: wrap; }
-    .btn { padding: 0.4rem 0.875rem; border-radius: 0.375rem; font-size: 0.875rem; cursor: pointer; }
+    .btn { padding: 0.4rem 0.875rem; border-radius: 0.375rem; font-size: 0.875rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; }
     .btn.primary { background: var(--c-accent, #3b82f6); color: white; border: 1px solid var(--c-accent, #3b82f6); }
-    .btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn.primary:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn.ghost { background: transparent; color: var(--c-text-2); border: 1px solid var(--c-border, #d1d5db); }
     .hint { color: var(--c-text-2); font-size: 0.75rem; }
-    .warn { color: #b45309; font-size: 0.75rem; }
-    .explain { margin: 0.625rem 0 0; font-size: 0.8125rem; line-height: 1.45; }
+    .explain { margin: 0.75rem 0 0; font-size: 0.8125rem; line-height: 1.45; }
+    .explain kbd {
+      font-family: ui-monospace, monospace; font-size: 0.7rem;
+      background: var(--c-surface-2, #f1f5f9); border: 1px solid var(--c-border, #e5e7eb);
+      padding: 0.0625rem 0.3125rem; border-radius: 0.25rem;
+    }
     .dim { color: var(--c-text-2); }
+    .small { font-size: 0.75rem; }
+
+    .status {
+      margin: 0.875rem 0 0; padding: 0.625rem 0.75rem;
+      background: var(--c-surface-2, #f1f5f9);
+      border-radius: 0.4rem;
+      font-size: 0.85rem; color: var(--c-text-2);
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .alert {
+      margin: 0.875rem 0 0; padding: 0.625rem 0.875rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+    }
+    .alert.ok { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+    .alert.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+    .alert .markdown { margin: 0; white-space: pre-wrap; }
+    .alert .dim { color: inherit; opacity: 0.85; margin: 0.25rem 0 0; }
+    .alert code { font-family: ui-monospace, monospace; background: rgba(0, 0, 0, 0.06); padding: 0.0625rem 0.3125rem; border-radius: 0.25rem; }
+
+    .spinner {
+      width: 12px; height: 12px;
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 700ms linear infinite;
+      display: inline-block;
+    }
+    .dot.pulse {
+      width: 8px; height: 8px; border-radius: 999px;
+      background: var(--c-accent, #3b82f6);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.35; transform: scale(0.85); }
+      50% { opacity: 1; transform: scale(1.15); }
+    }
   `,
 })
 export class CommandPaletteComponent {
-  private readonly bridge = inject(ChatBridgeService);
+  private readonly env = inject(EnvironmentInjector);
+  private readonly handoff = inject(RenderHandoffStore);
 
-  /** Platform-aware shortcut label. Mac users see ⌘K; everyone
-   *  else sees Ctrl+K. The HostListener accepts both modifiers
-   *  regardless, but the badge should match the user's OS. */
   protected readonly shortcutLabel = detectShortcutLabel();
-
   readonly open = signal(false);
   readonly prompt = signal('');
+  readonly loading = signal(false);
+  readonly result = signal<Awaited<ReturnType<typeof runHeadlessIn>> | null>(null);
 
-  readonly bridgeReady = this.bridge.isReady;
-  readonly canRun = computed(() =>
-    this.prompt().trim().length >= 3 && this.bridgeReady(),
-  );
+  private abort: AbortController | null = null;
 
-  /** Cmd/Ctrl+K from anywhere — toggles the palette. Escape closes
-   *  it (also wired on the input element to short-circuit the IME). */
+  readonly canRun = computed(() => this.prompt().trim().length >= 3 && !this.loading());
+
   @HostListener('window:keydown', ['$event'])
   onWindowKey(ev: KeyboardEvent): void {
     if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'k') {
@@ -149,19 +223,64 @@ export class CommandPaletteComponent {
 
   toggle(): void {
     this.open.update((v) => !v);
+    if (this.open()) this.result.set(null);
   }
 
   close(): void {
     this.open.set(false);
+    this.result.set(null);
   }
 
-  run(): void {
+  cancel(): void {
+    this.abort?.abort();
+  }
+
+  async run(): Promise<void> {
     if (!this.canRun()) return;
     const text = this.prompt().trim();
-    const dispatched = this.bridge.send(text);
-    if (dispatched) {
-      this.prompt.set('');
-      this.close();
+    this.loading.set(true);
+    this.result.set(null);
+    this.abort?.abort();
+    this.abort = new AbortController();
+
+    // Note where the user was when the run started. If a tool
+    // navigates mid-run we close the palette without showing a
+    // result -- the destination page IS the result.
+    const initialPath = typeof location !== 'undefined' ? location.pathname : '';
+
+    try {
+      const out = await runHeadlessIn(this.env, {
+        prompt: text,
+        signal: this.abort.signal,
+      });
+      this.result.set(out);
+
+      // If the tool routed the user, just close. Empty palette ->
+      // operator sees the destination page directly.
+      const navigated = typeof location !== 'undefined' && location.pathname !== initialPath;
+      if (navigated && !out.errored) {
+        this.prompt.set('');
+        this.close();
+        return;
+      }
+
+      // Tool produced widgets but didn't navigate -- park them in
+      // the palette's own slot so the host page can render them.
+      if (out.widgets.length > 0 && !out.errored) {
+        this.handoff.publish('palette.primary', out.widgets.map((w) => ({
+          name: w.name, props: w.props,
+        })));
+        // Leave the palette open one beat so the user sees the
+        // confirmation markdown before clicking elsewhere.
+      }
+    } catch (err) {
+      this.result.set({
+        markdown: '', widgets: [], toolCalls: [],
+        errored: true,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      this.loading.set(false);
     }
   }
 }
@@ -172,8 +291,6 @@ export class CommandPaletteComponent {
  *  label when window/navigator are absent). */
 function detectShortcutLabel(): string {
   if (typeof navigator === 'undefined') return 'Ctrl + K';
-  // userAgentData is the modern, opt-in API; fall back to the
-  // deprecated `platform` string when unavailable.
   const ua = (navigator as unknown as { userAgentData?: { platform?: string } }).userAgentData;
   const plat = (ua?.platform || navigator.platform || '').toLowerCase();
   const isMac = plat.includes('mac') || plat.includes('iphone') || plat.includes('ipad');
