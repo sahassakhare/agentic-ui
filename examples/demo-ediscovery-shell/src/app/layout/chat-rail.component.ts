@@ -51,30 +51,6 @@ interface PromptGroup {
   readonly prompts: readonly PromptItem[];
 }
 
-const MAX_RECENT = 5;
-const RECENT_KEY = 'ediscovery:recent-prompts';
-
-function loadRecentPrompts(): readonly string[] {
-  try {
-    const raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(RECENT_KEY) : null;
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((s): s is string => typeof s === 'string').slice(0, MAX_RECENT);
-  } catch {
-    return [];
-  }
-}
-
-function saveRecentPrompts(items: readonly string[]): void {
-  try {
-    if (typeof localStorage === 'undefined') return;
-    localStorage.setItem(RECENT_KEY, JSON.stringify(items));
-  } catch {
-    /* quota / private mode — silently no-op */
-  }
-}
-
 /**
  * Dedup prompts across groups. Walk in order; the first appearance
  * of a text wins, later duplicates are dropped. Groups that end up
@@ -412,32 +388,14 @@ export class ChatRailComponent {
   protected readonly collapsed = signal(false);
   toggle(): void { this.collapsed.update((v) => !v); }
 
-  /** Persisted last-N prompts the user has sent this session. Source
-   *  of truth lives in localStorage so it survives reloads. Newest
-   *  first; capped at MAX_RECENT entries. */
-  private readonly recentPrompts = signal<readonly string[]>(loadRecentPrompts());
-
-  /** Synthetic group surfaced at the top of the prompt groups list
-   *  whenever the user has at least one recent prompt. Re-runs the
-   *  computation whenever recentPrompts() changes.
-   *
-   *  Dedup pass: walk groups in order and drop any prompt whose
-   *  normalized text was already surfaced. First appearance wins,
-   *  so the "Recent" group and "New — latest demos" group reserve
-   *  duplicates and the topical groups (Custodians / Legal holds /
-   *  …) silently skip them. Empty groups after dedup are removed. */
-  protected readonly promptGroups = computed<readonly PromptGroup[]>(() => {
-    const recent = this.recentPrompts();
-    const recentGroup: PromptGroup | null = recent.length === 0 ? null : {
-      id: 'recent',
-      title: 'Recent — your last prompts',
-      prompts: recent.map((text) => ({ text })),
-    };
-    const raw: readonly PromptGroup[] = recentGroup
-      ? [recentGroup, ...PROMPT_GROUPS]
-      : PROMPT_GROUPS;
-    return dedupPromptGroups(raw);
-  });
+  /** Curated topical groups with dedup pass applied. Recent /
+   *  latest synthetic groups were dropped in 2026-05-11 -- the
+   *  topical sections (Custodians / Legal holds / …) already carry
+   *  every prompt with its capability tag; a "Recent" overlay was
+   *  redundant and confused operators. */
+  protected readonly promptGroups = computed<readonly PromptGroup[]>(() =>
+    dedupPromptGroups(PROMPT_GROUPS),
+  );
 
   protected readonly totalPromptCount = computed(() =>
     this.promptGroups().reduce((sum, g) => sum + g.prompts.length, 0),
@@ -447,24 +405,6 @@ export class ChatRailComponent {
    *  state persists for the rest of the session. */
   protected readonly hintsExpanded = signal(true);
   toggleHints(): void { this.hintsExpanded.update((v) => !v); }
-
-  /** Drop a prompt onto the front of the recent list, dedup against
-   *  any earlier copy, cap at MAX_RECENT, persist to localStorage. */
-  private rememberRecent(text: string): void {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    const cur = this.recentPrompts();
-    const dedup = cur.filter((p) => p !== trimmed);
-    const next = [trimmed, ...dedup].slice(0, MAX_RECENT);
-    this.recentPrompts.set(next);
-    saveRecentPrompts(next);
-  }
-
-  /** Wipe the recent list. Exposed for a (future) clear button. */
-  clearRecentPrompts(): void {
-    this.recentPrompts.set([]);
-    saveRecentPrompts([]);
-  }
 
   protected capabilityLabel(c: Capability): string { return CAPABILITY_LABEL[c]; }
   protected capabilityTitle(c: Capability): string { return CAPABILITY_TITLE[c]; }
@@ -477,7 +417,6 @@ export class ChatRailComponent {
     const shell = this.chatShell();
     if (!shell) return;
     shell.sendMessage(text);
-    this.rememberRecent(text);
     this.hintsExpanded.set(false);
   }
 
