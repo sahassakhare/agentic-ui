@@ -126,13 +126,13 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
                         <textarea
                           [name]="f.name"
                           [placeholder]="f.placeholder ?? ''"
-                          [(ngModel)]="values[f.name]"
+                          [ngModel]="valueOf(f.name)" (ngModelChange)="setValue(f.name, $event)"
                           (blur)="touch(f.name)"
                           [class.invalid]="hasError(f)"
                           [attr.aria-invalid]="hasError(f) || null"></textarea>
                       }
                       @case ('select') {
-                        <select [name]="f.name" [(ngModel)]="values[f.name]"
+                        <select [name]="f.name" [ngModel]="valueOf(f.name)" (ngModelChange)="setValue(f.name, $event)"
                                 (blur)="touch(f.name)"
                                 [class.invalid]="hasError(f)"
                                 [attr.aria-invalid]="hasError(f) || null">
@@ -159,7 +159,7 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
                       @case ('checkbox') {
                         <input type="checkbox"
                                [name]="f.name"
-                               [(ngModel)]="values[f.name]"
+                               [ngModel]="valueOf(f.name)" (ngModelChange)="setValue(f.name, $event)"
                                (blur)="touch(f.name)"
                                [class.invalid]="hasError(f)"
                                [attr.aria-invalid]="hasError(f) || null" />
@@ -168,7 +168,7 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
                         <input type="number"
                                [name]="f.name"
                                [placeholder]="f.placeholder ?? ''"
-                               [(ngModel)]="values[f.name]"
+                               [ngModel]="valueOf(f.name)" (ngModelChange)="setValue(f.name, $event)"
                                (blur)="touch(f.name)"
                                [class.invalid]="hasError(f)"
                                [attr.aria-invalid]="hasError(f) || null" />
@@ -177,7 +177,7 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
                         <input type="email"
                                [name]="f.name"
                                [placeholder]="f.placeholder ?? ''"
-                               [(ngModel)]="values[f.name]"
+                               [ngModel]="valueOf(f.name)" (ngModelChange)="setValue(f.name, $event)"
                                (blur)="touch(f.name)"
                                autocomplete="email"
                                [class.invalid]="hasError(f)"
@@ -187,7 +187,7 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
                         <input type="text"
                                [name]="f.name"
                                [placeholder]="f.placeholder ?? ''"
-                               [(ngModel)]="values[f.name]"
+                               [ngModel]="valueOf(f.name)" (ngModelChange)="setValue(f.name, $event)"
                                (blur)="touch(f.name)"
                                [class.invalid]="hasError(f)"
                                [attr.aria-invalid]="hasError(f) || null" />
@@ -325,7 +325,12 @@ export class DynamicFormCardComponent {
       .join('\n');
   });
 
-  protected readonly values: Record<string, unknown> = {};
+  /** Field values, signal-backed so the `isValid()` computed re-runs
+   *  on every keystroke. Templates read via `valueOf(name)` and write
+   *  via `setValue(name, $event)` -- swapped from the prior
+   *  [(ngModel)]="values[name]" pattern which mutated a plain object
+   *  and never tripped the signal graph. */
+  protected readonly values = signal<Record<string, unknown>>({});
   protected readonly submitted = signal(false);
   protected readonly createdCustodianId = signal<string | null>(null);
 
@@ -335,6 +340,17 @@ export class DynamicFormCardComponent {
   private readonly touched = signal<Record<string, boolean>>({});
   protected readonly submitAttempted = signal(false);
   protected readonly submitting = signal(false);
+
+  /** Read one field's current value. */
+  protected valueOf(name: string): unknown {
+    return this.values()[name];
+  }
+
+  /** Write one field's value. Wraps the signal update so the
+   *  template's (ngModelChange) binding stays terse. */
+  protected setValue(name: string, value: unknown): void {
+    this.values.update((cur) => ({ ...cur, [name]: value }));
+  }
 
   protected touch(name: string): void {
     this.touched.update((t) => ({ ...t, [name]: true }));
@@ -350,7 +366,7 @@ export class DynamicFormCardComponent {
   }
 
   private computeError(f: DynamicField): string {
-    const raw = this.values[f.name];
+    const raw = this.values()[f.name];
     const empty = raw == null || raw === '' || (Array.isArray(raw) && raw.length === 0);
     if (f.required && empty) return `${f.label} is required.`;
     if (empty) return '';
@@ -380,16 +396,16 @@ export class DynamicFormCardComponent {
   protected readonly isValid = computed(() => this.invalidFields().length === 0);
 
   protected multiHas(name: string, opt: string): boolean {
-    const arr = (this.values[name] ?? []) as readonly string[];
+    const arr = (this.values()[name] ?? []) as readonly string[];
     return Array.isArray(arr) && arr.includes(opt);
   }
 
   protected multiToggle(name: string, opt: string, on: boolean): void {
-    const cur = (this.values[name] ?? []) as readonly string[];
+    const cur = (this.values()[name] ?? []) as readonly string[];
     const next = on
       ? cur.includes(opt) ? cur : [...cur, opt]
       : cur.filter((v) => v !== opt);
-    this.values[name] = next;
+    this.setValue(name, next);
   }
 
   /**
@@ -414,7 +430,7 @@ export class DynamicFormCardComponent {
     if (!this.isValid() || this.submitting() || this.submitted()) return;
 
     this.submitting.set(true);
-    const v = { ...this.values };
+    const v = { ...this.values() };
     try {
       await runInInjectionContext(this.env, async () => {
         const store = this.env.get(MatterStore);

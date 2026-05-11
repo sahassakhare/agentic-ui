@@ -923,10 +923,17 @@ function generateCustodianIntakeFormTool() {
       'Generate a custodian intake form on the fly. Use when the user ' +
       'asks the agent to "design", "generate", "author", or "create" a ' +
       'form rather than open the existing one. Emit the full form ' +
-      'schema yourself — title, sections, fields. Best practice: include ' +
-      'an Identity section with name + email + department fields so the ' +
-      'system can register the resulting custodian. Field types: text, ' +
-      'email, textarea, select, multiselect, checkbox, number. ' +
+      'schema yourself — title, sections, fields. ' +
+      'Best practice: include an Identity section with name + email + ' +
+      'department fields so the system can register the resulting ' +
+      'custodian. ' +
+      'IMPORTANT — for the `department` field always use type "select" ' +
+      'with options ["Engineering", "Finance", "Legal", "Marketing", ' +
+      '"Operations", "Sales", "HR"] so the operator picks from the ' +
+      'standard list rather than typing free text. Use type "email" for ' +
+      'work email. Use type "checkbox" for compliance acknowledgements. ' +
+      'Field types available: text, email, textarea, select, ' +
+      'multiselect, checkbox, number. ' +
       'CALL THIS TOOL EXACTLY ONCE PER USER REQUEST.',
     schema: z.object({
       title: z.string().describe('Form title shown at the top of the card'),
@@ -944,18 +951,53 @@ function generateCustodianIntakeFormTool() {
       // (`dynamicFormSchema` in dynamic-form-card.component.ts) and
       // surfaces parse errors inline if anything slipped past Gemini's
       // schema coercion.
+      const normalized = normaliseDynamicSchema(schema);
       return {
         components: [{
           name: 'dynamicFormCard',
-          props: { schema },
+          props: { schema: normalized },
         }],
         markdown:
-          `Generated form **${schema.title}** with ${schema.sections.length} ` +
-          `section${schema.sections.length === 1 ? '' : 's'}, ` +
-          `${schema.sections.reduce((s, sec) => s + sec.fields.length, 0)} fields total.`,
+          `Generated form **${normalized.title}** with ${normalized.sections.length} ` +
+          `section${normalized.sections.length === 1 ? '' : 's'}, ` +
+          `${normalized.sections.reduce((s, sec) => s + sec.fields.length, 0)} fields total.`,
       };
     },
   });
+}
+
+const STANDARD_DEPARTMENTS = [
+  'Engineering', 'Finance', 'Legal', 'Marketing', 'Operations', 'Sales', 'HR',
+] as const;
+
+/**
+ * Defensive normaliser for the LLM-emitted form schema. Even with
+ * the prompt nudging it to use `select` for `department`, the model
+ * occasionally falls back to free `text`. Upgrade common-named fields
+ * to the right type so operators get the dropdown the demo promises.
+ *
+ * Idempotent: if the LLM already emitted the right shape, this is a
+ * no-op. Keeps the schema's other fields untouched.
+ */
+function normaliseDynamicSchema<T extends {
+  sections: ReadonlyArray<{ fields: ReadonlyArray<{ name: string; type: string; options?: readonly string[] }> }>;
+}>(schema: T): T {
+  return {
+    ...schema,
+    sections: schema.sections.map((s) => ({
+      ...s,
+      fields: s.fields.map((f) => {
+        const isDept = /^department$/i.test(f.name) || /\bdepartment\b/i.test(f.name);
+        if (isDept && f.type !== 'select') {
+          return { ...f, type: 'select' as const, options: [...STANDARD_DEPARTMENTS] };
+        }
+        if (isDept && f.type === 'select' && (!f.options || f.options.length === 0)) {
+          return { ...f, options: [...STANDARD_DEPARTMENTS] };
+        }
+        return f;
+      }),
+    })),
+  } as T;
 }
 
 /**
