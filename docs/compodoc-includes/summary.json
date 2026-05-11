@@ -44,6 +44,10 @@
     "file": "teams-tab-embed.md"
   },
   {
+    "title": "Teams chat-native — Bot Framework + Adaptive Cards",
+    "file": "teams-bot-adaptive-cards.md"
+  },
+  {
     "title": "GitHub Copilot Extension — wire your catalog tools",
     "file": "github-copilot-extension.md"
   },

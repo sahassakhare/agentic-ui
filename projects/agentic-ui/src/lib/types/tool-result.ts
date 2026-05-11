@@ -106,4 +106,50 @@ export interface ToolResultRenderHints {
    * @experimental Reserved field — not yet processed.
    */
   readonly iframe_url?: string;
+
+  /**
+   * Adaptive Card 1.5+ schema (raw JSON). Consumed by the Teams
+   * Bot Framework adapter (`@maverick/agentic-ui-teams-bot`) and
+   * the future Microsoft Copilot Studio Connector. Both ecosystems
+   * render Adaptive Cards natively in their chat surfaces; this
+   * hint is the highest-fidelity render available there.
+   *
+   * @remarks
+   * - The Angular `<mvk-chat-shell>` ignores this field — its
+   *   canonical render path is `components`. Adaptive Cards
+   *   coexist with the other hints without conflict.
+   * - Each adapter pins its own supported AC schema version
+   *   (ADR-041 D7). Hand-write to the version the target host
+   *   ships; consult the adapter's README.
+   * - Tools that omit this hint still render in Teams via a
+   *   generic AC fallback the adapter builds from the
+   *   `components` array — useful for prototyping.
+   *
+   * @see https://adaptivecards.io
+   * @see ADR-041 §D2
+   *
+   * @example
+   * ```ts
+   * return {
+   *   ...holdRecord,
+   *   components: [{ name: 'legalHoldCard', props: holdRecord }],
+   *   adaptiveCard: {
+   *     type: 'AdaptiveCard',
+   *     $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+   *     version: '1.5',
+   *     body: [
+   *       { type: 'TextBlock', text: `Hold issued: ${holdRecord.id}`,
+   *         weight: 'Bolder', size: 'Medium' },
+   *       { type: 'FactSet', facts: [
+   *         { title: 'Scope', value: holdRecord.scope },
+   *         { title: 'Custodians', value: `${custodianIds.length}` },
+   *       ]},
+   *     ],
+   *     actions: [{ type: 'Action.OpenUrl', title: 'Open in app',
+   *                 url: `https://app/holds/${holdRecord.id}` }],
+   *   },
+   * };
+   * ```
+   */
+  readonly adaptiveCard?: object;
 }

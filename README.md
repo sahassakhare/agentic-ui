@@ -603,6 +603,7 @@ A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflo
 | `@maverick/agentic-ui-server` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-server.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-server) | `projects/agentic-ui-server` | Server-side helpers — generic Agent interface + AG-UI SSE route handler |
 | `@maverick/agentic-ui-mcp` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-mcp.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-mcp) | `projects/agentic-ui-mcp` | MCP server-side adapter — Claude Desktop / Cursor / Continue / Zed (ADR-006) |
 | `@maverick/agentic-ui-copilot-skill` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-copilot-skill.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-copilot-skill) | `projects/agentic-ui-copilot-skill` | GitHub Copilot Extensions webhook adapter (ADR-041 / plan P2) |
+| `@maverick/agentic-ui-teams-bot` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-teams-bot.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-teams-bot) | `projects/agentic-ui-teams-bot` | Microsoft Teams Bot Framework adapter — Adaptive Cards in Teams chat (ADR-041 / plan P1) |
 
 Two ways to trigger a publish:
 
@@ -611,6 +612,7 @@ Two ways to trigger a publish:
    - `agentic-ui-server-v0.1.0` → publishes `@maverick/agentic-ui-server`
    - `agentic-ui-mcp-v0.1.0` → publishes `@maverick/agentic-ui-mcp`
    - `agentic-ui-copilot-skill-v0.1.0` → publishes `@maverick/agentic-ui-copilot-skill`
+   - `agentic-ui-teams-bot-v0.1.0` → publishes `@maverick/agentic-ui-teams-bot`
    - `v1.1.0` (legacy) → publishes the primary `@maverick/agentic-ui`
 
    Then create the GitHub Release for that tag — the workflow fires automatically on `release: published`.
