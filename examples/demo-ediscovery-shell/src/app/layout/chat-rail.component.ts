@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ChatShellComponent, ToolRegistry, CapabilityRegistry } from '@maverick/agentic-ui';
 import { IconComponent } from '../ui/icon.component';
 import { PersonaService } from '../services/persona.service';
+import { ChatBridgeService } from '../services/chat-bridge.service';
 
 /**
  * Curated prompt catalog surfaced in the right-rail "Try asking" panel.
@@ -373,6 +374,7 @@ export class ChatRailComponent {
   private readonly toolRegistry = inject(ToolRegistry);
   private readonly capabilityRegistry = inject(CapabilityRegistry);
   private readonly personaService = inject(PersonaService);
+  private readonly bridge = inject(ChatBridgeService);
   private readonly chatShell = viewChild<ChatShellComponent>('chatShell');
 
   protected readonly toolCount = computed(() => this.toolRegistry.signal().length);
@@ -387,6 +389,22 @@ export class ChatRailComponent {
 
   protected readonly collapsed = signal(false);
   toggle(): void { this.collapsed.update((v) => !v); }
+
+  constructor() {
+    // Register the chat shell with the app-wide bridge so non-chat
+    // surfaces (Cmd+K palette, dashboard smart-buttons) can route
+    // prompts through THIS chat instance. Re-runs whenever the
+    // viewChild resolves (`chatShell()` is a signal of the ref).
+    effect(() => {
+      const shell = this.chatShell();
+      this.bridge.register(shell ?? null);
+    });
+    // Expose an "open the rail" hook so the palette can ensure the
+    // chat is visible when it forwards a prompt.
+    this.bridge.registerOpener(() => {
+      if (this.collapsed()) this.collapsed.set(false);
+    });
+  }
 
   /** Curated topical groups with dedup pass applied. Recent /
    *  latest synthetic groups were dropped in 2026-05-11 -- the
