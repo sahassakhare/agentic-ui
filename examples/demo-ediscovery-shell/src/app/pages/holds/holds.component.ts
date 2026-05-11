@@ -33,6 +33,22 @@ import { AgenticSlotComponent } from '../../ui/agentic-slot.component';
          pending. -->
     <mvk-agentic-slot name="holds.primary" />
 
+    <!-- "Just-created" confirmation banner. Lands when a workflow's
+         onComplete or the placeLegalHold tool navigates here with
+         ?created=1. Auto-dismisses after 6s. -->
+    @if (justCreated()) {
+      <div class="created-banner" role="status">
+        <span class="dot" aria-hidden="true">✓</span>
+        <div>
+          <strong>Legal hold issued.</strong>
+          @if (focusedId(); as id) {
+            <span class="dim"> · id <code>{{ id }}</code> — highlighted below.</span>
+          }
+        </div>
+        <button type="button" class="dismiss" (click)="dismissBanner()" aria-label="Dismiss">×</button>
+      </div>
+    }
+
     <div class="kpis">
       <div class="kpi" data-tone="warn">
         <span class="lbl">Active</span>
@@ -197,6 +213,32 @@ import { AgenticSlotComponent } from '../../ui/agentic-slot.component';
       border-radius: var(--r-pill);
       font-size: 0.6rem; font-weight: 600;
     }
+
+    .created-banner {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.625rem 0.875rem;
+      background: #ecfdf5; color: #065f46;
+      border: 1px solid #a7f3d0; border-radius: 0.5rem;
+      margin-bottom: var(--s-4);
+      animation: slide-in 200ms ease-out;
+    }
+    .created-banner .dot {
+      width: 22px; height: 22px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 999px; background: #10b981; color: white; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .created-banner .dim { color: var(--c-text-faint); }
+    .created-banner code { font-family: ui-monospace, monospace; font-size: 0.78rem; }
+    .created-banner .dismiss {
+      margin-left: auto;
+      background: transparent; border: none; cursor: pointer;
+      font-size: 1.25rem; line-height: 1; color: #065f46;
+    }
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
   `,
 })
 export class HoldsComponent {
@@ -217,10 +259,22 @@ export class HoldsComponent {
   });
 
   /** Deep-link support — `?id=HOLD-001` highlights and scrolls to the
-      matching card. Card animation runs once on focus change. */
+      matching card. `?created=1` flips a one-shot flash banner that
+      auto-dismisses after 6s. */
   private readonly route = inject(ActivatedRoute);
   private readonly idParam = toSignal(this.route.queryParamMap, { initialValue: null });
   protected readonly focusedId = computed(() => this.idParam()?.get('id') ?? null);
+  protected readonly justCreated = signal(false);
+  private readonly _flashBanner = effect(() => {
+    if (this.idParam()?.get('created') === '1') {
+      this.justCreated.set(true);
+      setTimeout(() => this.justCreated.set(false), 6000);
+    }
+  });
+
+  protected dismissBanner(): void {
+    this.justCreated.set(false);
+  }
   private readonly holdCards = viewChildren<ElementRef<HTMLElement>>('holdCard');
   private readonly _scrollToFocused = effect(() => {
     const id = this.focusedId();

@@ -447,7 +447,7 @@ export function registerForms(env: EnvironmentInjector): void {
         { id: 'matter-setup', widget: 'place-hold-matter-setup', section: 'Setup',       next: null },
       ],
       onComplete: async (state) => {
-        runInInjectionContext(env, () => {
+        await runInInjectionContext(env, async () => {
           const keywords = (state['scope'] as readonly string[] | undefined) ?? [];
           const custodianIds = (state['custodians'] as readonly string[] | undefined) ?? [];
           const range = (state['date-range'] as { from?: string; to?: string } | undefined) ?? {};
@@ -472,12 +472,19 @@ export function registerForms(env: EnvironmentInjector): void {
             console.warn('[placeLegalHold] workflow completed with no custodians; skipping addLegalHold');
             return;
           }
-          store.addLegalHold({
+          const hold = {
             id: nextLegalHoldId(),
             matterId: store.matterId,
             custodianIds: validIds,
             scope,
             issuedAt: isoNow(),
+          };
+          store.addLegalHold(hold);
+          // Same confirmation path as placeLegalHoldTool -- navigate
+          // the operator to /holds with ?id= + ?created=1 so the flash
+          // banner fires and the new hold is focused.
+          await env.get(Router).navigate(['/holds'], {
+            queryParams: { id: hold.id, created: '1' },
           });
         });
       },
@@ -521,7 +528,7 @@ export function registerForms(env: EnvironmentInjector): void {
         { id: 'preview',       widget: 'collect-step-preview',       section: 'Done',       next: null },
       ],
       onComplete: async (state) => {
-        runInInjectionContext(env, () => {
+        await runInInjectionContext(env, async () => {
           const setup = (state['matter-setup'] as { matterId?: string; scope?: string } | undefined) ?? {};
           const approval = (state['approval'] as { approved?: boolean } | undefined) ?? {};
           const custodianIds = (state['custodians'] as readonly string[] | undefined) ?? [];
@@ -543,16 +550,23 @@ export function registerForms(env: EnvironmentInjector): void {
             return;
           }
 
-          store.addLegalHold({
+          const hold = {
             id: nextLegalHoldId(),
             matterId: store.matterId,
             custodianIds: validIds,
             scope: setup.scope || 'Hold issued via place-hold-and-collect workflow.',
             issuedAt: isoNow(),
-          });
+          };
+          store.addLegalHold(hold);
           // eslint-disable-next-line no-console
           console.info('[placeLegalHoldAndCollect] complete', {
             matterId: setup.matterId, custodians: validIds.length, collectStatus,
+          });
+          // Land the operator on /holds with the new hold focused
+          // and the flash banner armed -- same pattern as the
+          // simpler placeLegalHold + the tool path.
+          await env.get(Router).navigate(['/holds'], {
+            queryParams: { id: hold.id, created: '1' },
           });
         });
       },
