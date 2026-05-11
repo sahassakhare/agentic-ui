@@ -81,6 +81,8 @@ export function buildTools(env: EnvironmentInjector): ToolDef[] {
     openProductionsTool(env) as ToolDef,
     openCustodiansListTool(env) as ToolDef,
     openHoldsListTool(env) as ToolDef,
+    openApprovalsTool(env) as ToolDef,
+    openOperationsTool(env) as ToolDef,
     runTARClassifierTool() as ToolDef,
   ];
 }
@@ -1154,6 +1156,46 @@ function openHoldsListTool(env: EnvironmentInjector) {
       return runInInjectionContext(env, async () => {
         await env.get(Router).navigate(['/holds']);
         return { markdown: 'Opening [/holds](/holds).' };
+      });
+    },
+  });
+}
+
+function openApprovalsTool(env: EnvironmentInjector) {
+  return agenticTool({
+    name: 'openApprovals',
+    description:
+      'Open the approvals queue page where senior reviewers can see ' +
+      'every pending human-in-the-loop approval, the diff being ' +
+      'requested, the audit trail of prior decisions, and approve / ' +
+      'reject inline. Use whenever the user asks to "show", "list", ' +
+      '"view", "open", or "see" approvals / pending approvals / the ' +
+      'HITL queue.',
+    schema: z.object({}),
+    handler: async () => {
+      return runInInjectionContext(env, async () => {
+        await env.get(Router).navigate(['/approvals']);
+        return { markdown: 'Opening [/approvals](/approvals).' };
+      });
+    },
+  });
+}
+
+function openOperationsTool(env: EnvironmentInjector) {
+  return agenticTool({
+    name: 'openOperations',
+    description:
+      'Open the long-running operations page where the user can see ' +
+      'every in-flight + recently-finished operation with live ' +
+      'progress, status, and the originating tool call. Use whenever ' +
+      'the user asks to "show", "list", "view", "open", or "see" ' +
+      'operations / running jobs / background tasks / long-running ' +
+      'operations.',
+    schema: z.object({}),
+    handler: async () => {
+      return runInInjectionContext(env, async () => {
+        await env.get(Router).navigate(['/operations']);
+        return { markdown: 'Opening [/operations](/operations).' };
       });
     },
   });

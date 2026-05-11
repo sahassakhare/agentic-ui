@@ -104,7 +104,7 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
       { text: 'Run the multi-actor place-hold-and-collect workflow', capability: 'F3' },
       { text: 'Place a legal hold on Sarah Chen — scope: emails about Project Phoenix from Jan 2025' },
       { text: 'Show me pending hold acknowledgements' },
-      { text: "Release HOLD-001, it's redundant", capability: 'F4' },
+      { text: 'Show me all legal holds' },
     ],
   },
   {
@@ -125,10 +125,21 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
     ],
   },
   {
+    id: 'approvals',
+    title: 'Approvals (HITL)',
+    prompts: [
+      { text: 'Show me pending approvals', capability: 'F4' },
+      { text: "Release HOLD-001, it's redundant", capability: 'F4' },
+      { text: 'Open the approvals queue', capability: 'F4' },
+    ],
+  },
+  {
     id: 'operations',
     title: 'Long-running operations',
     prompts: [
+      { text: 'Show me long-running operations', capability: 'F5' },
       { text: 'Run TAR classification on the un-tagged corpus for SEC inquiry', capability: 'F5' },
+      { text: 'List currently running operations', capability: 'F5' },
     ],
   },
   {
