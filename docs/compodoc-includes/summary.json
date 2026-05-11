@@ -48,6 +48,10 @@
     "file": "teams-bot-adaptive-cards.md"
   },
   {
+    "title": "Microsoft Copilot Studio — Connector wiring",
+    "file": "copilot-studio-connector.md"
+  },
+  {
     "title": "GitHub Copilot Extension — wire your catalog tools",
     "file": "github-copilot-extension.md"
   },
