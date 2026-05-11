@@ -88,9 +88,15 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
     id: 'custodians',
     title: 'Custodians',
     prompts: [
+      // ── Three intake variants, side by side so operators see the trade-offs:
+      // F1 = predefined form (dual-mount: chat panel + the /intake/custodian page)
+      // F1-dyn = LLM authors the form on the fly, mounts in chat
+      // (no-tag) = pure navigation to the standalone page, no chat card
       { text: 'Open the custodian intake form for a Finance team member', capability: 'F1' },
-      { text: 'Onboard a Finance custodian named Alice Chen, alice.chen@acme.example', capability: 'F1' },
       { text: 'Generate a custodian intake form yourself, ask me name, email, department, and any compliance acknowledgements you think are needed', capability: 'F1-dyn' },
+      { text: 'Go to the custodian intake page for a Finance custodian' },
+      // ── Domain prompts that exercise the intake side-effects + listing:
+      { text: 'Onboard a Finance custodian named Alice Chen, alice.chen@acme.example', capability: 'F1' },
       { text: 'Onboard a custodian, type Eleanor for the supervisor', capability: 'F2' },
       { text: 'Add Sarah Chen as a custodian, sarah.chen@acme.example, Engineering' },
       { text: 'List all custodians on this matter' },

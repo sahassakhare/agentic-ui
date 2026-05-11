@@ -83,6 +83,7 @@ export function buildTools(env: EnvironmentInjector): ToolDef[] {
     openHoldsListTool(env) as ToolDef,
     openApprovalsTool(env) as ToolDef,
     openOperationsTool(env) as ToolDef,
+    openCustodianIntakePageTool(env) as ToolDef,
     runTARClassifierTool() as ToolDef,
   ];
 }
@@ -1187,6 +1188,38 @@ function openApprovalsTool(env: EnvironmentInjector) {
       return runInInjectionContext(env, async () => {
         await env.get(Router).navigate(['/approvals']);
         return { markdown: 'Opening [/approvals](/approvals).' };
+      });
+    },
+  });
+}
+
+function openCustodianIntakePageTool(env: EnvironmentInjector) {
+  return agenticTool({
+    name: 'openCustodianIntakePage',
+    description:
+      "Open the standalone custodian intake page (/intake/custodian) " +
+      "WITHOUT mounting the form inline in the chat panel. Use ONLY " +
+      "when the user explicitly asks to 'go to', 'open the page', " +
+      "'navigate to', or 'route to' the intake page -- typical when " +
+      "they want a full-width surface and not a chat-embedded card. " +
+      "For 'open / show / fill the intake form' use openCustodianIntake " +
+      "instead, which dual-mounts (chat card + page).",
+    schema: z.object({
+      department: z.string().optional()
+        .describe("Optional department to pre-select on the page"),
+    }),
+    handler: async ({ department }) => {
+      return runInInjectionContext(env, async () => {
+        const queryParams: Record<string, string> = {};
+        if (department) queryParams['department'] = department;
+        await env.get(Router).navigate(['/intake/custodian'], { queryParams });
+        return {
+          markdown:
+            'Opened the standalone intake page at ' +
+            '[/intake/custodian](/intake/custodian)' +
+            (department ? ` with department **${department}**` : '') +
+            '. Form is rendered there directly -- no chat card.',
+        };
       });
     },
   });
