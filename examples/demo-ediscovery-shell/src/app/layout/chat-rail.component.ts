@@ -51,7 +51,42 @@ interface PromptGroup {
   readonly prompts: readonly PromptItem[];
 }
 
+const MAX_RECENT = 5;
+const RECENT_KEY = 'ediscovery:recent-prompts';
+
+function loadRecentPrompts(): readonly string[] {
+  try {
+    const raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(RECENT_KEY) : null;
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((s): s is string => typeof s === 'string').slice(0, MAX_RECENT);
+  } catch {
+    return [];
+  }
+}
+
+function saveRecentPrompts(items: readonly string[]): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem(RECENT_KEY, JSON.stringify(items));
+  } catch {
+    /* quota / private mode — silently no-op */
+  }
+}
+
 const PROMPT_GROUPS: readonly PromptGroup[] = [
+  {
+    id: 'latest',
+    title: 'New — latest demos',
+    prompts: [
+      { text: 'Onboard a Finance custodian named Alice Chen, alice.chen@acme.example', capability: 'F1' },
+      { text: 'Place a legal hold on Sarah Chen — scope: emails about Project Phoenix from Q1 2025', capability: 'F3' },
+      { text: 'Generate a custodian intake form with name, email, department, and a compliance ack', capability: 'F1-dyn' },
+      { text: 'Run the multi-actor place-hold-and-collect workflow' },
+      { text: 'Search documents about Project Phoenix tagged responsive but not privileged' },
+    ],
+  },
   {
     id: 'custodians',
     title: 'Custodians',
@@ -166,7 +201,7 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
           </button>
           @if (hintsExpanded()) {
             <div class="hint-groups">
-              @for (group of promptGroups; track group.id) {
+              @for (group of promptGroups(); track group.id) {
                 <section class="hint-group">
                   <h4>{{ group.title }}</h4>
                   <div class="hint-items">
@@ -355,12 +390,51 @@ export class ChatRailComponent {
   protected readonly collapsed = signal(false);
   toggle(): void { this.collapsed.update((v) => !v); }
 
-  protected readonly promptGroups = PROMPT_GROUPS;
+  /** Persisted last-N prompts the user has sent this session. Source
+   *  of truth lives in localStorage so it survives reloads. Newest
+   *  first; capped at MAX_RECENT entries. */
+  private readonly recentPrompts = signal<readonly string[]>(loadRecentPrompts());
+
+  /** Synthetic group surfaced at the top of the prompt groups list
+   *  whenever the user has at least one recent prompt. Re-runs the
+   *  computation whenever recentPrompts() changes. */
+  protected readonly promptGroups = computed<readonly PromptGroup[]>(() => {
+    const recent = this.recentPrompts();
+    if (recent.length === 0) return PROMPT_GROUPS;
+    const recentGroup: PromptGroup = {
+      id: 'recent',
+      title: 'Recent — your last prompts',
+      prompts: recent.map((text) => ({ text })),
+    };
+    return [recentGroup, ...PROMPT_GROUPS];
+  });
+
   protected readonly totalPromptCount = computed(() =>
-    PROMPT_GROUPS.reduce((sum, g) => sum + g.prompts.length, 0),
+    this.promptGroups().reduce((sum, g) => sum + g.prompts.length, 0),
   );
-  protected readonly hintsExpanded = signal(false);
+  /** Default-expanded so new operators immediately see what they
+   *  can ask. The user can collapse via the chevron toggle and the
+   *  state persists for the rest of the session. */
+  protected readonly hintsExpanded = signal(true);
   toggleHints(): void { this.hintsExpanded.update((v) => !v); }
+
+  /** Drop a prompt onto the front of the recent list, dedup against
+   *  any earlier copy, cap at MAX_RECENT, persist to localStorage. */
+  private rememberRecent(text: string): void {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    const cur = this.recentPrompts();
+    const dedup = cur.filter((p) => p !== trimmed);
+    const next = [trimmed, ...dedup].slice(0, MAX_RECENT);
+    this.recentPrompts.set(next);
+    saveRecentPrompts(next);
+  }
+
+  /** Wipe the recent list. Exposed for a (future) clear button. */
+  clearRecentPrompts(): void {
+    this.recentPrompts.set([]);
+    saveRecentPrompts([]);
+  }
 
   protected capabilityLabel(c: Capability): string { return CAPABILITY_LABEL[c]; }
   protected capabilityTitle(c: Capability): string { return CAPABILITY_TITLE[c]; }
@@ -373,6 +447,7 @@ export class ChatRailComponent {
     const shell = this.chatShell();
     if (!shell) return;
     shell.sendMessage(text);
+    this.rememberRecent(text);
     this.hintsExpanded.set(false);
   }
 
