@@ -869,20 +869,15 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
         .describe("Matter type override (defaults to 'securities' for the demo Project Phoenix matter)"),
     }),
     handler: async ({ department, matterType }) => {
-      return runInInjectionContext(env, async () => {
-        // Dual mount: navigate to /intake/custodian so the form is
-        // available as a full-width app surface, AND emit the
-        // custodianIntakeCard widget so chat-triggered prompts also
-        // show the form inline in the chat panel. Users picking the
-        // prompt from the rail expect to see the form there; users
-        // pressing Cmd+K (headless palette) see the navigation and
-        // never see the inline card (the palette uses a separate
-        // chat thread that's never rendered).
+      return runInInjectionContext(env, () => {
+        // Chat-only mount. The form lands inline in the chat panel
+        // via the custodianIntakeCard widget. Users who want the
+        // standalone /intake/custodian page have a separate tool
+        // (openCustodianIntakePage) wired to a distinct prompt --
+        // keeps the two scenarios cleanly separated as the operator
+        // requested.
         const persona = env.get(PersonaService).active();
         const matter = matterType ?? 'securities';
-        const queryParams: Record<string, string> = { matterType: matter };
-        if (department) queryParams['department'] = department;
-        await env.get(Router).navigate(['/intake/custodian'], { queryParams });
         return {
           components: [{
             name: 'custodianIntakeCard',
@@ -893,9 +888,10 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
             },
           }],
           markdown:
-            `Opening custodian intake — matter **${matter}**` +
+            `Opening custodian intake — matter **${matter}**, ` +
+            `persona **${persona}**` +
             (department ? `, department **${department}**` : '') +
-            `. Also view / fill on [/intake/custodian](/intake/custodian).`,
+            '.',
         };
       });
     },

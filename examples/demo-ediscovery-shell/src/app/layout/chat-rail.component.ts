@@ -89,10 +89,10 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
     title: 'Custodians',
     prompts: [
       // ── Three intake variants, side by side so operators see the trade-offs:
-      // F1 = predefined form (dual-mount: chat panel + the /intake/custodian page)
-      // F1-dyn = LLM authors the form on the fly, mounts in chat
-      // (no-tag) = pure navigation to the standalone page, no chat card
-      { text: 'Open the custodian intake form for a Finance team member', capability: 'F1' },
+      // F1     = predefined form mounts inline in the chat panel (no routing)
+      // F1-dyn = LLM authors the form on the fly, still mounts in chat
+      // (no-tag) = pure navigation to the standalone /intake/custodian page
+      { text: 'Onboard a custodian from the Finance team', capability: 'F1' },
       { text: 'Generate a custodian intake form yourself, ask me name, email, department, and any compliance acknowledgements you think are needed', capability: 'F1-dyn' },
       { text: 'Go to the custodian intake page for a Finance custodian' },
       // ── Domain prompts that exercise the intake side-effects + listing:
@@ -224,8 +224,9 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
                     @for (p of group.prompts; track p.text) {
                       <button type="button" class="hint-item"
                               [class.disabled]="p.requiresAttachment"
+                              [class.just-sent]="lastSent() === p.text"
                               [disabled]="p.requiresAttachment"
-                              [attr.title]="p.requiresAttachment ? 'Drag a PDF onto the chat first, then click' : 'Send this prompt'"
+                              [attr.title]="p.requiresAttachment ? 'Drag a PDF onto the chat first, then click' : (lastSent() === p.text ? 'Just sent — wait for the agent to finish' : 'Send this prompt')"
                               (click)="runPrompt(p.text)">
                         @if (p.capability) {
                           <span class="cap-badge cap-{{p.capability}}"
@@ -357,6 +358,21 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
     .hint-item.disabled, .hint-item:disabled {
       opacity: 0.55; cursor: not-allowed;
     }
+    /* Highlight the prompt the operator just clicked. Auto-clears
+       4s later; gives a clear "sent — wait for the agent" signal
+       so a rapid second click doesn't abort the prior turn. */
+    .hint-item.just-sent {
+      background: var(--c-brand-tint);
+      border-color: var(--c-brand);
+      color: var(--c-brand-strong);
+      box-shadow: 0 0 0 2px var(--c-brand-soft);
+      animation: just-sent-pulse 1.6s ease-out 1;
+    }
+    @keyframes just-sent-pulse {
+      0%   { box-shadow: 0 0 0 0 var(--c-brand-soft); }
+      40%  { box-shadow: 0 0 0 6px transparent; }
+      100% { box-shadow: 0 0 0 2px var(--c-brand-soft); }
+    }
     .hint-item .hint-text { flex: 1; line-height: 1.25; }
     .hint-item .attach-icon { font-size: 0.85rem; flex-shrink: 0; }
     .cap-badge {
@@ -448,11 +464,22 @@ export class ChatRailComponent {
    * Send a curated prompt as if the user typed it. The prompt panel
    * collapses after submit so the transcript has the rail's full height.
    */
+  /** Last prompt the operator clicked, kept in a signal so the
+   *  template can fade the item briefly. Cleared 4s later. */
+  protected readonly lastSent = signal<string>('');
+
   runPrompt(text: string): void {
     const shell = this.chatShell();
     if (!shell) return;
+    // sendMessage on the chat shell aborts any prior in-flight
+    // turn. We do NOT auto-collapse the hints panel here -- the
+    // operator wanted to keep browsing prompts; collapsing made the
+    // panel feel "stuck" after a couple of clicks.
     shell.sendMessage(text);
-    this.hintsExpanded.set(false);
+    this.lastSent.set(text);
+    setTimeout(() => {
+      if (this.lastSent() === text) this.lastSent.set('');
+    }, 4000);
   }
 
   /**
