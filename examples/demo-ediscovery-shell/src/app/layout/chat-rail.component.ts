@@ -75,16 +75,42 @@ function saveRecentPrompts(items: readonly string[]): void {
   }
 }
 
+/**
+ * Dedup prompts across groups. Walk in order; the first appearance
+ * of a text wins, later duplicates are dropped. Groups that end up
+ * empty are filtered out so we don't render lone headers. Normalises
+ * by trimming + lower-casing so trivial whitespace / case variants
+ * are treated as the same prompt.
+ */
+function dedupPromptGroups(groups: readonly PromptGroup[]): readonly PromptGroup[] {
+  const seen = new Set<string>();
+  const out: PromptGroup[] = [];
+  for (const g of groups) {
+    const keptPrompts: PromptItem[] = [];
+    for (const p of g.prompts) {
+      const key = p.text.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      keptPrompts.push(p);
+    }
+    if (keptPrompts.length > 0) {
+      out.push({ id: g.id, title: g.title, prompts: keptPrompts });
+    }
+  }
+  return out;
+}
+
 const PROMPT_GROUPS: readonly PromptGroup[] = [
   {
+    // Stays intentionally short -- highlights flows that exercise
+    // the new routing / validation / multi-actor patterns from the
+    // 2026-05-11 plan. Topical groups below cover everything else;
+    // dedupPromptGroups() drops any accidental overlap.
     id: 'latest',
     title: 'New — latest demos',
     prompts: [
       { text: 'Onboard a Finance custodian named Alice Chen, alice.chen@acme.example', capability: 'F1' },
-      { text: 'Place a legal hold on Sarah Chen — scope: emails about Project Phoenix from Q1 2025', capability: 'F3' },
-      { text: 'Generate a custodian intake form with name, email, department, and a compliance ack', capability: 'F1-dyn' },
       { text: 'Run the multi-actor place-hold-and-collect workflow' },
-      { text: 'Search documents about Project Phoenix tagged responsive but not privileged' },
     ],
   },
   {
@@ -397,16 +423,24 @@ export class ChatRailComponent {
 
   /** Synthetic group surfaced at the top of the prompt groups list
    *  whenever the user has at least one recent prompt. Re-runs the
-   *  computation whenever recentPrompts() changes. */
+   *  computation whenever recentPrompts() changes.
+   *
+   *  Dedup pass: walk groups in order and drop any prompt whose
+   *  normalized text was already surfaced. First appearance wins,
+   *  so the "Recent" group and "New — latest demos" group reserve
+   *  duplicates and the topical groups (Custodians / Legal holds /
+   *  …) silently skip them. Empty groups after dedup are removed. */
   protected readonly promptGroups = computed<readonly PromptGroup[]>(() => {
     const recent = this.recentPrompts();
-    if (recent.length === 0) return PROMPT_GROUPS;
-    const recentGroup: PromptGroup = {
+    const recentGroup: PromptGroup | null = recent.length === 0 ? null : {
       id: 'recent',
       title: 'Recent — your last prompts',
       prompts: recent.map((text) => ({ text })),
     };
-    return [recentGroup, ...PROMPT_GROUPS];
+    const raw: readonly PromptGroup[] = recentGroup
+      ? [recentGroup, ...PROMPT_GROUPS]
+      : PROMPT_GROUPS;
+    return dedupPromptGroups(raw);
   });
 
   protected readonly totalPromptCount = computed(() =>
