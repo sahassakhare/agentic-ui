@@ -34,7 +34,7 @@ import { ChatBridgeService } from '../services/chat-bridge.service';
       <div class="overlay" (click)="close()" role="presentation">
         <div class="palette" role="dialog" aria-label="Command palette" (click)="$event.stopPropagation()">
           <header class="head">
-            <span class="kbd">⌘ K</span>
+            <span class="kbd">{{ shortcutLabel }}</span>
             <span class="title">Ask the agent</span>
             <button class="close" type="button" (click)="close()" aria-label="Close">×</button>
           </header>
@@ -122,6 +122,11 @@ import { ChatBridgeService } from '../services/chat-bridge.service';
 export class CommandPaletteComponent {
   private readonly bridge = inject(ChatBridgeService);
 
+  /** Platform-aware shortcut label. Mac users see ⌘K; everyone
+   *  else sees Ctrl+K. The HostListener accepts both modifiers
+   *  regardless, but the badge should match the user's OS. */
+  protected readonly shortcutLabel = detectShortcutLabel();
+
   readonly open = signal(false);
   readonly prompt = signal('');
 
@@ -159,4 +164,18 @@ export class CommandPaletteComponent {
       this.close();
     }
   }
+}
+
+/** Pick the right shortcut label for the platform. Modern browsers
+ *  surface platform via `navigator.userAgentData.platform`, with a
+ *  fallback to `navigator.platform`. SSR-safe (returns the Ctrl
+ *  label when window/navigator are absent). */
+function detectShortcutLabel(): string {
+  if (typeof navigator === 'undefined') return 'Ctrl + K';
+  // userAgentData is the modern, opt-in API; fall back to the
+  // deprecated `platform` string when unavailable.
+  const ua = (navigator as unknown as { userAgentData?: { platform?: string } }).userAgentData;
+  const plat = (ua?.platform || navigator.platform || '').toLowerCase();
+  const isMac = plat.includes('mac') || plat.includes('iphone') || plat.includes('ipad');
+  return isMac ? '⌘ K' : 'Ctrl + K';
 }

@@ -76,7 +76,7 @@ export function buildTools(env: EnvironmentInjector): ToolDef[] {
     acknowledgeLegalHoldTool(env) as ToolDef,
     openCustodianIntakeTool(env) as ToolDef,
     generateCustodianIntakeFormTool() as ToolDef,
-    openPlaceLegalHoldWorkflowTool() as ToolDef,
+    openPlaceLegalHoldWorkflowTool(env) as ToolDef,
     runTARClassifierTool() as ToolDef,
   ];
 }
@@ -862,20 +862,22 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
         .describe("Matter type override (defaults to 'securities' for the demo Project Phoenix matter)"),
     }),
     handler: async ({ department, matterType }) => {
-      return runInInjectionContext(env, () => {
-        const persona = env.get(PersonaService).active();
+      return runInInjectionContext(env, async () => {
+        // Route-target pattern: navigate to the direct-mount page
+        // /intake/custodian and let it render the form via
+        // <mvk-form-renderer>. Same registered formDef, just on
+        // an actual app surface instead of inline in the chat
+        // panel -- closes the user feedback "the prompt is
+        // executed in chat surface, not in the actual app".
+        const matter = matterType ?? 'securities';
+        const queryParams: Record<string, string> = { matterType: matter };
+        if (department) queryParams['department'] = department;
+        await env.get(Router).navigate(['/intake/custodian'], { queryParams });
         return {
-          components: [{
-            name: 'custodianIntakeCard',
-            props: {
-              matterType: matterType ?? 'securities',
-              persona,
-              department: department ?? '',
-            },
-          }],
           markdown:
-            `Opening custodian intake for matter type **${matterType ?? 'securities'}**, ` +
-            `persona **${persona}**${department ? `, department **${department}**` : ''}.`,
+            `Opening custodian intake — matter **${matter}**` +
+            (department ? `, department **${department}**` : '') +
+            `. View / fill on [/intake/custodian](/intake/custodian).`,
         };
       });
     },
@@ -1099,7 +1101,7 @@ function runTARClassifierTool() {
   });
 }
 
-function openPlaceLegalHoldWorkflowTool() {
+function openPlaceLegalHoldWorkflowTool(env: EnvironmentInjector) {
   return agenticTool({
     name: 'openPlaceLegalHoldWorkflow',
     description:
@@ -1109,9 +1111,17 @@ function openPlaceLegalHoldWorkflowTool() {
       'Prefer this over `placeLegalHold` (one-shot) when the user is ' +
       'unsure which custodians to cover or wants to review before sending.',
     schema: z.object({}),
-    handler: async () => ({
-      components: [{ name: 'placeLegalHoldCard', props: {} }],
-      markdown: 'Opening the place-legal-hold wizard.',
-    }),
+    handler: async () => {
+      return runInInjectionContext(env, async () => {
+        // Route-target: open the wizard on its dedicated page so the
+        // user works through it in the main app surface rather than
+        // a cramped chat-panel card.
+        await env.get(Router).navigate(['/workflows/place-hold']);
+        return {
+          markdown:
+            'Opening the place-legal-hold wizard on [/workflows/place-hold](/workflows/place-hold).',
+        };
+      });
+    },
   });
 }
