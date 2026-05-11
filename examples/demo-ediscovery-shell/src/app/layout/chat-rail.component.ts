@@ -106,7 +106,12 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
     id: 'holds',
     title: 'Legal holds',
     prompts: [
+      // ── Two wizard variants, side by side (matches the Custodian
+      //    intake pattern):
+      // F3        = wizard mounts inline in the chat panel
+      // (no-tag)  = pure navigation to /workflows/place-hold, no chat card
       { text: 'Open the place-legal-hold wizard', capability: 'F3' },
+      { text: 'Go to the place-legal-hold wizard page' },
       { text: 'Run the multi-actor place-hold-and-collect workflow', capability: 'F3' },
       { text: 'Place a legal hold on Sarah Chen — scope: emails about Project Phoenix from Jan 2025' },
       { text: 'Show me pending hold acknowledgements' },

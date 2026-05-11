@@ -78,6 +78,7 @@ export function buildTools(env: EnvironmentInjector): ToolDef[] {
     openCustodianIntakeTool(env) as ToolDef,
     generateCustodianIntakeFormTool() as ToolDef,
     openPlaceLegalHoldWorkflowTool(env) as ToolDef,
+    openPlaceLegalHoldWorkflowPageTool(env) as ToolDef,
     openProductionsTool(env) as ToolDef,
     openCustodiansListTool(env) as ToolDef,
     openHoldsListTool(env) as ToolDef,
@@ -852,16 +853,22 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
   return agenticTool({
     name: 'openCustodianIntake',
     description:
-      'Open the runtime-composed custodian intake form. Use whenever the ' +
-      'user wants to onboard a new custodian. The form renders different ' +
-      'sections (compliance disclosure, supervisor sign-off, accounting ' +
-      'system picker) based on matter type, persona, and the custodian’s ' +
-      'department. CALL THIS TOOL EXACTLY ONCE PER USER REQUEST. Before ' +
-      'calling, extract the department from the user message — phrases ' +
-      'like "from the Finance team", "Engineering custodian", "in Legal" ' +
-      'all map to a department string. Pass it as `department`. Only omit ' +
-      '`department` when the user gave no department hint at all (then the ' +
-      'form skips the accounting-systems section).',
+      'Mount the runtime-composed custodian intake FORM inline in the ' +
+      'chat panel. Use ONLY when the user wants to ONBOARD / ADD / ' +
+      'CAPTURE / FILL IN a new custodian (action verbs that imply ' +
+      'data entry). Do NOT use this for "open", "go to", "navigate ' +
+      'to", "show", "view" verbs aimed at the intake PAGE -- those ' +
+      'should call `openCustodianIntakePage` instead which routes to ' +
+      '/intake/custodian without a chat card. ' +
+      'The form renders different sections (compliance disclosure, ' +
+      'supervisor sign-off, accounting system picker) based on matter ' +
+      'type, persona, and the custodian\'s department. CALL THIS TOOL ' +
+      'EXACTLY ONCE PER USER REQUEST. Before calling, extract the ' +
+      'department from the user message — phrases like "from the ' +
+      'Finance team", "Engineering custodian", "in Legal" all map to ' +
+      'a department string. Pass it as `department`. Only omit ' +
+      '`department` when the user gave no department hint at all ' +
+      '(then the form skips the accounting-systems section).',
     schema: z.object({
       department: z.string().optional()
         .describe("The custodian's department (e.g. 'Finance', 'Engineering')"),
@@ -1135,12 +1142,15 @@ function openCustodiansListTool(env: EnvironmentInjector) {
   return agenticTool({
     name: 'openCustodians',
     description:
-      'Open the custodians page where the user can review every ' +
-      'custodian on the matter, their department, hold status, and ' +
-      'collection progress. Use whenever the user asks to "show", ' +
-      '"list", "view", or "open" custodians (without specifying one ' +
-      'to onboard -- for onboarding use openCustodianIntake). Prefer ' +
-      'this over a chat list -- the page is the real surface.',
+      'Route the user to the custodians LIST page (/custodians) ' +
+      'where they can review every custodian on the matter, their ' +
+      'department, hold status, and collection progress. Use ONLY ' +
+      'when the user says the PLURAL "custodians" (with an s): ' +
+      '"show custodians", "list custodians", "open custodians", ' +
+      '"view custodians", "see all custodians". For SINGULAR "open ' +
+      'custodian" / "open the custodian intake" use ' +
+      '`openCustodianIntakePage` instead -- "open custodian" ' +
+      '(singular) implies the intake surface, not the list.',
     schema: z.object({}),
     handler: async () => {
       return runInInjectionContext(env, async () => {
@@ -1193,13 +1203,20 @@ function openCustodianIntakePageTool(env: EnvironmentInjector) {
   return agenticTool({
     name: 'openCustodianIntakePage',
     description:
-      "Open the standalone custodian intake page (/intake/custodian) " +
-      "WITHOUT mounting the form inline in the chat panel. Use ONLY " +
-      "when the user explicitly asks to 'go to', 'open the page', " +
-      "'navigate to', or 'route to' the intake page -- typical when " +
-      "they want a full-width surface and not a chat-embedded card. " +
-      "For 'open / show / fill the intake form' use openCustodianIntake " +
-      "instead, which dual-mounts (chat card + page).",
+      "Route the user to the standalone custodian intake PAGE at " +
+      "/intake/custodian. Use this for ANY phrasing that implies " +
+      "opening / viewing / navigating to a page rather than filling " +
+      "a form in chat. STRONGEST triggers: 'open custodian', 'open " +
+      "the custodian page', 'open the intake page', 'go to custodian " +
+      "intake', 'navigate to custodian intake', 'show me the " +
+      "custodian intake page', 'route to custodian intake'. Use this " +
+      "even when the user just says 'open custodian' (with no " +
+      "qualifier) -- 'open' is a navigation verb in this app. " +
+      "Do NOT use this for 'onboard', 'add', 'capture', 'fill in', " +
+      "'create' verbs -- those want the chat-embedded form via " +
+      "`openCustodianIntake`. Do NOT use this for the plural " +
+      "'open custodians' -- that wants `openCustodians` (the list " +
+      "page).",
     schema: z.object({
       department: z.string().optional()
         .describe("Optional department to pre-select on the page"),
@@ -1245,21 +1262,49 @@ function openPlaceLegalHoldWorkflowTool(env: EnvironmentInjector) {
   return agenticTool({
     name: 'openPlaceLegalHoldWorkflow',
     description:
-      'Open the guided wizard for placing a legal hold. Use whenever the ' +
-      'user wants to issue a hold and would benefit from a step-by-step ' +
-      'flow (scope keywords → custodian selection → date range → preview). ' +
-      'Prefer this over `placeLegalHold` (one-shot) when the user is ' +
-      'unsure which custodians to cover or wants to review before sending.',
+      'Mount the guided place-legal-hold WIZARD inline in the chat ' +
+      'panel. Use ONLY when the user wants to ISSUE / DRAFT / WALK ' +
+      'THROUGH / FILL a legal hold step-by-step (action verbs). Do ' +
+      'NOT use this for "open", "go to", "navigate to", "show", ' +
+      '"view" verbs aimed at the wizard PAGE -- those should call ' +
+      '`openPlaceLegalHoldWorkflowPage` instead which routes to ' +
+      '/workflows/place-hold without a chat card. The wizard walks ' +
+      'the user through scope keywords -> custodian selection -> ' +
+      'date range -> preview; conditional jump back to matter-setup ' +
+      'when zero custodians are picked.',
+    schema: z.object({}),
+    handler: async () => {
+      return runInInjectionContext(env, () => ({
+        components: [{ name: 'placeLegalHoldCard', props: {} }],
+        markdown: 'Opening the place-legal-hold wizard in the chat panel.',
+      }));
+    },
+  });
+}
+
+function openPlaceLegalHoldWorkflowPageTool(env: EnvironmentInjector) {
+  return agenticTool({
+    name: 'openPlaceLegalHoldWorkflowPage',
+    description:
+      "Route the user to the standalone place-legal-hold wizard " +
+      "PAGE at /workflows/place-hold. Use this for ANY phrasing " +
+      "that implies opening / viewing / navigating to the wizard " +
+      "page rather than mounting it in chat. STRONGEST triggers: " +
+      "'open the place-legal-hold wizard page', 'go to the legal " +
+      "hold wizard', 'navigate to place-legal-hold', 'show me the " +
+      "legal hold wizard page', 'route to the legal hold wizard'. " +
+      "Do NOT use this for 'issue / draft / fill / walk through' " +
+      "verbs -- those want the chat-embedded wizard via " +
+      "`openPlaceLegalHoldWorkflow`.",
     schema: z.object({}),
     handler: async () => {
       return runInInjectionContext(env, async () => {
-        // Route-target: open the wizard on its dedicated page so the
-        // user works through it in the main app surface rather than
-        // a cramped chat-panel card.
         await env.get(Router).navigate(['/workflows/place-hold']);
         return {
           markdown:
-            'Opening the place-legal-hold wizard on [/workflows/place-hold](/workflows/place-hold).',
+            'Opened the standalone wizard page at ' +
+            '[/workflows/place-hold](/workflows/place-hold). ' +
+            'Wizard renders there directly -- no chat card.',
         };
       });
     },
