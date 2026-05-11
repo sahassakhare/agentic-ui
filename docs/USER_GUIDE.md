@@ -305,6 +305,10 @@ This library is opinionated for one shape of work — agent-driven UI in Angular
 | 15 | [Long-running operations](#15-long-running-operations) | `agenticTool({ longRunning: true })` + `OperationRegistry` + `<mvk-operation-progress>` | [long-running-operations](./cookbook/long-running-operations.md) |
 | 16 | [Multi-modal input](#16-multi-modal-input) | `MessageContent` union + composer paperclip / drag-drop / paste-image | [multi-modal-input](./cookbook/multi-modal-input.md) |
 | 17 | [Wire the catalog platform](#17-wire-the-catalog-platform) | `provideAgenticPlatform({...})` — single composite provider for IAM persona + MFE registry + capability registrar / authorizer + usage metering | [ADR-031](./adr/0031-provide-agentic-platform.md) |
+| 18 | [Embed the shell as a Teams Tab](#18-external-surface--embed-the-shell-as-a-teams-tab) | `provideTeamsContext({ loadContext })` bridges `microsoftTeams.app.getContext()` into a signal; no hard SDK dep | [teams-tab-embed](./cookbook/teams-tab-embed.md) |
+| 19 | [Teams chat-native via Bot Framework](#19-external-surface--teams-chat-native-via-bot-framework) | `@maverick/agentic-ui-teams-bot` — JWT verify + AAD bearer + Adaptive Card responses in Teams chat | [teams-bot-adaptive-cards](./cookbook/teams-bot-adaptive-cards.md) |
+| 20 | [GitHub Copilot Extension](#20-external-surface--github-copilot-extension) | `@maverick/agentic-ui-copilot-skill` — wraps the GitHub Copilot Extensions webhook protocol | [github-copilot-extension](./cookbook/github-copilot-extension.md) |
+| 21 | [Microsoft Copilot Studio Connector](#21-external-surface--microsoft-copilot-studio-connector) | `@maverick/agentic-ui-copilot-studio-connector` — Zod→OpenAPI manifest + Azure AD JWT + per-persona Connector publishing | [copilot-studio-connector](./cookbook/copilot-studio-connector.md) |
 
 ---
 
@@ -982,6 +986,164 @@ mvk new app demo --with-platform --tenant acme
 - Persona policies the host installs (e.g. `activeScopePolicy(persona)`) compose with the authorizer — the authorizer reads the existing policy via `RegistryBase.currentScopePolicy()` and AND's the catalog's deny-list with it. Both gates fire.
 
 **Default-allow + degrade-gracefully.** The authorizer's `onInitialFetchFailure: 'allow'` default means a catalog outage doesn't break the consumer app — capabilities stay visible until the next 30s tick lands. Apps that demand strict closed-allowlist semantics (compliance-heavy deployments where stale-disabled is worse than offline) opt in via `onInitialFetchFailure: 'deny'`.
+
+---
+
+### 18. External surface — embed the shell as a Teams Tab
+
+> **Scenario.** Your operators live in Microsoft Teams. Asking them to open a separate browser tab for the agentic UI is friction. You want the same Angular app — same tools, same audit chain — running inside a Teams Tab next to their channel chat.
+
+**Library responsibility.**
+- `provideTeamsContext({ loadContext, fallback? })` ([ADR-041](./adr/0041-teams-copilot-external-surfaces.md) D4) bridges `microsoftTeams.app.getContext()` into a `TEAMS_CONTEXT` signal. Adopters read it for tenant id, UPN, theme, locale.
+- Lib carries **no** runtime dependency on `@microsoft/teams-js`. Adopters lazy-import the SDK themselves so non-Teams adopters pay nothing.
+- Teams context plumbs into the existing IAM persona resolver (ADR-016) — claims-to-persona mapping the catalog already supports.
+
+**Wiring.**
+
+```ts
+// app.config.ts
+provideTeamsContext({
+  loadContext: async () => {
+    const teams = await import('@microsoft/teams-js');
+    await teams.app.initialize();
+    const c = await teams.app.getContext();
+    return {
+      tenantId: c.user?.tenant?.id ?? '',
+      userPrincipalName: c.user?.userPrincipalName ?? null,
+      theme: c.app?.theme ?? 'default',
+      locale: c.app?.locale ?? 'en-US',
+    };
+  },
+  fallback: { tenantId: 'demo', userPrincipalName: null, theme: 'default', locale: 'en-US' },
+});
+```
+
+The eDiscovery demo ships a Teams manifest scaffold at `examples/demo-ediscovery-shell/teams/`. End-to-end walkthrough in [the Teams Tab cookbook](./cookbook/teams-tab-embed.md).
+
+---
+
+### 19. External surface — Teams chat-native via Bot Framework
+
+> **Scenario.** Operators don't just want the app inside Teams — they want to **converse with the agent in Teams chat** (channel / DM / group). Tool results render as Adaptive Cards in the conversation; rich UIs deep-link back to the Teams Tab.
+
+**Library responsibility.**
+- `@maverick/agentic-ui-teams-bot` wraps the Bot Framework webhook protocol: JWT verify against Microsoft's Bot Connector keys, activity parse, AAD client-credentials bearer for outbound replies, Adaptive Card response builder.
+- New `adaptiveCard?: object` field on `ToolResultRenderHints` ([ADR-041](./adr/0041-teams-copilot-external-surfaces.md) D2) is the highest-fidelity render in Teams; tools without it fall back to the generic `widgetFallbackCard` derived from their `components` array.
+
+**Wiring.**
+
+```ts
+import express from 'express';
+import { createTeamsBotMiddleware, type TeamsBotHandler } from '@maverick/agentic-ui-teams-bot';
+
+const handler: TeamsBotHandler = async function*({ activity, identity }) {
+  const principal = await mapTeamsToCatalog(identity);
+  for await (const ev of yourAgent.run({ messages: [{ role: 'user', content: activity.text! }], principal })) {
+    if (ev.type === 'TOOL_CALL_RESULT' && ev.result?.adaptiveCard) {
+      yield { type: 'adaptive-card', card: ev.result.adaptiveCard };
+    } else if (ev.type === 'TEXT_MESSAGE_CONTENT') {
+      yield { type: 'text', text: ev.delta };
+    }
+  }
+};
+
+const app = express();
+app.post('/api/messages', express.json(), createTeamsBotMiddleware({
+  credentials: { appId: process.env.BOT_APP_ID!, appPassword: process.env.BOT_APP_PASSWORD! },
+  handler,
+}));
+```
+
+Fidelity matrix: F4 approvals + F5 long-running operations render natively in Teams chat; F1 composition forms and F3 workflows degrade to AC inputs or deep-link to the Tab. End-to-end walkthrough in [the Teams Bot cookbook](./cookbook/teams-bot-adaptive-cards.md).
+
+---
+
+### 20. External surface — GitHub Copilot Extension
+
+> **Scenario.** Your developers and analysts already live in GitHub Copilot Chat (VS Code, JetBrains, github.com). You want them to invoke the catalog's tools from there — `@maverick-ediscovery place a legal hold for Project Phoenix`.
+
+**Library responsibility.**
+- `@maverick/agentic-ui-copilot-skill` is a server-side library that wraps the [GitHub Copilot Extensions](https://docs.github.com/copilot/building-copilot-extensions) webhook protocol: GitHub signed-request verification, body parse, identity extraction, OpenAI-shaped SSE response streaming.
+- Same `SkillHandler` shape as the Teams Bot adapter — your existing agent loop plugs in unchanged.
+
+**Wiring.**
+
+```ts
+import express from 'express';
+import { createCopilotSkillMiddleware, type SkillHandler } from '@maverick/agentic-ui-copilot-skill';
+
+const handler: SkillHandler = async function*({ body, identity }) {
+  const principal = await mapGitHubToCatalog(identity);
+  for await (const ev of yourAgent.run({ messages: body.messages, principal })) {
+    if (ev.type === 'TEXT_MESSAGE_CONTENT') yield { type: 'text-delta', delta: ev.delta };
+    // ... tool-call / tool-result / finish translation
+  }
+};
+
+const app = express();
+app.post('/copilot/skill',
+  express.raw({ type: 'application/json' }),     // raw body required for signature verify
+  createCopilotSkillMiddleware({ handler }),
+);
+```
+
+Two-week vertical slice covering the protocol layer + the GitHub App registration. End-to-end walkthrough in [the GitHub Copilot Extension cookbook](./cookbook/github-copilot-extension.md).
+
+---
+
+### 21. External surface — Microsoft Copilot Studio Connector
+
+> **Scenario.** Your enterprise runs on Microsoft 365 Copilot — across Word, Outlook, Teams, and the Copilot web surface. You want every catalog tool callable from Copilot Studio's NL routing without the user thinking about which app they're in.
+
+**Library responsibility.**
+- `@maverick/agentic-ui-copilot-studio-connector` ([ADR-042](./adr/0042-copilot-studio-connector.md)) translates Zod tool schemas into a Power Platform-importable Connector OpenAPI manifest at build time, then dispatches inbound action calls at runtime.
+- `zodToOpenApi(schema)` covers the subset of Zod the catalog actually uses (primitives + refinements + format hints); unsupported types fall back to permissive `additionalProperties: true` with server-side re-validation as the safety net.
+- `verifyConnectorJwt` validates the inbound Azure AD v2.0 bearer (audience + tenant whitelist + JWKS).
+- Per-persona Connector publishing — junior staff don't see export tools.
+
+**Wiring (build time).**
+
+```ts
+// Build a Connector OpenAPI doc from your Zod tool schemas.
+import { buildConnectorManifest } from '@maverick/agentic-ui-copilot-studio-connector';
+writeFileSync('dist/connector.json', JSON.stringify(buildConnectorManifest({
+  title: 'Maverick eDiscovery',
+  description: 'Catalog tools for M365 Copilot.',
+  version: '1.0.0',
+  host: 'agent.example.com',
+  aadAppId: process.env.BOT_APP_ID!,
+  aadTenantId: process.env.AAD_TENANT_ID,
+  tools: catalogToolList,
+})));
+```
+
+**Wiring (runtime).**
+
+```ts
+import express from 'express';
+import { createConnectorMiddleware, type ConnectorActionHandler } from '@maverick/agentic-ui-copilot-studio-connector';
+
+const handlers = new Map<string, ConnectorActionHandler>();
+handlers.set('placeLegalHold', async ({ args, identity }) => {
+  const principal = await mapAadToCatalog(identity);
+  const hold = await yourAgent.dispatch('placeLegalHold', args, principal);
+  return { message: `Hold ${hold.id} issued.`, adaptiveCard: hold.card, data: { holdId: hold.id } };
+});
+
+app.post('/api/copilot-studio/actions/:toolName',
+  express.json(),
+  createConnectorMiddleware({
+    handlers,
+    credentials: { expectedAudience: process.env.BOT_APP_ID!, allowedTenants: [process.env.AAD_TENANT_ID!] },
+  }),
+);
+```
+
+Import `dist/connector.json` into Power Platform → publish to Copilot Studio → done. End-to-end walkthrough including Azure AD app registration and Connector publish in [the Copilot Studio cookbook](./cookbook/copilot-studio-connector.md).
+
+---
+
+> **Note on GitHub Copilot Workspace.** Path 2b of the [Teams + Copilot integration plan](./plans/teams-copilot-integration-plan.md) covers a custom Workspace agent. **Deferred** as of 2026-05 — Workspace's extensibility API is still maturing and the Issues-tied surface doesn't map cleanly to eDiscovery flows. Revisit when GitHub stabilises the public agent contract.
 
 ---
 
