@@ -78,6 +78,9 @@ export function buildTools(env: EnvironmentInjector): ToolDef[] {
     openCustodianIntakeTool(env) as ToolDef,
     generateCustodianIntakeFormTool() as ToolDef,
     openPlaceLegalHoldWorkflowTool(env) as ToolDef,
+    openProductionsTool(env) as ToolDef,
+    openCustodiansListTool(env) as ToolDef,
+    openHoldsListTool(env) as ToolDef,
     runTARClassifierTool() as ToolDef,
   ];
 }
@@ -1094,6 +1097,64 @@ function runTARClassifierTool() {
           `Started TAR classification for **${topic}**. Progress streams ` +
           `inline; the result lands in the operations panel when complete.`,
       };
+    },
+  });
+}
+
+function openProductionsTool(env: EnvironmentInjector) {
+  return agenticTool({
+    name: 'openProductions',
+    description:
+      'Open the productions page where the user can review production ' +
+      'sets, see their status, and drill into individual production ' +
+      'batches. Use whenever the user asks to "show", "list", "view", ' +
+      '"see", or "open" productions / production sets / production ' +
+      'batches. Prefer this over conversational answers -- the page is ' +
+      'the real product surface, not a chat reply.',
+    schema: z.object({}),
+    handler: async () => {
+      return runInInjectionContext(env, async () => {
+        await env.get(Router).navigate(['/productions']);
+        return { markdown: 'Opening [/productions](/productions).' };
+      });
+    },
+  });
+}
+
+function openCustodiansListTool(env: EnvironmentInjector) {
+  return agenticTool({
+    name: 'openCustodians',
+    description:
+      'Open the custodians page where the user can review every ' +
+      'custodian on the matter, their department, hold status, and ' +
+      'collection progress. Use whenever the user asks to "show", ' +
+      '"list", "view", or "open" custodians (without specifying one ' +
+      'to onboard -- for onboarding use openCustodianIntake). Prefer ' +
+      'this over a chat list -- the page is the real surface.',
+    schema: z.object({}),
+    handler: async () => {
+      return runInInjectionContext(env, async () => {
+        await env.get(Router).navigate(['/custodians']);
+        return { markdown: 'Opening [/custodians](/custodians).' };
+      });
+    },
+  });
+}
+
+function openHoldsListTool(env: EnvironmentInjector) {
+  return agenticTool({
+    name: 'openHolds',
+    description:
+      'Open the legal-holds page where the user can review every ' +
+      'active, pending, and released hold on the matter. Use whenever ' +
+      'the user asks to "show", "list", "view", or "open" legal ' +
+      'holds / holds (without specifying one to issue or release).',
+    schema: z.object({}),
+    handler: async () => {
+      return runInInjectionContext(env, async () => {
+        await env.get(Router).navigate(['/holds']);
+        return { markdown: 'Opening [/holds](/holds).' };
+      });
     },
   });
 }

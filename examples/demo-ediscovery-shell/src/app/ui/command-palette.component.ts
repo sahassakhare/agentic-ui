@@ -4,6 +4,7 @@ import {
 } from '@angular/core';
 import { runHeadlessIn } from '../agentic/headless';
 import { RenderHandoffStore } from '../services/render-handoff.store';
+import { ChatBridgeService } from '../services/chat-bridge.service';
 
 /**
  * Command palette -- Cmd+K / Ctrl+K natural-language entry point.
@@ -81,6 +82,22 @@ import { RenderHandoffStore } from '../services/render-handoff.store';
               <div class="alert error">
                 <strong>Couldn't complete that.</strong>
                 <p>{{ r.error || 'Try rephrasing or use the menu.' }}</p>
+              </div>
+            } @else if (r.toolCalls.length === 0 && r.markdown) {
+              <!-- Conversational reply -- no tool picked. The agent
+                   may be asking a clarifying question that the palette
+                   can't carry. Offer to continue in the chat shell. -->
+              <div class="alert info">
+                <p class="markdown">{{ r.markdown }}</p>
+                <div class="alert-actions">
+                  <button class="btn primary small" type="button" (click)="continueInChat()"
+                          [disabled]="!bridgeReady()">
+                    Continue in chat ›
+                  </button>
+                  <span class="dim small">
+                    The agent wants more context. Click to escalate to the chat panel.
+                  </span>
+                </div>
               </div>
             } @else if (r.markdown) {
               <div class="alert ok">
@@ -173,9 +190,12 @@ import { RenderHandoffStore } from '../services/render-handoff.store';
     }
     .alert.ok { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
     .alert.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+    .alert.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; }
     .alert .markdown { margin: 0; white-space: pre-wrap; }
     .alert .dim { color: inherit; opacity: 0.85; margin: 0.25rem 0 0; }
     .alert code { font-family: ui-monospace, monospace; background: rgba(0, 0, 0, 0.06); padding: 0.0625rem 0.3125rem; border-radius: 0.25rem; }
+    .alert-actions { display: flex; align-items: center; gap: 0.625rem; margin-top: 0.625rem; flex-wrap: wrap; }
+    .btn.small { padding: 0.25rem 0.625rem; font-size: 0.8125rem; }
 
     .spinner {
       width: 12px; height: 12px;
@@ -200,12 +220,21 @@ import { RenderHandoffStore } from '../services/render-handoff.store';
 export class CommandPaletteComponent {
   private readonly env = inject(EnvironmentInjector);
   private readonly handoff = inject(RenderHandoffStore);
+  private readonly bridge = inject(ChatBridgeService);
 
   protected readonly shortcutLabel = detectShortcutLabel();
   readonly open = signal(false);
   readonly prompt = signal('');
   readonly loading = signal(false);
   readonly result = signal<Awaited<ReturnType<typeof runHeadlessIn>> | null>(null);
+  /** Last prompt the user submitted -- replayed into the chat when
+   *  they click "Continue in chat" so the conversation has context. */
+  private lastSubmittedPrompt = '';
+
+  /** True when the chat-rail's <mvk-chat-shell> is mounted and we
+   *  can forward a prompt into it. Used to gate the "Continue in
+   *  chat" escalation button. */
+  protected readonly bridgeReady = this.bridge.isReady;
 
   private abort: AbortController | null = null;
 
@@ -235,9 +264,22 @@ export class CommandPaletteComponent {
     this.abort?.abort();
   }
 
+  /** Escalate the last prompt into the chat shell so the operator
+   *  can continue the conversation. Closes the palette; the chat
+   *  rail opens itself via the bridge's registered opener. */
+  continueInChat(): void {
+    if (!this.lastSubmittedPrompt || !this.bridge.isReady()) return;
+    const ok = this.bridge.send(this.lastSubmittedPrompt);
+    if (ok) {
+      this.prompt.set('');
+      this.close();
+    }
+  }
+
   async run(): Promise<void> {
     if (!this.canRun()) return;
     const text = this.prompt().trim();
+    this.lastSubmittedPrompt = text;
     this.loading.set(true);
     this.result.set(null);
     this.abort?.abort();
