@@ -869,21 +869,32 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
     }),
     handler: async ({ department, matterType }) => {
       return runInInjectionContext(env, async () => {
-        // Route-target pattern: navigate to the direct-mount page
-        // /intake/custodian and let it render the form via
-        // <mvk-form-renderer>. Same registered formDef, just on
-        // an actual app surface instead of inline in the chat
-        // panel -- closes the user feedback "the prompt is
-        // executed in chat surface, not in the actual app".
+        // Dual mount: navigate to /intake/custodian so the form is
+        // available as a full-width app surface, AND emit the
+        // custodianIntakeCard widget so chat-triggered prompts also
+        // show the form inline in the chat panel. Users picking the
+        // prompt from the rail expect to see the form there; users
+        // pressing Cmd+K (headless palette) see the navigation and
+        // never see the inline card (the palette uses a separate
+        // chat thread that's never rendered).
+        const persona = env.get(PersonaService).active();
         const matter = matterType ?? 'securities';
         const queryParams: Record<string, string> = { matterType: matter };
         if (department) queryParams['department'] = department;
         await env.get(Router).navigate(['/intake/custodian'], { queryParams });
         return {
+          components: [{
+            name: 'custodianIntakeCard',
+            props: {
+              matterType: matter,
+              persona,
+              department: department ?? '',
+            },
+          }],
           markdown:
             `Opening custodian intake — matter **${matter}**` +
             (department ? `, department **${department}**` : '') +
-            `. View / fill on [/intake/custodian](/intake/custodian).`,
+            `. Also view / fill on [/intake/custodian](/intake/custodian).`,
         };
       });
     },
