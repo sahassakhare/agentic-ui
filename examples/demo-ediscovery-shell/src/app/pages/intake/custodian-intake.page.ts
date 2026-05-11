@@ -3,6 +3,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormRendererComponent } from '@maverick/agentic-ui';
 import { PersonaService } from '../../services/persona.service';
+import { normaliseDepartment } from '../../agentic/intake-constants';
 
 /**
  * Direct-mount surface for `custodianIntakeForm` — the same definition
@@ -87,10 +88,15 @@ export class CustodianIntakePage {
    * when fired through chat. The form's predicates evaluate against
    * this object, so e.g. `department === 'Finance'` reveals the
    * accounting-systems section identically across surfaces.
+   *
+   * `department` is normalised through `normaliseDepartment(...)`
+   * before being put in the context so that whether the LLM passed
+   * 'finance', 'Finance', or 'Finance team', the form's strict
+   * `if: 'department === "Finance"'` predicate still fires.
    */
   protected readonly ctx = computed(() => ({
     matterType: this.params()?.get('matterType') ?? 'securities',
     persona: this.persona.active(),
-    department: this.params()?.get('department') ?? '',
+    department: normaliseDepartment(this.params()?.get('department') ?? ''),
   }));
 }

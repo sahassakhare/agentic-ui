@@ -36,6 +36,7 @@ import {
   IntakeRegulatoryConsentComponent,
   IntakeSupervisorPickerComponent,
 } from './intake-sections.component';
+import { STANDARD_DEPARTMENTS } from './intake-constants';
 import { LegalHoldCardComponent } from './legal-hold-card.component';
 import { PlaceLegalHoldCardComponent } from './place-legal-hold-card.component';
 import {
@@ -967,10 +968,6 @@ function generateCustodianIntakeFormTool() {
     },
   });
 }
-
-const STANDARD_DEPARTMENTS = [
-  'Engineering', 'Finance', 'Legal', 'Marketing', 'Operations', 'Sales', 'HR',
-] as const;
 
 /**
  * Defensive normaliser for the LLM-emitted form schema. Even with

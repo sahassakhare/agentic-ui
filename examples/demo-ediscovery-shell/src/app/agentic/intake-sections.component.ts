@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import {
   COMPOSITION_SLOT,
   CompositionStore,
   DataSourceRegistry,
 } from '@maverick/agentic-ui';
+import { STANDARD_DEPARTMENTS, normaliseDepartment } from './intake-constants';
 import type { DirectoryUser, DirectoryUserQuery } from './agentic';
 
 /**
@@ -74,17 +76,16 @@ const FREE_MAIL_DOMAINS = new Set(['gmail.com', 'yahoo.com', 'hotmail.com', 'out
 
       <label>
         <span class="lbl">Department <span class="req" aria-label="required">*</span></span>
-        <input type="text" [ngModel]="value().department"
-               (ngModelChange)="patch({ department: $event })"
-               (blur)="touch('department')"
-               name="department" placeholder="Engineering"
-               list="dept-suggestions"
-               [class.invalid]="show('department')"
-               [attr.aria-invalid]="show('department') || null"
-               [attr.aria-describedby]="show('department') ? 'err-department' : null" />
-        <datalist id="dept-suggestions">
-          @for (d of knownDepartments; track d) { <option [value]="d"></option> }
-        </datalist>
+        <select [ngModel]="value().department"
+                (ngModelChange)="patch({ department: $event })"
+                (blur)="touch('department')"
+                name="department"
+                [class.invalid]="show('department')"
+                [attr.aria-invalid]="show('department') || null"
+                [attr.aria-describedby]="show('department') ? 'err-department' : null">
+          <option value="" disabled>Choose…</option>
+          @for (d of knownDepartments; track d) { <option [value]="d">{{ d }}</option> }
+        </select>
         @if (show('department')) {
           <small class="error" id="err-department" role="alert">{{ errors()['department'] }}</small>
         }
@@ -97,18 +98,41 @@ const FREE_MAIL_DOMAINS = new Set(['gmail.com', 'yahoo.com', 'hotmail.com', 'out
     label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; color: #374151; }
     .lbl { font-weight: 500; }
     .req { color: #b91c1c; margin-left: 2px; }
-    input { padding: 0.4rem 0.5rem; border: 1px solid #d1d5db; border-radius: 0.3rem; font: inherit; }
-    input:focus { outline: 2px solid #3b82f6; outline-offset: -1px; }
-    input.invalid { border-color: #dc2626; background: #fef2f2; }
-    input.invalid:focus { outline-color: #dc2626; }
+    input, select { padding: 0.4rem 0.5rem; border: 1px solid #d1d5db; border-radius: 0.3rem; font: inherit; background: #fff; }
+    select { appearance: auto; }
+    input:focus, select:focus { outline: 2px solid #3b82f6; outline-offset: -1px; }
+    input.invalid, select.invalid { border-color: #dc2626; background: #fef2f2; }
+    input.invalid:focus, select.invalid:focus { outline-color: #dc2626; }
     .error { color: #b91c1c; font-size: 0.75rem; margin-top: 0.1rem; }
   `,
 })
 export class IntakeIdentityComponent {
   private readonly slot = inject(COMPOSITION_SLOT, { optional: true });
   private readonly store = inject(CompositionStore, { optional: true });
+  /** Read once at construction so the seeding doesn't fight the
+   *  user's later edits. The ActivatedRoute is optional so the
+   *  widget still mounts cleanly in chat (no route active). */
+  private readonly route = inject(ActivatedRoute, { optional: true });
 
-  protected readonly knownDepartments = ['Engineering', 'Finance', 'Legal', 'Marketing', 'Operations', 'Sales', 'HR'];
+  protected readonly knownDepartments = STANDARD_DEPARTMENTS;
+
+  constructor() {
+    // Seed department from the URL once when the slot is empty.
+    // The openCustodianIntake tool navigates to
+    // /intake/custodian?department=Finance; the seeding mirrors
+    // that intent into the form's slot value so the operator sees
+    // Finance already picked instead of an empty dropdown. The
+    // user remains free to change it.
+    if (this.store && this.slot) {
+      const cur = this.store.values()[this.slot] as IdentityValue | undefined;
+      const isEmpty = !cur || (!cur.name && !cur.email && !cur.department);
+      if (isEmpty) {
+        const raw = this.route?.snapshot.queryParamMap.get('department') ?? '';
+        const dept = normaliseDepartment(raw);
+        if (dept) this.store.write(this.slot, { ...EMPTY_IDENTITY, department: dept });
+      }
+    }
+  }
 
   protected readonly value = computed<IdentityValue>(() => {
     if (!this.store || !this.slot) return EMPTY_IDENTITY;
