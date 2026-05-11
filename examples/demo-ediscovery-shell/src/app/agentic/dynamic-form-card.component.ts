@@ -9,12 +9,22 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { z } from 'zod';
 import { MatterStore } from '../services/matter.store';
 import {
   nextCustodianId,
   type Custodian,
 } from '@maverick/demo-ediscovery-shared';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+interface DynamicField {
+  readonly name: string;
+  readonly label: string;
+  readonly type: string;
+  readonly required?: boolean;
+}
 
 /**
  * Approach 2 — fully agent-generated form.
@@ -100,7 +110,7 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
             }
           </div>
         } @else {
-          <form (ngSubmit)="onSubmit()">
+          <form (ngSubmit)="onSubmit()" novalidate>
             @for (s of schema.sections; track s.title) {
               <fieldset>
                 <legend>{{ s.title }}</legend>
@@ -117,10 +127,15 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
                           [name]="f.name"
                           [placeholder]="f.placeholder ?? ''"
                           [(ngModel)]="values[f.name]"
-                          [required]="!!f.required"></textarea>
+                          (blur)="touch(f.name)"
+                          [class.invalid]="hasError(f)"
+                          [attr.aria-invalid]="hasError(f) || null"></textarea>
                       }
                       @case ('select') {
-                        <select [name]="f.name" [(ngModel)]="values[f.name]" [required]="!!f.required">
+                        <select [name]="f.name" [(ngModel)]="values[f.name]"
+                                (blur)="touch(f.name)"
+                                [class.invalid]="hasError(f)"
+                                [attr.aria-invalid]="hasError(f) || null">
                           <option [value]="''" disabled>Choose…</option>
                           @for (o of f.options ?? []; track o) {
                             <option [value]="o">{{ o }}</option>
@@ -128,7 +143,9 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
                         </select>
                       }
                       @case ('multiselect') {
-                        <div class="checkboxes">
+                        <div class="checkboxes" [class.invalid]="hasError(f)"
+                             [attr.aria-invalid]="hasError(f) || null"
+                             (focusout)="touch(f.name)">
                           @for (o of f.options ?? []; track o) {
                             <label class="checkbox">
                               <input type="checkbox"
@@ -143,36 +160,61 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
                         <input type="checkbox"
                                [name]="f.name"
                                [(ngModel)]="values[f.name]"
-                               [required]="!!f.required" />
+                               (blur)="touch(f.name)"
+                               [class.invalid]="hasError(f)"
+                               [attr.aria-invalid]="hasError(f) || null" />
                       }
                       @case ('number') {
                         <input type="number"
                                [name]="f.name"
                                [placeholder]="f.placeholder ?? ''"
                                [(ngModel)]="values[f.name]"
-                               [required]="!!f.required" />
+                               (blur)="touch(f.name)"
+                               [class.invalid]="hasError(f)"
+                               [attr.aria-invalid]="hasError(f) || null" />
                       }
                       @case ('email') {
                         <input type="email"
                                [name]="f.name"
                                [placeholder]="f.placeholder ?? ''"
                                [(ngModel)]="values[f.name]"
-                               [required]="!!f.required" />
+                               (blur)="touch(f.name)"
+                               autocomplete="email"
+                               [class.invalid]="hasError(f)"
+                               [attr.aria-invalid]="hasError(f) || null" />
                       }
                       @default {
                         <input type="text"
                                [name]="f.name"
                                [placeholder]="f.placeholder ?? ''"
                                [(ngModel)]="values[f.name]"
-                               [required]="!!f.required" />
+                               (blur)="touch(f.name)"
+                               [class.invalid]="hasError(f)"
+                               [attr.aria-invalid]="hasError(f) || null" />
                       }
                     }
-                    @if (f.helpText) { <small class="help">{{ f.helpText }}</small> }
+                    @if (hasError(f); as msg) {
+                      <small class="error" role="alert">{{ msg }}</small>
+                    }
+                    @if (f.helpText && !hasError(f)) { <small class="help">{{ f.helpText }}</small> }
                   </label>
                 }
               </fieldset>
             }
-            <button type="submit">{{ schema.submitLabel ?? 'Submit' }}</button>
+            @if (invalidFields().length > 0 && submitAttempted()) {
+              <p class="form-error">
+                {{ invalidFields().length }} field(s) need attention:
+                {{ invalidFields().join(', ') }}
+              </p>
+            }
+            <button type="submit"
+                    [disabled]="!isValid() || submitting()">
+              @if (submitting()) {
+                Submitting…
+              } @else {
+                {{ schema.submitLabel ?? 'Submit' }}
+              }
+            </button>
           </form>
         }
       </article>
@@ -222,6 +264,25 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
       border-radius: 4px; font: inherit; width: 100%;
       box-sizing: border-box;
     }
+    input.invalid, select.invalid, textarea.invalid {
+      border-color: #dc2626; background: #fef2f2;
+    }
+    input.invalid:focus, select.invalid:focus, textarea.invalid:focus {
+      outline: 2px solid #dc2626; outline-offset: -1px;
+    }
+    .checkboxes.invalid {
+      background: #fef2f2;
+      outline: 1px solid #fca5a5;
+      padding: 4px 6px; border-radius: 4px;
+    }
+    .error { color: #b91c1c; font-size: 0.72rem; margin-top: 2px; }
+    .form-error {
+      padding: 6px 10px; background: #fef2f2; color: #991b1b;
+      border-radius: 4px; font-size: 0.78rem; margin: 0 0 8px;
+    }
+    button[type="submit"]:disabled {
+      opacity: 0.5; cursor: not-allowed;
+    }
     textarea { min-height: 70px; resize: vertical; }
     input[type="checkbox"] { transform: translateY(2px); }
     .checkboxes { display: grid; gap: 4px; }
@@ -268,6 +329,56 @@ export class DynamicFormCardComponent {
   protected readonly submitted = signal(false);
   protected readonly createdCustodianId = signal<string | null>(null);
 
+  /** Per-field touched flags (signal so error visibility reacts in
+   *  the template). Errors hide until the field has been blurred
+   *  once OR submit has been attempted. */
+  private readonly touched = signal<Record<string, boolean>>({});
+  protected readonly submitAttempted = signal(false);
+  protected readonly submitting = signal(false);
+
+  protected touch(name: string): void {
+    this.touched.update((t) => ({ ...t, [name]: true }));
+  }
+
+  /** Returns the active error string for a field, or empty when
+   *  valid / not yet touched. Returning `string` (not boolean) lets
+   *  template `@if (hasError(f); as msg)` capture the message. */
+  protected hasError(f: DynamicField): string {
+    const reveal = this.submitAttempted() || Boolean(this.touched()[f.name]);
+    if (!reveal) return '';
+    return this.computeError(f);
+  }
+
+  private computeError(f: DynamicField): string {
+    const raw = this.values[f.name];
+    const empty = raw == null || raw === '' || (Array.isArray(raw) && raw.length === 0);
+    if (f.required && empty) return `${f.label} is required.`;
+    if (empty) return '';
+    if (f.type === 'email' && typeof raw === 'string' && !EMAIL_RE.test(raw)) {
+      return 'Use a valid email address.';
+    }
+    if (f.type === 'number' && typeof raw === 'string' && Number.isNaN(Number(raw))) {
+      return 'Must be a number.';
+    }
+    return '';
+  }
+
+  /** Names of fields that currently fail validation. Recomputed
+   *  from `values` so it stays cheap to call. */
+  protected readonly invalidFields = computed<readonly string[]>(() => {
+    const def = this.parsed();
+    if (!def) return [];
+    const out: string[] = [];
+    for (const s of def.sections) {
+      for (const f of s.fields) {
+        if (this.computeError(f)) out.push(f.label);
+      }
+    }
+    return out;
+  });
+
+  protected readonly isValid = computed(() => this.invalidFields().length === 0);
+
   protected multiHas(name: string, opt: string): boolean {
     const arr = (this.values[name] ?? []) as readonly string[];
     return Array.isArray(arr) && arr.includes(opt);
@@ -289,30 +400,60 @@ export class DynamicFormCardComponent {
    * fields are kept in the payload for the agent to interpret on its
    * next turn.
    */
-  protected onSubmit(): void {
+  protected async onSubmit(): Promise<void> {
+    // Mark every field touched so any pending errors surface even
+    // for fields the user never blurred. The validity guard below
+    // then short-circuits if anything's wrong.
+    this.submitAttempted.set(true);
+    const def = this.parsed();
+    if (def) {
+      const all: Record<string, boolean> = {};
+      for (const s of def.sections) for (const f of s.fields) all[f.name] = true;
+      this.touched.set(all);
+    }
+    if (!this.isValid() || this.submitting() || this.submitted()) return;
+
+    this.submitting.set(true);
     const v = { ...this.values };
-    runInInjectionContext(this.env, () => {
-      const store = this.env.get(MatterStore);
-      const name = String(v['name'] ?? '').trim();
-      const email = String(v['email'] ?? '').trim();
-      const department = String(v['department'] ?? '').trim();
-      if (name && email) {
-        const custodian: Custodian = {
-          id: nextCustodianId(),
-          matterId: store.matterId,
-          name,
-          email,
-          department: department || 'Unspecified',
-          hasLegalHold: false,
-          collectionStatus: 'pending',
-          documentCount: 0,
-        };
-        store.addCustodian(custodian);
-        this.createdCustodianId.set(custodian.id);
-      }
-    });
-    // eslint-disable-next-line no-console
-    console.info('[dynamicForm] submit', v);
-    this.submitted.set(true);
+    try {
+      await runInInjectionContext(this.env, async () => {
+        const store = this.env.get(MatterStore);
+        const name = String(v['name'] ?? '').trim();
+        const email = String(v['email'] ?? '').trim();
+        const department = String(v['department'] ?? '').trim();
+        if (name && email) {
+          const custodian: Custodian = {
+            id: nextCustodianId(),
+            matterId: store.matterId,
+            name,
+            email,
+            department: department || 'Unspecified',
+            hasLegalHold: false,
+            collectionStatus: 'pending',
+            documentCount: 0,
+          };
+          store.addCustodian(custodian);
+          this.createdCustodianId.set(custodian.id);
+          // eslint-disable-next-line no-console
+          console.info('[dynamicForm] submit', v);
+          this.submitted.set(true);
+          // Same confirmation path the F1 intake form uses --
+          // navigate to /custodians?id=…&created=1. The flash
+          // banner there gives the operator unambiguous feedback.
+          await this.env.get(Router).navigate(['/custodians'], {
+            queryParams: { id: custodian.id, created: '1' },
+          });
+        } else {
+          // Schema didn't surface name/email -- still mark submitted
+          // so the success card shows and the form locks. The agent
+          // reads the values back on its next turn.
+          // eslint-disable-next-line no-console
+          console.info('[dynamicForm] submit (no domain mapping)', v);
+          this.submitted.set(true);
+        }
+      });
+    } finally {
+      this.submitting.set(false);
+    }
   }
 }

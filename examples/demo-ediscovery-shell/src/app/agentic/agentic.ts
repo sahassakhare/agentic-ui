@@ -382,7 +382,7 @@ export function registerForms(env: EnvironmentInjector): void {
         const supervisor = (values['intake-supervisor-picker'] as string | undefined) ?? '';
         const accountingSystems = (values['intake-accounting-systems'] as readonly string[] | undefined) ?? [];
 
-        runInInjectionContext(env, () => {
+        await runInInjectionContext(env, async () => {
           const store = env.get(MatterStore);
           const custodian: Custodian = {
             id: nextCustodianId(),
@@ -404,6 +404,15 @@ export function registerForms(env: EnvironmentInjector): void {
             regulatoryAck,
             supervisor,
             accountingSystems,
+          });
+
+          // Navigate to /custodians with the new row focused so the
+          // operator sees confirmation immediately AND the form
+          // unmounts -- prevents accidental double-submit. The
+          // /custodians page reads ?id= on activation and scrolls/
+          // highlights the matching row.
+          await env.get(Router).navigate(['/custodians'], {
+            queryParams: { id: custodian.id, created: '1' },
           });
         });
       },

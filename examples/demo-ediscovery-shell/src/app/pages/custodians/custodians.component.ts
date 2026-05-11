@@ -27,6 +27,21 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
       </div>
     </section>
 
+    <!-- "Just-created" confirmation banner. Lands when the intake
+         form's submit handler navigates here with ?created=1 -->
+    @if (justCreated()) {
+      <div class="created-banner" role="status">
+        <span class="dot" aria-hidden="true">✓</span>
+        <div>
+          <strong>Custodian created.</strong>
+          @if (active(); as id) {
+            <span class="dim"> · id <code>{{ id }}</code> — highlighted below.</span>
+          }
+        </div>
+        <button type="button" class="dismiss" (click)="dismissBanner()" aria-label="Dismiss">×</button>
+      </div>
+    }
+
     @if (list().length === 0) {
       <mvk-empty-state title="No custodians yet" icon="users"
         message="Use the coordinator to onboard the first custodian."
@@ -297,6 +312,32 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
 
     .empty { color: var(--c-text-faint); font-size: var(--fs-sm); margin: 0; }
     .muted { color: var(--c-text-faint); }
+
+    .created-banner {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.625rem 0.875rem;
+      background: #ecfdf5; color: #065f46;
+      border: 1px solid #a7f3d0; border-radius: 0.5rem;
+      margin-bottom: var(--s-4);
+      animation: slide-in 200ms ease-out;
+    }
+    .created-banner .dot {
+      width: 22px; height: 22px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 999px; background: #10b981; color: white; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .created-banner .dim { color: var(--c-text-faint); }
+    .created-banner code { font-family: ui-monospace, monospace; font-size: 0.78rem; }
+    .created-banner .dismiss {
+      margin-left: auto;
+      background: transparent; border: none; cursor: pointer;
+      font-size: 1.25rem; line-height: 1; color: #065f46;
+    }
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
   `,
 })
 export class CustodiansComponent {
@@ -307,13 +348,26 @@ export class CustodiansComponent {
   protected readonly active = signal<string | null>(null);
 
   /** Sync `?id=…` from the URL into the active selection so the
-      `openCustodian` action and direct deep-links both work. */
+      `openCustodian` action and direct deep-links both work.
+      `?created=1` flips a one-shot banner the form-submit path uses
+      to confirm a new custodian landed. */
   private readonly route = inject(ActivatedRoute);
   private readonly idParam = toSignal(this.route.queryParamMap, { initialValue: null });
+  protected readonly justCreated = signal(false);
   private readonly _syncFromQuery = effect(() => {
-    const id = this.idParam()?.get('id');
+    const params = this.idParam();
+    const id = params?.get('id');
     if (id) this.active.set(id);
+    // Auto-dismiss the banner ~6s after the navigation lands.
+    if (params?.get('created') === '1') {
+      this.justCreated.set(true);
+      setTimeout(() => this.justCreated.set(false), 6000);
+    }
   });
+
+  protected dismissBanner(): void {
+    this.justCreated.set(false);
+  }
 
   protected readonly selected = computed(() => {
     const id = this.active();
