@@ -254,17 +254,21 @@ export class AuditComponent {
   protected readonly families: readonly ActionFamily[] = ['all', 'custodian', 'hold', 'document', 'privilege', 'matter'];
   protected readonly family = signal<ActionFamily>('all');
 
-  protected readonly all = computed(() => {
-    // Touch the store signals so tag/hold mutations refresh the audit list.
-    this.store.custodians();
-    this.store.legalHolds();
-    return listAuditEvents(this.matterId, 1000).slice().reverse();
-  });
+  /** Read directly from MatterStore's signal-backed audit log so
+   *  the page re-renders the instant a mutation appends an event,
+   *  without polling and without losing rows on page refresh
+   *  (MatterStore now persists to localStorage). */
+  protected readonly all = computed(() =>
+    this.store.auditLog().slice().reverse(),
+  );
 
-  /** Chain verification — recomputes when state mutates. */
+  /** Chain verification — recomputes when the audit log mutates.
+   *  Reads from the shared module which has the same events
+   *  rehydrated from localStorage on init, so chainHash links
+   *  survive the refresh. */
   protected readonly chain = computed(() => {
-    this.store.custodians();
-    this.store.legalHolds();
+    // Touch the audit log so this recomputes when events append.
+    this.store.auditLog();
     return verifyAuditChain(this.matterId);
   });
 
