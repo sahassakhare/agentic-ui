@@ -100,24 +100,19 @@ function dedupPromptGroups(groups: readonly PromptGroup[]): readonly PromptGroup
   return out;
 }
 
+// Curated example prompts grouped by domain. Capability tags (F1,
+// F1-dyn, F2, F3, F4, F5, F6) badge each prompt so operators see at
+// a glance which library capability the prompt exercises. The
+// synthetic "Recent" group is prepended dynamically in
+// promptGroups() when the user has clicked any prompt this session;
+// dedupPromptGroups() drops any overlap between recent + topical.
 const PROMPT_GROUPS: readonly PromptGroup[] = [
-  {
-    // Stays intentionally short -- highlights flows that exercise
-    // the new routing / validation / multi-actor patterns from the
-    // 2026-05-11 plan. Topical groups below cover everything else;
-    // dedupPromptGroups() drops any accidental overlap.
-    id: 'latest',
-    title: 'New — latest demos',
-    prompts: [
-      { text: 'Onboard a Finance custodian named Alice Chen, alice.chen@acme.example', capability: 'F1' },
-      { text: 'Run the multi-actor place-hold-and-collect workflow' },
-    ],
-  },
   {
     id: 'custodians',
     title: 'Custodians',
     prompts: [
       { text: 'Open the custodian intake form for a Finance team member', capability: 'F1' },
+      { text: 'Onboard a Finance custodian named Alice Chen, alice.chen@acme.example', capability: 'F1' },
       { text: 'Generate a custodian intake form yourself, ask me name, email, department, and any compliance acknowledgements you think are needed', capability: 'F1-dyn' },
       { text: 'Onboard a custodian, type Eleanor for the supervisor', capability: 'F2' },
       { text: 'Add Sarah Chen as a custodian, sarah.chen@acme.example, Engineering' },
@@ -129,6 +124,7 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
     title: 'Legal holds',
     prompts: [
       { text: 'Open the place-legal-hold wizard', capability: 'F3' },
+      { text: 'Run the multi-actor place-hold-and-collect workflow', capability: 'F3' },
       { text: 'Place a legal hold on Sarah Chen — scope: emails about Project Phoenix from Jan 2025' },
       { text: 'Show me pending hold acknowledgements' },
       { text: "Release HOLD-001, it's redundant", capability: 'F4' },
