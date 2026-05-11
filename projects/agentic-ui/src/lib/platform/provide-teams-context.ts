@@ -82,14 +82,79 @@ export interface ProvideTeamsContextConfig {
  * Signal of the current Teams context. Null until `loadContext`
  * resolves; null forever if `loadContext` throws and no
  * `fallback` was supplied.
+ *
+ * @remarks
+ * Inject this token in components or services that need to react
+ * to the Teams context — read inside `computed()` or `effect()`
+ * for reactive updates. The null branch is the "not framed by
+ * Teams" surface, so always handle it.
+ *
+ * @example
+ * ```ts
+ * @Component({...})
+ * export class HeaderComponent {
+ *   private readonly teams = inject(TEAMS_CONTEXT);
+ *   protected readonly tenant = computed(() => this.teams()?.tenantId ?? 'demo');
+ *   protected readonly theme  = computed(() => this.teams()?.theme   ?? 'default');
+ * }
+ * ```
  */
 export const TEAMS_CONTEXT = new InjectionToken<Signal<TeamsContext | null>>('TEAMS_CONTEXT');
 
 /**
- * Drop into `provideAgenticPlatform({ providers: [...] })` (or any
- * `ApplicationConfig.providers` array) to register a Teams Tab
- * context bridge. Reads once at bootstrap; the resulting signal is
- * read by host code via `inject(TEAMS_CONTEXT)`.
+ * Register a Teams Tab context bridge. Drop into
+ * `ApplicationConfig.providers` (or any `provideX(...)` chain).
+ * Calls `loadContext` once via `ENVIRONMENT_INITIALIZER`,
+ * populates the {@link TEAMS_CONTEXT} signal asynchronously.
+ *
+ * @param config - Provider config. Required: `loadContext` — an
+ *   async function that returns the current
+ *   {@link TeamsContext}. Optional: `fallback` — seeds the signal
+ *   synchronously and keeps it populated when `loadContext`
+ *   rejects.
+ * @returns Angular providers ready to spread into a `providers`
+ *   array.
+ *
+ * @remarks
+ * - SSR-safe. `loadContext` runs once on the platform that
+ *   instantiates the injector; hosts that don't have access to
+ *   `microsoftTeams` (Node, prerender) should detect that and
+ *   reject so the fallback takes over.
+ * - Tree-shakeable. Adopters who never call `provideTeamsContext`
+ *   ship no Teams code paths.
+ * - The factory does **not** import `@microsoft/teams-js`. Hosts
+ *   call the SDK themselves (often lazy) and pass an adapter
+ *   function.
+ *
+ * @example
+ * ```ts
+ * // app.config.ts
+ * import { provideTeamsContext } from '@maverick/agentic-ui';
+ *
+ * export const appConfig: ApplicationConfig = {
+ *   providers: [
+ *     provideTeamsContext({
+ *       loadContext: async () => {
+ *         const teams = await import('@microsoft/teams-js');
+ *         await teams.app.initialize();
+ *         const c = await teams.app.getContext();
+ *         return {
+ *           tenantId: c.user?.tenant?.id ?? '',
+ *           userPrincipalName: c.user?.userPrincipalName ?? null,
+ *           theme: c.app?.theme ?? 'default',
+ *           locale: c.app?.locale ?? 'en-US',
+ *         };
+ *       },
+ *       fallback: {
+ *         tenantId: 'demo',
+ *         userPrincipalName: null,
+ *         theme: 'default',
+ *         locale: 'en-US',
+ *       },
+ *     }),
+ *   ],
+ * };
+ * ```
  */
 export function provideTeamsContext(config: ProvideTeamsContextConfig): Provider[] {
   const internal = signal<TeamsContext | null>(config.fallback ?? null);

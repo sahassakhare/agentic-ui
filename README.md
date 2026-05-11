@@ -597,11 +597,12 @@ GitHub Actions runs the full pipeline (build → test → three production demo 
 
 A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) builds and publishes the three packages to npm with [provenance attestations](https://docs.npmjs.com/generating-provenance-statements):
 
-| Package | npm | Source dir |
-|---|---|---|
-| `@maverick/agentic-ui` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui.svg)](https://www.npmjs.com/package/@maverick/agentic-ui) | `projects/agentic-ui` |
-| `@maverick/agentic-ui-server` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-server.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-server) | `projects/agentic-ui-server` |
-| `@maverick/agentic-ui-mcp` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-mcp.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-mcp) | `projects/agentic-ui-mcp` |
+| Package | npm | Source dir | Purpose |
+|---|---|---|---|
+| `@maverick/agentic-ui` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui.svg)](https://www.npmjs.com/package/@maverick/agentic-ui) | `projects/agentic-ui` | Angular runtime tier — chat shell, 15 registries, F1-F6 capabilities |
+| `@maverick/agentic-ui-server` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-server.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-server) | `projects/agentic-ui-server` | Server-side helpers — generic Agent interface + AG-UI SSE route handler |
+| `@maverick/agentic-ui-mcp` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-mcp.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-mcp) | `projects/agentic-ui-mcp` | MCP server-side adapter — Claude Desktop / Cursor / Continue / Zed (ADR-006) |
+| `@maverick/agentic-ui-copilot-skill` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-copilot-skill.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-copilot-skill) | `projects/agentic-ui-copilot-skill` | GitHub Copilot Extensions webhook adapter (ADR-041 / plan P2) |
 
 Two ways to trigger a publish:
 
@@ -609,6 +610,7 @@ Two ways to trigger a publish:
    - `agentic-ui-v1.1.0` → publishes `@maverick/agentic-ui`
    - `agentic-ui-server-v0.1.0` → publishes `@maverick/agentic-ui-server`
    - `agentic-ui-mcp-v0.1.0` → publishes `@maverick/agentic-ui-mcp`
+   - `agentic-ui-copilot-skill-v0.1.0` → publishes `@maverick/agentic-ui-copilot-skill`
    - `v1.1.0` (legacy) → publishes the primary `@maverick/agentic-ui`
 
    Then create the GitHub Release for that tag — the workflow fires automatically on `release: published`.

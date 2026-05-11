@@ -21,6 +21,7 @@ Adopters, contributors, and reviewers should read this as the load-bearing docum
 | `AGENTIC_APPROVAL_AUDIT_HOOK` | InjectionToken | no-op | SIEM bridge / external audit log writer | F4 approval lifecycle audit export |
 | `AGENTIC_OPERATION_AUDIT_HOOK` | InjectionToken | no-op | SIEM bridge / external audit log writer | F5 operation lifecycle audit export |
 | `ADDITIONAL_VALIDATORS` | InjectionToken (multi) | empty | Custom validators | Validation registry extensions |
+| `TEAMS_CONTEXT` | InjectionToken (signal) | null until provider hydrates | `provideTeamsContext({ loadContext })` | Teams Tab embed — bridges `microsoftTeams.app.getContext()` into the runtime (ADR-041 D4) |
 | `RegistryBase.setScopePolicy(policy)` | Method | permissive (everything visible) | Per-app policy predicate | Filter-on-read across all 15 registries (the security gate) |
 | `provideAgenticUi(config)` | Factory | n/a | n/a | Top-level lib bootstrap |
 | `provideAgenticBackend(config)` | Factory | n/a | n/a | Generic backend wiring |
@@ -32,8 +33,9 @@ Adopters, contributors, and reviewers should read this as the load-bearing docum
 | `provideToolFilter(filter)` | Factory | n/a | n/a | Per-turn tool filter |
 | `provideAgenticTelemetry(config)` | Factory | n/a | n/a | OTel-backed telemetry sink |
 | `provideAgenticTelemetryConsole()` | Factory | n/a | n/a | Pretty-print console sink |
+| `provideTeamsContext(config)` | Factory | n/a | n/a | Teams Tab context bridge (ADR-041 D4) |
 
-12 injection tokens · 2 method-shaped contracts on every registry (`setScopePolicy` + `setProviderHook`) · 12 `provideX` factories · 4 audit/telemetry hooks · 1 server-side store interface with 3 adapters. **No other contract is platform-level.** Anything else is internal.
+13 injection tokens · 2 method-shaped contracts on every registry (`setScopePolicy` + `setProviderHook`) · 13 `provideX` factories · 4 audit/telemetry hooks · 1 server-side store interface with 3 adapters. **No other contract is platform-level.** Anything else is internal.
 
 ---
 
@@ -215,6 +217,22 @@ Multi-provider for runtime validators that supplement the default Zod-backed val
 **Stability:** Public API.
 
 **When to override:** Rarely. Most validation needs are met by per-tool / per-widget Zod schemas. This is for validators that need to run across multiple values (e.g., "if `state` is California, `taxId` must match SSN format").
+
+---
+
+### `TEAMS_CONTEXT`
+
+Signal of the current Microsoft Teams Tab context (`tenantId`, `userPrincipalName`, `theme`, `locale`, optional `claims`). Null until the bridging provider hydrates it; null forever when the host isn't running inside Teams. Adopters wire it via `provideTeamsContext({ loadContext })`, which calls the supplied async `loadContext` function once at bootstrap (typically `microsoftTeams.app.getContext()`).
+
+**Signature:** [projects/agentic-ui/src/lib/platform/provide-teams-context.ts](../../projects/agentic-ui/src/lib/platform/provide-teams-context.ts)
+
+**Stability:** Public API. Frozen contract per ADR-041 D4.
+
+**Why a signal, not a plain value?** Teams's SDK is async — context resolves after `microsoftTeams.app.initialize()` returns. A signal lets host components render a graceful "loading" or "outside-Teams" state before the context lands. Components that need the context use `inject(TEAMS_CONTEXT)()` and `effect()` like any other Angular signal.
+
+**When to provide:** When the host page may be embedded as a Microsoft Teams Tab. Lib does **not** carry a runtime dependency on `@microsoft/teams-js` — adopters import the SDK themselves (lazily, often gated on detecting iframe + `?teams=1`) and pass `loadContext: () => sdk.app.getContext().then(map)`. See [docs/cookbook/teams-tab-embed.md](../cookbook/teams-tab-embed.md) for end-to-end wiring.
+
+**Companion ADR:** [ADR-041](../adr/0041-teams-copilot-external-surfaces.md) D4.
 
 ---
 
