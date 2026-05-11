@@ -175,7 +175,7 @@ Agentic UIs are easy to demo and hard to ship. The pain compounds across six axe
 
 ## Use cases
 
-Sixteen distinct scenarios the library covers, ranked roughly by adoption order. Pick the rows your team will hit; the rest are opt-in via DI.
+Twenty-one distinct scenarios the library covers, ranked roughly by adoption order — the first sixteen are in-app capabilities, the last five wire those same tools into the catalog platform and into external chat surfaces (Teams, GitHub Copilot, M365 Copilot Studio). Pick the rows your team will hit; the rest are opt-in via DI.
 
 | # | Use case | Library seam | Audience |
 |---|---|---|---|
@@ -195,6 +195,11 @@ Sixteen distinct scenarios the library covers, ranked roughly by adoption order.
 | 14 | **Human-in-the-loop approval** — the agent drafts an irreversible action; chat-shell intercept queues it for HITL; senior reviewer approves or rejects from an inline card or the `/approvals` queue page; every transition appends to the same tamper-evident audit chain (`tool-approved` / `tool-rejected`) | `agenticApproval({...})` · `ApprovalRegistry` · `<mvk-approval-card>` · `AGENTIC_APPROVAL_AUDIT_HOOK` ([cookbook](./docs/cookbook/approval-flow.md)) | Execs + architects + compliance |
 | 15 | **Long-running operations** — tools that take minutes return immediately with an `opId`; chat shows live progress inline; `/operations` page lists in-flight + recent across routes; lifecycle (started/progress/finished/failed) participates in the same audit chain | `agenticTool({ longRunning: true, ... })` · `OperationRegistry` · `<mvk-operation-progress>` · `AGENTIC_OPERATION_AUDIT_HOOK` ([cookbook](./docs/cookbook/long-running-operations.md)) | Architects + product + SRE |
 | 16 | **Multi-modal input** — paperclip / drag-drop / paste-image on the chat composer; client-side MIME + size validation; transcript renders text / image / file parts; backends without multi-modal capability text-only fallback with explicit warning | `MessageContent` union · `BackendCapabilities.multiModal` · `<mvk-chat-shell>` composer affordances ([cookbook](./docs/cookbook/multi-modal-input.md)) | Architects + product |
+| 17 | **Wire the catalog platform** — single composite provider for IAM persona + MFE registry + capability registrar/authorizer + usage metering | `provideAgenticPlatform({...})` ([ADR-031](./docs/adr/0031-provide-agentic-platform.md)) | Architects + execs |
+| 18 | **External surface — Teams Tab embed** — same Angular app inside a Teams Tab, with tenant + UPN + theme bridged into the catalog | `provideTeamsContext({ loadContext })` ([cookbook](./docs/cookbook/teams-tab-embed.md)) | Architects + execs |
+| 19 | **External surface — Teams chat (Bot Framework)** — converse with the agent in Teams chat; tool results render as Adaptive Cards | `@maverick/agentic-ui-teams-bot` ([cookbook](./docs/cookbook/teams-bot-adaptive-cards.md)) | Architects + execs |
+| 20 | **External surface — GitHub Copilot Extension** — `@maverick-ediscovery` invocable from Copilot Chat in VS Code / JetBrains / github.com | `@maverick/agentic-ui-copilot-skill` ([cookbook](./docs/cookbook/github-copilot-extension.md)) | Architects + execs |
+| 21 | **External surface — M365 Copilot Studio Connector** — every catalog tool becomes a Power Platform action callable from Word / Outlook / Teams / Copilot web | `@maverick/agentic-ui-copilot-studio-connector` ([ADR-042](./docs/adr/0042-copilot-studio-connector.md), [cookbook](./docs/cookbook/copilot-studio-connector.md)) | Architects + execs |
 
 > **Each use case has a dedicated walkthrough in the [User Guide → Use cases](./docs/USER_GUIDE.md#use-cases).** The walkthroughs include scenario, library responsibility, minimal wiring code, and a link to the relevant cookbook entry.
 
@@ -231,6 +236,7 @@ Sixteen distinct scenarios the library covers, ranked roughly by adoption order.
 │                                                                            │
 │  UI layer                                                                  │
 │   <mvk-chat-shell>     <mvk-widget-container>     <mvk-form-renderer>      │
+│   <mvk-approval-card>  <mvk-operation-progress>   <mvk-workflow-renderer>  │
 │           │                       ▲                      ▲                 │
 │           │ injectAgenticChat()   │ resolves from        │                 │
 │           ▼                       │ ComponentRegistry    │                 │
@@ -239,9 +245,10 @@ Sixteen distinct scenarios the library covers, ranked roughly by adoption order.
 │           │                                                                │
 │           │ reads/writes via uniform Registry<TDef>                        │
 │           ▼                                                                │
-│   Registry layer  (13 root injectables, signal-backed)                     │
+│   Registry layer  (15 root injectables, signal-backed)                     │
 │     CORE:    Tool · Component · Capability · Backend · MFE                 │
-│     EXT:     Action · Intent · Form · DataSource                           │
+│     EXT:     Action · Intent · Form · DataSource · Approval(F4) ·          │
+│              Operation(F5)                                                 │
 │     SEAMS:   Validation · Persistence · Layout · SchemaTransformer         │
 │           │                                                                │
 │           │ AgenticBackend.run(input) → AsyncIterable<AgenticEvent>        │
@@ -281,6 +288,76 @@ All fifteen registries inherit one base class — `Registry<TDef>` — with iden
 - **Seams (4)** — interface + thin default; you plug in your own. Validation (Zod by default; pluggable Ajv / Joi), Persistence (localStorage / sessionStorage / Dexie), Layout (CDK-friendly), SchemaTransformer (JSON Schema ↔ Zod, OpenAPI → Tool importer).
 
 Adding a registry of your own — say, a `MetricRegistry` for a custom domain — is ~30 LOC of base-class extension and gets the same MFE teardown, conformance suite, and persona scope policy out of the box.
+
+### Bring the agent to other surfaces — four adapter packages
+
+Your operators don't all live in your app. Some are in **Microsoft Teams chat**; some in **GitHub Copilot Chat** (VS Code / JetBrains / github.com); some in **Microsoft 365 Copilot** (Word / Outlook / Teams / Copilot web). The library ships four sibling packages — one per ecosystem — so your existing tools become callable from each surface without the agent loop, the catalog, or the audit chain forking.
+
+Each adapter is a **thin protocol shim**: it verifies the inbound signature, parses the wire format, hands the request to a single `Handler` callback (your agent loop), and translates outbound events back into the surface's native shape (Adaptive Cards / SSE / OpenAPI). No LLM is embedded — your existing backend runs unchanged.
+
+```
+                       ╔═══════════════════════════════════════════╗
+                       ║   YOUR EXISTING AGENT LOOP (server-side)  ║
+                       ║   one tool catalog · one audit chain      ║
+                       ╚════╤══════════╤═══════════╤═══════════╤═══╝
+                            │          │           │           │
+              ┌─────────────┘    ┌─────┘     ┌─────┘     ┌─────┘
+              │                  │           │           │
+   ┌──────────▼─────┐  ┌─────────▼─────┐  ┌──▼─────────┐  ┌─▼─────────────────┐
+   │ provideTeams   │  │ teams-bot     │  │ copilot-   │  │ copilot-studio-   │
+   │ Context        │  │ middleware    │  │ skill mw   │  │ connector mw      │
+   │ (in-app)       │  │ (server)      │  │ (server)   │  │ (server)          │
+   │                │  │ JWT verify    │  │ ECDSA verify  │ AAD JWT verify    │
+   │ getContext →   │  │ + AAD bearer  │  │ + OpenAI SSE  │ + Zod→OpenAPI mfst│
+   │ TEAMS_CONTEXT  │  │ + AC cards    │  │   chunks      │ + AC response     │
+   │ signal         │  │               │  │               │                   │
+   └────┬───────────┘  └─────┬─────────┘  └─────┬───────┘  └────┬──────────────┘
+        │                    │                  │                │
+        ▼                    ▼                  ▼                ▼
+  ┌──────────────┐  ┌──────────────────┐ ┌────────────────┐  ┌─────────────────┐
+  │ Teams Tab    │  │ Teams chat       │ │ GitHub Copilot │  │ M365 Copilot    │
+  │ (host the    │  │ (channel · DM ·  │ │ Chat           │  │ (Word · Outlook │
+  │  Angular app │  │  group)          │ │ (@ediscovery)  │  │  · Teams · web) │
+  │  in a tab)   │  │                  │ │                │  │                 │
+  └──────────────┘  └──────────────────┘ └────────────────┘  └─────────────────┘
+       P0                  P1                   P2                   P3
+```
+
+```mermaid
+flowchart TB
+    classDef agent fill:#fef3c7,stroke:#a16207,stroke-width:1px,color:#854d0e
+    classDef adapter fill:#dcfce7,stroke:#166534,stroke-width:1px,color:#14532d
+    classDef surface fill:#dbeafe,stroke:#1e40af,stroke-width:1px,color:#1e3a8a
+
+    AGENT["YOUR AGENT LOOP<br/>one tool catalog · one audit chain"]:::agent
+
+    subgraph ADAPTERS["External-surface adapters"]
+        A0["provideTeamsContext<br/>(in-app · signal seam)"]:::adapter
+        A1["@maverick/agentic-ui-teams-bot<br/>(JWT + AC)"]:::adapter
+        A2["@maverick/agentic-ui-copilot-skill<br/>(ECDSA + SSE)"]:::adapter
+        A3["@maverick/agentic-ui-copilot-studio-connector<br/>(AAD + OpenAPI)"]:::adapter
+    end
+
+    S0["Teams Tab<br/>(host app in a tab)"]:::surface
+    S1["Teams chat<br/>(channel · DM · group)"]:::surface
+    S2["GitHub Copilot Chat<br/>(@maverick-ediscovery)"]:::surface
+    S3["M365 Copilot<br/>(Word · Outlook · Teams · web)"]:::surface
+
+    AGENT --> A0 & A1 & A2 & A3
+    A0 --> S0
+    A1 --> S1
+    A2 --> S2
+    A3 --> S3
+```
+
+| Phase | Package | Surface | Wire format | Auth | Cookbook |
+|-------|---------|---------|-------------|------|----------|
+| P0 | `provideTeamsContext` (in-lib) | Teams Tab | n/a — embeds the Angular app | Teams SSO (host-side) | [teams-tab-embed](./docs/cookbook/teams-tab-embed.md) |
+| P1 | `@maverick/agentic-ui-teams-bot` | Teams chat | Bot Framework activities + Adaptive Cards | JWT verify against Bot Connector keys; AAD client-credentials for outbound | [teams-bot-adaptive-cards](./docs/cookbook/teams-bot-adaptive-cards.md) |
+| P2 | `@maverick/agentic-ui-copilot-skill` | GitHub Copilot Chat | Signed JSON webhook + OpenAI-shaped SSE | GitHub ECDSA P-256 signed-request verify | [github-copilot-extension](./docs/cookbook/github-copilot-extension.md) |
+| P3 | `@maverick/agentic-ui-copilot-studio-connector` | Microsoft 365 Copilot | Power Platform OpenAPI 2.0 + Adaptive Card response | Azure AD v2.0 JWT (tenant whitelist + JWKS) | [copilot-studio-connector](./docs/cookbook/copilot-studio-connector.md) |
+
+[ADR-041](./docs/adr/0041-teams-copilot-external-surfaces.md) and [ADR-042](./docs/adr/0042-copilot-studio-connector.md) document the design contracts. The integration plan that prioritised these four paths is at [docs/plans/teams-copilot-integration-plan.md](./docs/plans/teams-copilot-integration-plan.md). All four are **additive** — runtime tier (`@maverick/agentic-ui`) is unchanged; adopters install only the adapters they need.
 
 ## Installation
 
@@ -375,7 +452,7 @@ Each feature switch is independently opt-in; the app stays embedded-first when n
 
 ## Demo applications
 
-The repository ships **thirteen reference applications** under `examples/`. They cover four patterns: single-process showcases, federated MFEs, agent backends, and a flagship enterprise reference.
+The repository ships **sixteen reference applications** under `examples/` (fifteen runnable apps + one shared domain library). They cover four patterns: single-process showcases, federated MFEs, agent backends, and a flagship enterprise reference.
 
 ### 🏛 Flagship — enterprise eDiscovery reference (Phases 0–7 shipped)
 
@@ -570,24 +647,17 @@ The repository uses a Git pre-commit hook (`.githooks/pre-commit`, activated via
 
 ## Testing
 
-Twelve specification files cover **76 unit tests**, executed in approximately three seconds via Vitest:
+The npm-published packages cover **547 unit tests** across 46 spec files, executed in seconds via Vitest:
 
-| Subject | File | Tests |
-|---------|------|-------|
-| Registry base + concrete registries | `registries/registry-base.spec.ts` | 6 |
-| Run orchestrator (lifecycle, tool execution, generative UI extraction) | `chat/run-orchestrator.spec.ts` | 2 |
-| `defineCapabilityModule.apply()` + dispose semantics | `registries/capability-module.spec.ts` | 3 |
-| Cross-backend conformance suite (`runConformance`) | `registries/conformance.spec.ts` | 1 |
-| Action / Intent / Form registries + factories | `registries/extended-registries.spec.ts` | 5 |
-| DataSource / Persistence / Layout / SchemaTransformer | `registries/m5-registries.spec.ts` | 9 |
-| AG-UI converters (Zod → JSON Schema, message round-trip) | `backends/ag-ui/converters.spec.ts` | 8 |
-| AG-UI event mapper + showComponents extraction | `backends/ag-ui/event-mapper.spec.ts` | 12 |
-| RxJS Observable → AsyncIterable bridge | `backends/ag-ui/observable-to-async-iterable.spec.ts` | 5 |
-| Static-JSON MFE registry source | `mfe/mfe-registry-source.spec.ts` | 5 |
-| Spring Boot MFE registry source | `mfe/spring-boot-mfe-registry.spec.ts` | 8 |
-| Schematics snapshot tests (all 10 generators) | `schematics.spec.ts` | 12 |
+| Package | Tests | What's covered |
+|---------|------:|----------------|
+| `@maverick/agentic-ui` (runtime tier) | **459** | Registry base + 15 concrete registries · run orchestrator (turn lifecycle + tool execution + F4 approval + F5 long-running) · `defineCapabilityModule.apply()` / dispose · cross-backend conformance suite · AG-UI converters + event mapper + RxJS bridge · MFE registry sources (static / Spring Boot / REST) · platform providers (catalog IAM, registrar, authorizer, usage metering, Teams context) · form / workflow / approval / operation-progress components · composition store + expression engine · `agentic-form` / `-widget` / `-workflow` / `-approval` factories · schematics snapshot tests for all 10 generators |
+| `@maverick/agentic-ui-mcp` | **24** | `createMcpServer` end-to-end · Zod → MCP JSON-Schema translator · result formatter (text + HTML render hint + image parts) |
+| `@maverick/agentic-ui-teams-bot` | **21** | Activity parser + identity extractor · Adaptive Card builders (`welcomeCard`, `errorCard`, `widgetFallbackCard`) · Bot Connector JWT verifier with real RSA-256 round trips |
+| `@maverick/agentic-ui-copilot-skill` | **17** | GitHub ECDSA P-256 signed-request verifier · request parser · OpenAI-shaped SSE chunk stream |
+| `@maverick/agentic-ui-copilot-studio-connector` | **26** | Zod → OpenAPI translator (every supported primitive + refinement + permissive fallback) · Power-Platform manifest builder · Azure AD JWT verifier (audience + tenant + JWKS) · identity extraction |
 
-GitHub Actions runs the full pipeline (build → test → three production demo builds → 200 KB FESM size guard) on every push and pull request. See `.github/workflows/ci.yml`.
+GitHub Actions runs the full pipeline (build → test → three production demo builds → 200 KB FESM size guard) on every push and pull request. See `.github/workflows/ci.yml`. The eDiscovery flagship adds **16 Playwright tests across 6 specs** under [`e2e/`](./e2e/README.md).
 
 ## Versioning and release
 
