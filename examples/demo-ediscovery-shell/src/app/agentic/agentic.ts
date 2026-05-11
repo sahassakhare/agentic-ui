@@ -612,7 +612,21 @@ function addCustodianTool(env: EnvironmentInjector) {
         store.addCustodian(custodian);
         return {
           ...custodian,
-          components: [{ name: 'custodianCard', props: custodian }],
+          // CustodianCardComponent requires `custodianId` (not `id`),
+          // so map explicitly. Spreading `custodian` was leaving the
+          // required input undefined and triggering NG0950 at mount.
+          components: [{
+            name: 'custodianCard',
+            props: {
+              custodianId: custodian.id,
+              name: custodian.name,
+              email: custodian.email,
+              department: custodian.department,
+              hasLegalHold: custodian.hasLegalHold,
+              collectionStatus: custodian.collectionStatus,
+              documentCount: custodian.documentCount,
+            },
+          }],
           markdown:
             `**Custodian added** — \`${custodian.id}\`\n\n` +
             `| Name | ${custodian.name} |\n|---|---|\n` +
