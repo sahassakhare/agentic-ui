@@ -867,13 +867,11 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
   return agenticTool({
     name: 'openCustodianIntake',
     description:
-      'Mount the runtime-composed custodian intake FORM inline in the ' +
-      'chat panel. Use ONLY when the user wants to ONBOARD / ADD / ' +
-      'CAPTURE / FILL IN a new custodian (action verbs that imply ' +
-      'data entry). Do NOT use this for "open", "go to", "navigate ' +
-      'to", "show", "view" verbs aimed at the intake PAGE -- those ' +
-      'should call `openCustodianIntakePage` instead which routes to ' +
-      '/intake/custodian without a chat card. ' +
+      'DEFAULT tool for opening the custodian intake FORM. Mounts ' +
+      'the form inline in the chat panel. Use this when the user ' +
+      'says "open the custodian intake form", "onboard a custodian", ' +
+      '"add a custodian from Finance", "capture a new custodian", ' +
+      '"fill in custodian intake", "create a custodian record". ' +
       'The form renders different sections (compliance disclosure, ' +
       'supervisor sign-off, accounting system picker) based on matter ' +
       'type, persona, and the custodian\'s department. CALL THIS TOOL ' +
@@ -882,7 +880,11 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
       'Finance team", "Engineering custodian", "in Legal" all map to ' +
       'a department string. Pass it as `department`. Only omit ' +
       '`department` when the user gave no department hint at all ' +
-      '(then the form skips the accounting-systems section).',
+      '(then the form skips the accounting-systems section). ' +
+      'IMPORTANT -- only switch to `openCustodianIntakePage` if the ' +
+      'user EXPLICITLY uses the word "page" or one of the navigation ' +
+      'verbs "go to" / "navigate to" / "route to". A bare "open" verb ' +
+      'is THIS tool, not the page tool.',
     schema: z.object({
       department: z.string().optional()
         .describe("The custodian's department (e.g. 'Finance', 'Engineering')"),
@@ -1218,19 +1220,18 @@ function openCustodianIntakePageTool(env: EnvironmentInjector) {
     name: 'openCustodianIntakePage',
     description:
       "Route the user to the standalone custodian intake PAGE at " +
-      "/intake/custodian. Use this for ANY phrasing that implies " +
-      "opening / viewing / navigating to a page rather than filling " +
-      "a form in chat. STRONGEST triggers: 'open custodian', 'open " +
-      "the custodian page', 'open the intake page', 'go to custodian " +
-      "intake', 'navigate to custodian intake', 'show me the " +
-      "custodian intake page', 'route to custodian intake'. Use this " +
-      "even when the user just says 'open custodian' (with no " +
-      "qualifier) -- 'open' is a navigation verb in this app. " +
-      "Do NOT use this for 'onboard', 'add', 'capture', 'fill in', " +
-      "'create' verbs -- those want the chat-embedded form via " +
-      "`openCustodianIntake`. Do NOT use this for the plural " +
-      "'open custodians' -- that wants `openCustodians` (the list " +
-      "page).",
+      "/intake/custodian. Use ONLY when the user EXPLICITLY says " +
+      "the word 'page' OR uses one of the strict navigation verbs " +
+      "'go to' / 'navigate to' / 'route to'. " +
+      "Examples that DO match: 'open the custodian intake page', " +
+      "'go to the custodian intake', 'navigate to custodian intake', " +
+      "'route me to the custodian intake page'. " +
+      "Examples that do NOT match (use `openCustodianIntake` " +
+      "instead): 'open the custodian intake form' (no 'page'), " +
+      "'onboard a Finance custodian', 'add a custodian', 'fill in " +
+      "intake'. " +
+      "Do NOT use this for the plural 'open custodians' -- that " +
+      "wants `openCustodians` (the list page).",
     schema: z.object({
       department: z.string().optional()
         .describe("Optional department to pre-select on the page"),
@@ -1276,16 +1277,18 @@ function openPlaceLegalHoldWorkflowTool(env: EnvironmentInjector) {
   return agenticTool({
     name: 'openPlaceLegalHoldWorkflow',
     description:
-      'Mount the guided place-legal-hold WIZARD inline in the chat ' +
-      'panel. Use ONLY when the user wants to ISSUE / DRAFT / WALK ' +
-      'THROUGH / FILL a legal hold step-by-step (action verbs). Do ' +
-      'NOT use this for "open", "go to", "navigate to", "show", ' +
-      '"view" verbs aimed at the wizard PAGE -- those should call ' +
-      '`openPlaceLegalHoldWorkflowPage` instead which routes to ' +
-      '/workflows/place-hold without a chat card. The wizard walks ' +
-      'the user through scope keywords -> custodian selection -> ' +
+      'DEFAULT tool for opening the place-legal-hold WIZARD. Mounts ' +
+      'the wizard inline in the chat panel. Use this when the user ' +
+      'says "open the place-legal-hold wizard", "start the legal ' +
+      'hold wizard", "begin the hold wizard", "issue a hold step by ' +
+      'step", "fill the hold wizard", "draft the legal hold". The ' +
+      'wizard walks through scope keywords -> custodian selection -> ' +
       'date range -> preview; conditional jump back to matter-setup ' +
-      'when zero custodians are picked.',
+      'when zero custodians are picked. ' +
+      'IMPORTANT -- only switch to `openPlaceLegalHoldWorkflowPage` ' +
+      'if the user EXPLICITLY uses the word "page" or one of the ' +
+      'navigation verbs "go to" / "navigate to" / "route to". A bare ' +
+      '"open" verb is THIS tool, not the page tool.',
     schema: z.object({}),
     handler: async () => {
       return runInInjectionContext(env, () => ({
@@ -1301,15 +1304,15 @@ function openPlaceLegalHoldWorkflowPageTool(env: EnvironmentInjector) {
     name: 'openPlaceLegalHoldWorkflowPage',
     description:
       "Route the user to the standalone place-legal-hold wizard " +
-      "PAGE at /workflows/place-hold. Use this for ANY phrasing " +
-      "that implies opening / viewing / navigating to the wizard " +
-      "page rather than mounting it in chat. STRONGEST triggers: " +
-      "'open the place-legal-hold wizard page', 'go to the legal " +
-      "hold wizard', 'navigate to place-legal-hold', 'show me the " +
-      "legal hold wizard page', 'route to the legal hold wizard'. " +
-      "Do NOT use this for 'issue / draft / fill / walk through' " +
-      "verbs -- those want the chat-embedded wizard via " +
-      "`openPlaceLegalHoldWorkflow`.",
+      "PAGE at /workflows/place-hold. Use ONLY when the user " +
+      "EXPLICITLY says the word 'page' OR uses one of the strict " +
+      "navigation verbs 'go to' / 'navigate to' / 'route to'. " +
+      "Examples that DO match: 'open the place-legal-hold wizard " +
+      "page', 'go to the place-legal-hold wizard', 'navigate to " +
+      "/workflows/place-hold', 'route me to the wizard'. " +
+      "Examples that do NOT match (use `openPlaceLegalHoldWorkflow` " +
+      "instead): 'open the place-legal-hold wizard' (no 'page'), " +
+      "'start the wizard', 'issue a hold', 'fill the wizard'.",
     schema: z.object({}),
     handler: async () => {
       return runInInjectionContext(env, async () => {
