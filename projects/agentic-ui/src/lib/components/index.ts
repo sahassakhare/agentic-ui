@@ -4,3 +4,4 @@ export * from './widget-container.component';
 export * from './workflow-renderer.component';
 export * from './approval-card.component';
 export * from './operation-progress.component';
+export * from './workspace-layout.component';
