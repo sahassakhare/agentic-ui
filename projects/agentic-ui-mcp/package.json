@@ -1,6 +1,6 @@
 {
   "name": "@infra-tools/agentic-ui-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Expose @infra-tools/agentic-ui ToolDefs as a Model Context Protocol (MCP) server — Claude Desktop / Cursor / Zed / Continue / Windsurf can call your tools directly.",
   "license": "Apache-2.0",
   "repository": {
@@ -27,7 +27,11 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist/**", "README.md", "CHANGELOG.md"],
+  "files": [
+    "dist/**",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -p tsconfig.json --watch",
