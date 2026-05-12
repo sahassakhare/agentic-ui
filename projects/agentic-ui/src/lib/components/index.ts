@@ -10,3 +10,4 @@ export * from './smart-cell.component';
 export * from './row-action-menu.component';
 export * from './bulk-toolbar.component';
 export * from './assist-panel.component';
+export * from './notification-tray.component';
