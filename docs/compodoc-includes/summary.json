@@ -88,6 +88,10 @@
     "file": "lifecycle-stages.md"
   },
   {
+    "title": "User-built dashboards (ADR-044)",
+    "file": "dashboards.md"
+  },
+  {
     "title": "Domain MFEs as standalone apps + capability providers",
     "file": "domain-mfe-standalone-and-federated.md"
   },
