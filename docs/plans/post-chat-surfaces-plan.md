@@ -314,7 +314,7 @@ Each phase is independently shippable; demo-worthy at the gate; the eDiscovery f
 
 - [x] `<mvk-smart-cell>` — eDiscovery `Documents` Privilege Confidence column (P1.2, this PR — value-driven cell with persona-scope filter by tool name + hover/focus/tap explainability widget, 17 specs, [cookbook](../cookbook/smart-cell.md))
 - [x] `<mvk-row-action-menu>` — `Documents` + `Custodians` (P1.3, this PR — IntentRegistry-driven menu with persona scope + row-state filter predicate + keyboard navigation, 13 specs, [cookbook](../cookbook/row-action-menu.md))
-- [ ] `<mvk-bulk-toolbar>` — `Documents`
+- [x] `<mvk-bulk-toolbar>` — `Documents` (P1.4, this PR — selection-aware materialising toolbar, same three-stage filter chain as the row menu but against aggregate selection state, 14 specs, [cookbook](../cookbook/bulk-toolbar.md))
 - [ ] `<mvk-assist-panel>` — `Custodian profile` (the Cursor pattern)
 - [x] `<mvk-cmd-k-palette>` — global summon (P1.1, this PR — intent-first + tool fallback + free-text fallback, ⌘K / Ctrl+K / `/` summon, 14 specs)
 - [ ] Cookbook: "Post-chat surfaces — smart cells + assist panel"

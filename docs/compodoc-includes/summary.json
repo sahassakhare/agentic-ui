@@ -72,6 +72,10 @@
     "file": "row-action-menu.md"
   },
   {
+    "title": "Selection-aware bulk toolbar (mvk-bulk-toolbar)",
+    "file": "bulk-toolbar.md"
+  },
+  {
     "title": "Domain MFEs as standalone apps + capability providers",
     "file": "domain-mfe-standalone-and-federated.md"
   },
