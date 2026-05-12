@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for the eDiscovery agent server.
 #
-# Builds the workspace (the server depends on the @maverick/agentic-ui-server
-# library and @maverick/demo-ediscovery-shared, both of which live in the
+# Builds the workspace (the server depends on the @infra-tools/agentic-ui-server
+# library and @infra-tools/demo-ediscovery-shared, both of which live in the
 # same monorepo) and ships a slim runtime image.
 #
 # Build context MUST be the repo root, not this folder. From repo root:
@@ -61,9 +61,9 @@ RUN npm install --no-audit --no-fund
 # deps (@google/genai, hono, dotenv) are NOT in the root package.json
 # so they need a separate install in the server folder.
 #
-#   1. @maverick/agentic-ui          (Angular library — consumed by the demos)
-#   2. @maverick/agentic-ui-server   (Node lib — consumed by the demo server)
-#   3. @maverick/demo-ediscovery-shared  (mock data + types)
+#   1. @infra-tools/agentic-ui          (Angular library — consumed by the demos)
+#   2. @infra-tools/agentic-ui-server   (Node lib — consumed by the demo server)
+#   3. @infra-tools/demo-ediscovery-shared  (mock data + types)
 #   4. Install the server's own deps (now that file: deps have dist/)
 #   5. Build the server itself
 RUN npm run build:lib \
@@ -86,11 +86,11 @@ ENV NODE_ENV=production
 # the root (no workspaces declaration). Both directories COPY into the
 # same target so the merged tree resolves both root deps AND server deps.
 #
-# file: deps (`@maverick/agentic-ui-server`, `@maverick/demo-ediscovery-shared`)
+# file: deps (`@infra-tools/agentic-ui-server`, `@infra-tools/demo-ediscovery-shared`)
 # install as symlinks pointing back into the build stage's filesystem
 # layout — those symlinks would dangle in the runtime image. Override
 # both with explicit COPYs of the built dist + package.json so the
-# import resolver finds real files at /app/node_modules/@maverick/<lib>.
+# import resolver finds real files at /app/node_modules/@infra-tools/<lib>.
 COPY --from=build /repo/examples/demo-ediscovery-server/dist /app/dist
 COPY --from=build /repo/examples/demo-ediscovery-server/package.json /app/package.json
 
@@ -108,16 +108,16 @@ COPY --from=build /repo/examples/demo-ediscovery-server/node_modules /app/node_m
 #    these symlinks with relative targets (../../../projects/…). In the
 #    runtime image those targets don't exist; if we COPY into the
 #    symlink path, Docker follows it and writes the files at
-#    /projects/agentic-ui-server/ instead of /app/node_modules/@maverick/…
+#    /projects/agentic-ui-server/ instead of /app/node_modules/@infra-tools/…
 #    — and Node's module resolver won't find transitive deps like
 #    @ag-ui/core that live in /app/node_modules/. Delete the symlink
 #    first so the COPY creates a real directory at the intended path.
-RUN rm -rf /app/node_modules/@maverick/agentic-ui-server \
-           /app/node_modules/@maverick/demo-ediscovery-shared
-COPY --from=build /repo/projects/agentic-ui-server/dist /app/node_modules/@maverick/agentic-ui-server/dist
-COPY --from=build /repo/projects/agentic-ui-server/package.json /app/node_modules/@maverick/agentic-ui-server/package.json
-COPY --from=build /repo/examples/demo-ediscovery-shared/dist /app/node_modules/@maverick/demo-ediscovery-shared/dist
-COPY --from=build /repo/examples/demo-ediscovery-shared/package.json /app/node_modules/@maverick/demo-ediscovery-shared/package.json
+RUN rm -rf /app/node_modules/@infra-tools/agentic-ui-server \
+           /app/node_modules/@infra-tools/demo-ediscovery-shared
+COPY --from=build /repo/projects/agentic-ui-server/dist /app/node_modules/@infra-tools/agentic-ui-server/dist
+COPY --from=build /repo/projects/agentic-ui-server/package.json /app/node_modules/@infra-tools/agentic-ui-server/package.json
+COPY --from=build /repo/examples/demo-ediscovery-shared/dist /app/node_modules/@infra-tools/demo-ediscovery-shared/dist
+COPY --from=build /repo/examples/demo-ediscovery-shared/package.json /app/node_modules/@infra-tools/demo-ediscovery-shared/package.json
 
 # Run as non-root for safer container privilege.
 USER node

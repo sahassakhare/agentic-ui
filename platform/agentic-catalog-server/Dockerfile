@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# Multi-stage Dockerfile for @maverick/agentic-catalog-server.
+# Multi-stage Dockerfile for @infra-tools/agentic-catalog-server.
 #
 # Stage 1 (builder) installs all dependencies + compiles TypeScript.
 # Stage 2 (runtime) is `gcr.io/distroless/nodejs22-debian12:nonroot` —

@@ -243,7 +243,7 @@ The MFE remote didn't load. Check:
 
 - Is `demo-remote-bookings` running on port 4201? `curl -I http://localhost:4201/remoteEntry.json` must return 200.
 - Browser DevTools → Network: look for a `Capability.js` request to `:4201`. If it's failing, check the Console for the actual error.
-- Is `node_modules/@infra-tools/agentic-ui` linked to `dist/agentic-ui`? If you reinstalled and the build went stale, run `npm run build:lib && rm -rf node_modules/@maverick && npm install`.
+- Is `node_modules/@infra-tools/agentic-ui` linked to `dist/agentic-ui`? If you reinstalled and the build went stale, run `npm run build:lib && rm -rf node_modules/@infra-tools && npm install`.
 
 ### `NG0912: Component ID generation collision detected`
 

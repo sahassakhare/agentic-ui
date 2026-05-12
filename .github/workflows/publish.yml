@@ -23,7 +23,7 @@ name: publish
 #
 # ── One-time setup (per repo) ──────────────────────────────────────────────
 #  Generate an npm Automation Token (npmjs.com → Access Tokens → Generate
-#  New Token → Automation). Grant publish access to the @maverick scope.
+#  New Token → Automation). Grant publish access to the @infra-tools scope.
 #  Add it to GitHub: Settings → Secrets and variables → Actions → New
 #  repository secret → name `NPM_TOKEN`, value <token>.
 #

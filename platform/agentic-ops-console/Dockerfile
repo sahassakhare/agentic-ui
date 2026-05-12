@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# Multi-stage Dockerfile for @maverick/agentic-ops-console.
+# Multi-stage Dockerfile for @infra-tools/agentic-ops-console.
 #
 # Stage 1 (builder) runs `ng build` to produce the static bundle.
 # Stage 2 (runtime) is nginx-alpine serving the bundle. Total image
