@@ -60,6 +60,10 @@
     "file": "agent-directed-workspace-layouts.md"
   },
   {
+    "title": "⌘K / Ctrl+K command palette",
+    "file": "cmd-k-palette.md"
+  },
+  {
     "title": "Domain MFEs as standalone apps + capability providers",
     "file": "domain-mfe-standalone-and-federated.md"
   },

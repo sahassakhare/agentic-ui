@@ -308,7 +308,7 @@ Each phase is independently shippable; demo-worthy at the gate; the eDiscovery f
 
 **Exit:** chat rail is no longer the only shell — the library tier exposes every mode + slot-based workspaces + agent-emittable layouts. Existing `<mvk-chat-shell />` consumers see zero diff. **503/503 unit tests pass**, ADR-010 D4 zero-breaking-changes contract held throughout. eDiscovery flagship route wiring + Playwright are the only items left and are deferred to a follow-up slice once the demo redeploys.
 
-### P1 — Surface patterns wave 1 (2 weeks)
+### P1 — Surface patterns wave 1 (2 weeks) — in progress
 
 **Goal:** Ship five highest-leverage post-chat affordances on existing routes.
 
@@ -316,8 +316,9 @@ Each phase is independently shippable; demo-worthy at the gate; the eDiscovery f
 - [ ] `<mvk-row-action-menu>` — `Documents` + `Custodians`
 - [ ] `<mvk-bulk-toolbar>` — `Documents`
 - [ ] `<mvk-assist-panel>` — `Custodian profile` (the Cursor pattern)
-- [ ] `<mvk-cmd-k-palette>` — global summon
+- [x] `<mvk-cmd-k-palette>` — global summon (P1.1, this PR — intent-first + tool fallback + free-text fallback, ⌘K / Ctrl+K / `/` summon, 14 specs)
 - [ ] Cookbook: "Post-chat surfaces — smart cells + assist panel"
+- [x] [Cookbook: ⌘K / Ctrl+K command palette](../cookbook/cmd-k-palette.md) (P1.1, this PR)
 - [ ] Playwright: ⌘K palette, row menu, bulk toolbar
 
 **Exit:** the agent is visible on every route, even when chat is collapsed. Brand demo: paralegal browses documents, agent surfaces privilege confidence + row actions + bulk toolbar without typing.
