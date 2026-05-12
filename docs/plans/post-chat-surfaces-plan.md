@@ -1,7 +1,7 @@
 # Post-chat surfaces plan — agent everywhere, not just in the rail
 
 **Status:** draft · **Owner:** sahas · **Started:** 2026-05-12
-**Related ADRs (to draft):** ADR-043 LayoutRegistry promotion · ADR-044 DashboardRegistry · ADR-045 TriggerRegistry
+**Related ADRs:** [ADR-043](../adr/0043-layout-registry-promotion.md) LayoutRegistry promotion (drafted) · ADR-044 DashboardRegistry (to draft) · ADR-045 TriggerRegistry (to draft)
 
 How we extend `@infra-tools/agentic-ui` so the agent participates in **every** web surface — table cells, row menus, bulk toolbars, inline suggestions, multi-pane workspaces, user-built dashboards, scheduled triggers — not just the chat rail. The architectural through-line is one sentence:
 
@@ -296,7 +296,7 @@ Each phase is independently shippable; demo-worthy at the gate; the eDiscovery f
 
 **Goal:** Promote `LayoutRegistry` and add the chat shell `mode` prop. No new routes; existing routes opt-in to the new modes.
 
-- [ ] ADR-043 LayoutRegistry promotion
+- [x] [ADR-043 LayoutRegistry promotion](../adr/0043-layout-registry-promotion.md) — drafted, status: Proposed
 - [ ] `LayoutDef` schema with slots / overlays / drawers / modals
 - [ ] `<mvk-chat-shell mode="rail | pill | overlay | docked-bottom | hidden">`
 - [ ] `<mvk-workspace-layout>` reading `LayoutRegistry.get(name)`
