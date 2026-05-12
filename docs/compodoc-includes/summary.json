@@ -80,6 +80,14 @@
     "file": "assist-panel.md"
   },
   {
+    "title": "Proactive triggers + Inbox (ADR-045)",
+    "file": "proactive-triggers-and-inbox.md"
+  },
+  {
+    "title": "Multi-stage lifecycle widget (mvk-lifecycle-stages)",
+    "file": "lifecycle-stages.md"
+  },
+  {
     "title": "Domain MFEs as standalone apps + capability providers",
     "file": "domain-mfe-standalone-and-federated.md"
   },

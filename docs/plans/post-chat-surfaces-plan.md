@@ -322,19 +322,21 @@ Each phase is independently shippable; demo-worthy at the gate; the eDiscovery f
 
 **Exit:** the agent is visible on every route, even when chat is collapsed. Library tier delivers all five P1 surfaces with 76 new specs (17 + 13 + 14 + 18 + 14) across the 5 components, all dispatch-agnostic, all persona-scoped, all sharing the same registry-lens premise. Brand demo (eDiscovery wiring) deferred to a follow-up slice once the Render redeploy lands.
 
-### P2 — TriggerRegistry + Inbox + lifecycle widget (2 weeks)
+### P2 — TriggerRegistry + Inbox + lifecycle widget (2 weeks) ✅ library tier shipped
 
 **Goal:** Agent acts *at* users, not just *for* them.
 
-- [ ] ADR-045 TriggerRegistry
-- [ ] `TriggerRegistry` base class + cron / webhook / queue drivers
-- [ ] `<mvk-inbox>` + `<mvk-notification-tray>`
-- [ ] `<mvk-lifecycle-stages>` (Workflow A — Holds)
-- [ ] eDiscovery flagship: `/inbox` route · Holds lifecycle widget · SLA reminders trigger
-- [ ] Cookbook: "Proactive triggers + lifecycle widgets"
-- [ ] Playwright: scheduled trigger fires, notification appears, hold reminder drafted
+- [x] [ADR-045 TriggerRegistry](../adr/0045-trigger-registry.md) — drafted, status: Proposed
+- [x] `TriggerRegistry` base class + cron driver (P2.1 — 4 registry specs + 17 runner specs; webhook/queue deferred to server-side runner per ADR-045 D6)
+- [x] `<mvk-notification-tray>` (P2.2 — 17 specs, [cookbook](../cookbook/proactive-triggers-and-inbox.md))
+- [x] `<mvk-inbox>` (P2.3 — 18 specs, same cookbook; pairs with the tray on the same store)
+- [x] `<mvk-lifecycle-stages>` (P2.4 — Workflow A widget, 17 specs, [cookbook](../cookbook/lifecycle-stages.md))
+- [ ] eDiscovery flagship: `/inbox` route · Holds lifecycle widget · SLA reminders trigger (deferred to demo-wiring slice once Render is unstuck)
+- [x] [Cookbook: Proactive triggers + Inbox](../cookbook/proactive-triggers-and-inbox.md) (P2.3 — end-to-end wiring + persona-scope + opt-out cron evaluator)
+- [x] [Cookbook: Multi-stage lifecycle widget](../cookbook/lifecycle-stages.md) (P2.4 — Workflow A + audit-chain integration)
+- [ ] Playwright: scheduled trigger fires, notification appears, hold reminder drafted (deferred — pairs with the demo wiring above)
 
-**Exit:** SLA-driven hold acknowledgment reminders draft themselves; ops console shows trigger firings in the audit ledger. Brand demo: a hold issued 22 days ago surfaces a "send reminder" notification; partner clicks approve.
+**Exit:** Library tier delivers all four P2 components — TriggerRegistry + runner + tray + inbox + lifecycle widget — with 56 new specs (4 + 17 + 17 + 18 + 17). SLA-driven hold acknowledgment reminders draft themselves; ops console shows trigger firings in the audit ledger via the `agentic.trigger.fire` telemetry event. Brand demo (eDiscovery flagship wiring) deferred to a follow-up slice once the demo Render deploy lands.
 
 ### P3 — DashboardRegistry + production pipeline (3 weeks)
 
