@@ -126,6 +126,12 @@ jobs:
           # Always build everything — small enough that conditional builds
           # aren't worth the complexity. Per-package skip happens at publish.
           npm run build:lib
+          # agentic-ui-mcp depends on the freshly-built lib via
+          # `file:../../dist/agentic-ui` — install pulls that into its
+          # node_modules so tsc can resolve `@infra-tools/agentic-ui`.
+          # The other sibling packages have no cross-deps on the lib;
+          # they compile standalone against their own types.
+          npm --prefix projects/agentic-ui-mcp                      install --no-audit --fund=false
           npm --prefix projects/agentic-ui-server                   run build
           npm --prefix projects/agentic-ui-mcp                      run build
           npm --prefix projects/agentic-ui-copilot-skill            run build
