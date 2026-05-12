@@ -13,3 +13,4 @@ export * from './assist-panel.component';
 export * from './notification-tray.component';
 export * from './inbox.component';
 export * from './lifecycle-stages.component';
+export * from './dashboard-tile.component';

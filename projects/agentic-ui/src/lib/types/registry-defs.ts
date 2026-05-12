@@ -870,3 +870,96 @@ export interface TriggerDef extends RegistryEntry {
   /** Optional persona id for the fire's scope + audit attribution. */
   readonly runAs?: string;
 }
+
+// ── DashboardRegistry (ADR-044) ─────────────────────────────────────
+
+/**
+ * How a tile gets its value — one of three.
+ *
+ * - `tool` — re-invokes a `ToolRegistry` tool on refresh. Chain-hashed
+ *   each call. Persona scope applies via `ToolRegistry.get()`.
+ * - `data` — re-queries a `DataSourceRegistry` source on refresh.
+ *   Cheaper than tools (no audit-chain entry per re-query); use for
+ *   plain reads where audit isn't load-bearing.
+ * - `static` — renders props verbatim. No refresh. Use for headers,
+ *   blurbs, non-data tiles in a layout.
+ *
+ * @see [ADR-044 D3](../../../../docs/adr/0044-dashboard-registry.md#d3--tiledef-invocation-is-tool--data--static--one-of-three)
+ */
+export type TileInvocation =
+  | { readonly kind: 'tool'; readonly tool: string; readonly args: Readonly<Record<string, unknown>> }
+  | { readonly kind: 'data'; readonly source: string; readonly query: Readonly<Record<string, unknown>> }
+  | { readonly kind: 'static'; readonly props: unknown };
+
+/** When a tile should refresh its value. */
+export type TileRefreshTrigger = 'load' | 'interval' | 'event' | 'manual';
+
+/**
+ * Optional drill-down target for a tile. Click on the tile body
+ * activates this — host wires the actual navigation / longer-form
+ * tool invocation.
+ */
+export interface TileDrilldown {
+  readonly tool?: string;
+  readonly route?: string;
+}
+
+/** A single tile in a dashboard. */
+export interface TileDef {
+  readonly id: string;
+  /** Slot name in the parent dashboard's `LayoutDef`. */
+  readonly slot: string;
+  readonly title: string;
+  /** ComponentRegistry name — resolved + mounted via `*ngComponentOutlet`. */
+  readonly component: string;
+  /** How the tile gets its value. */
+  readonly invocation: TileInvocation;
+  /** Optional refresh strategy; defaults to `'load'`. */
+  readonly refreshOn?: TileRefreshTrigger;
+  /** Optional drill-down target activated on tile body click. */
+  readonly drilldown?: TileDrilldown;
+  /** Hint: when true, the tile surfaces an "explain this" affordance. */
+  readonly explainable?: boolean;
+  /** Optional cache TTL — re-uses prior value for `cacheTtlMs` after a tool call. */
+  readonly cacheTtlMs?: number;
+}
+
+/**
+ * A global filter applied to every `kind: 'tool'` tile's args at
+ * invocation time. Threads cross-matter / cross-tenant / time-range
+ * parameters through without per-tile boilerplate.
+ */
+export interface FilterDef {
+  /** Stable key for re-binding from the dashboard chrome. */
+  readonly id: string;
+  /** Argument key the filter writes into each tile's invocation args. */
+  readonly argKey: string;
+  /** Current value — the dashboard chrome owns mutation. */
+  readonly value: unknown;
+  /** Human-readable label for the filter chip. */
+  readonly label: string;
+}
+
+/**
+ * A first-class dashboard. References a `LayoutDef` (from ADR-043),
+ * pins tiles into the layout's slots, and optionally binds an
+ * ADR-045 `TriggerDef` for cron-driven refresh.
+ *
+ * @see [ADR-044](../../../../docs/adr/0044-dashboard-registry.md)
+ */
+export interface DashboardDef extends RegistryEntry {
+  readonly title: string;
+  readonly description?: string;
+  /** Inline `LayoutDef` or a string name resolved via `LayoutRegistry`. */
+  readonly layout: LayoutDef | string;
+  /** Ordered tiles; multiple tiles can share a slot (the layout decides). */
+  readonly tiles: readonly TileDef[];
+  /** Global params threaded into every `kind: 'tool'` tile's args. */
+  readonly filters?: readonly FilterDef[];
+  /** Inline `TriggerDef` or a string name from `TriggerRegistry`. */
+  readonly schedule?: TriggerDef | string;
+  /** Version string; edits create new versions linked via `parentVersion`. */
+  readonly version?: string;
+  /** Previous version's `version` value — chains the edit history. */
+  readonly parentVersion?: string;
+}

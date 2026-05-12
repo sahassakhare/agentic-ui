@@ -14,3 +14,4 @@ export * from './schema-transformer-registry';
 export * from './approval-registry';
 export * from './operation-registry';
 export * from './trigger-registry';
+export * from './dashboard-registry';
