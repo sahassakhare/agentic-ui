@@ -824,13 +824,25 @@ export interface TriggerFiringContext {
   readonly correlationId: string;    // unique per fire — links to audit chain
 }
 
+/**
+ * Notification CTA — what the user does when they click an action
+ * button on the rendered notification. Modelled on `IntentTarget`
+ * (`tool | action | route`) instead of `TriggerTarget` because a
+ * notification can deep-link to a route (which a trigger itself
+ * cannot — triggers fire, they don't navigate).
+ */
+export type NotificationCta =
+  | { readonly kind: 'tool'; readonly tool: string; readonly args?: unknown }
+  | { readonly kind: 'action'; readonly action: string; readonly payload?: unknown }
+  | { readonly kind: 'route'; readonly target: string };
+
 /** A draft notification a trigger emits; the host renders it in the Inbox / tray. */
 export interface NotificationDraft {
   readonly title: string;
   readonly body?: string;
   readonly severity?: 'info' | 'warning' | 'error';
-  /** Optional action button payload — e.g. {kind: 'route', target: '/holds/H-1'}. */
-  readonly cta?: TriggerTarget;
+  /** Optional action button payload — e.g. `{kind: 'route', target: '/holds/H-1'}`. */
+  readonly cta?: NotificationCta;
 }
 
 /**
