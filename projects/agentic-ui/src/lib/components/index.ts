@@ -6,3 +6,4 @@ export * from './approval-card.component';
 export * from './operation-progress.component';
 export * from './workspace-layout.component';
 export * from './cmd-k-palette.component';
+export * from './smart-cell.component';

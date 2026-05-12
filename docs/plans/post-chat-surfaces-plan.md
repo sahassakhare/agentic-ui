@@ -312,7 +312,7 @@ Each phase is independently shippable; demo-worthy at the gate; the eDiscovery f
 
 **Goal:** Ship five highest-leverage post-chat affordances on existing routes.
 
-- [ ] `<mvk-smart-cell>` — eDiscovery `Documents` Privilege Confidence column
+- [x] `<mvk-smart-cell>` — eDiscovery `Documents` Privilege Confidence column (P1.2, this PR — value-driven cell with persona-scope filter by tool name + hover/focus/tap explainability widget, 17 specs, [cookbook](../cookbook/smart-cell.md))
 - [ ] `<mvk-row-action-menu>` — `Documents` + `Custodians`
 - [ ] `<mvk-bulk-toolbar>` — `Documents`
 - [ ] `<mvk-assist-panel>` — `Custodian profile` (the Cursor pattern)

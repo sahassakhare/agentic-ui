@@ -64,6 +64,10 @@
     "file": "cmd-k-palette.md"
   },
   {
+    "title": "Agent-computed table cells (mvk-smart-cell)",
+    "file": "smart-cell.md"
+  },
+  {
     "title": "Domain MFEs as standalone apps + capability providers",
     "file": "domain-mfe-standalone-and-federated.md"
   },
