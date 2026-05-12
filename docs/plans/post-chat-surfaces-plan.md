@@ -308,20 +308,19 @@ Each phase is independently shippable; demo-worthy at the gate; the eDiscovery f
 
 **Exit:** chat rail is no longer the only shell — the library tier exposes every mode + slot-based workspaces + agent-emittable layouts. Existing `<mvk-chat-shell />` consumers see zero diff. **503/503 unit tests pass**, ADR-010 D4 zero-breaking-changes contract held throughout. eDiscovery flagship route wiring + Playwright are the only items left and are deferred to a follow-up slice once the demo redeploys.
 
-### P1 — Surface patterns wave 1 (2 weeks) — in progress
+### P1 — Surface patterns wave 1 (2 weeks) ✅ library tier shipped
 
 **Goal:** Ship five highest-leverage post-chat affordances on existing routes.
 
-- [x] `<mvk-smart-cell>` — eDiscovery `Documents` Privilege Confidence column (P1.2, this PR — value-driven cell with persona-scope filter by tool name + hover/focus/tap explainability widget, 17 specs, [cookbook](../cookbook/smart-cell.md))
-- [x] `<mvk-row-action-menu>` — `Documents` + `Custodians` (P1.3, this PR — IntentRegistry-driven menu with persona scope + row-state filter predicate + keyboard navigation, 13 specs, [cookbook](../cookbook/row-action-menu.md))
-- [x] `<mvk-bulk-toolbar>` — `Documents` (P1.4, this PR — selection-aware materialising toolbar, same three-stage filter chain as the row menu but against aggregate selection state, 14 specs, [cookbook](../cookbook/bulk-toolbar.md))
-- [ ] `<mvk-assist-panel>` — `Custodian profile` (the Cursor pattern)
-- [x] `<mvk-cmd-k-palette>` — global summon (P1.1, this PR — intent-first + tool fallback + free-text fallback, ⌘K / Ctrl+K / `/` summon, 14 specs)
-- [ ] Cookbook: "Post-chat surfaces — smart cells + assist panel"
-- [x] [Cookbook: ⌘K / Ctrl+K command palette](../cookbook/cmd-k-palette.md) (P1.1, this PR)
-- [ ] Playwright: ⌘K palette, row menu, bulk toolbar
+- [x] `<mvk-smart-cell>` — eDiscovery `Documents` Privilege Confidence column (P1.2 — value-driven cell with persona-scope filter by tool name + hover/focus/tap explainability widget, 17 specs, [cookbook](../cookbook/smart-cell.md))
+- [x] `<mvk-row-action-menu>` — `Documents` + `Custodians` (P1.3 — IntentRegistry-driven menu with persona scope + row-state filter predicate + keyboard navigation, 13 specs, [cookbook](../cookbook/row-action-menu.md))
+- [x] `<mvk-bulk-toolbar>` — `Documents` (P1.4 — selection-aware materialising toolbar, same three-stage filter chain as the row menu but against aggregate selection state, 14 specs, [cookbook](../cookbook/bulk-toolbar.md))
+- [x] `<mvk-assist-panel>` — `Custodian profile` (the Cursor pattern) (P1.5, this PR — context summary + intent-driven suggestions + Explain affordance + Ask input + density-aware via LAYOUT_POLICY, pairs with `mode="assist-panel"`, 18 specs, [cookbook](../cookbook/assist-panel.md))
+- [x] `<mvk-cmd-k-palette>` — global summon (P1.1 — intent-first + tool fallback + free-text fallback, ⌘K / Ctrl+K / `/` summon, 14 specs, [cookbook](../cookbook/cmd-k-palette.md))
+- [x] Cookbook: post-chat surfaces — separate cookbooks for each component instead of one merged doc, more discoverable in compodoc index
+- [ ] Playwright: ⌘K palette, row menu, bulk toolbar (deferred — eDiscovery demo wiring is the natural place; once Render deploy is unstuck)
 
-**Exit:** the agent is visible on every route, even when chat is collapsed. Brand demo: paralegal browses documents, agent surfaces privilege confidence + row actions + bulk toolbar without typing.
+**Exit:** the agent is visible on every route, even when chat is collapsed. Library tier delivers all five P1 surfaces with 76 new specs (17 + 13 + 14 + 18 + 14) across the 5 components, all dispatch-agnostic, all persona-scoped, all sharing the same registry-lens premise. Brand demo (eDiscovery wiring) deferred to a follow-up slice once the Render redeploy lands.
 
 ### P2 — TriggerRegistry + Inbox + lifecycle widget (2 weeks)
 

@@ -76,6 +76,10 @@
     "file": "bulk-toolbar.md"
   },
   {
+    "title": "Cursor-pattern assist panel (mvk-assist-panel)",
+    "file": "assist-panel.md"
+  },
+  {
     "title": "Domain MFEs as standalone apps + capability providers",
     "file": "domain-mfe-standalone-and-federated.md"
   },
