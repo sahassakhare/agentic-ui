@@ -1,5 +1,5 @@
 /**
- * `@maverick/demo-ediscovery-mcp` — Phase 6.
+ * `@infra-tools/demo-ediscovery-mcp` — Phase 6.
  *
  * MCP server exposing the eDiscovery review + search toolset to
  * analyst workstations (Claude Desktop, Cursor, Zed). Mounts via
@@ -32,7 +32,7 @@
  * Document previews render as MCP-UI HTML cards (text/html;profile=mcp-app).
  *
  * @remarks
- * **Why we don't import `agenticTool` from `@maverick/agentic-ui`.**
+ * **Why we don't import `agenticTool` from `@infra-tools/agentic-ui`.**
  * That barrel pulls Angular's static initialisers, fatal in a pure-Node
  * MCP host. We build `ToolDef` literals directly. Type-only imports
  * are erased at compile time and stay safe.
@@ -41,8 +41,8 @@
  * `appendAudit` which auto-stamps the chain hash. Phase 5's chain-of-
  * custody report can later replay events emitted from this MCP server.
  */
-import { createMcpServer } from '@maverick/agentic-ui-mcp';
-import type { ToolDef, ToolResultRenderHints } from '@maverick/agentic-ui';
+import { createMcpServer } from '@infra-tools/agentic-ui-mcp';
+import type { ToolDef, ToolResultRenderHints } from '@infra-tools/agentic-ui';
 import {
   appendAudit,
   classifyDocuments,
@@ -58,7 +58,7 @@ import {
   type DocumentTag,
   type SemanticHit,
   type TARScore,
-} from '@maverick/demo-ediscovery-shared';
+} from '@infra-tools/demo-ediscovery-shared';
 import { z } from 'zod';
 
 const MATTER_ID = process.env['MVK_MATTER'] ?? 'M-2026-0042';

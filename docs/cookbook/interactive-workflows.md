@@ -57,7 +57,7 @@ store, not the component.
 
 ```ts
 import { Component, computed, inject, signal } from '@angular/core';
-import { COMPOSITION_SLOT, CompositionStore } from '@maverick/agentic-ui';
+import { COMPOSITION_SLOT, CompositionStore } from '@infra-tools/agentic-ui';
 
 @Component({
   selector: 'app-place-hold-keywords',
@@ -117,7 +117,7 @@ slots' values. It injects only `CompositionStore` (no slot), and reads
 ## Step 2 — declare the workflow
 
 ```ts
-import { agenticWorkflow, FormRegistry, type FormDef } from '@maverick/agentic-ui';
+import { agenticWorkflow, FormRegistry, type FormDef } from '@infra-tools/agentic-ui';
 
 env.get(FormRegistry).register(
   agenticWorkflow({

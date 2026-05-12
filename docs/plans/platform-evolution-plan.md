@@ -85,9 +85,9 @@ flowchart TB
 
     subgraph RUNTIME["TIER 1 · RUNTIME · Apache 2.0 (npm)"]
       direction TB
-      R1["@maverick/agentic-ui<br/>· 15 registries · chat shell · F1–F6"]:::runtime
-      R2["@maverick/agentic-ui-server<br/>· AG-UI/Hashbrown/A2UI adapters"]:::runtime
-      R3["@maverick/agentic-ui-mcp<br/>· MCP server-side adapter"]:::runtime
+      R1["@infra-tools/agentic-ui<br/>· 15 registries · chat shell · F1–F6"]:::runtime
+      R2["@infra-tools/agentic-ui-server<br/>· AG-UI/Hashbrown/A2UI adapters"]:::runtime
+      R3["@infra-tools/agentic-ui-mcp<br/>· MCP server-side adapter"]:::runtime
       R4["Native Federation runtime<br/>· loadRemoteCapabilities · MFE_REGISTRY_SOURCE"]:::runtime
       R5["Audit chain · telemetry sink · scope policy<br/>· 14 injection-token seams"]:::runtime
     end
@@ -127,8 +127,8 @@ flowchart TB
         M3["Sigstore signing · npm-style publishing"]:::eco
       end
       subgraph SDK["SDKs · CLI"]
-        S1["@maverick/agentic-ui-wc"]:::eco
-        S2["@maverick/agentic-ui-react"]:::eco
+        S1["@infra-tools/agentic-ui-wc"]:::eco
+        S2["@infra-tools/agentic-ui-react"]:::eco
         S3["Vue / Svelte / SSR adapters"]:::eco
         S4["mvk CLI"]:::eco
       end
@@ -173,7 +173,7 @@ ASCII fallback:
                  │
 ┌────────────────▼─────────────────────────────────────────────────────────┐
 │ TIER 1 · RUNTIME · Apache 2.0 (npm)                                      │
-│   @maverick/agentic-ui · agentic-ui-server · agentic-ui-mcp              │
+│   @infra-tools/agentic-ui · agentic-ui-server · agentic-ui-mcp              │
 │   Native Federation · 15 registries · F1–F6 · audit chain · sink         │
 └────────────────┬─────────────────────────────────────────────────────────┘
                  │  opt-in (any tenant credentials)

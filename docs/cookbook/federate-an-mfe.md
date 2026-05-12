@@ -7,7 +7,7 @@ Goal: a host shell loads a remote MFE at runtime; the remote contributes tools a
 ```bash
 npx ng generate application demo-shell --routing=true
 npx ng generate @angular-architects/native-federation:init --project=demo-shell --type=dynamic-host --port=4200
-ng add @maverick/agentic-ui --project=demo-shell --skip-install=true
+ng add @infra-tools/agentic-ui --project=demo-shell --skip-install=true
 ```
 
 Edit `examples/demo-shell/public/federation.manifest.json`:
@@ -21,7 +21,7 @@ Edit `examples/demo-shell/src/app/app.config.ts`:
 ```ts
 import { provideEnvironmentInitializer, EnvironmentInjector, inject, runInInjectionContext } from '@angular/core';
 import { loadRemoteModule } from '@angular-architects/native-federation';
-import { loadRemoteCapabilities, type CapabilityModule } from '@maverick/agentic-ui/mfe';
+import { loadRemoteCapabilities, type CapabilityModule } from '@infra-tools/agentic-ui/mfe';
 
 function loadDemoRemote() {
   return provideEnvironmentInitializer(() => {
@@ -55,18 +55,18 @@ export const appConfig: ApplicationConfig = {
 ```bash
 npx ng generate application demo-remote-bookings
 npx ng generate @angular-architects/native-federation:init --project=demo-remote-bookings --type=remote --port=4201
-ng g @maverick/agentic-ui:tool bookFlight --project=demo-remote-bookings
-ng g @maverick/agentic-ui:widget FlightCard --project=demo-remote-bookings
-ng g @maverick/agentic-ui:mfe-capability demo-remote-bookings --project=demo-remote-bookings
+ng g @infra-tools/agentic-ui:tool bookFlight --project=demo-remote-bookings
+ng g @infra-tools/agentic-ui:widget FlightCard --project=demo-remote-bookings
+ng g @infra-tools/agentic-ui:mfe-capability demo-remote-bookings --project=demo-remote-bookings
 ```
 
 The `mfe-capability` schematic generates `src/app/capability/capability.ts` with `defineCapabilityModule({...})`. Edit it to import your tool + widget:
 
 ```ts
-import { defineCapabilityModule } from '@maverick/agentic-ui/mfe';
+import { defineCapabilityModule } from '@infra-tools/agentic-ui/mfe';
 import { bookFlightTool } from '../agentic/tools/book-flight.tool';
 import { flightCardWidget } from '../agentic/widgets/flight-card.widget';
-import type { ToolDef } from '@maverick/agentic-ui';
+import type { ToolDef } from '@infra-tools/agentic-ui';
 
 export const capability = defineCapabilityModule({
   remoteName: 'demo-remote-bookings',
@@ -110,7 +110,7 @@ Open http://localhost:4200 and check:
 Identical pattern, but use `@angular-architects/module-federation` (interactive `init` schematic — must run in a TTY) and the `/mfe-module-federation` import path:
 
 ```ts
-import { loadRemoteCapabilitiesMF } from '@maverick/agentic-ui/mfe-module-federation';
+import { loadRemoteCapabilitiesMF } from '@infra-tools/agentic-ui/mfe-module-federation';
 import { loadRemote, init } from '@module-federation/runtime';
 
 init({ name: 'demo-shell-mf', remotes: [...] });

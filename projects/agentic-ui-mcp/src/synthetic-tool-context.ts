@@ -1,4 +1,4 @@
-import type { ToolContext } from '@maverick/agentic-ui';
+import type { ToolContext } from '@infra-tools/agentic-ui';
 
 /**
  * Build a minimal `ToolContext` for a tool handler invoked from an

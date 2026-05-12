@@ -10,7 +10,7 @@ module.exports = withNativeFederation({
   shared: {
     ...shareAll({ singleton: true, strictVersion: true, requiredVersion: 'auto' }),
     /** Mirror demo-shell — share the single primary entry as a singleton. */
-    '@maverick/agentic-ui': { singleton: true, strictVersion: false, requiredVersion: 'auto' },
+    '@infra-tools/agentic-ui': { singleton: true, strictVersion: false, requiredVersion: 'auto' },
   },
 
   skip: [

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { FormRendererComponent } from '@maverick/agentic-ui';
+import { FormRendererComponent } from '@infra-tools/agentic-ui';
 
 /**
  * Generative-UI wrapper for `<mvk-form-renderer>`. Tools use this widget

@@ -2,7 +2,7 @@
   "$schema": "../../../node_modules/@angular-devkit/schematics/collection-schema.json",
   "schematics": {
     "ng-add": {
-      "description": "Install @maverick/agentic-ui peer deps and wire provideAgenticUi + provideAgUiBackend in app.config.ts.",
+      "description": "Install @infra-tools/agentic-ui peer deps and wire provideAgenticUi + provideAgUiBackend in app.config.ts.",
       "factory": "./ng-add/index#ngAdd",
       "schema": "./ng-add/schema.json"
     },

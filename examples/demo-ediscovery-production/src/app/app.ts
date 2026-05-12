@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterOutlet } from '@angular/router';
-import { listProductionSets, validateBatesPattern } from '@maverick/demo-ediscovery-shared';
+import { listProductionSets, validateBatesPattern } from '@infra-tools/demo-ediscovery-shared';
 
 import { environment } from '../environments/environment';
 import { createProductionSetTool } from './tools/create-production-set.tool';

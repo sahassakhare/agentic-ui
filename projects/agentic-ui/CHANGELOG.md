@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `@maverick/agentic-ui` are documented in this file.
+All notable changes to `@infra-tools/agentic-ui` are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -35,7 +35,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - RxJS 7.8.x (peer)
 
 ### Breaking changes from 0.x
-- Secondary entry imports (`@maverick/agentic-ui/ag-ui`, `/hashbrown`, `/a2ui`, `/mfe`, `/mfe-module-federation`, `/otel`, `/testing`, `/components`) have been collapsed into the primary entry. Migration: `import { X } from '@maverick/agentic-ui/<sub>'` → `import { X } from '@maverick/agentic-ui'`.
+- Secondary entry imports (`@infra-tools/agentic-ui/ag-ui`, `/hashbrown`, `/a2ui`, `/mfe`, `/mfe-module-federation`, `/otel`, `/testing`, `/components`) have been collapsed into the primary entry. Migration: `import { X } from '@infra-tools/agentic-ui/<sub>'` → `import { X } from '@infra-tools/agentic-ui'`.
 
 ### Known limitations
 - `@angular-architects/native-federation` `includeSecondaries: true` does not emit per-secondary-entry chunks — this is *why* the lib is single-entry. Re-evaluate if/when fixed upstream.
@@ -74,7 +74,7 @@ other keys off.
 
 #### `provideAgenticPlatform` — single config point (Gap 4 / [ADR-031](../../docs/adr/0031-provide-agentic-platform.md))
 
-- New composite provider in `@maverick/agentic-ui` that wires
+- New composite provider in `@infra-tools/agentic-ui` that wires
   `provideCatalogActivePersona` + `provideRestMfeRegistry` +
   (newly added) capability registrar / authorizer / usage metering
   under one shared `catalogUrl` / `tenantId` / `getToken`.
@@ -317,8 +317,8 @@ The release is anchored by the **eDiscovery flagship reference application** (`e
 
 #### MCP server-side adapter (companion package)
 
-- **`ToolResultRenderHints` interface** — new type in `@maverick/agentic-ui` exposing the canonical render-hint shape: `components` (existing), `markdown`, `image_url`, **`html`** (active — MCP UI hosts iframe-render it), plus reserved `iframe_url` for a future patch. Purely additive — no breakage to any existing tool. See [ADR-006](../../docs/adr/0006-mcp-server-side-adapter.md).
-- Companion package **`@maverick/agentic-ui-mcp`** ships separately, exposes any `ToolDef[]` as a Model Context Protocol server (Claude Desktop / Cursor / Zed / Continue / Windsurf). See its [CHANGELOG](../agentic-ui-mcp/CHANGELOG.md) and the [cookbook entry](../../docs/cookbook/mcp-server.md).
+- **`ToolResultRenderHints` interface** — new type in `@infra-tools/agentic-ui` exposing the canonical render-hint shape: `components` (existing), `markdown`, `image_url`, **`html`** (active — MCP UI hosts iframe-render it), plus reserved `iframe_url` for a future patch. Purely additive — no breakage to any existing tool. See [ADR-006](../../docs/adr/0006-mcp-server-side-adapter.md).
+- Companion package **`@infra-tools/agentic-ui-mcp`** ships separately, exposes any `ToolDef[]` as a Model Context Protocol server (Claude Desktop / Cursor / Zed / Continue / Windsurf). See its [CHANGELOG](../agentic-ui-mcp/CHANGELOG.md) and the [cookbook entry](../../docs/cookbook/mcp-server.md).
 
 #### Federation scaling
 - **`prefetchCapabilities({ remote, injector })`** — fetch a remote's `capabilities.json` over HTTP and register a metadata-only `CapabilityDef` with `CapabilityRegistry`, **without loading the federation bundle**. Lets the host build system prompts and run tool filters against tool/component names from 50+ remotes without paying multi-MB boot cost. URL is derived from `remoteEntry.json` by convention or set explicitly via `RemoteSpec.capabilityManifestUrl`.
@@ -356,7 +356,7 @@ The release is anchored by the **eDiscovery flagship reference application** (`e
 - The three MFE remotes (`demo-remote-bookings`, `demo-remote-loyalty`, `demo-remote-support`) gained functional standalone UIs at their own ports (`:4201` / `:4203` / `:4205`) that reuse the same handlers and widget components the host's chat consumes — proving each remote is a complete domain artefact, not a chat-only shim.
 - **🏛 eDiscovery flagship reference application** (Phases 0–8 of the [eDiscovery plan](../../docs/plans/ediscovery-app-plan.md)) under `examples/demo-ediscovery-{shared,server,shell,review,production,search,mcp}/`:
   - 18 tools across 4 specialists (`collection`, `review`, `production`, `search`) under one `OrchestratorAgent` with sticky-by-thread routing.
-  - 3 federated MFE remotes (review, production, search) plus an MCP server (`@maverick/demo-ediscovery-mcp`) for analyst workstations.
+  - 3 federated MFE remotes (review, production, search) plus an MCP server (`@infra-tools/demo-ediscovery-mcp`) for analyst workstations.
   - All 13 registries exercised: tools, components, capabilities, backends, MFE registry, actions (click-to-navigate), forms (`productionConfigForm`), data sources (`documentIndex`), validation (Bates pattern), persistence (sessionStorage persona), schema transformer (Zod schemas everywhere).
   - Tamper-evident audit chain (`appendAudit` auto-stamps `chainHash` + `prevHash`); `generateChainOfCustodyReport` tool + widget render the chain with hash recompute on hover.
   - Persona-scoped tool surface — 5 personas with allow-listed tools, wired through the new `RegistryBase.setScopePolicy()` API.
@@ -364,7 +364,7 @@ The release is anchored by the **eDiscovery flagship reference application** (`e
 
 ### Companion library
 
-`@maverick/agentic-ui-server` (separate npm package — server-side):
+`@infra-tools/agentic-ui-server` (separate npm package — server-side):
 - **`ThreadStateStore<TState>` interface + `InMemoryThreadStateStore` default** — externalisable per-thread state. Drop in a Redis or Postgres adapter for multi-pod deployments. Documented in the production-deployment cookbook.
 - **`createSpecialist({ id, factory, description, examples })` + `registerSpecialists(map, specs)`** — bundle "construct agent + write `SubAgentSpec`" into one call. Cuts ~30 lines of orchestrator boilerplate per specialist.
 

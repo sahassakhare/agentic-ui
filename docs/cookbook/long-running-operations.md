@@ -61,7 +61,7 @@ operations, and a sidebar nav badge showing active count.
 ## Step 1 — declare a long-running tool
 
 ```ts
-import { agenticTool } from '@maverick/agentic-ui';
+import { agenticTool } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 
 agenticTool({
@@ -145,7 +145,7 @@ The chat-shell's `<mvk-widget-container>` resolves the synthetic
 name:
 
 ```ts
-import { OperationProgressComponent } from '@maverick/agentic-ui';
+import { OperationProgressComponent } from '@infra-tools/agentic-ui';
 
 agenticWidget({
   name: 'mvk-operation-progress',
@@ -163,7 +163,7 @@ record. To mirror them into your chain:
 import {
   AGENTIC_OPERATION_AUDIT_HOOK,
   type OperationAuditEvent,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 
 {
   provide: AGENTIC_OPERATION_AUDIT_HOOK,

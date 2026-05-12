@@ -1,7 +1,7 @@
-# @maverick/agentic-ui-copilot-studio-connector
+# @infra-tools/agentic-ui-copilot-studio-connector
 
 Microsoft Copilot Studio Connector adapter for the
-`@maverick/agentic-ui` platform. Translates Zod tool schemas
+`@infra-tools/agentic-ui` platform. Translates Zod tool schemas
 into a **Power Platform Connector** OpenAPI 3 manifest, verifies
 inbound Azure AD JWTs, and dispatches action handlers with
 Adaptive Card responses.
@@ -12,8 +12,8 @@ Specifics in [ADR-042](../../docs/adr/0042-copilot-studio-connector.md).
 
 > Sibling adapters:
 > - **Teams Tab** ([P0](../../docs/cookbook/teams-tab-embed.md))
-> - **Teams Bot Framework** (`@maverick/agentic-ui-teams-bot`, P1)
-> - **GitHub Copilot Extension** (`@maverick/agentic-ui-copilot-skill`, P2)
+> - **Teams Bot Framework** (`@infra-tools/agentic-ui-teams-bot`, P1)
+> - **GitHub Copilot Extension** (`@infra-tools/agentic-ui-copilot-skill`, P2)
 > - **MS Copilot Studio** (this package, P3)
 
 ## What's in it
@@ -37,7 +37,7 @@ bring their own agent loop behind a `ConnectorActionHandler`.
 // 1. Generate the manifest (build time).
 import { writeFileSync } from 'node:fs';
 import { z } from 'zod';
-import { buildConnectorManifest } from '@maverick/agentic-ui-copilot-studio-connector';
+import { buildConnectorManifest } from '@infra-tools/agentic-ui-copilot-studio-connector';
 
 const manifest = buildConnectorManifest({
   title: 'Maverick eDiscovery',
@@ -67,7 +67,7 @@ import express from 'express';
 import {
   createConnectorMiddleware,
   type ConnectorActionHandler,
-} from '@maverick/agentic-ui-copilot-studio-connector';
+} from '@infra-tools/agentic-ui-copilot-studio-connector';
 
 const handlers = new Map<string, ConnectorActionHandler>();
 handlers.set('placeLegalHold', async ({ args, identity, signal }) => {

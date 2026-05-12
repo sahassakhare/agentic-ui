@@ -24,7 +24,7 @@ export const AG_UI_CAPABILITIES: BackendCapabilities = {
 };
 
 /**
- * Backend adapter that bridges `@maverick/agentic-ui` to AG-UI servers via
+ * Backend adapter that bridges `@infra-tools/agentic-ui` to AG-UI servers via
  * the `@ag-ui/client` HttpAgent. One `AgUiBackend` instance per BackendRegistry
  * entry; one HttpAgent instance per `run()` call (HttpAgent owns thread state).
  */

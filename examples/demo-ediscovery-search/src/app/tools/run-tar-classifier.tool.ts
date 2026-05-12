@@ -1,10 +1,10 @@
-import { agenticTool } from '@maverick/agentic-ui';
+import { agenticTool } from '@infra-tools/agentic-ui';
 import {
   appendAudit,
   isoNow,
   nextAuditId,
   type TARScore,
-} from '@maverick/demo-ediscovery-shared';
+} from '@infra-tools/demo-ediscovery-shared';
 import { z } from 'zod';
 import { documentIndexDataSource, type IndexQuery, type IndexResult } from '../data-sources/document-index.data-source';
 import { ACTOR, MATTER_ID } from '../matter-context';

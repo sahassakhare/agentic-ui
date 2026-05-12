@@ -1,5 +1,5 @@
 /**
- * `@maverick/demo-ediscovery-shared` — framework-agnostic domain
+ * `@infra-tools/demo-ediscovery-shared` — framework-agnostic domain
  * models + mock data layer for the eDiscovery example.
  *
  * Imported by `demo-ediscovery-server`, `demo-ediscovery-shell`, and

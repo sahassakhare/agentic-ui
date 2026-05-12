@@ -1,4 +1,4 @@
-import { agenticDataSource, type DataSourceDef } from '@maverick/agentic-ui';
+import { agenticDataSource, type DataSourceDef } from '@infra-tools/agentic-ui';
 import {
   classifyDocuments,
   dateHistogram,
@@ -9,7 +9,7 @@ import {
   type Document,
   type SemanticHit,
   type TARScore,
-} from '@maverick/demo-ediscovery-shared';
+} from '@infra-tools/demo-ediscovery-shared';
 import { MATTER_ID } from '../matter-context';
 
 /**

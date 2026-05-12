@@ -20,7 +20,7 @@ The catalog server has shipped per-tenant SSE since [ADR-027](./0027-catalog-sse
 
 ## Decision
 
-### D1 — Generic `CatalogSseService` in `@maverick/agentic-ui/platform`
+### D1 — Generic `CatalogSseService` in `@infra-tools/agentic-ui/platform`
 
 Extract a runtime-tier SSE consumer modeled on the ops-console's `CatalogStreamService` (which has been live in production since ADR-027). The lib-side version is decoupled from the ops-console's `AuthService` / `AutoRefreshService` / `environment` — generic enough to be consumed by any runtime app via DI.
 

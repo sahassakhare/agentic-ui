@@ -3,7 +3,7 @@ import {
   type OnDestroy,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { COMPOSITION_SLOT, CompositionStore } from '@maverick/agentic-ui';
+import { COMPOSITION_SLOT, CompositionStore } from '@infra-tools/agentic-ui';
 import { MatterStore } from '../services/matter.store';
 import { PersonaService, type Persona } from '../services/persona.service';
 

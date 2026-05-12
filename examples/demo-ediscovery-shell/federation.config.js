@@ -2,7 +2,7 @@ const { withNativeFederation, shareAll } = require('@angular-architects/native-f
 
 /**
  * Host federation config for `demo-ediscovery-shell`. Mirrors `demo-shell` —
- * `@maverick/agentic-ui` shares as a singleton so the host's `ToolRegistry`
+ * `@infra-tools/agentic-ui` shares as a singleton so the host's `ToolRegistry`
  * / `ComponentRegistry` instances are the same objects the remotes write
  * into through `defineCapabilityModule`.
  */
@@ -11,7 +11,7 @@ module.exports = withNativeFederation({
 
   shared: {
     ...shareAll({ singleton: true, strictVersion: true, requiredVersion: 'auto' }),
-    '@maverick/agentic-ui': { singleton: true, strictVersion: false, requiredVersion: 'auto' },
+    '@infra-tools/agentic-ui': { singleton: true, strictVersion: false, requiredVersion: 'auto' },
   },
 
   skip: [

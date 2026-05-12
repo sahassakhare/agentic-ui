@@ -1,8 +1,8 @@
-# @maverick/agentic-catalog-server
+# @infra-tools/agentic-catalog-server
 
 **Capability catalog server — control-plane T2 foundation.** Multi-tenant capability registry, federated identity (OIDC + JWT), audit trail, RFC 7807 error responses. Apache 2.0.
 
-This is the system of record for **what capabilities exist, who owns them, what version they're at, what their lifecycle state is, and which tenants can see them**. The runtime tier (`@maverick/agentic-ui`) consumes it via `MFE_REGISTRY_SOURCE` adapters; ops consoles consume it via REST. See [ADR-015](../../docs/adr/0015-catalog-server-design.md) for the design rationale.
+This is the system of record for **what capabilities exist, who owns them, what version they're at, what their lifecycle state is, and which tenants can see them**. The runtime tier (`@infra-tools/agentic-ui`) consumes it via `MFE_REGISTRY_SOURCE` adapters; ops consoles consume it via REST. See [ADR-015](../../docs/adr/0015-catalog-server-design.md) for the design rationale.
 
 > **Heads up:** this package will be extracted to its own repo (`sahassakhare/agentic-platform-control-plane`) when M2 GAs, per [ADR-010](../../docs/adr/0010-platform-principles-and-license.md) D6. Until then, it lives inside the runtime monorepo so M1 R1–R5 + M2 C1 work ships in one PR boundary.
 
@@ -217,7 +217,7 @@ without DB access. Design rationale in [ADR-017](../../docs/adr/0017-audit-chain
 | POST   | `/v1/catalogs/{tenant}/agents/{id}/heartbeat` | Mark the agent alive — refreshes `last_health_at`. Skips audit (too frequent). |
 | DELETE | `/v1/catalogs/{tenant}/agents/{id}` | Soft-delete the agent. |
 
-`@maverick/agentic-ui-server-registrar` is the recommended caller from
+`@infra-tools/agentic-ui-server-registrar` is the recommended caller from
 agent-server bootstrap. Design rationale in
 [ADR-039](../../docs/adr/0039-agent-auto-registration.md).
 

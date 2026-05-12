@@ -25,7 +25,7 @@ export interface NgAddOptions {
 }
 
 const DEPS = {
-  '@maverick/agentic-ui': '^0.1.0',
+  '@infra-tools/agentic-ui': '^0.1.0',
   zod: '^3.23.0',
 };
 
@@ -70,7 +70,7 @@ export function ngAdd(rawOptions: Partial<NgAddOptions> = {}): Rule {
       host,
       configPath,
       [
-        { symbols: ['provideAgenticUi'], module: '@maverick/agentic-ui' },
+        { symbols: ['provideAgenticUi'], module: '@infra-tools/agentic-ui' },
         backendImport,
       ],
       ['provideAgenticUi()', backendCall],
@@ -92,11 +92,11 @@ export function ngAdd(rawOptions: Partial<NgAddOptions> = {}): Rule {
 function backendImportFor(backend: NgAddOptions['backend']) {
   switch (backend) {
     case 'ag-ui':
-      return { symbols: ['provideAgUiBackend'], module: '@maverick/agentic-ui/ag-ui' };
+      return { symbols: ['provideAgUiBackend'], module: '@infra-tools/agentic-ui/ag-ui' };
     case 'hashbrown':
-      return { symbols: ['provideHashbrownBackend'], module: '@maverick/agentic-ui/hashbrown' };
+      return { symbols: ['provideHashbrownBackend'], module: '@infra-tools/agentic-ui/hashbrown' };
     case 'a2ui':
-      return { symbols: ['provideA2uiBackend'], module: '@maverick/agentic-ui/a2ui' };
+      return { symbols: ['provideA2uiBackend'], module: '@infra-tools/agentic-ui/a2ui' };
   }
 }
 

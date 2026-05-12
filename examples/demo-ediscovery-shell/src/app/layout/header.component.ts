@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { ToolRegistry } from '@maverick/agentic-ui';
-import { listAuditEvents, listLegalHolds } from '@maverick/demo-ediscovery-shared';
+import { ToolRegistry } from '@infra-tools/agentic-ui';
+import { listAuditEvents, listLegalHolds } from '@infra-tools/demo-ediscovery-shared';
 import { environment } from '../../environments/environment';
 import { IconComponent } from '../ui/icon.component';
 import { PERSONAS, PersonaService, type Persona } from '../services/persona.service';

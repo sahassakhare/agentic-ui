@@ -1,5 +1,5 @@
 /**
- * Public API surface of @maverick/agentic-ui.
+ * Public API surface of @infra-tools/agentic-ui.
  *
  * As of v1.0 the library is a SINGLE primary entry. Earlier secondary entries
  * (`/ag-ui`, `/hashbrown`, `/a2ui`, `/mfe`, `/mfe-module-federation`, `/otel`,
@@ -30,20 +30,20 @@ export * from './lib/mcp';
 // provider call.
 export * from './lib/platform';
 
-// Was @maverick/agentic-ui/components
+// Was @infra-tools/agentic-ui/components
 export * from './lib/components';
 
-// Was @maverick/agentic-ui/ag-ui, /hashbrown, /a2ui
+// Was @infra-tools/agentic-ui/ag-ui, /hashbrown, /a2ui
 export * from './lib/backends/ag-ui';
 export * from './lib/backends/hashbrown';
 export * from './lib/backends/a2ui';
 
-// Was @maverick/agentic-ui/mfe and /mfe-module-federation
+// Was @infra-tools/agentic-ui/mfe and /mfe-module-federation
 export * from './lib/mfe';
 export * from './lib/mfe-module-federation';
 
-// Was @maverick/agentic-ui/otel
+// Was @infra-tools/agentic-ui/otel
 export * from './lib/otel';
 
-// Was @maverick/agentic-ui/testing
+// Was @infra-tools/agentic-ui/testing
 export * from './lib/testing';

@@ -1,5 +1,5 @@
-import { defineCapabilityModule } from '@maverick/agentic-ui';
-import type { ToolDef } from '@maverick/agentic-ui';
+import { defineCapabilityModule } from '@infra-tools/agentic-ui';
+import type { ToolDef } from '@infra-tools/agentic-ui';
 
 import { addToPrivilegeLogTool } from './tools/add-to-privilege-log.tool';
 import { markPrivilegedTool } from './tools/mark-privileged.tool';
@@ -16,7 +16,7 @@ import { tagPanelWidget } from './widgets/tag-panel.widget';
  * Exposed at `./Capability` (see `federation.config.js`). The host's
  * `loadRemoteCapabilities` calls `apply(injector)` which writes into
  * the host's `ToolRegistry` / `ComponentRegistry` (singletons through
- * the federation `shared: '@maverick/agentic-ui'` config).
+ * the federation `shared: '@infra-tools/agentic-ui'` config).
  *
  * **What's NOT here yet**: the `openDocumentAction` listed in the
  * Phase 2 plan would navigate the host to a `/documents/:id` route.

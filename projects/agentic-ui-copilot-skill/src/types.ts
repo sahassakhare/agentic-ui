@@ -39,7 +39,7 @@ export interface CopilotIdentity {
 }
 
 /** Events the handler emits during a run. Mirrors the
- *  AgenticEvent vocabulary in @maverick/agentic-ui but with the
+ *  AgenticEvent vocabulary in @infra-tools/agentic-ui but with the
  *  fields Copilot's SSE chunks actually carry. */
 export type SkillEvent =
   | { readonly type: 'text-delta'; readonly delta: string }

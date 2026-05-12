@@ -1,6 +1,6 @@
-# @maverick/agentic-ui-server-stores
+# @infra-tools/agentic-ui-server-stores
 
-Production-ready adapters for [`@maverick/agentic-ui-server`](../agentic-ui-server/)'s `ThreadStateStore<TState>` interface — multi-pod-safe thread state for production deployments. Apache 2.0.
+Production-ready adapters for [`@infra-tools/agentic-ui-server`](../agentic-ui-server/)'s `ThreadStateStore<TState>` interface — multi-pod-safe thread state for production deployments. Apache 2.0.
 
 The base lib ships an `InMemoryThreadStateStore` that's adequate for single-pod deployments and tests. This package adds two production adapters:
 
@@ -12,7 +12,7 @@ The base lib ships an `InMemoryThreadStateStore` that's adequate for single-pod 
 ## Install
 
 ```bash
-npm install @maverick/agentic-ui-server-stores
+npm install @infra-tools/agentic-ui-server-stores
 
 # Plus whichever adapter(s) you use:
 npm install ioredis     # for Redis
@@ -25,7 +25,7 @@ npm install pg          # for Postgres
 
 ```ts
 import Redis from 'ioredis';
-import { RedisThreadStateStore } from '@maverick/agentic-ui-server-stores/redis';
+import { RedisThreadStateStore } from '@infra-tools/agentic-ui-server-stores/redis';
 
 const redis = new Redis(process.env.REDIS_URL!);
 
@@ -45,7 +45,7 @@ The store **does not manage** the `ioredis` client's lifecycle — callers creat
 Wire into the orchestrator agent:
 
 ```ts
-import { OrchestratorAgent } from '@maverick/agentic-ui-server';
+import { OrchestratorAgent } from '@infra-tools/agentic-ui-server';
 
 const orchestrator = new OrchestratorAgent('coordinator', {
   specialists,
@@ -61,7 +61,7 @@ import { Pool } from 'pg';
 import {
   PostgresThreadStateStore,
   createSchemaSql,
-} from '@maverick/agentic-ui-server-stores/postgres';
+} from '@infra-tools/agentic-ui-server-stores/postgres';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 

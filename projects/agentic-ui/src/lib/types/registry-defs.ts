@@ -64,7 +64,7 @@ export interface RegistryEntry {
    */
   readonly onDispose?: () => void | Promise<void>;
   /**
-   * Optional semver-range expressing which host (`@maverick/agentic-ui`)
+   * Optional semver-range expressing which host (`@infra-tools/agentic-ui`)
    * versions this entry expects. When set, `RegistryBase.register()`
    * evaluates the range against the lib's compile-time `LIB_VERSION` and
    * SKIPS registration with a telemetry-logged warning when the host

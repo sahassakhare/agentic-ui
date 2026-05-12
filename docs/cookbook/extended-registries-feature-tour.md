@@ -124,5 +124,5 @@ Open <http://localhost:4206> and try the four prompts from the table at the top.
 - [Federate an MFE](./federate-an-mfe.md) — extract one of these tools
   + actions into its own remote so a different team can ship it.
 - [Schematics reference](./schematics.md) — `ng g
-  @maverick/agentic-ui:action` / `:form` / `:intent` generate the same
+  @infra-tools/agentic-ui:action` / `:form` / `:intent` generate the same
   shape of files used here.

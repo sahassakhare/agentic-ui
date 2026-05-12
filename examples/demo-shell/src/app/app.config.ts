@@ -11,7 +11,7 @@ import {
   provideStaticJsonMfeRegistry,
   type CapabilityModule,
   type ToolDef,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 
 import { environment } from '../environments/environment';
 import { routes } from './app.routes';
@@ -20,7 +20,7 @@ import { routes } from './app.routes';
  * Discover MFE remotes from the configured registry source and load each one's
  * Capability module via Native Federation. The registry source is wired via
  * `provideStaticJsonMfeRegistry({ url })` for the demo; switch to
- * `provideSpringBootMfeRegistry({ url })` (also from `@maverick/agentic-ui`)
+ * `provideSpringBootMfeRegistry({ url })` (also from `@infra-tools/agentic-ui`)
  * to point at a real registry service.
  *
  * Blocking via `provideAppInitializer` ensures the chat shell never renders

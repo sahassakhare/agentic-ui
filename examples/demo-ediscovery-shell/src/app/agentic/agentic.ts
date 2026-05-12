@@ -16,14 +16,14 @@ import {
   type ComponentDef,
   type FormDef,
   type ToolDef,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 import { ApprovalSummaryDiffComponent } from './approval-summary-diff.component';
 import {
   isoNow,
   nextCustodianId,
   nextLegalHoldId,
   type Custodian,
-} from '@maverick/demo-ediscovery-shared';
+} from '@infra-tools/demo-ediscovery-shared';
 import { z } from 'zod';
 import { MatterStore } from '../services/matter.store';
 import { PersonaService } from '../services/persona.service';

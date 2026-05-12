@@ -1,5 +1,5 @@
 import type { EnvironmentInjector } from '@angular/core';
-import { DataSourceRegistry } from '@maverick/agentic-ui';
+import { DataSourceRegistry } from '@infra-tools/agentic-ui';
 import { documentIndexDataSource } from './data-sources/document-index.data-source';
 
 /**

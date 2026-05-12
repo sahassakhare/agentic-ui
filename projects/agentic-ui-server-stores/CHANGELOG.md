@@ -1,22 +1,22 @@
 # Changelog
 
-All notable changes to `@maverick/agentic-ui-server-stores` are recorded here.
+All notable changes to `@infra-tools/agentic-ui-server-stores` are recorded here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.1.0] — 2026-05-09
 
 Initial release. Production adapters for `ThreadStateStore<TState>` from
-[@maverick/agentic-ui-server](https://www.npmjs.com/package/@maverick/agentic-ui-server).
+[@infra-tools/agentic-ui-server](https://www.npmjs.com/package/@infra-tools/agentic-ui-server).
 
 ### Added
 
 - **`RedisThreadStateStore`** — Redis-backed adapter using `ioredis`. Configurable
   prefix + TTL; caller-managed client lifecycle. Sub-2 ms write latency for
-  co-located deployments. Subpath import: `@maverick/agentic-ui-server-stores/redis`.
+  co-located deployments. Subpath import: `@infra-tools/agentic-ui-server-stores/redis`.
 - **`PostgresThreadStateStore`** — Postgres-backed adapter using `pg`. JSONB column
   + `expires_at` timestamp for TTL filtering. Caller owns the pool. Subpath import:
-  `@maverick/agentic-ui-server-stores/postgres`. Includes `createSchemaSql()` helper
+  `@infra-tools/agentic-ui-server-stores/postgres`. Includes `createSchemaSql()` helper
   returning idempotent migration DDL — run through your migration framework.
 - **`peerDependencies`** — `ioredis ^5.4` and `pg ^8.11` are declared as **optional**
   peers, so consumers only install the adapter they use. The `exports` field's

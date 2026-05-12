@@ -1,5 +1,5 @@
 /**
- * Build-time version constant for `@maverick/agentic-ui`. Synced from
+ * Build-time version constant for `@infra-tools/agentic-ui`. Synced from
  * `projects/agentic-ui/package.json` via release tooling — bumped on
  * every release. Used by `RegistryBase.register()` to evaluate
  * `RegistryEntry.requiredHostVersion` ranges (Capability M1 R5 —

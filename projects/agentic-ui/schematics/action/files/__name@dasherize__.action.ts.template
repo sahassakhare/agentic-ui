@@ -1,4 +1,4 @@
-import { agenticAction } from '@maverick/agentic-ui';
+import { agenticAction } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 
 /**

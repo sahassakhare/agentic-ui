@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterOutlet } from '@angular/router';
-import { listDocuments } from '@maverick/demo-ediscovery-shared';
+import { listDocuments } from '@infra-tools/demo-ediscovery-shared';
 
 import { environment } from '../environments/environment';
 import { searchDocumentsTool } from './tools/search-documents.tool';

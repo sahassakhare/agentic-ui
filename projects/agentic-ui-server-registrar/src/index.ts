@@ -1,5 +1,5 @@
 /**
- * @maverick/agentic-ui-server-registrar
+ * @infra-tools/agentic-ui-server-registrar
  *
  * Server-side helper for the AgenticBackend deployments. Auto-registers
  * with the Maverick catalog at boot, sends periodic heartbeats so
@@ -17,7 +17,7 @@
  * @example
  * ```ts
  * // In your agent server's main.ts:
- * import { registerAgentWithCatalog } from '@maverick/agentic-ui-server-registrar';
+ * import { registerAgentWithCatalog } from '@infra-tools/agentic-ui-server-registrar';
  *
  * const reg = await registerAgentWithCatalog({
  *   catalogUrl: process.env.CATALOG_URL!,

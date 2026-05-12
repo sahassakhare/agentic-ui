@@ -48,7 +48,7 @@ The fix is the `ThreadStateStore` interface — externalise the map.
 
 ## The interface
 
-Shipped from `@maverick/agentic-ui-server`:
+Shipped from `@infra-tools/agentic-ui-server`:
 
 ```ts
 export interface ThreadStateStore<TState = unknown> {
@@ -74,7 +74,7 @@ export class InMemoryThreadStateStore<TState> implements ThreadStateStore<TState
 
 ```ts
 import { createClient } from 'redis';
-import type { ThreadStateStore } from '@maverick/agentic-ui-server';
+import type { ThreadStateStore } from '@infra-tools/agentic-ui-server';
 
 export class RedisThreadStateStore<TState> implements ThreadStateStore<TState> {
   constructor(
@@ -132,7 +132,7 @@ roundtrip is invisible to its consumers.
 
 ```ts
 import type { Pool } from 'pg';
-import type { ThreadStateStore } from '@maverick/agentic-ui-server';
+import type { ThreadStateStore } from '@infra-tools/agentic-ui-server';
 
 export class PostgresThreadStateStore<TState> implements ThreadStateStore<TState> {
   constructor(private readonly pool: Pool, private readonly table = 'agentic_thread_state') {}
@@ -203,7 +203,7 @@ matching, so individual turns survive. For traffic shaping, wrap the
 route handler in a guard:
 
 ```ts
-import { agUiRouteHandler } from '@maverick/agentic-ui-server';
+import { agUiRouteHandler } from '@infra-tools/agentic-ui-server';
 import { rateLimit } from 'hono-rate-limiter';
 
 app.use(

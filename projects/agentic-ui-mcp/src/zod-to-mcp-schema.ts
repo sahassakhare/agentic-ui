@@ -30,7 +30,7 @@ export interface McpInputSchema {
  *
  * @remarks
  * Reuses `zod-to-json-schema` (already a transitive dep through
- * `@maverick/agentic-ui`) for the heavy lifting and post-processes the
+ * `@infra-tools/agentic-ui`) for the heavy lifting and post-processes the
  * output for the MCP dialect:
  *
  * - Strips the top-level `$schema` field — MCP `tools/list` consumers

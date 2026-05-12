@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { WorkflowRendererComponent } from '@maverick/agentic-ui';
+import { WorkflowRendererComponent } from '@infra-tools/agentic-ui';
 import { PersonaService } from '../../services/persona.service';
 
 /**

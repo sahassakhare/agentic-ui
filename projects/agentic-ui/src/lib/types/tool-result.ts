@@ -3,7 +3,7 @@
  * value to control how different consumers display the result. Every
  * field is optional and consumers ignore unrecognised fields — so the
  * same tool result is portable across `<mvk-chat-shell>`, an MCP server
- * (via `@maverick/agentic-ui-mcp`), and any future UI surface.
+ * (via `@infra-tools/agentic-ui-mcp`), and any future UI surface.
  *
  * @remarks
  * Tools don't have to extend this interface — `ToolDef`'s `TResult`
@@ -70,7 +70,7 @@ export interface ToolResultRenderHints {
    * without UI support fall back to the resource's text representation.
    *
    * @remarks
-   * **Highest-precedence render hint** in `@maverick/agentic-ui-mcp`'s
+   * **Highest-precedence render hint** in `@infra-tools/agentic-ui-mcp`'s
    * formatter — when `html` is present, the MCP server emits an
    * `text/html;profile=mcp-app` resource block and ignores `markdown` /
    * `image_url`. Use it for rich tool results: styled cards, charts,
@@ -109,7 +109,7 @@ export interface ToolResultRenderHints {
 
   /**
    * Adaptive Card 1.5+ schema (raw JSON). Consumed by the Teams
-   * Bot Framework adapter (`@maverick/agentic-ui-teams-bot`) and
+   * Bot Framework adapter (`@infra-tools/agentic-ui-teams-bot`) and
    * the future Microsoft Copilot Studio Connector. Both ecosystems
    * render Adaptive Cards natively in their chat surfaces; this
    * hint is the highest-fidelity render available there.

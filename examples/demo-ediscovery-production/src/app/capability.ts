@@ -1,5 +1,5 @@
-import { defineCapabilityModule } from '@maverick/agentic-ui';
-import type { ToolDef } from '@maverick/agentic-ui';
+import { defineCapabilityModule } from '@infra-tools/agentic-ui';
+import type { ToolDef } from '@infra-tools/agentic-ui';
 
 import { assignBatesNumbersTool } from './tools/assign-bates-numbers.tool';
 import { createProductionSetTool } from './tools/create-production-set.tool';

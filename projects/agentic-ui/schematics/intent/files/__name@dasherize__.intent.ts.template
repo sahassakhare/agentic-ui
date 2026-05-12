@@ -1,4 +1,4 @@
-import { agenticIntent } from '@maverick/agentic-ui';
+import { agenticIntent } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 
 /**

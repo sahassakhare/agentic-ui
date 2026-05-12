@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
-import { ActionRegistry, type ActionContext } from '@maverick/agentic-ui';
+import { ActionRegistry, type ActionContext } from '@infra-tools/agentic-ui';
 
 interface Row {
   documentId: string;

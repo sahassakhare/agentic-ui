@@ -51,7 +51,7 @@ describe('mvk new app', () => {
 
       const pkg = JSON.parse(readFileSync(join(target, 'package.json'), 'utf8'));
       expect(pkg.name).toBe('demo');
-      expect(pkg.dependencies['@maverick/agentic-ui']).toBeTruthy();
+      expect(pkg.dependencies['@infra-tools/agentic-ui']).toBeTruthy();
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

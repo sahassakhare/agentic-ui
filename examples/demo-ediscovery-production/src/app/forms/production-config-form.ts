@@ -1,5 +1,5 @@
 import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
-import { agenticForm, FormRegistry, type FormDef } from '@maverick/agentic-ui';
+import { agenticForm, FormRegistry, type FormDef } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 import { createProductionSetTool } from '../tools/create-production-set.tool';
 

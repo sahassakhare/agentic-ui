@@ -1,4 +1,4 @@
-# Release notes — `@maverick/agentic-ui` v1.0.0
+# Release notes — `@infra-tools/agentic-ui` v1.0.0
 
 > First stable release of a reusable Angular 21 library and schematics collection
 > for building agentic user interfaces against AG-UI, Hashbrown, or A2UI, with
@@ -23,7 +23,7 @@
 - **Schema-driven forms.** `<mvk-form-renderer>` consumes a `FormDef`'s field schema and emits validated values; the agent can fill, validate, and submit.
 - **Observability built in.** `AgenticTelemetrySink` is a no-op by default; `provideAgenticTelemetry({kind:'otel', providers})` gives you OpenTelemetry spans, metrics, and W3C `traceparent` propagation across the SSE boundary, so a single trace covers `chat shell → backend adapter → SSE route → agent → LLM → tool execution`.
 - **MCP bridge.** `mcpToolBridge({client})` imports a Model Context Protocol server's tools straight into `ToolRegistry`.
-- **Schematics for every artifact.** `ng add @maverick/agentic-ui` plus 9 generators (`tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `action`, `intent`, `form`).
+- **Schematics for every artifact.** `ng add @infra-tools/agentic-ui` plus 9 generators (`tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `action`, `intent`, `form`).
 - **Tested cross-backend.** A single `runConformance(backend)` suite exercises text streaming, tool calls, generative UI rendering, and abort semantics against any `AgenticBackend` implementation.
 
 ## Architecture decisions
@@ -31,7 +31,7 @@
 - [ADR-001](docs/adr/0001-agentic-backend-abstraction.md) — Pluggable backend abstraction.
 - [ADR-002](docs/adr/0002-layered-registry-system.md) — Layered registry system.
 - [ADR-003](docs/adr/0003-pluggable-mfe-registry-source.md) — Pluggable MFE registry source.
-- [ADR-005](docs/adr/0005-single-primary-entry.md) — Single primary entry. **Important compatibility note**: `@angular-architects/native-federation`'s `includeSecondaries: true` does not emit per-secondary-entry chunks at runtime, which prevented the planned `@maverick/agentic-ui/ag-ui`, `/hashbrown`, etc. layout from working in federated hosts. The library now ships a single primary entry; tree-shaking is preserved via `"sideEffects": false`.
+- [ADR-005](docs/adr/0005-single-primary-entry.md) — Single primary entry. **Important compatibility note**: `@angular-architects/native-federation`'s `includeSecondaries: true` does not emit per-secondary-entry chunks at runtime, which prevented the planned `@infra-tools/agentic-ui/ag-ui`, `/hashbrown`, etc. layout from working in federated hosts. The library now ships a single primary entry; tree-shaking is preserved via `"sideEffects": false`.
 
 ## What's tested (76 specs / 12 files)
 
@@ -69,12 +69,12 @@ Optional peer dependencies (used by specific entry points / providers): `@ag-ui/
 If you were following the early pre-release plan with secondary entries:
 
 ```diff
-- import { provideAgUiBackend } from '@maverick/agentic-ui/ag-ui';
-- import { provideHashbrownBackend } from '@maverick/agentic-ui/hashbrown';
-- import { provideA2uiBackend } from '@maverick/agentic-ui/a2ui';
-- import { defineCapabilityModule } from '@maverick/agentic-ui/mfe';
-- import { provideAgenticTelemetry } from '@maverick/agentic-ui/otel';
-- import { FakeAgenticBackend } from '@maverick/agentic-ui/testing';
+- import { provideAgUiBackend } from '@infra-tools/agentic-ui/ag-ui';
+- import { provideHashbrownBackend } from '@infra-tools/agentic-ui/hashbrown';
+- import { provideA2uiBackend } from '@infra-tools/agentic-ui/a2ui';
+- import { defineCapabilityModule } from '@infra-tools/agentic-ui/mfe';
+- import { provideAgenticTelemetry } from '@infra-tools/agentic-ui/otel';
+- import { FakeAgenticBackend } from '@infra-tools/agentic-ui/testing';
 + import {
 +   provideAgUiBackend,
 +   provideHashbrownBackend,
@@ -82,7 +82,7 @@ If you were following the early pre-release plan with secondary entries:
 +   defineCapabilityModule,
 +   provideAgenticTelemetry,
 +   FakeAgenticBackend,
-+ } from '@maverick/agentic-ui';
++ } from '@infra-tools/agentic-ui';
 ```
 
 Tree-shaking is unchanged — apps that only import `provideAgUiBackend` will not pull in Hashbrown, A2UI, MCP, or the OpenTelemetry adapter.
@@ -96,7 +96,7 @@ Tree-shaking is unchanged — apps that only import `provideAgUiBackend` will no
 ## Install
 
 ```bash
-npm install @maverick/agentic-ui zod
+npm install @infra-tools/agentic-ui zod
 # Optional peers, depending on the backend you wire:
 npm install @ag-ui/client                  # AG-UI adapter
 npm install @module-federation/runtime     # webpack Module Federation
@@ -108,7 +108,7 @@ Or scaffold a fresh app:
 ```bash
 ng new my-agent-app --standalone
 cd my-agent-app
-ng add @maverick/agentic-ui --backend=ag-ui --mfe=host --federation=native --server=mastra
+ng add @infra-tools/agentic-ui --backend=ag-ui --mfe=host --federation=native --server=mastra
 ```
 
 ## Resources

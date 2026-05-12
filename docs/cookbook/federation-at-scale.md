@@ -51,7 +51,7 @@ only the cost of the JSON manifests.
 ```ts
 // app.config.ts
 import { provideAppInitializer, EnvironmentInjector, inject, runInInjectionContext } from '@angular/core';
-import { MfeRegistryClient, prefetchCapabilities, provideStaticJsonMfeRegistry } from '@maverick/agentic-ui';
+import { MfeRegistryClient, prefetchCapabilities, provideStaticJsonMfeRegistry } from '@infra-tools/agentic-ui';
 
 function prefetchAllRemotes() {
   return provideAppInitializer(() => {
@@ -118,7 +118,7 @@ deterministic, and good enough for "trim 200 tools to 8 relevant
 ones."
 
 ```ts
-import { provideToolFilter, keywordToolFilter } from '@maverick/agentic-ui';
+import { provideToolFilter, keywordToolFilter } from '@infra-tools/agentic-ui';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -140,7 +140,7 @@ Once vocabulary stops being the right primitive, swap in an
 embedding-based filter. The hook signature is unchanged:
 
 ```ts
-import { provideToolFilter, type ToolFilter } from '@maverick/agentic-ui';
+import { provideToolFilter, type ToolFilter } from '@infra-tools/agentic-ui';
 
 const embeddingFilter: ToolFilter = ({ messages, tools }) => {
   const query = messages.at(-1)?.content ?? '';

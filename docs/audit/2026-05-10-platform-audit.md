@@ -2,14 +2,14 @@
 
 **Scope:** verify the agentic platform meets industry standards as of
 commit `745b547` on `main`, and identify the gaps that block consumer
-apps (`@maverick/agentic-ui` adopters) from integrating end-to-end.
+apps (`@infra-tools/agentic-ui` adopters) from integrating end-to-end.
 
 **Method:** read every `src/` directory across `platform/agentic-catalog-server`,
 `platform/agentic-ops-console`, `platform/mvk-cli`, `projects/agentic-ui`;
 grep for industry-standard primitives (rate limiting, OpenTelemetry,
 Helmet, ETag, capability authorizer, metering hook); diff what's
 present against what consumer apps need to wire when they pull
-`@maverick/agentic-ui` and want platform integration.
+`@infra-tools/agentic-ui` and want platform integration.
 
 **Bottom line:**
 
@@ -47,7 +47,7 @@ a SOC 2 auditor would file findings.
 
 ## 2. Consumer-app integration gaps
 
-The runtime tier (`@maverick/agentic-ui`) ships **2** adapters that
+The runtime tier (`@infra-tools/agentic-ui`) ships **2** adapters that
 talk to the platform:
 
 - [`provideCatalogActivePersona`](../../projects/agentic-ui/src/lib/iam/) — IAM persona resolution ([ADR-016](../adr/0016-iam-role-mapping.md))

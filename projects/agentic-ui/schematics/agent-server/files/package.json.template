@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",
-    "@maverick/agentic-ui-server": "^0.1.0",
+    "@infra-tools/agentic-ui-server": "^0.1.0",
     "hono": "^4.6.0"
   },
   "devDependencies": {

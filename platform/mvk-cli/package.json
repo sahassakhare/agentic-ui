@@ -1,5 +1,5 @@
 {
-  "name": "@maverick/mvk",
+  "name": "@infra-tools/mvk",
   "version": "0.1.0",
   "description": "Command-line client for the Maverick agentic platform — catalog ops, tenant lifecycle, audit verification, usage aggregates. M6 v1.",
   "license": "Apache-2.0",

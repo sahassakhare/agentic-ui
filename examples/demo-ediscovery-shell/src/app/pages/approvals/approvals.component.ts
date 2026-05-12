@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { ApprovalCardComponent, ApprovalRegistry } from '@maverick/agentic-ui';
+import { ApprovalCardComponent, ApprovalRegistry } from '@infra-tools/agentic-ui';
 import { PersonaService } from '../../services/persona.service';
 import { EmptyStateComponent } from '../../ui/empty-state.component';
 import { IconComponent } from '../../ui/icon.component';

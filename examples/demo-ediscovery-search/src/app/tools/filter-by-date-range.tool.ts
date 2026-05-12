@@ -1,5 +1,5 @@
-import { agenticTool } from '@maverick/agentic-ui';
-import { getCustodian } from '@maverick/demo-ediscovery-shared';
+import { agenticTool } from '@infra-tools/agentic-ui';
+import { getCustodian } from '@infra-tools/demo-ediscovery-shared';
 import { z } from 'zod';
 import { documentIndexDataSource, type IndexQuery, type IndexResult } from '../data-sources/document-index.data-source';
 

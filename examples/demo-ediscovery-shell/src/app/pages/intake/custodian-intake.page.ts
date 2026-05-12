@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormRendererComponent } from '@maverick/agentic-ui';
+import { FormRendererComponent } from '@infra-tools/agentic-ui';
 import { PersonaService } from '../../services/persona.service';
 import { normaliseDepartment } from '../../agentic/intake-constants';
 

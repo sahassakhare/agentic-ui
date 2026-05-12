@@ -6,7 +6,7 @@ import {
   type CallToolResult,
   type ListToolsResult,
 } from '@modelcontextprotocol/sdk/types.js';
-import type { ToolDef } from '@maverick/agentic-ui';
+import type { ToolDef } from '@infra-tools/agentic-ui';
 import { formatToolResult } from './result-formatter.js';
 import { syntheticToolContext } from './synthetic-tool-context.js';
 import type { CreateMcpServerOptions, McpServerHandle } from './types.js';
@@ -30,7 +30,7 @@ import { zodToMcpSchema } from './zod-to-mcp-schema.js';
  *
  * @example
  * ```ts
- * import { createMcpServer } from '@maverick/agentic-ui-mcp';
+ * import { createMcpServer } from '@infra-tools/agentic-ui-mcp';
  * import { bookFlightTool } from './tools/book-flight.tool';
  *
  * const handle = createMcpServer({

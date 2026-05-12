@@ -3,7 +3,7 @@
 ## 1. Install in any standalone Angular 21 app
 
 ```bash
-ng add @maverick/agentic-ui --backend=ag-ui --skip-install=true
+ng add @infra-tools/agentic-ui --backend=ag-ui --skip-install=true
 npm install
 ```
 
@@ -14,8 +14,8 @@ Without `ng-add`, the equivalent manual setup:
 ```ts
 // app.config.ts
 import { ApplicationConfig, provideZonelessChangeDetection } from '@angular/core';
-import { provideAgenticUi } from '@maverick/agentic-ui';
-import { provideAgUiBackend } from '@maverick/agentic-ui/ag-ui';
+import { provideAgenticUi } from '@infra-tools/agentic-ui';
+import { provideAgUiBackend } from '@infra-tools/agentic-ui/ag-ui';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -33,7 +33,7 @@ export const appConfig: ApplicationConfig = {
 ```
 
 ```ts
-import { ChatShellComponent } from '@maverick/agentic-ui';
+import { ChatShellComponent } from '@infra-tools/agentic-ui';
 
 @Component({
   selector: 'app-root',
@@ -46,14 +46,14 @@ export class App {}
 ## 3. Add a tool
 
 ```bash
-ng g @maverick/agentic-ui:tool bookFlight
+ng g @infra-tools/agentic-ui:tool bookFlight
 ```
 
 Generates:
 
 ```ts
 // src/app/agentic/tools/book-flight.tool.ts
-import { agenticTool } from '@maverick/agentic-ui';
+import { agenticTool } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 
 export const bookFlightTool = agenticTool({
@@ -76,7 +76,7 @@ Register the tool with `provideAgenticUi({ tools: [bookFlightTool] })`.
 ## 4. Add a widget (generative UI)
 
 ```bash
-ng g @maverick/agentic-ui:widget FlightCard
+ng g @infra-tools/agentic-ui:widget FlightCard
 ```
 
 Generates a standalone component + an `agenticWidget({...})` factory that registers it with the `ComponentRegistry`. The agent can then ask to render it by name.
@@ -84,7 +84,7 @@ Generates a standalone component + an `agenticWidget({...})` factory that regist
 ## 5. Run an agent server
 
 ```bash
-ng g @maverick/agentic-ui:agent-server my-agent-server
+ng g @infra-tools/agentic-ui:agent-server my-agent-server
 cd projects/my-agent-server
 npm install && npm run dev
 ```

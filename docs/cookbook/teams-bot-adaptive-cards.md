@@ -29,7 +29,7 @@ and shipped under
                                                           │
                                           AgenticBackend.run
                                                           ▼
-                                          @maverick/agentic-ui catalog
+                                          @infra-tools/agentic-ui catalog
                                           (same tools, same audit chain)
 ```
 
@@ -47,7 +47,7 @@ The skill wraps:
 ## Step 1 — install
 
 ```bash
-npm install @maverick/agentic-ui-teams-bot express
+npm install @infra-tools/agentic-ui-teams-bot express
 ```
 
 ## Step 2 — implement the handler
@@ -57,8 +57,8 @@ npm install @maverick/agentic-ui-teams-bot express
 import type {
   TeamsBotHandler,
   TeamsBotEvent,
-} from '@maverick/agentic-ui-teams-bot';
-import { widgetFallbackCard } from '@maverick/agentic-ui-teams-bot';
+} from '@infra-tools/agentic-ui-teams-bot';
+import { widgetFallbackCard } from '@infra-tools/agentic-ui-teams-bot';
 import { runAgent } from './my-agent';
 
 const TAB_URL = 'https://your-app.example.com';
@@ -126,7 +126,7 @@ function toTeamsEvent(ev: { type: string; [k: string]: unknown }): TeamsBotEvent
 ```ts
 // server/main.ts
 import express from 'express';
-import { createTeamsBotMiddleware } from '@maverick/agentic-ui-teams-bot';
+import { createTeamsBotMiddleware } from '@infra-tools/agentic-ui-teams-bot';
 import { teamsHandler } from './teams-handler';
 
 const app = express();

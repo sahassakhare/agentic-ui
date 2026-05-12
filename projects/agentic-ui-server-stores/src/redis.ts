@@ -1,5 +1,5 @@
 import type Redis from 'ioredis';
-import type { ThreadStateStore } from '@maverick/agentic-ui-server';
+import type { ThreadStateStore } from '@infra-tools/agentic-ui-server';
 
 /**
  * Construction options for {@link RedisThreadStateStore}.
@@ -64,7 +64,7 @@ export interface RedisThreadStateStoreOptions {
  * @example
  * ```ts
  * import Redis from 'ioredis';
- * import { RedisThreadStateStore } from '@maverick/agentic-ui-server-stores/redis';
+ * import { RedisThreadStateStore } from '@infra-tools/agentic-ui-server-stores/redis';
  *
  * const redis = new Redis(process.env.REDIS_URL!);
  * const store = new RedisThreadStateStore<{ specialist: string }>({

@@ -1,4 +1,4 @@
-# Integrate `@maverick/agentic-ui` into an existing Angular app
+# Integrate `@infra-tools/agentic-ui` into an existing Angular app
 
 Step-by-step guide for adding agentic UI — chat, tools, generative-UI
 widgets, federation, multi-agent orchestration — to an Angular 21 app you
@@ -78,12 +78,12 @@ No tools, no widgets — just text in, text out.
 > 💡 **Skip Steps 1.1 → 1.4 with `ng add`.**
 > The schematic installs peer deps, patches `app.config.ts` with the providers, and writes seed `tools.ts` / `widgets.ts`. See [Schematics reference](./schematics.md).
 > ```bash
-> ng add @maverick/agentic-ui --backend=ag-ui --server=mastra
+> ng add @infra-tools/agentic-ui --backend=ag-ui --server=mastra
 > ```
 > Continue from Step 1.5 to verify.
 
 ```bash
-npm install @maverick/agentic-ui zod
+npm install @infra-tools/agentic-ui zod
 # Optional: peer for the AG-UI backend transport (SSE)
 npm install @ag-ui/client
 ```
@@ -95,7 +95,7 @@ npm install @ag-ui/client
 
 > 💡 **Skip the Node setup with `agent-server`.**
 > ```bash
-> ng g @maverick/agentic-ui:agent-server --framework=mastra --route=/api/ag-ui
+> ng g @infra-tools/agentic-ui:agent-server --framework=mastra --route=/api/ag-ui
 > ```
 > Generates a new `<your-project>-server/` directory with a Hono app, a sample `EchoAgent`, and a `.env.example`. Drop in your API key and run.
 
@@ -105,13 +105,13 @@ back. Two options:
 | Option | When to use |
 |---|---|
 | **Reuse `examples/demo-server` as a template** | You're prototyping. Copy `examples/demo-server/` into your repo, swap the API key in `.env`, change the `systemInstruction`. Done in 5 minutes. |
-| **Add the route to your existing Node service** | You already run a Node API. Install `@maverick/agentic-ui-server` and `hono`; add a single route. |
+| **Add the route to your existing Node service** | You already run a Node API. Install `@infra-tools/agentic-ui-server` and `hono`; add a single route. |
 
 Minimal `/agents/:id/run` route with one Gemini-backed agent:
 
 ```ts
 import { Hono } from 'hono';
-import { agUiRouteHandler, type AgentResolver } from '@maverick/agentic-ui-server';
+import { agUiRouteHandler, type AgentResolver } from '@infra-tools/agentic-ui-server';
 import { GeminiAgent } from './gemini-agent';  // copy from demo-server
 
 const agents = new Map<string, ServerAgent>();
@@ -138,7 +138,7 @@ lives) and add two providers:
 
 ```ts
 import { ApplicationConfig } from '@angular/core';
-import { provideAgenticUi, provideAgUiBackend } from '@maverick/agentic-ui';
+import { provideAgenticUi, provideAgUiBackend } from '@infra-tools/agentic-ui';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -161,7 +161,7 @@ content.
 ```ts
 // my-page.component.ts
 import { Component } from '@angular/core';
-import { ChatShellComponent } from '@maverick/agentic-ui';
+import { ChatShellComponent } from '@infra-tools/agentic-ui';
 
 @Component({
   selector: 'app-my-page',
@@ -241,13 +241,13 @@ sequenceDiagram
 
 > 💡 **Skip the boilerplate with `tool`.**
 > ```bash
-> ng g @maverick/agentic-ui:tool bookFlight --executeIn=host
+> ng g @infra-tools/agentic-ui:tool bookFlight --executeIn=host
 > ```
 > Generates `book-flight.tool.ts` with the `agenticTool({...})` skeleton, a Zod schema stub, and an auto-import in your nearest `tools.ts` barrel.
 
 ```ts
 // app/agentic/tools/book-flight.tool.ts
-import { agenticTool } from '@maverick/agentic-ui';
+import { agenticTool } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 
 export const bookFlightTool = agenticTool({
@@ -278,7 +278,7 @@ the chat shell validates real arguments before invoking the handler.
 
 > 💡 **Skip with `widget`.**
 > ```bash
-> ng g @maverick/agentic-ui:widget FlightCard --inputs=bookingId:string,from:string,to:string,date:string,status:string
+> ng g @infra-tools/agentic-ui:widget FlightCard --inputs=bookingId:string,from:string,to:string,date:string,status:string
 > ```
 > Scaffolds the standalone component, the `agenticWidget(...)` factory file, and a Zod props schema matching your `--inputs`.
 
@@ -312,7 +312,7 @@ export class FlightCardComponent {
 
 ```ts
 // app/agentic/widgets/flight-card.widget.ts
-import { agenticWidget } from '@maverick/agentic-ui';
+import { agenticWidget } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 import { FlightCardComponent } from './flight-card.component';
 
@@ -333,7 +333,7 @@ export const flightCardWidget = agenticWidget({
 
 ```ts
 // app.config.ts
-import { provideAgenticUi, provideAgUiBackend } from '@maverick/agentic-ui';
+import { provideAgenticUi, provideAgUiBackend } from '@infra-tools/agentic-ui';
 import { bookFlightTool } from './agentic/tools/book-flight.tool';
 import { flightCardWidget } from './agentic/widgets/flight-card.widget';
 
@@ -463,7 +463,7 @@ In your host `app.config.ts`:
 import {
   provideAgenticUi, provideAgUiBackend, provideStaticJsonMfeRegistry,
   loadRemoteCapabilities, MfeRegistryClient, type CapabilityModule,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 import { provideAppInitializer, EnvironmentInjector, inject, runInInjectionContext } from '@angular/core';
 import { loadRemoteModule } from '@angular-architects/native-federation';
 
@@ -513,7 +513,7 @@ export const appConfig: ApplicationConfig = {
 > 💡 **Use `mfe-capability` to scaffold the federation surface.**
 > Inside the remote project:
 > ```bash
-> ng g @maverick/agentic-ui:mfe-capability --remoteName=remote-a --federation=native
+> ng g @infra-tools/agentic-ui:mfe-capability --remoteName=remote-a --federation=native
 > ```
 > Generates `capability.ts` with the `defineCapabilityModule({...})` block, updates `federation.config.js` to expose `./Capability`, and writes a `capabilities.json` manifest sibling for the host's prefetch step.
 
@@ -528,7 +528,7 @@ ng add @angular-architects/native-federation --project=remote-a --type=remote --
 In `remote-a/src/app/capability.ts`:
 
 ```ts
-import { defineCapabilityModule, type ToolDef } from '@maverick/agentic-ui';
+import { defineCapabilityModule, type ToolDef } from '@infra-tools/agentic-ui';
 import { bookFlightTool } from './tools/book-flight.tool';
 import { flightCardWidget } from './widgets/flight-card.widget';
 
@@ -548,7 +548,7 @@ exposes: {
 },
 shared: {
   ...shareAll({ singleton: true, strictVersion: true, requiredVersion: 'auto' }),
-  '@maverick/agentic-ui': { singleton: true, strictVersion: false, requiredVersion: 'auto' },
+  '@infra-tools/agentic-ui': { singleton: true, strictVersion: false, requiredVersion: 'auto' },
 },
 features: {
   ignoreUnusedDeps: false,  // CRITICAL — true silently drops the lib from the shared list
@@ -556,7 +556,7 @@ features: {
 ```
 
 > The `ignoreUnusedDeps: false` line is non-negotiable. Without it,
-> federation's static analysis filters `@maverick/agentic-ui` out as
+> federation's static analysis filters `@infra-tools/agentic-ui` out as
 > "unused" and the host + remote end up with two different copies of
 > registry classes — your tools register into a registry the chat shell
 > can't see.
@@ -669,7 +669,7 @@ specialists.
 ```ts
 import {
   createSpecialist, registerSpecialists, type ServerAgent,
-} from '@maverick/agentic-ui-server';
+} from '@infra-tools/agentic-ui-server';
 import { OrchestratorAgent } from './orchestrator-agent';  // copy from demo-server
 import { GeminiAgent } from './gemini-agent';
 
@@ -765,7 +765,7 @@ switch — follow-up turns don't repeat it.
 |---|---|---|
 | Chat says nothing when you submit | Agent server unreachable | Check `provideAgUiBackend({ url })`; check CORS on the server |
 | Header says `0 tool(s) across 0 remote(s)` | `provideAppInitializer` did not block on remote loading | Confirm the initializer returns a `Promise`, not fire-and-forget |
-| Browser error: `NG0912: component ID collision` | Library duplicated across host + remote | `ignoreUnusedDeps: false` in BOTH federation configs; share `@maverick/agentic-ui` as singleton |
+| Browser error: `NG0912: component ID collision` | Library duplicated across host + remote | `ignoreUnusedDeps: false` in BOTH federation configs; share `@infra-tools/agentic-ui` as singleton |
 | LLM never calls your tool | Tool description too vague, or system prompt doesn't mention it | Tighten the tool description; mention the tool by purpose in the system instruction |
 | Tool calls succeed but no widget renders | Tool result is missing `components: [{name, props}]` OR widget name doesn't match | Log the tool's return; check `ComponentRegistry` for the registered name |
 | Same tool called multiple times per turn | `functionResponse.name` mismatch in your Gemini wrapper | Look up the original function name from prior tool-call messages, don't pass the call id |

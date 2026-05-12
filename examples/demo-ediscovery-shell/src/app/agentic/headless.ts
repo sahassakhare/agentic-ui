@@ -1,5 +1,5 @@
 import { effect, EnvironmentInjector, runInInjectionContext, signal } from '@angular/core';
-import { injectAgenticChat, type AgenticMessage } from '@maverick/agentic-ui';
+import { injectAgenticChat, type AgenticMessage } from '@infra-tools/agentic-ui';
 
 /**
  * One-shot, headless LLM call (plan R4 -- "no-chat, but LLM

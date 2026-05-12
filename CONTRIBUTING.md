@@ -1,4 +1,4 @@
-# Contributing to @maverick/agentic-ui
+# Contributing to @infra-tools/agentic-ui
 
 Thanks for your interest in contributing. This project is the **runtime tier** of an open-source three-tier agentic-UI platform (see [docs/plans/platform-evolution-plan.md](./docs/plans/platform-evolution-plan.md) for the full picture). Everything here is Apache 2.0, governed in the open, and built around two non-negotiable principles:
 
@@ -40,7 +40,7 @@ If `npm ci` fails with peer-dep errors, the repo's `.npmrc` should be picked up 
 
 Inspired by Rust / React / TC39. Required for:
 
-- New public APIs in `@maverick/agentic-ui`, `agentic-ui-server`, or `agentic-ui-mcp`
+- New public APIs in `@infra-tools/agentic-ui`, `agentic-ui-server`, or `agentic-ui-mcp`
 - Changes to `RegistryBase<TDef>` semantics
 - New cross-cutting injection tokens
 - Changes to the audit chain shape

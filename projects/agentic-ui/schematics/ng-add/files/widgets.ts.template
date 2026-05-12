@@ -9,7 +9,7 @@
  *
  * Add new widgets either by hand or with the schematic:
  * ```bash
- * ng generate @maverick/agentic-ui:widget MyWidget
+ * ng generate @infra-tools/agentic-ui:widget MyWidget
  * ```
  * The schematic creates the component + the registration factory and
  * adds the import to this barrel for you.
@@ -21,7 +21,7 @@
  *
  * @see https://github.com/sahassakhare/agentic-ui/blob/main/docs/cookbook/integrate-into-existing-angular-app.md#phase-2--add-tools-and-widgets
  */
-import type { ComponentDef } from '@maverick/agentic-ui';
+import type { ComponentDef } from '@infra-tools/agentic-ui';
 
 /** Aggregated widget list — keep extending as you add more `*.widget.ts` files. */
 export const widgets: ComponentDef[] = [];

@@ -1,6 +1,6 @@
 name: publish
 
-# Publishes one or more @maverick/* packages to npm.
+# Publishes one or more @infra-tools/* packages to npm.
 #
 # ── How to publish ─────────────────────────────────────────────────────────
 #  Bump the package's version in its package.json, commit, and either:
@@ -12,12 +12,12 @@ name: publish
 #
 #    2. Automatic on a release:
 #         Create a GitHub release whose tag follows one of:
-#           agentic-ui-v1.1.0                              → @maverick/agentic-ui
-#           agentic-ui-server-v0.1.0                       → @maverick/agentic-ui-server
-#           agentic-ui-mcp-v0.1.0                          → @maverick/agentic-ui-mcp
-#           agentic-ui-copilot-skill-v0.1.0                → @maverick/agentic-ui-copilot-skill
-#           agentic-ui-teams-bot-v0.1.0                    → @maverick/agentic-ui-teams-bot
-#           agentic-ui-copilot-studio-connector-v0.1.0     → @maverick/agentic-ui-copilot-studio-connector
+#           agentic-ui-v1.1.0                              → @infra-tools/agentic-ui
+#           agentic-ui-server-v0.1.0                       → @infra-tools/agentic-ui-server
+#           agentic-ui-mcp-v0.1.0                          → @infra-tools/agentic-ui-mcp
+#           agentic-ui-copilot-skill-v0.1.0                → @infra-tools/agentic-ui-copilot-skill
+#           agentic-ui-teams-bot-v0.1.0                    → @infra-tools/agentic-ui-teams-bot
+#           agentic-ui-copilot-studio-connector-v0.1.0     → @infra-tools/agentic-ui-copilot-studio-connector
 #         The workflow detects the prefix and publishes only that package.
 #         (`v1.1.0` without a prefix also works — defaults to agentic-ui.)
 #
@@ -132,7 +132,7 @@ jobs:
           npm --prefix projects/agentic-ui-teams-bot                run build
           npm --prefix projects/agentic-ui-copilot-studio-connector run build
 
-      - name: Publish @maverick/agentic-ui
+      - name: Publish @infra-tools/agentic-ui
         working-directory: dist/agentic-ui
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -141,11 +141,11 @@ jobs:
           set -e
           # Whole-word match — `agentic-ui` won't match `agentic-ui-server`.
           if ! [[ " $PKGS " == *" agentic-ui "* ]]; then
-            echo "::notice::@maverick/agentic-ui not in target list — skipping"; exit 0
+            echo "::notice::@infra-tools/agentic-ui not in target list — skipping"; exit 0
           fi
           version=$(node -p "require('./package.json').version")
-          if npm view "@maverick/agentic-ui@$version" version > /dev/null 2>&1; then
-            echo "::notice::@maverick/agentic-ui@$version already on npm — skipping"; exit 0
+          if npm view "@infra-tools/agentic-ui@$version" version > /dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui@$version already on npm — skipping"; exit 0
           fi
           if [ "$DRY_RUN" = "true" ]; then
             npm publish --dry-run
@@ -153,7 +153,7 @@ jobs:
             npm publish
           fi
 
-      - name: Publish @maverick/agentic-ui-server
+      - name: Publish @infra-tools/agentic-ui-server
         working-directory: projects/agentic-ui-server
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -161,11 +161,11 @@ jobs:
         run: |
           set -e
           if ! [[ " $PKGS " == *" agentic-ui-server "* ]]; then
-            echo "::notice::@maverick/agentic-ui-server not in target list — skipping"; exit 0
+            echo "::notice::@infra-tools/agentic-ui-server not in target list — skipping"; exit 0
           fi
           version=$(node -p "require('./package.json').version")
-          if npm view "@maverick/agentic-ui-server@$version" version > /dev/null 2>&1; then
-            echo "::notice::@maverick/agentic-ui-server@$version already on npm — skipping"; exit 0
+          if npm view "@infra-tools/agentic-ui-server@$version" version > /dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-server@$version already on npm — skipping"; exit 0
           fi
           if [ "$DRY_RUN" = "true" ]; then
             npm publish --dry-run
@@ -173,7 +173,7 @@ jobs:
             npm publish
           fi
 
-      - name: Publish @maverick/agentic-ui-mcp
+      - name: Publish @infra-tools/agentic-ui-mcp
         working-directory: projects/agentic-ui-mcp
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -181,11 +181,11 @@ jobs:
         run: |
           set -e
           if ! [[ " $PKGS " == *" agentic-ui-mcp "* ]]; then
-            echo "::notice::@maverick/agentic-ui-mcp not in target list — skipping"; exit 0
+            echo "::notice::@infra-tools/agentic-ui-mcp not in target list — skipping"; exit 0
           fi
           version=$(node -p "require('./package.json').version")
-          if npm view "@maverick/agentic-ui-mcp@$version" version > /dev/null 2>&1; then
-            echo "::notice::@maverick/agentic-ui-mcp@$version already on npm — skipping"; exit 0
+          if npm view "@infra-tools/agentic-ui-mcp@$version" version > /dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-mcp@$version already on npm — skipping"; exit 0
           fi
           if [ "$DRY_RUN" = "true" ]; then
             npm publish --dry-run
@@ -193,7 +193,7 @@ jobs:
             npm publish
           fi
 
-      - name: Publish @maverick/agentic-ui-copilot-skill
+      - name: Publish @infra-tools/agentic-ui-copilot-skill
         working-directory: projects/agentic-ui-copilot-skill
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -201,11 +201,11 @@ jobs:
         run: |
           set -e
           if ! [[ " $PKGS " == *" agentic-ui-copilot-skill "* ]]; then
-            echo "::notice::@maverick/agentic-ui-copilot-skill not in target list — skipping"; exit 0
+            echo "::notice::@infra-tools/agentic-ui-copilot-skill not in target list — skipping"; exit 0
           fi
           version=$(node -p "require('./package.json').version")
-          if npm view "@maverick/agentic-ui-copilot-skill@$version" version > /dev/null 2>&1; then
-            echo "::notice::@maverick/agentic-ui-copilot-skill@$version already on npm — skipping"; exit 0
+          if npm view "@infra-tools/agentic-ui-copilot-skill@$version" version > /dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-copilot-skill@$version already on npm — skipping"; exit 0
           fi
           if [ "$DRY_RUN" = "true" ]; then
             npm publish --dry-run
@@ -213,7 +213,7 @@ jobs:
             npm publish
           fi
 
-      - name: Publish @maverick/agentic-ui-teams-bot
+      - name: Publish @infra-tools/agentic-ui-teams-bot
         working-directory: projects/agentic-ui-teams-bot
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -221,11 +221,11 @@ jobs:
         run: |
           set -e
           if ! [[ " $PKGS " == *" agentic-ui-teams-bot "* ]]; then
-            echo "::notice::@maverick/agentic-ui-teams-bot not in target list — skipping"; exit 0
+            echo "::notice::@infra-tools/agentic-ui-teams-bot not in target list — skipping"; exit 0
           fi
           version=$(node -p "require('./package.json').version")
-          if npm view "@maverick/agentic-ui-teams-bot@$version" version > /dev/null 2>&1; then
-            echo "::notice::@maverick/agentic-ui-teams-bot@$version already on npm — skipping"; exit 0
+          if npm view "@infra-tools/agentic-ui-teams-bot@$version" version > /dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-teams-bot@$version already on npm — skipping"; exit 0
           fi
           if [ "$DRY_RUN" = "true" ]; then
             npm publish --dry-run
@@ -233,7 +233,7 @@ jobs:
             npm publish
           fi
 
-      - name: Publish @maverick/agentic-ui-copilot-studio-connector
+      - name: Publish @infra-tools/agentic-ui-copilot-studio-connector
         working-directory: projects/agentic-ui-copilot-studio-connector
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -241,11 +241,11 @@ jobs:
         run: |
           set -e
           if ! [[ " $PKGS " == *" agentic-ui-copilot-studio-connector "* ]]; then
-            echo "::notice::@maverick/agentic-ui-copilot-studio-connector not in target list — skipping"; exit 0
+            echo "::notice::@infra-tools/agentic-ui-copilot-studio-connector not in target list — skipping"; exit 0
           fi
           version=$(node -p "require('./package.json').version")
-          if npm view "@maverick/agentic-ui-copilot-studio-connector@$version" version > /dev/null 2>&1; then
-            echo "::notice::@maverick/agentic-ui-copilot-studio-connector@$version already on npm — skipping"; exit 0
+          if npm view "@infra-tools/agentic-ui-copilot-studio-connector@$version" version > /dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-copilot-studio-connector@$version already on npm — skipping"; exit 0
           fi
           if [ "$DRY_RUN" = "true" ]; then
             npm publish --dry-run
@@ -277,6 +277,6 @@ jobs:
               else
                 v=$(node -p "require('./projects/$p/package.json').version")
               fi
-              echo "| \`@maverick/$p\` | \`$v\` |"
+              echo "| \`@infra-tools/$p\` | \`$v\` |"
             done
           } >> "$GITHUB_STEP_SUMMARY"

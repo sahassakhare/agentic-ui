@@ -9,7 +9,7 @@ import { FormsModule } from '@angular/forms';
 import {
   COMPOSITION_SLOT,
   CompositionStore,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 import { MatterStore } from '../services/matter.store';
 
 /**

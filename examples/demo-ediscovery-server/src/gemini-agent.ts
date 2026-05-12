@@ -1,6 +1,6 @@
 import { GoogleGenAI, type FunctionDeclaration } from '@google/genai';
 import { EventType, type BaseEvent, type Message, type RunAgentInput, type Tool } from '@ag-ui/core';
-import type { ServerAgent } from '@maverick/agentic-ui-server';
+import type { ServerAgent } from '@infra-tools/agentic-ui-server';
 
 export interface GeminiAgentConfig {
   /** Google Generative AI API key. Defaults to env GOOGLE_GENERATIVE_AI_API_KEY or GEMINI_API_KEY. */

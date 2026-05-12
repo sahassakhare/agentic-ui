@@ -11,7 +11,7 @@
 ## Context
 
 The 2026-05-10 platform audit identified four gaps between the
-runtime tier (`@maverick/agentic-ui`) and the catalog server.
+runtime tier (`@infra-tools/agentic-ui`) and the catalog server.
 Gap 4 — *"Single configuration point + scaffolding default"* — is a
 prerequisite for the other three:
 

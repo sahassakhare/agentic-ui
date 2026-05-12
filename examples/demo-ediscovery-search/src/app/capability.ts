@@ -1,5 +1,5 @@
-import { defineCapabilityModule } from '@maverick/agentic-ui';
-import type { ToolDef } from '@maverick/agentic-ui';
+import { defineCapabilityModule } from '@infra-tools/agentic-ui';
+import type { ToolDef } from '@infra-tools/agentic-ui';
 
 import { filterByCustodiansTool } from './tools/filter-by-custodians.tool';
 import { filterByDateRangeTool } from './tools/filter-by-date-range.tool';

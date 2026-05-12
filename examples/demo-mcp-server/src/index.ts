@@ -25,7 +25,7 @@
  * @remarks
  * **Why we don't use `agenticTool({...})` here.**
  * `agenticTool` is a typed factory re-exported from
- * `@maverick/agentic-ui`'s public-api barrel. Importing anything from
+ * `@infra-tools/agentic-ui`'s public-api barrel. Importing anything from
  * that barrel pulls in Angular's static initializers
  * (`ɵɵngDeclareFactory`, `PlatformLocation`, etc.) which require
  * `@angular/compiler` at runtime — fine inside an Angular app, fatal
@@ -35,12 +35,12 @@
  * the cookbook entry's "authoring tools for Node-only consumption"
  * section.
  *
- * Type-only imports from `@maverick/agentic-ui` (e.g. `ToolDef`,
+ * Type-only imports from `@infra-tools/agentic-ui` (e.g. `ToolDef`,
  * `ToolResultRenderHints`) are erased at compile time and DO NOT
  * pull Angular into the runtime — those are safe.
  */
-import { createMcpServer } from '@maverick/agentic-ui-mcp';
-import type { ToolDef, ToolResultRenderHints } from '@maverick/agentic-ui';
+import { createMcpServer } from '@infra-tools/agentic-ui-mcp';
+import type { ToolDef, ToolResultRenderHints } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 
 // ── Bookings ──────────────────────────────────────────────────────────────

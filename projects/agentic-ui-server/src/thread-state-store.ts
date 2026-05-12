@@ -14,7 +14,7 @@
  *
  * @example
  * ```ts
- * import type { ThreadStateStore } from '@maverick/agentic-ui-server';
+ * import type { ThreadStateStore } from '@infra-tools/agentic-ui-server';
  * import { createClient } from 'redis';
  *
  * class RedisThreadStateStore<TState> implements ThreadStateStore<TState> {

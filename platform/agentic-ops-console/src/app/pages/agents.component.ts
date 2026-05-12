@@ -14,7 +14,7 @@ import { autoRefresh } from '../services/auto-refresh.service';
  * Shows the per-tenant `agents` registry — runtime-level
  * AgenticBackend deployments. Distinct from MFE remotes; auto-
  * registered on agent-server boot via the
- * `@maverick/agentic-ui-server-registrar` package, with periodic
+ * `@infra-tools/agentic-ui-server-registrar` package, with periodic
  * heartbeats so operators see "is it alive."
  *
  * Read-only in slice 1 — agents register themselves; ops console

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z, type ZodTypeAny } from 'zod';
-import type { ToolDef } from '@maverick/agentic-ui';
+import type { ToolDef } from '@infra-tools/agentic-ui';
 import { createMcpServer } from './create-mcp-server.js';
 
 /**
@@ -8,7 +8,7 @@ import { createMcpServer } from './create-mcp-server.js';
  *
  * @remarks
  * The factory `agenticTool({...})` is a re-export from
- * `@maverick/agentic-ui`'s public-api barrel — pulling it in evaluates
+ * `@infra-tools/agentic-ui`'s public-api barrel — pulling it in evaluates
  * the library's Angular DI machinery, which fails in a pure Node test
  * runtime. The shape we need (`{ name, description, schema, handler }`)
  * is just a plain object; building it directly keeps the test isolated

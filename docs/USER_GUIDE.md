@@ -1,4 +1,4 @@
-# User Guide — `@maverick/agentic-ui` MFE Demo
+# User Guide — `@infra-tools/agentic-ui` MFE Demo
 
 Goal: in ~10 minutes, get an Angular **host** app + an Angular **MFE remote** + a **Gemini-backed agent server** running locally, and see the LLM call a tool from the remote and render its widget in the host. Step-by-step from a fresh clone.
 
@@ -67,12 +67,12 @@ If you skip this step the demo still runs (against the Echo agent at `/agents/ec
 npm run build:lib
 ```
 
-This builds `dist/agentic-ui` (a single primary entry — see [ADR-005](./adr/0005-single-primary-entry.md)) and copies the schematics. Both demo apps reference the lib via `node_modules/@maverick/agentic-ui` which is linked to `dist/agentic-ui` via the workspace `package.json`'s `file:` dep.
+This builds `dist/agentic-ui` (a single primary entry — see [ADR-005](./adr/0005-single-primary-entry.md)) and copies the schematics. Both demo apps reference the lib via `node_modules/@infra-tools/agentic-ui` which is linked to `dist/agentic-ui` via the workspace `package.json`'s `file:` dep.
 
 You'll see output ending with:
 
 ```
-✔ Built @maverick/agentic-ui
+✔ Built @infra-tools/agentic-ui
 Build at: ... - Time: ~5s
 ```
 
@@ -243,17 +243,17 @@ The MFE remote didn't load. Check:
 
 - Is `demo-remote-bookings` running on port 4201? `curl -I http://localhost:4201/remoteEntry.json` must return 200.
 - Browser DevTools → Network: look for a `Capability.js` request to `:4201`. If it's failing, check the Console for the actual error.
-- Is `node_modules/@maverick/agentic-ui` linked to `dist/agentic-ui`? If you reinstalled and the build went stale, run `npm run build:lib && rm -rf node_modules/@maverick && npm install`.
+- Is `node_modules/@infra-tools/agentic-ui` linked to `dist/agentic-ui`? If you reinstalled and the build went stale, run `npm run build:lib && rm -rf node_modules/@maverick && npm install`.
 
 ### `NG0912: Component ID generation collision detected`
 
 The lib is being loaded twice (once in the host bundle, once in the remote bundle) instead of being shared via federation. Check:
 
-- Both `examples/demo-shell/federation.config.js` and `examples/demo-remote-bookings/federation.config.js` have `'@maverick/agentic-ui'` in their `shared` block AND `features: { ignoreUnusedDeps: false }`.
+- Both `examples/demo-shell/federation.config.js` and `examples/demo-remote-bookings/federation.config.js` have `'@infra-tools/agentic-ui'` in their `shared` block AND `features: { ignoreUnusedDeps: false }`.
 - `dist/agentic-ui` exists and was built recently.
 - Hard-refresh the browser (Cmd-Shift-R / Ctrl-Shift-R) — Vite dev server may be serving a cached chunk.
 
-### `Error: Unable to resolve specifier '@maverick/agentic-ui'`
+### `Error: Unable to resolve specifier '@infra-tools/agentic-ui'`
 
 Same root cause as NG0912 from a different angle — the federation importmap doesn't have an entry for the lib. Check the same federation config items, then restart the dev server (federation manifest is built once at boot).
 
@@ -295,8 +295,8 @@ This library is opinionated for one shape of work — agent-driven UI in Angular
 | 5 | [Backend swap (AG-UI ↔ Hashbrown ↔ A2UI)](#5-backend-swap-ag-ui--hashbrown--a2ui) | `AgenticBackend` interface — chat shell never sees the protocol | [swap-backend](./cookbook/swap-backend.md) |
 | 6 | [Multi-agent orchestration with sticky routing](#6-multi-agent-orchestration-with-sticky-routing) | `OrchestratorAgent` + per-thread sticky state | [multi-agent-orchestration](./cookbook/multi-agent-orchestration.md) |
 | 7 | [Per-turn tool budget at scale](#7-per-turn-tool-budget-at-scale) | `provideToolFilter` + `keywordToolFilter` for 17+ tool inventories | [federation-at-scale](./cookbook/federation-at-scale.md) |
-| 8 | [MCP — same tools power analyst desktops](#8-mcp--same-tools-power-analyst-desktops) | `@maverick/agentic-ui-mcp` exposes ToolDefs as an MCP server | [mcp-server](./cookbook/mcp-server.md) |
-| 9 | [Observability — distributed tracing per chat turn](#9-observability--distributed-tracing-per-chat-turn) | `AgenticTelemetrySink` + `@maverick/agentic-ui/otel` | [observability](./cookbook/observability.md) |
+| 8 | [MCP — same tools power analyst desktops](#8-mcp--same-tools-power-analyst-desktops) | `@infra-tools/agentic-ui-mcp` exposes ToolDefs as an MCP server | [mcp-server](./cookbook/mcp-server.md) |
+| 9 | [Observability — distributed tracing per chat turn](#9-observability--distributed-tracing-per-chat-turn) | `AgenticTelemetrySink` + `@infra-tools/agentic-ui/otel` | [observability](./cookbook/observability.md) |
 | 10 | [Audit trail / chain-of-custody](#10-audit-trail--chain-of-custody) | Pattern (not core lib): `prevHash` / `chainHash` auto-stamping in your data layer | [paralegal-mcp-review](./cookbook/paralegal-mcp-review.md) |
 | 11 | [Composable forms at runtime](#11-composable-forms-at-runtime) | `agenticForm({ composition })` + `CompositionStore` + closed-AST `if` DSL | [composable-intake-form](./cookbook/composable-intake-form.md) |
 | 12 | [Live data fetching from generated UI](#12-live-data-fetching-from-generated-ui) | `ComponentDef.dataSources` + `DataSourceRegistry.getTyped<>()` + mount-time validation | [widgets-with-live-data](./cookbook/widgets-with-live-data.md) |
@@ -306,9 +306,9 @@ This library is opinionated for one shape of work — agent-driven UI in Angular
 | 16 | [Multi-modal input](#16-multi-modal-input) | `MessageContent` union + composer paperclip / drag-drop / paste-image | [multi-modal-input](./cookbook/multi-modal-input.md) |
 | 17 | [Wire the catalog platform](#17-wire-the-catalog-platform) | `provideAgenticPlatform({...})` — single composite provider for IAM persona + MFE registry + capability registrar / authorizer + usage metering | [ADR-031](./adr/0031-provide-agentic-platform.md) |
 | 18 | [Embed the shell as a Teams Tab](#18-external-surface--embed-the-shell-as-a-teams-tab) | `provideTeamsContext({ loadContext })` bridges `microsoftTeams.app.getContext()` into a signal; no hard SDK dep | [teams-tab-embed](./cookbook/teams-tab-embed.md) |
-| 19 | [Teams chat-native via Bot Framework](#19-external-surface--teams-chat-native-via-bot-framework) | `@maverick/agentic-ui-teams-bot` — JWT verify + AAD bearer + Adaptive Card responses in Teams chat | [teams-bot-adaptive-cards](./cookbook/teams-bot-adaptive-cards.md) |
-| 20 | [GitHub Copilot Extension](#20-external-surface--github-copilot-extension) | `@maverick/agentic-ui-copilot-skill` — wraps the GitHub Copilot Extensions webhook protocol | [github-copilot-extension](./cookbook/github-copilot-extension.md) |
-| 21 | [Microsoft Copilot Studio Connector](#21-external-surface--microsoft-copilot-studio-connector) | `@maverick/agentic-ui-copilot-studio-connector` — Zod→OpenAPI manifest + Azure AD JWT + per-persona Connector publishing | [copilot-studio-connector](./cookbook/copilot-studio-connector.md) |
+| 19 | [Teams chat-native via Bot Framework](#19-external-surface--teams-chat-native-via-bot-framework) | `@infra-tools/agentic-ui-teams-bot` — JWT verify + AAD bearer + Adaptive Card responses in Teams chat | [teams-bot-adaptive-cards](./cookbook/teams-bot-adaptive-cards.md) |
+| 20 | [GitHub Copilot Extension](#20-external-surface--github-copilot-extension) | `@infra-tools/agentic-ui-copilot-skill` — wraps the GitHub Copilot Extensions webhook protocol | [github-copilot-extension](./cookbook/github-copilot-extension.md) |
+| 21 | [Microsoft Copilot Studio Connector](#21-external-surface--microsoft-copilot-studio-connector) | `@infra-tools/agentic-ui-copilot-studio-connector` — Zod→OpenAPI manifest + Azure AD JWT + per-persona Connector publishing | [copilot-studio-connector](./cookbook/copilot-studio-connector.md) |
 
 ---
 
@@ -325,7 +325,7 @@ This library is opinionated for one shape of work — agent-driven UI in Angular
 
 ```ts
 // flight-card.widget.ts
-import { agenticWidget } from '@maverick/agentic-ui';
+import { agenticWidget } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 import { FlightCardComponent } from './flight-card.component';
 
@@ -363,7 +363,7 @@ The agent emits `widget-render` with `{ name: 'flight-card', props: {...} }`; if
 **Wiring.**
 
 ```ts
-import { agenticTool } from '@maverick/agentic-ui';
+import { agenticTool } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 
 export const bookFlight = agenticTool({
@@ -400,7 +400,7 @@ For tools owned by an MFE remote, set `executeIn: 'remote'` so the handler resol
 
 ```ts
 // remote: bookings/src/app/capability.ts
-import { defineCapabilityModule } from '@maverick/agentic-ui/mfe';
+import { defineCapabilityModule } from '@infra-tools/agentic-ui/mfe';
 import { bookFlight, cancelFlight } from './tools';
 import { flightCard } from './widgets';
 
@@ -486,7 +486,7 @@ One call per registry you want filtered. For the eDiscovery demo, only `ToolRegi
 ```ts
 // src/app/app.config.ts
 import { provideAppInitializer, inject } from '@angular/core';
-import { ToolRegistry } from '@maverick/agentic-ui';
+import { ToolRegistry } from '@infra-tools/agentic-ui';
 import { PersonaService } from './services/persona.service';
 
 function installPersonaScopePolicy() {
@@ -577,7 +577,7 @@ Run it with `npm run test:e2e -- specs/05-persona-scope.spec.ts`. No LLM key nee
 **Wiring — picking one at boot.**
 
 ```ts
-import { provideAgUiBackend } from '@maverick/agentic-ui/ag-ui';
+import { provideAgUiBackend } from '@infra-tools/agentic-ui/ag-ui';
 
 provideAgenticUi({
   backend: provideAgUiBackend({ url: '/api/ag-ui' }),
@@ -588,7 +588,7 @@ provideAgenticUi({
 **Wiring — runtime switch (debug / preview).**
 
 ```ts
-import { BackendRegistry } from '@maverick/agentic-ui';
+import { BackendRegistry } from '@infra-tools/agentic-ui';
 const backends = inject(BackendRegistry);
 backends.register({ id: 'ag-ui',     factory: () => agUiBackend,    label: 'AG-UI · SSE' });
 backends.register({ id: 'hashbrown', factory: () => hashbrownBackend, label: 'Hashbrown · client' });
@@ -604,14 +604,14 @@ The chat shell's tools sidebar / widget rail feature-detect via `backend.capabil
 > **Scenario.** One chat panel for the whole eDiscovery matter. The user asks about custodians (collection specialist), then about a privilege flag (review specialist), then about Bates assignment (production specialist) — all without losing context. Routing decisions stay sticky for follow-up turns so the user can say "what about that one?" without naming the specialist.
 
 **Library responsibility.**
-- `OrchestratorAgent` (server-side, in `@maverick/agentic-ui-server`) classifies each user turn against your specialists' descriptions + examples, then runs the chosen specialist.
+- `OrchestratorAgent` (server-side, in `@infra-tools/agentic-ui-server`) classifies each user turn against your specialists' descriptions + examples, then runs the chosen specialist.
 - A per-thread `ThreadStateStore` (in-memory by default; Redis adapter in cookbook) remembers the last specialist and replays it on the next turn unless the classifier explicitly switches.
 - The "Routed to **review** specialist." banner in the demo is a cheap UX hint, not state — it's just the orchestrator emitting a text-delta when routing changes.
 
 **Wiring (server side).**
 
 ```ts
-import { OrchestratorAgent, GeminiAgent } from '@maverick/agentic-ui-server';
+import { OrchestratorAgent, GeminiAgent } from '@infra-tools/agentic-ui-server';
 
 const coordinator = new OrchestratorAgent('coordinator', {
   apiKey, model: 'gemini-2.0-flash',
@@ -643,7 +643,7 @@ The orchestrator handles the routing loop. From the host's perspective, it's sti
 **Wiring.**
 
 ```ts
-import { provideToolFilter, keywordToolFilter } from '@maverick/agentic-ui';
+import { provideToolFilter, keywordToolFilter } from '@infra-tools/agentic-ui';
 
 provideAgenticUi({
   // ...
@@ -664,14 +664,14 @@ For 17+ tool inventories like the eDiscovery demo, this typically narrows each t
 > **Scenario.** Your tool definitions are valuable IP — you want them callable not just from your in-browser chat shell, but also from Claude Desktop, Cursor, and Zed via the Model Context Protocol. One source of truth, three surfaces.
 
 **Library responsibility.**
-- `@maverick/agentic-ui-mcp` is a separate package that wraps `ToolDef` instances as an MCP server.
+- `@infra-tools/agentic-ui-mcp` is a separate package that wraps `ToolDef` instances as an MCP server.
 - `createMcpServer({ tools, transport })` produces a Hono-mountable server that speaks MCP over stdio, SSE, or the `text/html;profile=mcp-app` HTTP profile.
 - Same Zod schemas, same handlers — only the transport differs.
 
 **Wiring.**
 
 ```ts
-import { createMcpServer } from '@maverick/agentic-ui-mcp';
+import { createMcpServer } from '@infra-tools/agentic-ui-mcp';
 import { searchDocuments, markPrivileged, tagDocument } from './tools';
 
 // In your agent server (or a separate Node process):
@@ -704,13 +704,13 @@ The paralegal MCP cookbook walks through a privilege-review flow where the same 
 
 **Library responsibility.**
 - `AgenticTelemetrySink` is a no-op interface by default; the library emits at every meaningful boundary (`agentic.run`, `agentic.tool_call`, `agentic.widget_render`, `agentic.federation.load`).
-- `@maverick/agentic-ui/otel` ships the OpenTelemetry-backed sink; opt-in via `provideAgenticTelemetry(...)`.
+- `@infra-tools/agentic-ui/otel` ships the OpenTelemetry-backed sink; opt-in via `provideAgenticTelemetry(...)`.
 - The AG-UI adapter inserts `traceparent` into request headers; the server-side route extracts it and continues the trace inside Mastra/Hono.
 
 **Wiring.**
 
 ```ts
-import { provideAgenticTelemetry } from '@maverick/agentic-ui/otel';
+import { provideAgenticTelemetry } from '@infra-tools/agentic-ui/otel';
 
 provideAgenticUi({
   // ...
@@ -734,7 +734,7 @@ Defaults are conservative: tool args / message bodies are never captured as span
 > **Scenario.** A regulated domain (eDiscovery, finance, healthcare). Every state-mutating tool call needs to land in an immutable audit log: who did what, when, what the previous state was, with a hash chain so any tamper attempt breaks the chain visibly.
 
 **Library responsibility.**
-This is *not* core to `@maverick/agentic-ui` — auditing is application-layer work. But the library makes the right hooks visible:
+This is *not* core to `@infra-tools/agentic-ui` — auditing is application-layer work. But the library makes the right hooks visible:
 - Every tool's `handler(args, ctx)` knows the actor (`ctx.session`) and the persona (via your scope policy from use case 4).
 - The `AgenticTelemetrySink` from use case 9 emits a `tool-call` span you can fan out to your audit sink alongside OTel.
 - The eDiscovery demo's mock data layer shows the recommended **prevHash / chainHash** pattern: every `appendAudit(event)` auto-stamps `prevHash` (last entry's hash) and `chainHash` (hash of `event + prevHash`). Replay verifies the chain.
@@ -942,7 +942,7 @@ import {
   provideAgenticUi,
   provideAgenticPlatform,
   provideAgUiBackend,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 
 const CATALOG_URL = 'https://catalog.example.com';
 
@@ -1027,14 +1027,14 @@ The eDiscovery demo ships a Teams manifest scaffold at `examples/demo-ediscovery
 > **Scenario.** Operators don't just want the app inside Teams — they want to **converse with the agent in Teams chat** (channel / DM / group). Tool results render as Adaptive Cards in the conversation; rich UIs deep-link back to the Teams Tab.
 
 **Library responsibility.**
-- `@maverick/agentic-ui-teams-bot` wraps the Bot Framework webhook protocol: JWT verify against Microsoft's Bot Connector keys, activity parse, AAD client-credentials bearer for outbound replies, Adaptive Card response builder.
+- `@infra-tools/agentic-ui-teams-bot` wraps the Bot Framework webhook protocol: JWT verify against Microsoft's Bot Connector keys, activity parse, AAD client-credentials bearer for outbound replies, Adaptive Card response builder.
 - New `adaptiveCard?: object` field on `ToolResultRenderHints` ([ADR-041](./adr/0041-teams-copilot-external-surfaces.md) D2) is the highest-fidelity render in Teams; tools without it fall back to the generic `widgetFallbackCard` derived from their `components` array.
 
 **Wiring.**
 
 ```ts
 import express from 'express';
-import { createTeamsBotMiddleware, type TeamsBotHandler } from '@maverick/agentic-ui-teams-bot';
+import { createTeamsBotMiddleware, type TeamsBotHandler } from '@infra-tools/agentic-ui-teams-bot';
 
 const handler: TeamsBotHandler = async function*({ activity, identity }) {
   const principal = await mapTeamsToCatalog(identity);
@@ -1063,14 +1063,14 @@ Fidelity matrix: F4 approvals + F5 long-running operations render natively in Te
 > **Scenario.** Your developers and analysts already live in GitHub Copilot Chat (VS Code, JetBrains, github.com). You want them to invoke the catalog's tools from there — `@maverick-ediscovery place a legal hold for Project Phoenix`.
 
 **Library responsibility.**
-- `@maverick/agentic-ui-copilot-skill` is a server-side library that wraps the [GitHub Copilot Extensions](https://docs.github.com/copilot/building-copilot-extensions) webhook protocol: GitHub signed-request verification, body parse, identity extraction, OpenAI-shaped SSE response streaming.
+- `@infra-tools/agentic-ui-copilot-skill` is a server-side library that wraps the [GitHub Copilot Extensions](https://docs.github.com/copilot/building-copilot-extensions) webhook protocol: GitHub signed-request verification, body parse, identity extraction, OpenAI-shaped SSE response streaming.
 - Same `SkillHandler` shape as the Teams Bot adapter — your existing agent loop plugs in unchanged.
 
 **Wiring.**
 
 ```ts
 import express from 'express';
-import { createCopilotSkillMiddleware, type SkillHandler } from '@maverick/agentic-ui-copilot-skill';
+import { createCopilotSkillMiddleware, type SkillHandler } from '@infra-tools/agentic-ui-copilot-skill';
 
 const handler: SkillHandler = async function*({ body, identity }) {
   const principal = await mapGitHubToCatalog(identity);
@@ -1096,7 +1096,7 @@ Two-week vertical slice covering the protocol layer + the GitHub App registratio
 > **Scenario.** Your enterprise runs on Microsoft 365 Copilot — across Word, Outlook, Teams, and the Copilot web surface. You want every catalog tool callable from Copilot Studio's NL routing without the user thinking about which app they're in.
 
 **Library responsibility.**
-- `@maverick/agentic-ui-copilot-studio-connector` ([ADR-042](./adr/0042-copilot-studio-connector.md)) translates Zod tool schemas into a Power Platform-importable Connector OpenAPI manifest at build time, then dispatches inbound action calls at runtime.
+- `@infra-tools/agentic-ui-copilot-studio-connector` ([ADR-042](./adr/0042-copilot-studio-connector.md)) translates Zod tool schemas into a Power Platform-importable Connector OpenAPI manifest at build time, then dispatches inbound action calls at runtime.
 - `zodToOpenApi(schema)` covers the subset of Zod the catalog actually uses (primitives + refinements + format hints); unsupported types fall back to permissive `additionalProperties: true` with server-side re-validation as the safety net.
 - `verifyConnectorJwt` validates the inbound Azure AD v2.0 bearer (audience + tenant whitelist + JWKS).
 - Per-persona Connector publishing — junior staff don't see export tools.
@@ -1105,7 +1105,7 @@ Two-week vertical slice covering the protocol layer + the GitHub App registratio
 
 ```ts
 // Build a Connector OpenAPI doc from your Zod tool schemas.
-import { buildConnectorManifest } from '@maverick/agentic-ui-copilot-studio-connector';
+import { buildConnectorManifest } from '@infra-tools/agentic-ui-copilot-studio-connector';
 writeFileSync('dist/connector.json', JSON.stringify(buildConnectorManifest({
   title: 'Maverick eDiscovery',
   description: 'Catalog tools for M365 Copilot.',
@@ -1121,7 +1121,7 @@ writeFileSync('dist/connector.json', JSON.stringify(buildConnectorManifest({
 
 ```ts
 import express from 'express';
-import { createConnectorMiddleware, type ConnectorActionHandler } from '@maverick/agentic-ui-copilot-studio-connector';
+import { createConnectorMiddleware, type ConnectorActionHandler } from '@infra-tools/agentic-ui-copilot-studio-connector';
 
 const handlers = new Map<string, ConnectorActionHandler>();
 handlers.set('placeLegalHold', async ({ args, identity }) => {
@@ -1158,9 +1158,9 @@ Import `dist/connector.json` into Power Platform → publish to Copilot Studio �
 - Wire your app to a catalog server: [ADR-031](./adr/0031-provide-agentic-platform.md) walks through `provideAgenticPlatform` end-to-end. The [2026-05-10 platform audit](./audit/2026-05-10-platform-audit.md) explains *why* each of the four feature switches exists and what was missing before.
 - Generate your own tool / widget / backend with the schematics:
   ```bash
-  npx ng g @maverick/agentic-ui:tool myTool --project=demo-monolith
-  npx ng g @maverick/agentic-ui:widget MyWidget --project=demo-monolith
-  npx ng g @maverick/agentic-ui:backend AcmeBackend --project=demo-monolith
+  npx ng g @infra-tools/agentic-ui:tool myTool --project=demo-monolith
+  npx ng g @infra-tools/agentic-ui:widget MyWidget --project=demo-monolith
+  npx ng g @infra-tools/agentic-ui:backend AcmeBackend --project=demo-monolith
   ```
 
 If anything in this guide doesn't behave as documented, please open an issue with:

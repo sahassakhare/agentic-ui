@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { WorkflowRendererComponent } from '@maverick/agentic-ui';
+import { WorkflowRendererComponent } from '@infra-tools/agentic-ui';
 
 /**
  * Direct-mount surface for the `placeLegalHold` workflow — same

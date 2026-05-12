@@ -1,6 +1,6 @@
-# @maverick/agentic-ui-copilot-skill
+# @infra-tools/agentic-ui-copilot-skill
 
-GitHub Copilot Extensions adapter for the `@maverick/agentic-ui`
+GitHub Copilot Extensions adapter for the `@infra-tools/agentic-ui`
 platform. Lets GitHub Copilot Chat (across VS Code, JetBrains,
 github.com) invoke any tool registered with our catalog through
 a thin server-side webhook.
@@ -44,7 +44,7 @@ import express from 'express';
 import {
   createCopilotSkillMiddleware,
   type SkillHandler,
-} from '@maverick/agentic-ui-copilot-skill';
+} from '@infra-tools/agentic-ui-copilot-skill';
 
 // Plug your own LLM behind this handler. The example uses a stub
 // that just echoes back. In production you'd call Gemini / OpenAI
@@ -78,7 +78,7 @@ The middleware:
 ## Wire to a real agent
 
 Replace the stub `handler` with your existing agent loop. If
-you're using `@maverick/agentic-ui-server`'s AG-UI Agent
+you're using `@infra-tools/agentic-ui-server`'s AG-UI Agent
 interface, the shape maps cleanly:
 
 ```ts

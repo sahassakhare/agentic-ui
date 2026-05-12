@@ -1,4 +1,4 @@
-import { agenticTool } from '@maverick/agentic-ui';
+import { agenticTool } from '@infra-tools/agentic-ui';
 import {
   addProductionSet,
   appendAudit,
@@ -8,7 +8,7 @@ import {
   nextProductionSetId,
   validateBatesPattern,
   type ProductionSet,
-} from '@maverick/demo-ediscovery-shared';
+} from '@infra-tools/demo-ediscovery-shared';
 import { z } from 'zod';
 import { ACTOR, MATTER_ID } from '../matter-context';
 

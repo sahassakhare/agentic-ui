@@ -16,7 +16,7 @@
 >
 > Apps shipped under `examples/`: `demo-ediscovery-{shared,server,shell,review,production,search,mcp}`. Open `:4300` for the host shell.
 >
-> **Why this plan**: the existing example apps (demo-monolith, demo-multi-agent, demo-shell + remotes, demo-feature-tour, demo-mcp-server) are deliberately small to keep each one inspectable. They demonstrate single concepts in isolation. They do **not** show what `@maverick/agentic-ui` looks like under real enterprise load: dozens of tools per matter, multi-tenant data isolation, regulatory audit trails, per-role permissions, federated remotes from independent teams, MCP integration for analyst workstations.
+> **Why this plan**: the existing example apps (demo-monolith, demo-multi-agent, demo-shell + remotes, demo-feature-tour, demo-mcp-server) are deliberately small to keep each one inspectable. They demonstrate single concepts in isolation. They do **not** show what `@infra-tools/agentic-ui` looks like under real enterprise load: dozens of tools per matter, multi-tenant data isolation, regulatory audit trails, per-role permissions, federated remotes from independent teams, MCP integration for analyst workstations.
 >
 > An eDiscovery application exercises every load-bearing library feature simultaneously and is a recognisable, regulated, complex domain — the right shape to validate the architecture and to give consumers a reference of "this is what the library looks like at scale."
 
@@ -324,7 +324,7 @@ Production-grade defensibility. Every tool call becomes an audit event.
 
 Paralegals run their privilege review in Claude Desktop or Cursor without opening the web app.
 
-- [x] `examples/demo-ediscovery-mcp/` — Node-only MCP server using `@maverick/agentic-ui-mcp`
+- [x] `examples/demo-ediscovery-mcp/` — Node-only MCP server using `@infra-tools/agentic-ui-mcp`
   - 5 tools: `searchDocuments`, `tagDocument`, `markPrivileged`, `addToPrivilegeLog`, `runTARClassifier`
   - All write through shared `appendAudit` — Phase 5's chain covers MCP-driven mutations too
   - `beforeCall` + `afterCall` log to stderr (visible in Claude Desktop's MCP log file)

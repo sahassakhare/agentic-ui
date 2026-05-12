@@ -67,7 +67,7 @@ flowchart LR
 ## Step 1 — register a data source
 
 ```ts
-import { agenticDataSource, DataSourceRegistry } from '@maverick/agentic-ui';
+import { agenticDataSource, DataSourceRegistry } from '@infra-tools/agentic-ui';
 
 interface DirectoryUser { email: string; name: string; role: string; }
 interface DirectoryUserQuery { prefix?: string; role?: string; }
@@ -118,7 +118,7 @@ the widget consumes; the library validates at mount.
 
 ```ts
 import { Component, computed, inject, signal } from '@angular/core';
-import { DataSourceRegistry } from '@maverick/agentic-ui';
+import { DataSourceRegistry } from '@infra-tools/agentic-ui';
 
 @Component({ /* ... */ })
 export class SupervisorPickerComponent {

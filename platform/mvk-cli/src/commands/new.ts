@@ -5,7 +5,7 @@ import { emit, emitError } from '../output.js';
 import { renderAgenticAppTemplate, validateProjectName } from '../templates/agentic-app.js';
 
 export const newApp: Command = {
-  description: 'Scaffold a new @maverick/agentic-ui Angular app',
+  description: 'Scaffold a new @infra-tools/agentic-ui Angular app',
   usage:
     'mvk new app <name> [--dir <path>] [--with-catalog] [--with-platform] [--tenant <id>] [--dry-run]',
   async run(ctx): Promise<number> {

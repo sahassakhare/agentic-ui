@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { WidgetContainerComponent } from '@maverick/agentic-ui';
+import { WidgetContainerComponent } from '@infra-tools/agentic-ui';
 import { RenderHandoffStore, type ComponentSpec } from '../services/render-handoff.store';
 
 /**

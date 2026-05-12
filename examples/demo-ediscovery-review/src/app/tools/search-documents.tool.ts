@@ -1,5 +1,5 @@
-import { agenticTool } from '@maverick/agentic-ui';
-import { searchDocuments } from '@maverick/demo-ediscovery-shared';
+import { agenticTool } from '@infra-tools/agentic-ui';
+import { searchDocuments } from '@infra-tools/demo-ediscovery-shared';
 import { z } from 'zod';
 import { MATTER_ID } from '../matter-context';
 

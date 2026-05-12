@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { WorkflowRendererComponent } from '@maverick/agentic-ui';
+import { WorkflowRendererComponent } from '@infra-tools/agentic-ui';
 
 /**
  * Generative-UI wrapper for the F3 `placeLegalHold` workflow.

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
-import { listAuditEvents, listDocuments } from '@maverick/demo-ediscovery-shared';
+import { listAuditEvents, listDocuments } from '@infra-tools/demo-ediscovery-shared';
 import { environment } from '../../environments/environment';
 import { MatterStore } from '../services/matter.store';
 import { IconComponent } from '../ui/icon.component';

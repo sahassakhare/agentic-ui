@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/compodoc/compodoc/master/src/compodoc-options.json",
-  "name": "@maverick/agentic-ui",
+  "name": "@infra-tools/agentic-ui",
   "tsconfig": "projects/agentic-ui/tsconfig.lib.json",
   "output": "docs/compodoc",
   "theme": "material",

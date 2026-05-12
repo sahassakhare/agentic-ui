@@ -15,7 +15,7 @@ import { MatterStore } from '../services/matter.store';
 import {
   nextCustodianId,
   type Custodian,
-} from '@maverick/demo-ediscovery-shared';
+} from '@infra-tools/demo-ediscovery-shared';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

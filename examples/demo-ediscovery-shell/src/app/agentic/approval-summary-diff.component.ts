@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { APPROVAL_DIFF_INPUTS } from '@maverick/agentic-ui';
+import { APPROVAL_DIFF_INPUTS } from '@infra-tools/agentic-ui';
 
 /**
  * Generic diff renderer for the F4 approval card.

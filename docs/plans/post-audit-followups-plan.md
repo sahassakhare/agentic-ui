@@ -133,7 +133,7 @@ Step 1 — design: what's the SSE consumer's API? Two options:
 
 I recommend **(b)** — the ops-console already has battle-tested SSE consumer code with reconnect-with-backoff, heartbeat tracking, state signal (`'connecting' | 'live' | 'reconnecting' | 'fallback'`). Extracting it pays dividends across multiple consumers. Approval question below.
 
-Step 2 — extract / build `CatalogSseService` in `@maverick/agentic-ui/platform`:
+Step 2 — extract / build `CatalogSseService` in `@infra-tools/agentic-ui/platform`:
 
 - `EventSource` open against `/v1/catalogs/{tenant}/stream` (with bearer token in URL since `EventSource` doesn't support headers).
 - Reconnect with exponential backoff (2 s → 30 s).

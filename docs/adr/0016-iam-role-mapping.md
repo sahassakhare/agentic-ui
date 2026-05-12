@@ -10,7 +10,7 @@
 
 ## Context
 
-The runtime tier (`@maverick/agentic-ui`) ships a `PersonaService` that
+The runtime tier (`@infra-tools/agentic-ui`) ships a `PersonaService` that
 gates which capabilities, supervisor predicates, and prompts are visible
 to the active user. Today the active persona is selected by the host
 application via constructor input, dev-tools, or hard-coded defaults.
@@ -151,7 +151,7 @@ already RLS-scoped, so per-tenant queries Just Work.
 
 ### D6 — Runtime adapter: `provideCatalogActivePersona({ catalogUrl, claimPath, defaultPersona })`
 
-The runtime adapter ships in `@maverick/agentic-ui` and:
+The runtime adapter ships in `@infra-tools/agentic-ui` and:
 
 1. Reads the user's JWT claims from the configured `tokenSource`.
 2. Posts the relevant claim values to

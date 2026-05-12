@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, viewChild } from '@angular/core';
-import { ChatShellComponent, ToolRegistry, CapabilityRegistry } from '@maverick/agentic-ui';
+import { ChatShellComponent, ToolRegistry, CapabilityRegistry } from '@infra-tools/agentic-ui';
 import { IconComponent } from '../ui/icon.component';
 import { PersonaService } from '../services/persona.service';
 import { ChatBridgeService } from '../services/chat-bridge.service';

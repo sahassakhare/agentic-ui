@@ -1,4 +1,4 @@
-import { agenticWidget } from '@maverick/agentic-ui';
+import { agenticWidget } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 import { ReviewProgressComponent } from './review-progress.component';
 

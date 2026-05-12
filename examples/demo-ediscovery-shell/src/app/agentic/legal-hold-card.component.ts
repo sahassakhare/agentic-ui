@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
-import { ActionRegistry, type ActionContext } from '@maverick/agentic-ui';
+import { ActionRegistry, type ActionContext } from '@infra-tools/agentic-ui';
 
 /**
  * Generative-UI widget for a legal hold. Rendered when a tool returns

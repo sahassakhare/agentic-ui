@@ -64,7 +64,7 @@ matter.
 import {
   agenticApproval,
   ApprovalRegistry,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 
 env.get(ApprovalRegistry).register(
   agenticApproval({
@@ -101,7 +101,7 @@ The intercept uses an injection token rather than depending on a
 specific host service:
 
 ```ts
-import { AGENTIC_ACTIVE_PERSONA } from '@maverick/agentic-ui';
+import { AGENTIC_ACTIVE_PERSONA } from '@infra-tools/agentic-ui';
 
 // In your providers array:
 {
@@ -126,7 +126,7 @@ A generic JSON-table diff is enough for many cases:
 
 ```ts
 import { Component, computed, inject } from '@angular/core';
-import { APPROVAL_DIFF_INPUTS } from '@maverick/agentic-ui';
+import { APPROVAL_DIFF_INPUTS } from '@infra-tools/agentic-ui';
 
 @Component({
   selector: 'app-production-summary-diff',
@@ -172,7 +172,7 @@ The chat-shell intercept emits a synthetic queued result whose
 canonical name. Register the lib's built-in component under that name:
 
 ```ts
-import { ApprovalCardComponent } from '@maverick/agentic-ui';
+import { ApprovalCardComponent } from '@infra-tools/agentic-ui';
 
 agenticWidget({
   name: 'mvk-approval-card',
@@ -194,7 +194,7 @@ mirror them into your audit chain:
 import {
   AGENTIC_APPROVAL_AUDIT_HOOK,
   type ApprovalAuditEvent,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 
 {
   provide: AGENTIC_APPROVAL_AUDIT_HOOK,

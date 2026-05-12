@@ -1,12 +1,12 @@
 import { Component } from '@angular/core';
-import { ChatShellComponent } from '@maverick/agentic-ui';
+import { ChatShellComponent } from '@infra-tools/agentic-ui';
 
 @Component({
   selector: 'app-root',
   imports: [ChatShellComponent],
   template: `
     <header>
-      <h1>@maverick/agentic-ui — multi-agent example</h1>
+      <h1>@infra-tools/agentic-ui — multi-agent example</h1>
       <p>One orchestrator routes to three specialists (bookings, loyalty, support). Try:</p>
       <ul>
         <li><em>"Book a flight from LAX to JFK on March 5"</em></li>

@@ -1,6 +1,6 @@
 import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import { Router } from '@angular/router';
-import { ActionRegistry, agenticAction, type ActionDef } from '@maverick/agentic-ui';
+import { ActionRegistry, agenticAction, type ActionDef } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 
 /**

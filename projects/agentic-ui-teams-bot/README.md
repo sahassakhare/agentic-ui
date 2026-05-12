@@ -1,7 +1,7 @@
-# @maverick/agentic-ui-teams-bot
+# @infra-tools/agentic-ui-teams-bot
 
 Microsoft Teams Bot Framework adapter for the
-`@maverick/agentic-ui` platform. Lets the agent answer **inside
+`@infra-tools/agentic-ui` platform. Lets the agent answer **inside
 Teams chat** (channel / group chat / 1:1 DM) by posting Adaptive
 Cards into the conversation.
 
@@ -42,7 +42,7 @@ import express from 'express';
 import {
   createTeamsBotMiddleware,
   type TeamsBotHandler,
-} from '@maverick/agentic-ui-teams-bot';
+} from '@infra-tools/agentic-ui-teams-bot';
 
 const handler: TeamsBotHandler = async function*({ activity, identity, signal }) {
   // Plug your own LLM here -- this stub just echoes.
@@ -109,7 +109,7 @@ tools that don't get the generic `widgetFallbackCard` fallback
 plus an "Open in app" deep-link to your Teams Tab.
 
 ```ts
-import { widgetFallbackCard, type TeamsBotEvent } from '@maverick/agentic-ui-teams-bot';
+import { widgetFallbackCard, type TeamsBotEvent } from '@infra-tools/agentic-ui-teams-bot';
 
 const handler: TeamsBotHandler = async function*({ activity, identity, signal }) {
   const principal = await mapTeamsToCatalog(identity);

@@ -58,7 +58,7 @@ import { errorCard, welcomeCard } from './adaptive-card.js';
  * @example
  * ```ts
  * import express from 'express';
- * import { createTeamsBotMiddleware } from '@maverick/agentic-ui-teams-bot';
+ * import { createTeamsBotMiddleware } from '@infra-tools/agentic-ui-teams-bot';
  *
  * const app = express();
  * app.post(

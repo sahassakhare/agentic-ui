@@ -1,7 +1,7 @@
-# @maverick/agentic-ui
+# @infra-tools/agentic-ui
 
 [![ci](https://github.com/sahassakhare/agentic-ui/actions/workflows/ci.yml/badge.svg)](https://github.com/sahassakhare/agentic-ui/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@maverick/agentic-ui.svg)](https://www.npmjs.com/package/@maverick/agentic-ui)
+[![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui)
 [![Angular](https://img.shields.io/badge/angular-21-DD0031?logo=angular&logoColor=white)](https://angular.dev)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.19-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
@@ -87,12 +87,12 @@ It's the **plumbing between your app code and the agentic protocols**. You write
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │  YOUR APP                                                            │
-│    import { ChatShellComponent } from '@maverick/agentic-ui';        │  ← write once,
+│    import { ChatShellComponent } from '@infra-tools/agentic-ui';        │  ← write once,
 │    <mvk-chat-shell />        no fetch, no SSE parsing, no DOM glue   │    never rewrite
 └─────────────────────────────────┬────────────────────────────────────┘
                                   │  one consistent interface
 ┌─────────────────────────────────▼────────────────────────────────────┐
-│  @maverick/agentic-ui                                                │
+│  @infra-tools/agentic-ui                                                │
 │    · Chat shell + widget container + form renderer                   │  ← this library
 │    · 15 registries (tool, component, action, form, …) all uniform    │
 │    · Orchestration loop · runUntilSettled · abort signals            │
@@ -126,7 +126,7 @@ flowchart TB
 
     APP["YOUR APP<br/>mvk-chat-shell<br/>write once · never rewrite"]:::app
 
-    subgraph LIB["@maverick/agentic-ui (this library)"]
+    subgraph LIB["@infra-tools/agentic-ui (this library)"]
         L1["Chat shell · widget container · form renderer"]:::lib
         L2["15 registries — Tool · Component · Action · Form · Approval · Operation · …"]:::lib
         L3["Orchestration loop · runUntilSettled · abort signals"]:::lib
@@ -186,7 +186,7 @@ Twenty-one distinct scenarios the library covers, ranked roughly by adoption ord
 | 5 | **Backend swap (AG-UI ↔ Hashbrown ↔ A2UI)** — one shell, three protocols | `AgenticBackend` interface | Architects |
 | 6 | **Multi-agent orchestration** — sticky routing across specialists | `OrchestratorAgent` · `ThreadStateStore` | Architects |
 | 7 | **Per-turn tool budget at scale** — keyword-filtered tool list per prompt | `provideToolFilter(keywordToolFilter({maxTools, floor}))` | Architects |
-| 8 | **MCP — same tools power Claude Desktop / Cursor** | `@maverick/agentic-ui-mcp` | Execs + architects |
+| 8 | **MCP — same tools power Claude Desktop / Cursor** | `@infra-tools/agentic-ui-mcp` | Execs + architects |
 | 9 | **Observability — distributed tracing per chat turn** | `AgenticTelemetrySink` · `/otel` entry | Architects + devs |
 | 10 | **Audit trail / chain-of-custody** — tamper-evident state mutations | Pattern: `prevHash` / `chainHash` + telemetry | Execs + architects |
 | 11 | **Composable forms at runtime** — agent picks sections from registered widgets; predicates toggle on persona / matter / partial values; values survive section unmount with drop/keep prompt | `agenticForm({ composition: [...] })` · `CompositionStore` · `<mvk-form-renderer>` ([cookbook](./docs/cookbook/composable-intake-form.md)) | Architects + product |
@@ -197,9 +197,9 @@ Twenty-one distinct scenarios the library covers, ranked roughly by adoption ord
 | 16 | **Multi-modal input** — paperclip / drag-drop / paste-image on the chat composer; client-side MIME + size validation; transcript renders text / image / file parts; backends without multi-modal capability text-only fallback with explicit warning | `MessageContent` union · `BackendCapabilities.multiModal` · `<mvk-chat-shell>` composer affordances ([cookbook](./docs/cookbook/multi-modal-input.md)) | Architects + product |
 | 17 | **Wire the catalog platform** — single composite provider for IAM persona + MFE registry + capability registrar/authorizer + usage metering | `provideAgenticPlatform({...})` ([ADR-031](./docs/adr/0031-provide-agentic-platform.md)) | Architects + execs |
 | 18 | **External surface — Teams Tab embed** — same Angular app inside a Teams Tab, with tenant + UPN + theme bridged into the catalog | `provideTeamsContext({ loadContext })` ([cookbook](./docs/cookbook/teams-tab-embed.md)) | Architects + execs |
-| 19 | **External surface — Teams chat (Bot Framework)** — converse with the agent in Teams chat; tool results render as Adaptive Cards | `@maverick/agentic-ui-teams-bot` ([cookbook](./docs/cookbook/teams-bot-adaptive-cards.md)) | Architects + execs |
-| 20 | **External surface — GitHub Copilot Extension** — `@maverick-ediscovery` invocable from Copilot Chat in VS Code / JetBrains / github.com | `@maverick/agentic-ui-copilot-skill` ([cookbook](./docs/cookbook/github-copilot-extension.md)) | Architects + execs |
-| 21 | **External surface — M365 Copilot Studio Connector** — every catalog tool becomes a Power Platform action callable from Word / Outlook / Teams / Copilot web | `@maverick/agentic-ui-copilot-studio-connector` ([ADR-042](./docs/adr/0042-copilot-studio-connector.md), [cookbook](./docs/cookbook/copilot-studio-connector.md)) | Architects + execs |
+| 19 | **External surface — Teams chat (Bot Framework)** — converse with the agent in Teams chat; tool results render as Adaptive Cards | `@infra-tools/agentic-ui-teams-bot` ([cookbook](./docs/cookbook/teams-bot-adaptive-cards.md)) | Architects + execs |
+| 20 | **External surface — GitHub Copilot Extension** — `@maverick-ediscovery` invocable from Copilot Chat in VS Code / JetBrains / github.com | `@infra-tools/agentic-ui-copilot-skill` ([cookbook](./docs/cookbook/github-copilot-extension.md)) | Architects + execs |
+| 21 | **External surface — M365 Copilot Studio Connector** — every catalog tool becomes a Power Platform action callable from Word / Outlook / Teams / Copilot web | `@infra-tools/agentic-ui-copilot-studio-connector` ([ADR-042](./docs/adr/0042-copilot-studio-connector.md), [cookbook](./docs/cookbook/copilot-studio-connector.md)) | Architects + execs |
 
 > **Each use case has a dedicated walkthrough in the [User Guide → Use cases](./docs/USER_GUIDE.md#use-cases).** The walkthroughs include scenario, library responsibility, minimal wiring code, and a link to the relevant cookbook entry.
 
@@ -269,7 +269,7 @@ Twenty-one distinct scenarios the library covers, ranked roughly by adoption ord
                │ HTTP / SSE                          │ HTTP discovery
                ▼                                     ▼
        Agent server  (Node)                MFE registry  (external)
-       @maverick/agentic-ui-server          Spring Boot OR static JSON
+       @infra-tools/agentic-ui-server          Spring Boot OR static JSON
        /api/agents/:id/run  ── SSE          via MfeRegistrySource
        ServerAgent implementations          GET /mfes?env=...
        (GeminiAgent, EchoAgent, ...)        SSE /mfes/watch
@@ -333,9 +333,9 @@ flowchart TB
 
     subgraph ADAPTERS["External-surface adapters"]
         A0["provideTeamsContext<br/>(in-app · signal seam)"]:::adapter
-        A1["@maverick/agentic-ui-teams-bot<br/>(JWT + AC)"]:::adapter
-        A2["@maverick/agentic-ui-copilot-skill<br/>(ECDSA + SSE)"]:::adapter
-        A3["@maverick/agentic-ui-copilot-studio-connector<br/>(AAD + OpenAPI)"]:::adapter
+        A1["@infra-tools/agentic-ui-teams-bot<br/>(JWT + AC)"]:::adapter
+        A2["@infra-tools/agentic-ui-copilot-skill<br/>(ECDSA + SSE)"]:::adapter
+        A3["@infra-tools/agentic-ui-copilot-studio-connector<br/>(AAD + OpenAPI)"]:::adapter
     end
 
     S0["Teams Tab<br/>(host app in a tab)"]:::surface
@@ -353,17 +353,17 @@ flowchart TB
 | Phase | Package | Surface | Wire format | Auth | Cookbook |
 |-------|---------|---------|-------------|------|----------|
 | P0 | `provideTeamsContext` (in-lib) | Teams Tab | n/a — embeds the Angular app | Teams SSO (host-side) | [teams-tab-embed](./docs/cookbook/teams-tab-embed.md) |
-| P1 | `@maverick/agentic-ui-teams-bot` | Teams chat | Bot Framework activities + Adaptive Cards | JWT verify against Bot Connector keys; AAD client-credentials for outbound | [teams-bot-adaptive-cards](./docs/cookbook/teams-bot-adaptive-cards.md) |
-| P2 | `@maverick/agentic-ui-copilot-skill` | GitHub Copilot Chat | Signed JSON webhook + OpenAI-shaped SSE | GitHub ECDSA P-256 signed-request verify | [github-copilot-extension](./docs/cookbook/github-copilot-extension.md) |
-| P3 | `@maverick/agentic-ui-copilot-studio-connector` | Microsoft 365 Copilot | Power Platform OpenAPI 2.0 + Adaptive Card response | Azure AD v2.0 JWT (tenant whitelist + JWKS) | [copilot-studio-connector](./docs/cookbook/copilot-studio-connector.md) |
+| P1 | `@infra-tools/agentic-ui-teams-bot` | Teams chat | Bot Framework activities + Adaptive Cards | JWT verify against Bot Connector keys; AAD client-credentials for outbound | [teams-bot-adaptive-cards](./docs/cookbook/teams-bot-adaptive-cards.md) |
+| P2 | `@infra-tools/agentic-ui-copilot-skill` | GitHub Copilot Chat | Signed JSON webhook + OpenAI-shaped SSE | GitHub ECDSA P-256 signed-request verify | [github-copilot-extension](./docs/cookbook/github-copilot-extension.md) |
+| P3 | `@infra-tools/agentic-ui-copilot-studio-connector` | Microsoft 365 Copilot | Power Platform OpenAPI 2.0 + Adaptive Card response | Azure AD v2.0 JWT (tenant whitelist + JWKS) | [copilot-studio-connector](./docs/cookbook/copilot-studio-connector.md) |
 
-[ADR-041](./docs/adr/0041-teams-copilot-external-surfaces.md) and [ADR-042](./docs/adr/0042-copilot-studio-connector.md) document the design contracts. The integration plan that prioritised these four paths is at [docs/plans/teams-copilot-integration-plan.md](./docs/plans/teams-copilot-integration-plan.md). All four are **additive** — runtime tier (`@maverick/agentic-ui`) is unchanged; adopters install only the adapters they need.
+[ADR-041](./docs/adr/0041-teams-copilot-external-surfaces.md) and [ADR-042](./docs/adr/0042-copilot-studio-connector.md) document the design contracts. The integration plan that prioritised these four paths is at [docs/plans/teams-copilot-integration-plan.md](./docs/plans/teams-copilot-integration-plan.md). All four are **additive** — runtime tier (`@infra-tools/agentic-ui`) is unchanged; adopters install only the adapters they need.
 
 ## Installation
 
 ```bash
-npm install @maverick/agentic-ui
-ng add @maverick/agentic-ui --backend=ag-ui
+npm install @infra-tools/agentic-ui
+ng add @infra-tools/agentic-ui --backend=ag-ui
 ```
 
 `ng add` patches `app.config.ts` with `provideAgenticUi()` plus the chosen backend provider, scaffolds `src/app/agentic/{tools,widgets}.ts`, and adds the required peer dependencies. Optional peers are flagged in `package.json` so consumers only install what they use.
@@ -386,7 +386,7 @@ The shortest end-to-end example: a single Angular app that streams LLM responses
 ```ts
 // src/app/app.config.ts
 import { ApplicationConfig, provideZonelessChangeDetection } from '@angular/core';
-import { provideAgenticUi, provideAgUiBackend } from '@maverick/agentic-ui';
+import { provideAgenticUi, provideAgUiBackend } from '@infra-tools/agentic-ui';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -405,7 +405,7 @@ export const appConfig: ApplicationConfig = {
 ```ts
 // src/app/app.ts
 import { Component } from '@angular/core';
-import { ChatShellComponent } from '@maverick/agentic-ui';
+import { ChatShellComponent } from '@infra-tools/agentic-ui';
 
 @Component({
   selector: 'app-root',
@@ -426,7 +426,7 @@ capability authorization, and usage metering — all opt-in:
 
 ```ts
 // src/app/app.config.ts
-import { provideAgenticUi, provideAgenticPlatform } from '@maverick/agentic-ui';
+import { provideAgenticUi, provideAgenticPlatform } from '@infra-tools/agentic-ui';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -475,7 +475,7 @@ What ships through Phase 7 — quick reference:
 - **Phase 3** — production remote + Bates chain + productionConfigForm + canvas redaction widget
 - **Phase 4** — search remote + DataSource + TAR classifier + `keywordToolFilter` activation
 - **Phase 5** — tamper-evident audit chain + `chain-of-custody` report widget + integrity badge
-- **Phase 6** — MCP server (`@maverick/demo-ediscovery-mcp`) for analyst workstations
+- **Phase 6** — MCP server (`@infra-tools/demo-ediscovery-mcp`) for analyst workstations
 - **Phase 7** — persona permission shim (5 personas, allow-listed tools, live tool-count badge)
 
 ### Single-process examples
@@ -596,7 +596,7 @@ Open <http://localhost:4201>, <http://localhost:4203>, and <http://localhost:420
 | [Federation at scale](./docs/cookbook/federation-at-scale.md) | Capability prefetch (manifest-only registration without bundle load) + per-turn tool filtering — what's needed at 50+ remotes / 200+ tools. |
 | [Registries vs. industry](./docs/architecture/registries-vs-industry.md) | Comparison of our 15 registries against agent SDKs (CopilotKit, LangChain, Vercel AI) and plugin platforms (VS Code, Backstage). Governance gaps + integration map onto the existing `RegistryBase`. |
 | [Roadmap](./ROADMAP.md) | Researched extension recommendations + phased plan. Tier 1 (MCP server, user-in-the-loop confirmations, streaming citations, memory registry, cost gates), Tier 2 (streaming structured output, eval adapters, code-interpreter, voice), Tier 3 (deferred). Each item has industry context, API sketch, effort estimate, acceptance criteria, risks. |
-| [ADR-006 — MCP server-side adapter](./docs/adr/0006-mcp-server-side-adapter.md) | Design rationale for `@maverick/agentic-ui-mcp`. **Status: Accepted (implementing).** |
+| [ADR-006 — MCP server-side adapter](./docs/adr/0006-mcp-server-side-adapter.md) | Design rationale for `@infra-tools/agentic-ui-mcp`. **Status: Accepted (implementing).** |
 | [Platform audit — 2026-05-10](./docs/audit/2026-05-10-platform-audit.md) | Industry-standard scorecard (Auth/AuthZ, Multi-tenancy, Audit, API design, Real-time, Observability, Reliability, Security, Operational, Governance) + four runtime↔platform integration gaps + prioritized recommendations. **Status: Gaps 4 / 1 / 3 / 2 closed by ADR-031–034 (shipped).** |
 | [ADR-031 — `provideAgenticPlatform`](./docs/adr/0031-provide-agentic-platform.md) | Single-config-point composite provider. Closes audit Gap 4. **Status: Accepted (shipped).** |
 | [ADR-032 — Catalog capability registrar](./docs/adr/0032-catalog-capability-registrar.md) | Boot-time auto-POST of registered tools/widgets to the catalog; idempotent via `(tenant, kind, name)` UNIQUE constraint. Server-side: `POST capabilities` returns 409 (not 500) on duplicate. Closes audit Gap 1. **Status: Accepted (shipped).** |
@@ -604,7 +604,7 @@ Open <http://localhost:4201>, <http://localhost:4203>, and <http://localhost:420
 | [ADR-034 — Catalog usage metering](./docs/adr/0034-catalog-usage-metering.md) | Wraps `AGENTIC_TELEMETRY_SINK` so tool call / widget render / federation load events become catalog usage POSTs; batched flush; `delegate` preserves the host's existing sink. Closes audit Gap 2. **Status: Accepted (shipped).** |
 | [Plan — Enterprise eDiscovery example app](./docs/plans/ediscovery-app-plan.md) | Eight-phase plan for a complex enterprise reference application that exercises every load-bearing library feature simultaneously (federation, multi-agent, MCP, all 13 registries from the v1.1 baseline, audit trails, permission scopes). **Status: All 8 phases shipped — see `examples/demo-ediscovery-{shared,server,shell,review,production,search,mcp}/`.** |
 | [Plan — Dynamic-UI program (r3 enterprise spec)](./docs/plans/ediscovery-dynamic-ui-plan.md) | Six-capability program (F1–F6 — composable forms, live data, workflows, approval, long-running operations, multi-modal input) built on top of the eDiscovery flagship. NFRs, threat model, capability G/W/T acceptance criteria, observability + test + release + cost + ops sections, risk register, phase gates with exit criteria. **Status: F1–F6 lib + demo + cookbook + Playwright shipped (F6 slice 1).** |
-| [Plan — Platform evolution (v3 — fully open-source)](./docs/plans/platform-evolution-plan.md) | Three-tier platform direction (runtime / control plane / ecosystem), all Apache 2.0, layered sustainability (sponsorship + services + hosted). M1–M8 milestones over 24–36 months. **Status: M1 R1–R5 shipped — platform-seams map, RegistryProviderHook, Redis/Postgres ThreadStateStore adapters (`@maverick/agentic-ui-server-stores`), AG-UI state channel, governance hooks (requiredHostVersion / tags / owner / lifecycle).** |
+| [Plan — Platform evolution (v3 — fully open-source)](./docs/plans/platform-evolution-plan.md) | Three-tier platform direction (runtime / control plane / ecosystem), all Apache 2.0, layered sustainability (sponsorship + services + hosted). M1–M8 milestones over 24–36 months. **Status: M1 R1–R5 shipped — platform-seams map, RegistryProviderHook, Redis/Postgres ThreadStateStore adapters (`@infra-tools/agentic-ui-server-stores`), AG-UI state channel, governance hooks (requiredHostVersion / tags / owner / lifecycle).** |
 | [ADR-010 — Platform principles + Apache 2.0](./docs/adr/0010-platform-principles-and-license.md) | The two non-negotiable principles (P1 embedded-first, P2 zero breaking changes through v1.x) + codified non-goals (no Temporal / NATS / OPA / OpenSearch in the runtime, no closed-source features at any tier, no relicensing). Frozen contracts. |
 | [docs/architecture/platform-seams.md](./docs/architecture/platform-seams.md) | The definitive map of every platform contract: 12 InjectionTokens, 2 registry methods (`setScopePolicy` + `setProviderHook`), 12 `provideX` factories, 4 audit/telemetry hooks, 1 server-side store interface (3 adapters), 4 governance metadata fields. **Read first** if you're integrating, contributing, or reviewing a PR. |
 | [Expose your tools as an MCP server](./docs/cookbook/mcp-server.md) | Wrap any `ToolDef[]` with `createMcpServer({...})` so Claude Desktop / Cursor / Zed can call your tools. Includes Claude Desktop config snippet, transport choices (stdio / HTTP / embeddable), `beforeCall`/`afterCall` patterns, production checklist. |
@@ -651,17 +651,17 @@ The npm-published packages cover **547 unit tests** across 46 spec files, execut
 
 | Package | Tests | What's covered |
 |---------|------:|----------------|
-| `@maverick/agentic-ui` (runtime tier) | **459** | Registry base + 15 concrete registries · run orchestrator (turn lifecycle + tool execution + F4 approval + F5 long-running) · `defineCapabilityModule.apply()` / dispose · cross-backend conformance suite · AG-UI converters + event mapper + RxJS bridge · MFE registry sources (static / Spring Boot / REST) · platform providers (catalog IAM, registrar, authorizer, usage metering, Teams context) · form / workflow / approval / operation-progress components · composition store + expression engine · `agentic-form` / `-widget` / `-workflow` / `-approval` factories · schematics snapshot tests for all 10 generators |
-| `@maverick/agentic-ui-mcp` | **24** | `createMcpServer` end-to-end · Zod → MCP JSON-Schema translator · result formatter (text + HTML render hint + image parts) |
-| `@maverick/agentic-ui-teams-bot` | **21** | Activity parser + identity extractor · Adaptive Card builders (`welcomeCard`, `errorCard`, `widgetFallbackCard`) · Bot Connector JWT verifier with real RSA-256 round trips |
-| `@maverick/agentic-ui-copilot-skill` | **17** | GitHub ECDSA P-256 signed-request verifier · request parser · OpenAI-shaped SSE chunk stream |
-| `@maverick/agentic-ui-copilot-studio-connector` | **26** | Zod → OpenAPI translator (every supported primitive + refinement + permissive fallback) · Power-Platform manifest builder · Azure AD JWT verifier (audience + tenant + JWKS) · identity extraction |
+| `@infra-tools/agentic-ui` (runtime tier) | **459** | Registry base + 15 concrete registries · run orchestrator (turn lifecycle + tool execution + F4 approval + F5 long-running) · `defineCapabilityModule.apply()` / dispose · cross-backend conformance suite · AG-UI converters + event mapper + RxJS bridge · MFE registry sources (static / Spring Boot / REST) · platform providers (catalog IAM, registrar, authorizer, usage metering, Teams context) · form / workflow / approval / operation-progress components · composition store + expression engine · `agentic-form` / `-widget` / `-workflow` / `-approval` factories · schematics snapshot tests for all 10 generators |
+| `@infra-tools/agentic-ui-mcp` | **24** | `createMcpServer` end-to-end · Zod → MCP JSON-Schema translator · result formatter (text + HTML render hint + image parts) |
+| `@infra-tools/agentic-ui-teams-bot` | **21** | Activity parser + identity extractor · Adaptive Card builders (`welcomeCard`, `errorCard`, `widgetFallbackCard`) · Bot Connector JWT verifier with real RSA-256 round trips |
+| `@infra-tools/agentic-ui-copilot-skill` | **17** | GitHub ECDSA P-256 signed-request verifier · request parser · OpenAI-shaped SSE chunk stream |
+| `@infra-tools/agentic-ui-copilot-studio-connector` | **26** | Zod → OpenAPI translator (every supported primitive + refinement + permissive fallback) · Power-Platform manifest builder · Azure AD JWT verifier (audience + tenant + JWKS) · identity extraction |
 
 GitHub Actions runs the full pipeline (build → test → three production demo builds → 200 KB FESM size guard) on every push and pull request. See `.github/workflows/ci.yml`. The eDiscovery flagship adds **16 Playwright tests across 6 specs** under [`e2e/`](./e2e/README.md).
 
 ## Versioning and release
 
-`@maverick/agentic-ui` follows [Semantic Versioning](https://semver.org/). Current version: **1.1.0** — see [CHANGELOG.md](./projects/agentic-ui/CHANGELOG.md) for full notes.
+`@infra-tools/agentic-ui` follows [Semantic Versioning](https://semver.org/). Current version: **1.1.0** — see [CHANGELOG.md](./projects/agentic-ui/CHANGELOG.md) for full notes.
 
 ### Publishing to npm
 
@@ -669,23 +669,23 @@ A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflo
 
 | Package | npm | Source dir | Purpose |
 |---|---|---|---|
-| `@maverick/agentic-ui` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui.svg)](https://www.npmjs.com/package/@maverick/agentic-ui) | `projects/agentic-ui` | Angular runtime tier — chat shell, 15 registries, F1-F6 capabilities |
-| `@maverick/agentic-ui-server` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-server.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-server) | `projects/agentic-ui-server` | Server-side helpers — generic Agent interface + AG-UI SSE route handler |
-| `@maverick/agentic-ui-mcp` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-mcp.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-mcp) | `projects/agentic-ui-mcp` | MCP server-side adapter — Claude Desktop / Cursor / Continue / Zed (ADR-006) |
-| `@maverick/agentic-ui-copilot-skill` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-copilot-skill.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-copilot-skill) | `projects/agentic-ui-copilot-skill` | GitHub Copilot Extensions webhook adapter (ADR-041 / plan P2) |
-| `@maverick/agentic-ui-teams-bot` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-teams-bot.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-teams-bot) | `projects/agentic-ui-teams-bot` | Microsoft Teams Bot Framework adapter — Adaptive Cards in Teams chat (ADR-041 / plan P1) |
-| `@maverick/agentic-ui-copilot-studio-connector` | [![npm](https://img.shields.io/npm/v/@maverick/agentic-ui-copilot-studio-connector.svg)](https://www.npmjs.com/package/@maverick/agentic-ui-copilot-studio-connector) | `projects/agentic-ui-copilot-studio-connector` | Microsoft Copilot Studio Connector — exposes catalog tools to M365 Copilot (ADR-041 + ADR-042 / plan P3) |
+| `@infra-tools/agentic-ui` | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui) | `projects/agentic-ui` | Angular runtime tier — chat shell, 15 registries, F1-F6 capabilities |
+| `@infra-tools/agentic-ui-server` | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-server.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-server) | `projects/agentic-ui-server` | Server-side helpers — generic Agent interface + AG-UI SSE route handler |
+| `@infra-tools/agentic-ui-mcp` | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-mcp.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-mcp) | `projects/agentic-ui-mcp` | MCP server-side adapter — Claude Desktop / Cursor / Continue / Zed (ADR-006) |
+| `@infra-tools/agentic-ui-copilot-skill` | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-copilot-skill.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-copilot-skill) | `projects/agentic-ui-copilot-skill` | GitHub Copilot Extensions webhook adapter (ADR-041 / plan P2) |
+| `@infra-tools/agentic-ui-teams-bot` | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-teams-bot.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-teams-bot) | `projects/agentic-ui-teams-bot` | Microsoft Teams Bot Framework adapter — Adaptive Cards in Teams chat (ADR-041 / plan P1) |
+| `@infra-tools/agentic-ui-copilot-studio-connector` | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-copilot-studio-connector.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-copilot-studio-connector) | `projects/agentic-ui-copilot-studio-connector` | Microsoft Copilot Studio Connector — exposes catalog tools to M365 Copilot (ADR-041 + ADR-042 / plan P3) |
 
 Two ways to trigger a publish:
 
 1. **GitHub Release** (recommended). Tag the commit with one of:
-   - `agentic-ui-v1.1.0` → publishes `@maverick/agentic-ui`
-   - `agentic-ui-server-v0.1.0` → publishes `@maverick/agentic-ui-server`
-   - `agentic-ui-mcp-v0.1.0` → publishes `@maverick/agentic-ui-mcp`
-   - `agentic-ui-copilot-skill-v0.1.0` → publishes `@maverick/agentic-ui-copilot-skill`
-   - `agentic-ui-teams-bot-v0.1.0` → publishes `@maverick/agentic-ui-teams-bot`
-   - `agentic-ui-copilot-studio-connector-v0.1.0` → publishes `@maverick/agentic-ui-copilot-studio-connector`
-   - `v1.1.0` (legacy) → publishes the primary `@maverick/agentic-ui`
+   - `agentic-ui-v1.1.0` → publishes `@infra-tools/agentic-ui`
+   - `agentic-ui-server-v0.1.0` → publishes `@infra-tools/agentic-ui-server`
+   - `agentic-ui-mcp-v0.1.0` → publishes `@infra-tools/agentic-ui-mcp`
+   - `agentic-ui-copilot-skill-v0.1.0` → publishes `@infra-tools/agentic-ui-copilot-skill`
+   - `agentic-ui-teams-bot-v0.1.0` → publishes `@infra-tools/agentic-ui-teams-bot`
+   - `agentic-ui-copilot-studio-connector-v0.1.0` → publishes `@infra-tools/agentic-ui-copilot-studio-connector`
+   - `v1.1.0` (legacy) → publishes the primary `@infra-tools/agentic-ui`
 
    Then create the GitHub Release for that tag — the workflow fires automatically on `release: published`.
 

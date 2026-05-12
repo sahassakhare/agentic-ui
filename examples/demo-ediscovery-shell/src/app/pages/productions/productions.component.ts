@@ -6,7 +6,7 @@ import {
   getDocument,
   listProductionSets,
   type ProductionSet,
-} from '@maverick/demo-ediscovery-shared';
+} from '@infra-tools/demo-ediscovery-shared';
 import { environment } from '../../../environments/environment';
 import { MatterStore } from '../../services/matter.store';
 import { IconComponent } from '../../ui/icon.component';

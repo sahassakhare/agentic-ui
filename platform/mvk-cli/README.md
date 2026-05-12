@@ -1,4 +1,4 @@
-# @maverick/mvk
+# @infra-tools/mvk
 
 **Command-line client for the Maverick agentic platform.** First slice
 of M6 from the [platform-evolution plan](../../docs/plans/platform-evolution-plan.md).
@@ -17,7 +17,7 @@ verification in pipelines. Pairs with the
 Once published to npm:
 
 ```bash
-npm install -g @maverick/mvk
+npm install -g @infra-tools/mvk
 mvk --version
 # → 0.1.0
 ```
@@ -207,7 +207,7 @@ mvk whoami             show config (token redacted)
 mvk health             /healthz
 mvk ready              /readyz (DB connectivity)
 
-mvk new app <name>     scaffold a new @maverick/agentic-ui Angular app
+mvk new app <name>     scaffold a new @infra-tools/agentic-ui Angular app
                        (--with-catalog: onboard tenant + sample capability;
                         --with-platform: pre-wire provideAgenticPlatform)
 

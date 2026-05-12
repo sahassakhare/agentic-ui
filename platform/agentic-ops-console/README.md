@@ -1,4 +1,4 @@
-# @maverick/agentic-ops-console
+# @infra-tools/agentic-ops-console
 
 **Ops console over the agentic catalog server.** M2 C6 v0 + C6.1
 from the [platform-evolution plan](../../docs/plans/platform-evolution-plan.md).

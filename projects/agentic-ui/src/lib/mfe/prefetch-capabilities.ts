@@ -32,7 +32,7 @@ import type { CapabilityDef } from '../types/registry-defs';
  *
  * @example
  * ```ts
- * import { prefetchCapabilities, MfeRegistryClient } from '@maverick/agentic-ui';
+ * import { prefetchCapabilities, MfeRegistryClient } from '@infra-tools/agentic-ui';
  *
  * const remotes = await client.discover('dev');
  * await Promise.all(remotes.map((r) => prefetchCapabilities({ remote: r, injector })));

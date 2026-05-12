@@ -5,7 +5,7 @@ import type { CapabilityDef } from '../types/registry-defs';
 /**
  * Indexes loaded MFE remotes and the capabilities (tools, components, actions,
  * forms, prompts) each one exposes. Populated by `loadRemoteCapabilities()`
- * (see `@maverick/agentic-ui/mfe`); read by the chat shell's system-prompt
+ * (see `@infra-tools/agentic-ui/mfe`); read by the chat shell's system-prompt
  * builder and by the run orchestrator when routing tool calls back to the
  * owning remote.
  */

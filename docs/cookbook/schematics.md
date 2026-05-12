@@ -1,6 +1,6 @@
 # Schematics reference
 
-Every artefact in `@maverick/agentic-ui` has a generator. The schematics
+Every artefact in `@infra-tools/agentic-ui` has a generator. The schematics
 collection is shipped with the library, so once it's installed the
 generators are available via `ng add` / `ng generate`.
 
@@ -8,16 +8,16 @@ generators are available via `ng add` / `ng generate`.
 
 | Want to… | Run |
 |---|---|
-| Add the library to an existing app | `ng add @maverick/agentic-ui` |
-| Add a tool the agent can call | `ng g @maverick/agentic-ui:tool <name>` |
-| Add a generative-UI widget | `ng g @maverick/agentic-ui:widget <Name>` |
-| Add a chat shell route | `ng g @maverick/agentic-ui:chat-shell` |
-| Add a custom backend adapter | `ng g @maverick/agentic-ui:backend <Name>` |
-| Spin up an agent server next to your app | `ng g @maverick/agentic-ui:agent-server` |
-| Promote a project into an MFE remote | `ng g @maverick/agentic-ui:mfe-capability <remoteName>` |
-| Add an `ActionRegistry` action (NgRx-style command) | `ng g @maverick/agentic-ui:action <name>` |
-| Map common phrasings to a tool/action/route | `ng g @maverick/agentic-ui:intent <name>` |
-| Add a schema-driven form | `ng g @maverick/agentic-ui:form <name>` |
+| Add the library to an existing app | `ng add @infra-tools/agentic-ui` |
+| Add a tool the agent can call | `ng g @infra-tools/agentic-ui:tool <name>` |
+| Add a generative-UI widget | `ng g @infra-tools/agentic-ui:widget <Name>` |
+| Add a chat shell route | `ng g @infra-tools/agentic-ui:chat-shell` |
+| Add a custom backend adapter | `ng g @infra-tools/agentic-ui:backend <Name>` |
+| Spin up an agent server next to your app | `ng g @infra-tools/agentic-ui:agent-server` |
+| Promote a project into an MFE remote | `ng g @infra-tools/agentic-ui:mfe-capability <remoteName>` |
+| Add an `ActionRegistry` action (NgRx-style command) | `ng g @infra-tools/agentic-ui:action <name>` |
+| Map common phrasings to a tool/action/route | `ng g @infra-tools/agentic-ui:intent <name>` |
+| Add a schema-driven form | `ng g @infra-tools/agentic-ui:form <name>` |
 
 Every generator is a thin wrapper over the same primitives shown in the
 hand-written cookbook entries; you can drop in and out at any time.
@@ -27,7 +27,7 @@ relevant cookbook page.
 ## `ng-add` — bootstrap an app
 
 ```bash
-ng add @maverick/agentic-ui [--project=<name>] \
+ng add @infra-tools/agentic-ui [--project=<name>] \
   [--backend=ag-ui|hashbrown|a2ui] \
   [--agentUrl=<url>] \
   [--telemetry=none|console|otel] \
@@ -36,7 +36,7 @@ ng add @maverick/agentic-ui [--project=<name>] \
 
 What it does:
 
-1. Adds `@maverick/agentic-ui` and `zod` to `dependencies`. Adds optional
+1. Adds `@infra-tools/agentic-ui` and `zod` to `dependencies`. Adds optional
    peers based on `--backend` (`@ag-ui/client` for `ag-ui`).
 2. Patches your project's `app.config.ts` to register `provideAgenticUi`,
    the chosen backend provider, and (if requested) `provideAgenticTelemetry`.
@@ -55,7 +55,7 @@ What it does:
 ## `tool` — scaffold a client tool
 
 ```bash
-ng g @maverick/agentic-ui:tool <name> \
+ng g @infra-tools/agentic-ui:tool <name> \
   [--project=<name>] \
   [--path=app/agentic/tools] \
   [--description="..."] \
@@ -75,7 +75,7 @@ into the nearest `tools.ts` barrel if one exists.
 ## `widget` — scaffold a generative-UI widget
 
 ```bash
-ng g @maverick/agentic-ui:widget <Name> \
+ng g @infra-tools/agentic-ui:widget <Name> \
   [--project=<name>] \
   [--path=app/agentic/widgets] \
   [--prefix=app]
@@ -94,7 +94,7 @@ Generates two files:
 ## `chat-shell` — scaffold a chat route
 
 ```bash
-ng g @maverick/agentic-ui:chat-shell [<Name>] \
+ng g @infra-tools/agentic-ui:chat-shell [<Name>] \
   [--project=<name>] \
   [--path=app/chat] \
   [--prefix=app]
@@ -107,7 +107,7 @@ folder conventions.
 ## `backend` — scaffold a custom AgenticBackend
 
 ```bash
-ng g @maverick/agentic-ui:backend <Name> \
+ng g @infra-tools/agentic-ui:backend <Name> \
   [--project=<name>] \
   [--path=app/agentic/backends]
 ```
@@ -125,14 +125,14 @@ ship an adapter for. Generates:
 ## `agent-server` — scaffold a Hono-based AG-UI server
 
 ```bash
-ng g @maverick/agentic-ui:agent-server [<name>] \
+ng g @infra-tools/agentic-ui:agent-server [<name>] \
   [--directory=projects] \
   [--port=4111]
 ```
 
 Creates a new Node project (default at `projects/<name>-server/`) with:
 
-- `package.json` (Hono, `@maverick/agentic-ui-server`, `dotenv`, `tsx`)
+- `package.json` (Hono, `@infra-tools/agentic-ui-server`, `dotenv`, `tsx`)
 - `tsconfig.json`
 - `src/server.ts` with an `EchoAgent` already wired
 - `.env.example`
@@ -145,7 +145,7 @@ from `demo-server` if you want LLM-backed agents and orchestration.
 ## `mfe-capability` — turn a project into a federation remote
 
 ```bash
-ng g @maverick/agentic-ui:mfe-capability <remoteName> \
+ng g @infra-tools/agentic-ui:mfe-capability <remoteName> \
   [--project=<name>] \
   [--path=app/capability] \
   [--version=1.0.0] \
@@ -160,7 +160,7 @@ Creates the federation surface:
   prefetch without loading the remote bundle.
 - Patches `federation.config.js`:
   - Adds `'./Capability'` to `exposes`.
-  - Adds `'@maverick/agentic-ui'` as a singleton in `shared`.
+  - Adds `'@infra-tools/agentic-ui'` as a singleton in `shared`.
   - Sets `features.ignoreUnusedDeps: false` (the silent footgun warned
     about in [Federate an MFE](./federate-an-mfe.md)).
 
@@ -176,7 +176,7 @@ host (the library's defaults handle the no-op case).
 ### `action` — NgRx-style command
 
 ```bash
-ng g @maverick/agentic-ui:action <name> \
+ng g @infra-tools/agentic-ui:action <name> \
   [--description="..."]
 ```
 
@@ -187,7 +187,7 @@ Generates `<name>.action.ts` with `agenticAction({...})` and a Zod
 ### `intent` — phrase → tool / action / route mapping
 
 ```bash
-ng g @maverick/agentic-ui:intent <name> \
+ng g @infra-tools/agentic-ui:intent <name> \
   [--kind=tool|action|route] \
   [--target=<id>] \
   [--description="..."]
@@ -200,7 +200,7 @@ target without an LLM call.
 ### `form` — schema-driven form
 
 ```bash
-ng g @maverick/agentic-ui:form <name>
+ng g @infra-tools/agentic-ui:form <name>
 ```
 
 Generates `<name>.form.ts` with `agenticForm({...})` carrying a Zod
@@ -216,8 +216,8 @@ to the next.
 ### Phase 1 → 2: add your first tool + widget
 
 ```bash
-ng g @maverick/agentic-ui:tool bookFlight --description="Book a flight"
-ng g @maverick/agentic-ui:widget FlightCard --prefix=app
+ng g @infra-tools/agentic-ui:tool bookFlight --description="Book a flight"
+ng g @infra-tools/agentic-ui:widget FlightCard --prefix=app
 # now wire bookFlightTool / flightCardWidget into provideAgenticUi(...)
 # (the tool & widget generators auto-update tools.ts / widgets.ts)
 ```
@@ -229,11 +229,11 @@ ng g @maverick/agentic-ui:widget FlightCard --prefix=app
 ng add @angular-architects/native-federation --project=<remote> --type=remote --port=4201
 
 # 2. Generate the capability surface (uses your existing tools + widgets)
-ng g @maverick/agentic-ui:mfe-capability <remote> --project=<remote>
+ng g @infra-tools/agentic-ui:mfe-capability <remote> --project=<remote>
 
 # 3. In the host, add the remote to `mfes.json` (manual edit — small enough
 #    not to warrant a schematic). Make sure the host's federation.config.js
-#    also has `ignoreUnusedDeps: false` and shares @maverick/agentic-ui as
+#    also has `ignoreUnusedDeps: false` and shares @infra-tools/agentic-ui as
 #    a singleton.
 ```
 
@@ -245,7 +245,7 @@ have one, then copy `orchestrator-agent.ts` from `demo-server`. Wire
 specialists with the new `createSpecialist` helper:
 
 ```ts
-import { createSpecialist, registerSpecialists } from '@maverick/agentic-ui-server';
+import { createSpecialist, registerSpecialists } from '@infra-tools/agentic-ui-server';
 import { OrchestratorAgent } from './orchestrator-agent';
 import { GeminiAgent } from './gemini-agent';
 
@@ -276,7 +276,7 @@ generator emits before you run it.
 To dry-run a schematic without writing files:
 
 ```bash
-ng g @maverick/agentic-ui:tool bookFlight --dry-run
+ng g @infra-tools/agentic-ui:tool bookFlight --dry-run
 ```
 
 You'll see a list of the files the schematic *would* create plus any
@@ -286,10 +286,10 @@ auto-imports it *would* perform.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `Schematic <name> not found in collection` | Library not installed in the project | `ng add @maverick/agentic-ui` first |
+| `Schematic <name> not found in collection` | Library not installed in the project | `ng add @infra-tools/agentic-ui` first |
 | Tool/widget generated but not registered with the agent | Auto-import target file (e.g. `tools.ts`) missing or in a non-default location | Use `--path` to point at the correct directory; or register manually |
 | Federation config not updated by `mfe-capability` | Project isn't a native-federation or module-federation remote | Run `ng add @angular-architects/native-federation --type=remote` first |
-| Generated `.spec.ts` fails because `@maverick/agentic-ui/testing` isn't installed | Optional peer | `npm install --save-dev @maverick/agentic-ui` (the `/testing` entry ships within the same package) |
+| Generated `.spec.ts` fails because `@infra-tools/agentic-ui/testing` isn't installed | Optional peer | `npm install --save-dev @infra-tools/agentic-ui` (the `/testing` entry ships within the same package) |
 
 ## Where to go next
 

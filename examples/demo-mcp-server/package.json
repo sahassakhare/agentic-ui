@@ -1,5 +1,5 @@
 {
-  "name": "@maverick/demo-mcp-server",
+  "name": "@infra-tools/demo-mcp-server",
   "version": "0.1.0",
   "private": true,
   "description": "Demo MCP server exposing the bookings/loyalty/support tools as a Model Context Protocol server. Mount in claude_desktop_config.json to call the same tools that demo-shell uses.",
@@ -11,8 +11,8 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@maverick/agentic-ui": "file:../../dist/agentic-ui",
-    "@maverick/agentic-ui-mcp": "file:../../projects/agentic-ui-mcp",
+    "@infra-tools/agentic-ui": "file:../../dist/agentic-ui",
+    "@infra-tools/agentic-ui-mcp": "file:../../projects/agentic-ui-mcp",
     "zod": "^3.23.8"
   },
   "devDependencies": {

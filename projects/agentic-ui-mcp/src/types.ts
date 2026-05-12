@@ -1,4 +1,4 @@
-import type { ToolDef } from '@maverick/agentic-ui';
+import type { ToolDef } from '@infra-tools/agentic-ui';
 
 /**
  * Per-call hook context passed to {@link CreateMcpServerOptions.beforeCall}
@@ -47,7 +47,7 @@ export interface CreateMcpServerOptions {
   readonly version: string;
 
   /**
-   * Tools to expose. Reuses `ToolDef` from `@maverick/agentic-ui` so the
+   * Tools to expose. Reuses `ToolDef` from `@infra-tools/agentic-ui` so the
    * same tool registered with `provideAgenticUi({ tools })` can be
    * passed straight in here.
    */

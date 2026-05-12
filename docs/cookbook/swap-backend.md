@@ -7,7 +7,7 @@ The library ships three backend adapters — AG-UI, Hashbrown, A2UI — each beh
 Talks to any AG-UI-compatible server (CopilotKit / Mastra / LangGraph / OpenAI Agent SDK / Pydantic AI / etc.) via SSE.
 
 ```ts
-import { provideAgUiBackend } from '@maverick/agentic-ui/ag-ui';
+import { provideAgUiBackend } from '@infra-tools/agentic-ui/ag-ui';
 
 provideAgUiBackend({
   url: 'http://localhost:4111/agents/gemini/run',
@@ -22,7 +22,7 @@ Capabilities advertised: `streaming`, `clientTools`, `generativeUi`. Generative 
 Hashbrown is LiveLoveApp's model-agnostic UI generation lib (OpenAI + Google variants).
 
 ```ts
-import { provideHashbrownBackend } from '@maverick/agentic-ui/hashbrown';
+import { provideHashbrownBackend } from '@infra-tools/agentic-ui/hashbrown';
 
 provideHashbrownBackend({
   url: 'http://localhost:4111/hashbrown',
@@ -37,7 +37,7 @@ The adapter assumes the server emits NDJSON event lines compatible with the `Age
 A2UI's distinguishing feature: agents can issue UI ops (route changes, store mutations, form fills) via `ui-action` events. The default `UiActionDispatcher` resolves these against `ActionRegistry` — register actions with `agenticAction({...})` to handle them.
 
 ```ts
-import { provideA2uiBackend } from '@maverick/agentic-ui/a2ui';
+import { provideA2uiBackend } from '@infra-tools/agentic-ui/a2ui';
 
 provideA2uiBackend({
   url: 'http://localhost:4111/a2ui',
@@ -48,7 +48,7 @@ provideA2uiBackend({
 Want a custom dispatcher (e.g., to log every action, or route specific ops outside `ActionRegistry`)?
 
 ```ts
-import { UI_ACTION_DISPATCHER } from '@maverick/agentic-ui/a2ui';
+import { UI_ACTION_DISPATCHER } from '@infra-tools/agentic-ui/a2ui';
 import { Store } from '@ngrx/store';
 
 providers: [
@@ -68,7 +68,7 @@ providers: [
 `provideAgenticBackend(...)` is what each `provide*Backend` returns under the hood — you can register multiple and switch with `BackendRegistry.setActive(id)`:
 
 ```ts
-import { BackendRegistry } from '@maverick/agentic-ui';
+import { BackendRegistry } from '@infra-tools/agentic-ui';
 
 const backends = inject(BackendRegistry);
 backends.list().map((b) => b.label);   // ['AG-UI', 'Hashbrown']
@@ -84,7 +84,7 @@ Useful for evaluation UI ("compare AG-UI vs Hashbrown response on the same promp
 ## Custom backend
 
 ```bash
-ng g @maverick/agentic-ui:backend AcmeBackend
+ng g @infra-tools/agentic-ui:backend AcmeBackend
 ```
 
 Generates a class implementing `AgenticBackend` plus a `provideAcmeBackend(config)` factory. Drop your protocol's wire-format mapping in the `run()` async generator.

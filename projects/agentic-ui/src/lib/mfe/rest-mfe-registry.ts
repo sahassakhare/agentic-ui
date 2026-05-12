@@ -10,7 +10,7 @@ import { RemoteSpecSchema, type RemoteSpec } from './manifest';
 /**
  * Construction options for {@link RestMfeRegistrySource}, the runtime-tier
  * adapter that reads federated-remote manifests from the M2 control-plane
- * catalog server (`@maverick/agentic-catalog-server`, ADR-015).
+ * catalog server (`@infra-tools/agentic-catalog-server`, ADR-015).
  *
  * Wire this in your host's app config when the catalog server is the
  * source of truth for federation. For deployments without a catalog,

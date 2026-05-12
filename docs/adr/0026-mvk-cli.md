@@ -40,7 +40,7 @@ parsing, dispatch, output formatting are all hand-written
 (~300 LOC). Reasons:
 
 - **Install footprint matters for a CLI.** `npm install -g
-  @maverick/mvk` should pull < 200 KB. Commander/yargs are 1+ MB
+  @infra-tools/mvk` should pull < 200 KB. Commander/yargs are 1+ MB
   with their dep trees.
 - **Behaviour is small enough.** Five resource families, ~20
   subcommands, no plugin system. A 100-line parser covers it.
@@ -205,7 +205,7 @@ maintenance burden without payoff.
   the command tree; defer until adopter feedback shows demand.
 - ~~**`mvk new <project>` scaffolding.**~~ **Closed in a follow-up
   slice.** `mvk new app <name>` ships an 11-file inline-templated
-  Angular app preconfigured with `@maverick/agentic-ui`. Optional
+  Angular app preconfigured with `@infra-tools/agentic-ui`. Optional
   `--with-catalog` onboards a tenant + registers a sample `echo`
   capability so the new app shows up immediately in the catalog.
   Lighter than shelling out to `ng new` (no 500 MB Angular CLI
@@ -220,7 +220,7 @@ maintenance burden without payoff.
 
 ## Implementation summary
 
-Package `platform/mvk-cli/` (`@maverick/mvk@0.1.0`):
+Package `platform/mvk-cli/` (`@infra-tools/mvk@0.1.0`):
 
 - `bin/mvk.js` — Node shebang entrypoint that imports `dist/cli.js`
   and calls `run(process.argv.slice(2))`.

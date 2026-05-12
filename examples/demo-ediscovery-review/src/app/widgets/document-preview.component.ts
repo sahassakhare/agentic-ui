@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { ActionRegistry, type ActionContext } from '@maverick/agentic-ui';
+import { ActionRegistry, type ActionContext } from '@infra-tools/agentic-ui';
 
 /**
  * Generative-UI widget rendered when a review tool returns a document.

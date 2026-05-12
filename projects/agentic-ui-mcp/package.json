@@ -1,7 +1,7 @@
 {
-  "name": "@maverick/agentic-ui-mcp",
+  "name": "@infra-tools/agentic-ui-mcp",
   "version": "0.1.0",
-  "description": "Expose @maverick/agentic-ui ToolDefs as a Model Context Protocol (MCP) server — Claude Desktop / Cursor / Zed / Continue / Windsurf can call your tools directly.",
+  "description": "Expose @infra-tools/agentic-ui ToolDefs as a Model Context Protocol (MCP) server — Claude Desktop / Cursor / Zed / Continue / Windsurf can call your tools directly.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -40,11 +40,11 @@
     "@modelcontextprotocol/sdk": "^1.0.0"
   },
   "peerDependencies": {
-    "@maverick/agentic-ui": "^1.0.0",
+    "@infra-tools/agentic-ui": "^1.0.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@maverick/agentic-ui": "file:../../dist/agentic-ui",
+    "@infra-tools/agentic-ui": "file:../../dist/agentic-ui",
     "@types/node": "^22.10.0",
     "typescript": "~5.9.0",
     "vitest": "^4.0.8",

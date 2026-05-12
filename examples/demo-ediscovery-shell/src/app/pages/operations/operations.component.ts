@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { OperationProgressComponent, OperationRegistry } from '@maverick/agentic-ui';
+import { OperationProgressComponent, OperationRegistry } from '@infra-tools/agentic-ui';
 import { EmptyStateComponent } from '../../ui/empty-state.component';
 import { IconComponent } from '../../ui/icon.component';
 

@@ -1,5 +1,5 @@
 {
-  "name": "@maverick/demo-ediscovery-server",
+  "name": "@infra-tools/demo-ediscovery-server",
   "version": "0.1.0",
   "private": true,
   "description": "eDiscovery agent server. Hosts the matter-coordinator + domain specialists. Multi-tenant per-matter ThreadStateStore (in-memory for the demo; Redis adapter sketched in the production-deployment cookbook).",
@@ -13,8 +13,8 @@
   "dependencies": {
     "@google/genai": "^1.50.1",
     "@hono/node-server": "^1.13.0",
-    "@maverick/agentic-ui-server": "file:../../projects/agentic-ui-server",
-    "@maverick/demo-ediscovery-shared": "file:../demo-ediscovery-shared",
+    "@infra-tools/agentic-ui-server": "file:../../projects/agentic-ui-server",
+    "@infra-tools/demo-ediscovery-shared": "file:../demo-ediscovery-shared",
     "dotenv": "^17.4.2",
     "hono": "^4.6.0"
   },

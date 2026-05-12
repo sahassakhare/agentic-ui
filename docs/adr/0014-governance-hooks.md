@@ -12,7 +12,7 @@
 
 The 15 registries hold reasonably-typed entries today, but they're missing a small set of governance fields that production deployments quietly need:
 
-- **Compatibility constraint** — a federated remote should be able to declare "I require host @maverick/agentic-ui ^1.0.0" so the host can refuse incompatible registrations cleanly instead of crashing on the next call.
+- **Compatibility constraint** — a federated remote should be able to declare "I require host @infra-tools/agentic-ui ^1.0.0" so the host can refuse incompatible registrations cleanly instead of crashing on the next call.
 - **Catalog metadata** — a future control-plane catalog (Tier 2 in the v3 plan) wants `tags`, `owner`, `lifecycle` on every capability for filtering, attribution, and deprecation.
 
 Two of v3 plan §4.1 R5's deliverables (`conflictPolicy` + `onDispose`) were *already shipped* before this ADR was written — they showed up in earlier work without being formalized as a milestone deliverable. This ADR completes R5 by adding the remaining four: `requiredHostVersion`, `tags`, `owner`, `lifecycle`.

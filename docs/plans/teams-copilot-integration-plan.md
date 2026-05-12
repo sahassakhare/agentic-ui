@@ -16,7 +16,7 @@ catalog interfaces; the runtime tier and control plane don't change.
 
 **Goals.**
 
-- Reuse `@maverick/agentic-ui` and its 15 registries unchanged across
+- Reuse `@infra-tools/agentic-ui` and its 15 registries unchanged across
   every new surface. No code fork.
 - Keep the catalog server (capability registry / audit chain / tenant
   RBAC / IAM persona resolver) the single source of truth across
@@ -44,23 +44,23 @@ catalog interfaces; the runtime tier and control plane don't change.
 ## 2. The seam in one diagram
 
 ```
-                                ┌── @maverick/agentic-ui (Angular library)
+                                ┌── @infra-tools/agentic-ui (Angular library)
                                 │     mvk-chat-shell · 15 registries · F1–F6
                                 │     ← canonical surface, ships today
                                 │
                                 ├── Teams Tab        (Path 1a, eDiscovery shell in iframe)
                                 │     manifest + microsoft-teams-js context
                                 │
-                                ├── @maverick/agentic-ui-teams-bot      (Path 1b, NEW)
+                                ├── @infra-tools/agentic-ui-teams-bot      (Path 1b, NEW)
 catalog server   ──┬────────────┤     Bot Framework adapter + Adaptive Card render hint
 (capabilities,     │            │
  tenants, RBAC,    │            ├── Copilot Studio Connector + sync     (Path 1c, NEW)
  audit chain,      │            │     publishes catalog actions to MS Copilot Studio
  IAM persona       │            │
- resolver)         │            ├── @maverick/agentic-ui-copilot-skill  (Path 2a, NEW)
+ resolver)         │            ├── @infra-tools/agentic-ui-copilot-skill  (Path 2a, NEW)
                    │            │     GitHub Copilot Extensions webhook
                    │            │
-                   │            └── @maverick/agentic-ui-mcp            (already shipped)
+                   │            └── @infra-tools/agentic-ui-mcp            (already shipped)
                    │                 Claude Desktop · Cursor · Continue · Zed
                    │
                    └── audit chain + capability registry shared by ALL surfaces above
@@ -79,7 +79,7 @@ shapes.
 ### 1a. Teams **Tab** (full-page iframe embed)
 
 **What.** Ship the existing `demo-ediscovery-shell` (or any
-`@maverick/agentic-ui` host) as a Teams Tab. The Angular SPA runs
+`@infra-tools/agentic-ui` host) as a Teams Tab. The Angular SPA runs
 inside an iframe that Teams renders in a channel / group chat / 1:1
 chat sidebar.
 
@@ -122,7 +122,7 @@ Framework bot. Same tools, same audit chain — different chrome.
 
 **How.**
 
-1. New package `@maverick/agentic-ui-teams-bot`. Wraps
+1. New package `@infra-tools/agentic-ui-teams-bot`. Wraps
    `AgenticBackend.run(...)` and translates our event stream into
    Bot Framework activities.
 2. New optional render hint on `ToolResultRenderHints`:
@@ -217,7 +217,7 @@ project phoenix"* invokes our tools through the extension.
 
 **How.**
 
-1. New package `@maverick/agentic-ui-copilot-skill`. Wraps an HTTP
+1. New package `@infra-tools/agentic-ui-copilot-skill`. Wraps an HTTP
    webhook that Copilot Chat calls with `{messages, tools}` — the
    shape is nearly identical to OpenAI Chat Completions.
 2. Translate Copilot's SSE event stream into our `AgenticEvent`

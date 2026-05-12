@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import type { ChatShellComponent } from '@maverick/agentic-ui';
+import type { ChatShellComponent } from '@infra-tools/agentic-ui';
 
 /**
  * Tiny app-root bridge that lets non-chat surfaces (the Cmd+K

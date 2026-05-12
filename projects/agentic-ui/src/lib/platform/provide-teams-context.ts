@@ -12,7 +12,7 @@ import {
 /**
  * Teams Tab integration seam (plan P0 / ADR-041 D4).
  *
- * Adopters embedding a `@maverick/agentic-ui` host as a Microsoft
+ * Adopters embedding a `@infra-tools/agentic-ui` host as a Microsoft
  * Teams Tab use this provider to bridge the Teams JS SDK's
  * `microsoftTeams.app.getContext()` into a signal the rest of the
  * runtime tier reads through. We deliberately keep this lib free of
@@ -129,7 +129,7 @@ export const TEAMS_CONTEXT = new InjectionToken<Signal<TeamsContext | null>>('TE
  * @example
  * ```ts
  * // app.config.ts
- * import { provideTeamsContext } from '@maverick/agentic-ui';
+ * import { provideTeamsContext } from '@infra-tools/agentic-ui';
  *
  * export const appConfig: ApplicationConfig = {
  *   providers: [

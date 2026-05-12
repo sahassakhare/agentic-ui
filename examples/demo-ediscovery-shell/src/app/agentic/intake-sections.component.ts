@@ -5,7 +5,7 @@ import {
   COMPOSITION_SLOT,
   CompositionStore,
   DataSourceRegistry,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 import { STANDARD_DEPARTMENTS, normaliseDepartment } from './intake-constants';
 import type { DirectoryUser, DirectoryUserQuery } from './agentic';
 

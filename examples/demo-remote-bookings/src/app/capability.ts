@@ -1,7 +1,7 @@
-import { defineCapabilityModule } from '@maverick/agentic-ui';
+import { defineCapabilityModule } from '@infra-tools/agentic-ui';
 import { bookFlightTool } from './tools/book-flight.tool';
 import { flightCardWidget } from './widgets/flight-card.widget';
-import type { ToolDef } from '@maverick/agentic-ui';
+import type { ToolDef } from '@infra-tools/agentic-ui';
 
 export const capability = defineCapabilityModule({
   remoteName: 'demo-remote-bookings',

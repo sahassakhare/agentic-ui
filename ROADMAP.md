@@ -1,7 +1,7 @@
 # Roadmap
 
 This document captures **researched extension recommendations** and a
-**phased implementation plan** for `@maverick/agentic-ui`. It draws on
+**phased implementation plan** for `@infra-tools/agentic-ui`. It draws on
 the industry survey in
 [`docs/architecture/registries-vs-industry.md`](./docs/architecture/registries-vs-industry.md)
 and the trend analysis from early-2026 agentic-UI / agent-infrastructure
@@ -26,11 +26,11 @@ already built; the roadmap below is what's *next*, not what's missing.
 | **Per-turn tool filter** | `provideToolFilter()` + `keywordToolFilter()` | Identity by default; consumer plugs in keyword / embedding scoring |
 | **Pluggable per-thread state** | `ThreadStateStore<TState>` + `InMemoryThreadStateStore` | Async-shaped contract; Redis / Postgres adapters sketched in cookbook |
 | **MCP consumer-side bridge** | `mcpToolBridge({ client })` | Imports tools FROM an MCP server INTO `ToolRegistry` |
-| **MCP server-side adapter** | `@maverick/agentic-ui-mcp` (`createMcpServer`) | Exposes `ToolDef[]` AS an MCP server. Stdio + HTTP transports. Live in `examples/demo-mcp-server/` and `examples/demo-ediscovery-mcp/` (Phase 6). |
+| **MCP server-side adapter** | `@infra-tools/agentic-ui-mcp` (`createMcpServer`) | Exposes `ToolDef[]` AS an MCP server. Stdio + HTTP transports. Live in `examples/demo-mcp-server/` and `examples/demo-ediscovery-mcp/` (Phase 6). |
 | **Teams Tab embed seam** | `provideTeamsContext({ loadContext })` · `TEAMS_CONTEXT` | Bridges `microsoftTeams.app.getContext()` into the runtime as a signal. Lib carries no `@microsoft/teams-js` dep — adopters import it lazily. Plan P0 of [Teams + Copilot integration](docs/plans/teams-copilot-integration-plan.md); cookbook in [docs/cookbook/teams-tab-embed.md](docs/cookbook/teams-tab-embed.md). |
-| **GitHub Copilot Extension adapter** | `@maverick/agentic-ui-copilot-skill` | Webhook server-side library wrapping the Copilot Extensions protocol (signature verify + body parse + identity + OpenAI-shaped SSE response). Adopters bring their own LLM behind a `SkillHandler`. Plan P2 of [Teams + Copilot integration](docs/plans/teams-copilot-integration-plan.md); design rationale in [ADR-041](docs/adr/0041-teams-copilot-external-surfaces.md); cookbook in [docs/cookbook/github-copilot-extension.md](docs/cookbook/github-copilot-extension.md). |
-| **Teams Bot Framework adapter** | `@maverick/agentic-ui-teams-bot` | Wraps the Microsoft Bot Framework webhook protocol — JWT verify against the Bot Connector + activity parse + AAD client-credentials bearer for replies + Adaptive Card response builder + generic `widgetFallbackCard` for tools without an `adaptiveCard` render hint. Adopters bring their own LLM behind a `TeamsBotHandler`. Plan P1 of [Teams + Copilot integration](docs/plans/teams-copilot-integration-plan.md); contract addition `adaptiveCard?: object` on `ToolResultRenderHints` per [ADR-041 D2](docs/adr/0041-teams-copilot-external-surfaces.md); cookbook in [docs/cookbook/teams-bot-adaptive-cards.md](docs/cookbook/teams-bot-adaptive-cards.md). |
-| **Copilot Studio Connector adapter** | `@maverick/agentic-ui-copilot-studio-connector` | Exposes catalog tools to Microsoft 365 Copilot through Power Platform custom Connectors. Build-time `buildConnectorManifest` generates the Connector OpenAPI doc from Zod tool schemas (`zodToOpenApi` translator handles the subset the catalog uses); runtime middleware verifies Azure AD v2.0 bearers, extracts identity, dispatches per-tool handlers, returns Adaptive Card + text + data tuples. Per-persona Connector publishing supported. Plan P3 of [Teams + Copilot integration](docs/plans/teams-copilot-integration-plan.md); design rationale in [ADR-042](docs/adr/0042-copilot-studio-connector.md); cookbook in [docs/cookbook/copilot-studio-connector.md](docs/cookbook/copilot-studio-connector.md). |
+| **GitHub Copilot Extension adapter** | `@infra-tools/agentic-ui-copilot-skill` | Webhook server-side library wrapping the Copilot Extensions protocol (signature verify + body parse + identity + OpenAI-shaped SSE response). Adopters bring their own LLM behind a `SkillHandler`. Plan P2 of [Teams + Copilot integration](docs/plans/teams-copilot-integration-plan.md); design rationale in [ADR-041](docs/adr/0041-teams-copilot-external-surfaces.md); cookbook in [docs/cookbook/github-copilot-extension.md](docs/cookbook/github-copilot-extension.md). |
+| **Teams Bot Framework adapter** | `@infra-tools/agentic-ui-teams-bot` | Wraps the Microsoft Bot Framework webhook protocol — JWT verify against the Bot Connector + activity parse + AAD client-credentials bearer for replies + Adaptive Card response builder + generic `widgetFallbackCard` for tools without an `adaptiveCard` render hint. Adopters bring their own LLM behind a `TeamsBotHandler`. Plan P1 of [Teams + Copilot integration](docs/plans/teams-copilot-integration-plan.md); contract addition `adaptiveCard?: object` on `ToolResultRenderHints` per [ADR-041 D2](docs/adr/0041-teams-copilot-external-surfaces.md); cookbook in [docs/cookbook/teams-bot-adaptive-cards.md](docs/cookbook/teams-bot-adaptive-cards.md). |
+| **Copilot Studio Connector adapter** | `@infra-tools/agentic-ui-copilot-studio-connector` | Exposes catalog tools to Microsoft 365 Copilot through Power Platform custom Connectors. Build-time `buildConnectorManifest` generates the Connector OpenAPI doc from Zod tool schemas (`zodToOpenApi` translator handles the subset the catalog uses); runtime middleware verifies Azure AD v2.0 bearers, extracts identity, dispatches per-tool handlers, returns Adaptive Card + text + data tuples. Per-persona Connector publishing supported. Plan P3 of [Teams + Copilot integration](docs/plans/teams-copilot-integration-plan.md); design rationale in [ADR-042](docs/adr/0042-copilot-studio-connector.md); cookbook in [docs/cookbook/copilot-studio-connector.md](docs/cookbook/copilot-studio-connector.md). |
 | **`showToolCalls` chat-shell input** | `<mvk-chat-shell [showToolCalls]>` | Three modes: `'full'` / `'compact'` / `'hidden'` for tool-call rendering verbosity in the transcript. |
 | **Telemetry sink** | `AgenticTelemetrySink` from M1 | OpenTelemetry adapter ships in the lib |
 | **Multi-agent orchestrator (demo)** | `examples/demo-server/` and `examples/demo-ediscovery-server/` | Sticky-by-thread, retry + keyword fallback, error surfacing |
@@ -43,11 +43,11 @@ already built; the roadmap below is what's *next*, not what's missing.
 | **F6 — Multi-modal input (slice 1: composer + types)** | `MessageContent` union + `<mvk-chat-shell>` paperclip / drag-drop / paste-image | Per-file MIME allow-list + size cap client-side. `BackendCapabilities.multiModal?` flag; non-multi-modal backends graceful-degrade with `console.warn` + telemetry. Mic / `SpeechRecognition` and server upload route in slice 2. [Cookbook](./docs/cookbook/multi-modal-input.md). |
 | **M1 R1 — Platform seams map** | [`docs/architecture/platform-seams.md`](./docs/architecture/platform-seams.md) | Definitive contract surface: 12 InjectionTokens + 2 registry methods + 12 `provideX` factories + 4 audit/telemetry hooks + 1 server-side store interface (3 adapters) + 4 governance metadata fields. Every public seam, frozen forever per ADR-010 D4. |
 | **M1 R2 — RegistryProviderHook** | `RegistryBase.setProviderHook(hook \| null)` + `RegistryProviderHook<TDef>` | Opt-in, sync, write-through mirror for state-bound registries (Approval, Operation, future Memory). Reads never consult the hook. Hook errors land on telemetry, never propagate. Restricted to state-bound replayable registries per ADR-011 D5. |
-| **M1 R3 — Redis + Postgres adapters** | `@maverick/agentic-ui-server-stores` (new sibling package) | `RedisThreadStateStore` + `PostgresThreadStateStore` for the existing `ThreadStateStore<TState>`. Optional peer deps; subpath imports (`/redis`, `/postgres`); caller-managed client lifecycle. Includes `createSchemaSql()` for Postgres migrations. ADR-012. |
+| **M1 R3 — Redis + Postgres adapters** | `@infra-tools/agentic-ui-server-stores` (new sibling package) | `RedisThreadStateStore` + `PostgresThreadStateStore` for the existing `ThreadStateStore<TState>`. Optional peer deps; subpath imports (`/redis`, `/postgres`); caller-managed client lifecycle. Includes `createSchemaSql()` for Postgres migrations. ADR-012. |
 | **M1 R4 — AG-UI state channel** | `AGENTIC_RUN_STATE_PROVIDER` + `AgenticRunInput.state` | Threads persona / matter / route into `RunAgentInput.state`; demo gemini-agent reads it and prepends to system instruction. Closes the persona-blind-LLM gap. NOT a security boundary — that's `setScopePolicy`. ADR-013. |
 | **M1 R5 — Governance hooks** | `RegistryEntry.requiredHostVersion` + `tags` + `owner` + `lifecycle` | Federated remotes can pin to host versions; mismatches skip silently with telemetry. Optional metadata for the future control-plane catalog. Inline semver matcher (`^`, `~`, `>=`, etc.) without bundling `semver`. ADR-014. |
 | **Apache 2.0 + governance artifacts** | `LICENSE` (root + per-package) + `CONTRIBUTING.md` + `CODE_OF_CONDUCT.md` + `SECURITY.md` + `GOVERNANCE.md` + `MAINTAINERS.md` | DCO sign-off (no CLA), Contributor Covenant 2.1, RFC process, single-vendor TSC stewardship with foundation-track evaluation deferred to year 2. Everything codified in [ADR-010](./docs/adr/0010-platform-principles-and-license.md) — embedded-first defaults, zero breaking changes through v1.x, no Temporal/NATS/OPA/OpenSearch in the runtime. |
-| **Runtime ↔ platform integration (audit Gaps 4 / 1 / 3 / 2)** | `provideAgenticPlatform({...})` in `@maverick/agentic-ui` | Single composite provider wires catalog persona resolver + MFE registry source + capability registrar + capability authorizer + usage metering through one shared `catalogUrl` / `tenantId` / `getToken`. Each feature opt-in via per-key options object; `false` skips. Closes the four runtime-tier integration gaps from the [2026-05-10 platform audit](./docs/audit/2026-05-10-platform-audit.md). [ADR-031](./docs/adr/0031-provide-agentic-platform.md), [ADR-032](./docs/adr/0032-catalog-capability-registrar.md), [ADR-033](./docs/adr/0033-catalog-capability-authorizer.md), [ADR-034](./docs/adr/0034-catalog-usage-metering.md). `mvk new app --with-platform` scaffolds the wired config. |
+| **Runtime ↔ platform integration (audit Gaps 4 / 1 / 3 / 2)** | `provideAgenticPlatform({...})` in `@infra-tools/agentic-ui` | Single composite provider wires catalog persona resolver + MFE registry source + capability registrar + capability authorizer + usage metering through one shared `catalogUrl` / `tenantId` / `getToken`. Each feature opt-in via per-key options object; `false` skips. Closes the four runtime-tier integration gaps from the [2026-05-10 platform audit](./docs/audit/2026-05-10-platform-audit.md). [ADR-031](./docs/adr/0031-provide-agentic-platform.md), [ADR-032](./docs/adr/0032-catalog-capability-registrar.md), [ADR-033](./docs/adr/0033-catalog-capability-authorizer.md), [ADR-034](./docs/adr/0034-catalog-usage-metering.md). `mvk new app --with-platform` scaffolds the wired config. |
 
 ## Roadmap at a glance
 
@@ -77,7 +77,7 @@ gantt
 
 ## 1.1 — MCP server-side adapter
 
-> **Status: Shipped** — `@maverick/agentic-ui-mcp` v0.1.0. See [ADR-006](./docs/adr/0006-mcp-server-side-adapter.md), the [CHANGELOG](./projects/agentic-ui-mcp/CHANGELOG.md), and the [cookbook entry](./docs/cookbook/mcp-server.md). Working sample under `examples/demo-mcp-server/`.
+> **Status: Shipped** — `@infra-tools/agentic-ui-mcp` v0.1.0. See [ADR-006](./docs/adr/0006-mcp-server-side-adapter.md), the [CHANGELOG](./projects/agentic-ui-mcp/CHANGELOG.md), and the [cookbook entry](./docs/cookbook/mcp-server.md). Working sample under `examples/demo-mcp-server/`.
 
 ### Industry context
 
@@ -86,7 +86,7 @@ tools in early 2026: Claude Desktop, Cursor, Continue, Zed, Windsurf,
 the upcoming Copilot MCP support — every IDE-class chat host consumes
 MCP servers. Our library currently implements the **consumer** half
 (`mcpToolBridge`) but not the **server** half — meaning tools written
-against `@maverick/agentic-ui` are not exposable to those clients.
+against `@infra-tools/agentic-ui` are not exposable to those clients.
 
 ### Architecture fit
 
@@ -102,11 +102,11 @@ already has the four fields MCP wants:
 
 ### Proposed public API
 
-New optional package: `@maverick/agentic-ui-mcp`. Reuses
+New optional package: `@infra-tools/agentic-ui-mcp`. Reuses
 `@modelcontextprotocol/sdk` as the wire-format implementation.
 
 ```ts
-import { createMcpServer } from '@maverick/agentic-ui-mcp';
+import { createMcpServer } from '@infra-tools/agentic-ui-mcp';
 import { bookFlightTool, cancelFlightTool } from './tools';
 
 const server = createMcpServer({
@@ -298,7 +298,7 @@ Per-user / per-tenant budget caps and model routing (Haiku for simple, Opus for 
 
 ```ts
 // Server-side, on the route handler:
-import { rateLimit, costGate } from '@maverick/agentic-ui-server/guards';
+import { rateLimit, costGate } from '@infra-tools/agentic-ui-server/guards';
 
 app.post('/agents/:id/run',
   costGate({

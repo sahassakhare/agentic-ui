@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { listAuditEvents, verifyAuditChain, type AuditEvent } from '@maverick/demo-ediscovery-shared';
+import { listAuditEvents, verifyAuditChain, type AuditEvent } from '@infra-tools/demo-ediscovery-shared';
 import { environment } from '../../../environments/environment';
 import { MatterStore } from '../../services/matter.store';
 import { IconComponent } from '../../ui/icon.component';

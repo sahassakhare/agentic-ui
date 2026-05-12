@@ -1,5 +1,5 @@
 /**
- * @maverick/agentic-ui-opa-authorizer
+ * @infra-tools/agentic-ui-opa-authorizer
  *
  * Optional runtime plugin that gates `ToolRegistry` /
  * `ComponentRegistry` reads via OPA decisions (Open Policy
@@ -21,7 +21,7 @@
  *
  * @example
  * ```ts
- * import { provideOpaAuthorizer } from '@maverick/agentic-ui-opa-authorizer';
+ * import { provideOpaAuthorizer } from '@infra-tools/agentic-ui-opa-authorizer';
  *
  * provideAgenticPlatform({
  *   catalogUrl: 'https://catalog.example.com',
@@ -57,7 +57,7 @@ import {
   ComponentRegistry,
   AGENTIC_TELEMETRY_SINK,
   type RegistryScopePolicy,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 
 export interface OpaAuthorizerOptions {
   readonly catalogUrl: string;

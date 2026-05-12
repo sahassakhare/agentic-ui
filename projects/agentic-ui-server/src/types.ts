@@ -16,7 +16,7 @@ import type { BaseEvent, RunAgentInput } from '@ag-ui/core';
  *
  * @example
  * ```ts
- * import type { ServerAgent } from '@maverick/agentic-ui-server';
+ * import type { ServerAgent } from '@infra-tools/agentic-ui-server';
  * import { EventType } from '@ag-ui/core';
  *
  * class HelloAgent implements ServerAgent {

@@ -5,7 +5,7 @@ import {
   type AgenticEvent,
   type AgenticRunInput,
   type BackendCapabilities,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 
 /**
  * Configuration for {@link <%= classify(name) %>}.

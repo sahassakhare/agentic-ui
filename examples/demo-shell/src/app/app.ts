@@ -1,6 +1,6 @@
 import { Component, computed, inject } from '@angular/core';
-import { CapabilityRegistry, ToolRegistry } from '@maverick/agentic-ui';
-import { ChatShellComponent } from '@maverick/agentic-ui';
+import { CapabilityRegistry, ToolRegistry } from '@infra-tools/agentic-ui';
+import { ChatShellComponent } from '@infra-tools/agentic-ui';
 
 @Component({
   selector: 'app-root',

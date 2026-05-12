@@ -24,7 +24,7 @@
     "paths": {
       "@angular/core": ["../../node_modules/@angular/core"],
       "rxjs": ["../../node_modules/rxjs"],
-      "@maverick/agentic-ui": ["../../dist/agentic-ui"]
+      "@infra-tools/agentic-ui": ["../../dist/agentic-ui"]
     }
   },
   "include": ["src/**/*.ts"],

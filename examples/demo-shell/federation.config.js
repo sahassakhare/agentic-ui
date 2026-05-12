@@ -6,7 +6,7 @@ module.exports = withNativeFederation({
   shared: {
     ...shareAll({ singleton: true, strictVersion: true, requiredVersion: 'auto' }),
     /**
-     * Share @maverick/agentic-ui as a singleton. The lib is now a single
+     * Share @infra-tools/agentic-ui as a singleton. The lib is now a single
      * primary entry (no secondary entries — see ADR-005), so this single
      * registration covers everything: registries, components, AG-UI adapter,
      * MFE helpers, etc. Both host and remote get the same runtime class
@@ -14,7 +14,7 @@ module.exports = withNativeFederation({
      * the remote's `defineCapabilityModule.apply(hostInjector)` write to
      * the same instance the chat shell reads from.
      */
-    '@maverick/agentic-ui': { singleton: true, strictVersion: false, requiredVersion: 'auto' },
+    '@infra-tools/agentic-ui': { singleton: true, strictVersion: false, requiredVersion: 'auto' },
   },
 
   skip: [
@@ -27,7 +27,7 @@ module.exports = withNativeFederation({
 
   features: {
     /**
-     * MUST be false for `@maverick/agentic-ui` to actually appear in the
+     * MUST be false for `@infra-tools/agentic-ui` to actually appear in the
      * shared list. With `true`, Native Federation's static analysis filters
      * the lib out as "unused" and the importmap omits it; the remote's bundle
      * then inlines the lib code, breaking the singleton-class assumption that

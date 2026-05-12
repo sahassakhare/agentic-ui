@@ -71,10 +71,10 @@ describe('renderAgenticAppTemplate', () => {
     expect(readme).toContain('mvk capability list --tenant demo');
   });
 
-  it('package.json declares the @maverick/agentic-ui dependency', () => {
+  it('package.json declares the @infra-tools/agentic-ui dependency', () => {
     const files = renderAgenticAppTemplate({ name: 'demo' });
     const pkg = JSON.parse(files.find((f) => f.path === 'package.json')!.content);
-    expect(pkg.dependencies['@maverick/agentic-ui']).toBeTruthy();
+    expect(pkg.dependencies['@infra-tools/agentic-ui']).toBeTruthy();
   });
 
   it('app.config.ts wires provideAgenticUi', () => {

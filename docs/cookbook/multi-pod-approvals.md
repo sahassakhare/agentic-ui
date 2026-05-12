@@ -69,7 +69,7 @@ Both pieces are Apache 2.0 + already shipped. This cookbook glues them together.
 ```ts
 // src/server/redis-approval-hook.ts
 import type Redis from 'ioredis';
-import type { ApprovalDef, RegistryProviderHook } from '@maverick/agentic-ui';
+import type { ApprovalDef, RegistryProviderHook } from '@infra-tools/agentic-ui';
 
 export class RedisApprovalHook implements RegistryProviderHook<ApprovalDef> {
   constructor(
@@ -121,7 +121,7 @@ The subscriber receives pub/sub events and replays them into the local `Approval
 ```ts
 // src/server/redis-approval-subscriber.ts
 import type Redis from 'ioredis';
-import type { ApprovalRegistry, ApprovalDef } from '@maverick/agentic-ui';
+import type { ApprovalRegistry, ApprovalDef } from '@infra-tools/agentic-ui';
 
 interface PubSubEvent {
   readonly kind: 'register' | 'remove' | 'remove-by-source';
@@ -186,7 +186,7 @@ export class RedisApprovalSubscriber {
 ```ts
 // src/server/main.ts
 import Redis from 'ioredis';
-import { ApprovalRegistry } from '@maverick/agentic-ui';
+import { ApprovalRegistry } from '@infra-tools/agentic-ui';
 import { RedisApprovalHook } from './redis-approval-hook';
 import { RedisApprovalSubscriber } from './redis-approval-subscriber';
 
@@ -301,7 +301,7 @@ Before flipping a real deployment to multi-pod with this stack:
 
 - [ADR-011 — `RegistryProviderHook`](../adr/0011-registry-provider-hook.md) — design rationale + restricted-class allow-list
 - [ADR-012 — `ThreadStateStore` adapters](../adr/0012-thread-state-store-adapters.md) — sibling-package design + caller-managed lifecycle
-- [`@maverick/agentic-ui-server-stores`](../../projects/agentic-ui-server-stores/README.md) — the package this cookbook depends on
+- [`@infra-tools/agentic-ui-server-stores`](../../projects/agentic-ui-server-stores/README.md) — the package this cookbook depends on
 - [F4 approval flow](./approval-flow.md) — single-pod baseline this cookbook scales out from
 - [docs/architecture/platform-seams.md](../architecture/platform-seams.md) — `setProviderHook` + `ThreadStateStore` documented as Tier 1.5 / Tier 2 contracts
 - [docs/plans/platform-evolution-plan.md](../plans/platform-evolution-plan.md) §4.1 R2–R3 — the v3 plan slices that produced this composition

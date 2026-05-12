@@ -31,8 +31,8 @@ import {
   type ApprovalAuditEvent,
   type CapabilityModule,
   type OperationAuditEvent,
-} from '@maverick/agentic-ui';
-import { appendAudit, isoNow, nextAuditId } from '@maverick/demo-ediscovery-shared';
+} from '@infra-tools/agentic-ui';
+import { appendAudit, isoNow, nextAuditId } from '@infra-tools/demo-ediscovery-shared';
 
 import { environment } from '../environments/environment';
 import { routes } from './app.routes';

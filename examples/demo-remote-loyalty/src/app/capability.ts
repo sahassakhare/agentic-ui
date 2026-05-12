@@ -1,5 +1,5 @@
-import { defineCapabilityModule } from '@maverick/agentic-ui';
-import type { ToolDef } from '@maverick/agentic-ui';
+import { defineCapabilityModule } from '@infra-tools/agentic-ui';
+import type { ToolDef } from '@infra-tools/agentic-ui';
 import { checkPointsTool } from './tools/check-points.tool';
 import { redeemPointsTool } from './tools/redeem-points.tool';
 import { pointsCardWidget } from './widgets/points-card.widget';

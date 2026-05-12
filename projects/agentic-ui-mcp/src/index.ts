@@ -1,5 +1,5 @@
 /**
- * `@maverick/agentic-ui-mcp` — expose `@maverick/agentic-ui` `ToolDef`s
+ * `@infra-tools/agentic-ui-mcp` — expose `@infra-tools/agentic-ui` `ToolDef`s
  * as a Model Context Protocol server. Lets Claude Desktop, Cursor, Zed,
  * Continue, Windsurf, and any other MCP-compatible host invoke the same
  * tools your `<mvk-chat-shell>` consumes.

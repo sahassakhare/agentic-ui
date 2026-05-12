@@ -21,7 +21,7 @@ export function openapiRoutes(): Hono {
 const SPEC = {
   openapi: '3.1.0',
   info: {
-    title: '@maverick/agentic-catalog-server',
+    title: '@infra-tools/agentic-catalog-server',
     version: '0.1.0',
     description:
       'Capability catalog server — control-plane T2 foundation. Multi-tenant capability registry, federated identity (OIDC/JWT), audit trail. See [ADR-015](https://github.com/sahassakhare/agentic-ui/blob/main/docs/adr/0015-catalog-server-design.md) for the design rationale.',

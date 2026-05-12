@@ -8,7 +8,7 @@
  *
  * Add new tools either by hand or with the schematic:
  * ```bash
- * ng generate @maverick/agentic-ui:tool myTool
+ * ng generate @infra-tools/agentic-ui:tool myTool
  * ```
  * The schematic creates a typed file in `app/agentic/tools/` and adds
  * the import to this barrel for you.
@@ -20,7 +20,7 @@
  *
  * @see https://github.com/sahassakhare/agentic-ui/blob/main/docs/cookbook/integrate-into-existing-angular-app.md#phase-2--add-tools-and-widgets
  */
-import { agenticTool, type ToolDef } from '@maverick/agentic-ui';
+import { agenticTool, type ToolDef } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 
 /**

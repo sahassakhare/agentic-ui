@@ -9,8 +9,8 @@ import {
   registerSpecialists,
   type AgentResolver,
   type ServerAgent,
-} from '@maverick/agentic-ui-server';
-import { listMatters } from '@maverick/demo-ediscovery-shared';
+} from '@infra-tools/agentic-ui-server';
+import { listMatters } from '@infra-tools/demo-ediscovery-shared';
 import { GeminiAgent } from './gemini-agent.js';
 import { OrchestratorAgent } from './orchestrator-agent.js';
 import { bearerAuth } from './auth.js';

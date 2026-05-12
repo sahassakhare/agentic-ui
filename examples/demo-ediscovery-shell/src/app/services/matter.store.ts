@@ -9,12 +9,12 @@ import {
   type AuditEvent,
   type Custodian,
   type LegalHold,
-} from '@maverick/demo-ediscovery-shared';
+} from '@infra-tools/demo-ediscovery-shared';
 import { environment } from '../../environments/environment';
 
 /**
  * Browser-side store for the active matter. Wraps the framework-agnostic
- * mock-data module from `@maverick/demo-ediscovery-shared` with Angular
+ * mock-data module from `@infra-tools/demo-ediscovery-shared` with Angular
  * signals for reactive views.
  *
  * @remarks

@@ -13,7 +13,7 @@ import {
   provideAgenticUi,
   provideAgUiBackend,
   ToolRegistry,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 
 import { environment } from '../environments/environment';
 import { routes } from './app.routes';

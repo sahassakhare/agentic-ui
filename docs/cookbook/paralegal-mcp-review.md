@@ -1,7 +1,7 @@
 # Paralegal privilege review in Claude Desktop
 
 Phase 6 of the [eDiscovery flagship](../plans/ediscovery-app-plan.md#phase-6--mcp-server-side-for-analyst-workstations-3-days-shipped)
-ships an MCP server — `@maverick/demo-ediscovery-mcp` — that exposes the
+ships an MCP server — `@infra-tools/demo-ediscovery-mcp` — that exposes the
 **review and search toolset** to Claude Desktop / Cursor / Zed. The
 paralegal opens their IDE, runs privilege review without switching
 context, and every action lands in the **same audit chain** that the
@@ -35,7 +35,7 @@ flowchart LR
       A[chat shell] --> B[review specialist]
     end
     subgraph "Claude Desktop"
-      C[paralegal prompt] --> D["@maverick/demo-ediscovery-mcp<br/>(stdio)"]
+      C[paralegal prompt] --> D["@infra-tools/demo-ediscovery-mcp<br/>(stdio)"]
     end
     B --> H[ToolDef literals<br/>5 review tools]
     D --> H
@@ -175,7 +175,7 @@ paralegal regardless of which surface they used to make it.
 
 - **Audit events appear in MCP but not the web app's Audit Trail.**
   The web app and the MCP server are **separate processes** — they
-  share `@maverick/demo-ediscovery-shared` *as code*, but each
+  share `@infra-tools/demo-ediscovery-shared` *as code*, but each
   process holds its own `MockStore` instance. This is by design:
   the demo's mock data is in-memory; production deployments back
   the audit log with a shared write-once store
@@ -213,7 +213,7 @@ things change between localhost and a regulated deploy:
    session via your identity provider's session hook. The
    one-process-per-config pattern in Claude Desktop is suitable
    for a single workstation; for an enterprise, run the MCP server
-   centrally over HTTP transport (`@maverick/agentic-ui-mcp`'s
+   centrally over HTTP transport (`@infra-tools/agentic-ui-mcp`'s
    transports include HTTP) and let your gateway terminate the
    user identity.
 
@@ -221,7 +221,7 @@ things change between localhost and a regulated deploy:
 
 - [Production deployment](./production-deployment.md) — `ThreadStateStore` and audit-store swap.
 - [Federation at scale](./federation-at-scale.md) — capability prefetch + tool filter.
-- [MCP server adapter](./mcp-server.md) — the underlying `@maverick/agentic-ui-mcp` package.
+- [MCP server adapter](./mcp-server.md) — the underlying `@infra-tools/agentic-ui-mcp` package.
 
 ## See also
 

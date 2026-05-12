@@ -11,7 +11,7 @@ flowchart LR
       A[Claude Desktop / Cursor / Zed]
     end
     subgraph "Your service"
-      B["@maverick/agentic-ui-mcp<br/>createMcpServer({ tools })"]
+      B["@infra-tools/agentic-ui-mcp<br/>createMcpServer({ tools })"]
       C[Existing ToolDefs]
       D[Your handlers — book a flight,<br/>open a ticket, query a DB]
     end
@@ -29,13 +29,13 @@ flowchart LR
 
 ```bash
 # 1. Add the package
-npm install @maverick/agentic-ui-mcp
+npm install @infra-tools/agentic-ui-mcp
 ```
 
 ```ts
 // 2. Build a Node entry that exposes your tools as MCP
 // e.g. mcp-server.ts
-import { createMcpServer } from '@maverick/agentic-ui-mcp';
+import { createMcpServer } from '@infra-tools/agentic-ui-mcp';
 import { bookFlightTool, checkPointsTool, openTicketTool } from './your-tools';
 
 const handle = createMcpServer({
@@ -76,7 +76,7 @@ The fundamental property: **one tool definition, multiple consumer surfaces**.
 
 > ⚠️ **Authoring tools for Node-only consumption.**
 > The `agenticTool({...})` factory is re-exported from
-> `@maverick/agentic-ui`'s public-api barrel. Importing **anything** from
+> `@infra-tools/agentic-ui`'s public-api barrel. Importing **anything** from
 > that barrel (even a free function) pulls in Angular's static
 > initializers (`PlatformLocation`, `ɵɵngDeclareFactory`, etc.) which
 > require `@angular/compiler` at runtime. That's fine inside an Angular
@@ -92,14 +92,14 @@ The fundamental property: **one tool definition, multiple consumer surfaces**.
 > behaviour beyond returning the same object with type inference, so
 > the literal works identically. **Type-only imports are erased at
 > compile time** and don't pull Angular into runtime — `import type
-> { ToolDef, ToolResultRenderHints } from '@maverick/agentic-ui'` is
+> { ToolDef, ToolResultRenderHints } from '@infra-tools/agentic-ui'` is
 > safe.
 
 ### When the same tool is shared with `<mvk-chat-shell>` (Angular app)
 
 ```ts
 // In your Angular project — agenticTool is fine here.
-import { agenticTool } from '@maverick/agentic-ui';
+import { agenticTool } from '@infra-tools/agentic-ui';
 
 export const bookFlightTool = agenticTool({
   name: 'bookFlight',
@@ -125,7 +125,7 @@ Same shape, declared as a literal so no Angular DI runs:
 
 ```ts
 // In your MCP server — agenticTool would crash here. Use a literal.
-import type { ToolDef, ToolResultRenderHints } from '@maverick/agentic-ui';
+import type { ToolDef, ToolResultRenderHints } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 
 export const bookFlightTool: ToolDef = {
@@ -153,7 +153,7 @@ export const bookFlightTool: ToolDef = {
 | MCP host without markdown support | JSON-stringified domain fields (`bookingId`, `from`, `to`, `date`, `status`) |
 
 The `markdown` and `image_url` fields are declared in the
-`ToolResultRenderHints` interface exported from `@maverick/agentic-ui`
+`ToolResultRenderHints` interface exported from `@infra-tools/agentic-ui`
 — purely additive, every field optional, consumers ignore unrecognised
 fields.
 
@@ -243,7 +243,7 @@ resource blocks in a sandbox. The adapter activates this whenever your
 tool result includes an `html` field.
 
 ```ts
-import type { ToolDef, ToolResultRenderHints } from '@maverick/agentic-ui';
+import type { ToolDef, ToolResultRenderHints } from '@infra-tools/agentic-ui';
 
 const bookFlightTool: ToolDef = {
   name: 'bookFlight',

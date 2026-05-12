@@ -62,7 +62,7 @@ test.fixme(
     // `listProductionSets()` from what looks like its own copy and shows
     // "No production sets yet". The chat widget renders the production
     // correctly (proving the call succeeded server-side) — the gap is
-    // that `@maverick/demo-ediscovery-shared` isn't actually singleton-
+    // that `@infra-tools/demo-ediscovery-shared` isn't actually singleton-
     // shared between host + remote at runtime despite the Native
     // Federation `shared` config. Re-enable once the data layer moves
     // behind a DI-provided service whose state is host-scoped.

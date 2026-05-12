@@ -21,7 +21,7 @@ These are policy decisions. The post-audit follow-ups plan §OPA called for OPA 
 ADR-010 §D4 explicitly says: *"no Temporal/NATS/OPA/OpenSearch in the runtime."* This ADR honors that — OPA support ships in two pieces, **both outside the core lib**:
 
 - **OPA-A**: catalog server side. New `policy_bundles` table for rego storage; new `/policy/decide` endpoint that forwards to an OPA sidecar.
-- **OPA-B**: optional runtime plugin package `@maverick/agentic-ui-opa-authorizer`. Adopters install only if they want OPA.
+- **OPA-B**: optional runtime plugin package `@infra-tools/agentic-ui-opa-authorizer`. Adopters install only if they want OPA.
 
 ---
 
@@ -82,7 +82,7 @@ Decision calls (`/policy/decide`) deliberately **do not** audit — high-frequen
 
 ### D6 — Runtime plugin: separate npm package, NOT in core lib
 
-`@maverick/agentic-ui-opa-authorizer` is a sibling package, peer-deps `@maverick/agentic-ui` >=1.2 + `@angular/core` >=21. Adopters who don't want OPA never install it; ADR-010 D4 stays clean.
+`@infra-tools/agentic-ui-opa-authorizer` is a sibling package, peer-deps `@infra-tools/agentic-ui` >=1.2 + `@angular/core` >=21. Adopters who don't want OPA never install it; ADR-010 D4 stays clean.
 
 The plugin's `provideOpaAuthorizer({...})` returns its own `EnvironmentProviders`. Adopters wire it alongside (or instead of) `provideAgenticPlatform({ capabilityAuthorizer: ... })`:
 
@@ -190,7 +190,7 @@ allow := true {
 
 ### OPA-B — runtime plugin (new package)
 
-- [`@maverick/agentic-ui-opa-authorizer`](../../projects/agentic-ui-opa-authorizer) — new sibling package.
+- [`@infra-tools/agentic-ui-opa-authorizer`](../../projects/agentic-ui-opa-authorizer) — new sibling package.
 - `OpaAuthorizerService` + `provideOpaAuthorizer` — full Angular-DI integration.
 - `composeWithOpaAuthorizer` — pure function, 4 vitest tests.
 - TypeScript build clean against the workspace's lib dist.

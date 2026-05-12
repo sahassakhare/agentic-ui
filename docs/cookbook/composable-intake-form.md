@@ -69,7 +69,7 @@ metadata.
 ```ts
 // examples/demo-ediscovery-shell/src/app/agentic/intake-sections.component.ts
 import { Component, computed, inject } from '@angular/core';
-import { COMPOSITION_SLOT, CompositionStore } from '@maverick/agentic-ui';
+import { COMPOSITION_SLOT, CompositionStore } from '@infra-tools/agentic-ui';
 
 interface IdentityValue { name: string; email: string; department: string; }
 const EMPTY: IdentityValue = { name: '', email: '', department: '' };
@@ -123,7 +123,7 @@ Register the widget like any other component:
 
 ```ts
 // examples/demo-ediscovery-shell/src/app/agentic/agentic.ts
-import { agenticWidget, type ComponentDef } from '@maverick/agentic-ui';
+import { agenticWidget, type ComponentDef } from '@infra-tools/agentic-ui';
 import { IntakeIdentityComponent, /* ... */ } from './intake-sections.component';
 
 export const widgets: ComponentDef[] = [
@@ -144,7 +144,7 @@ parses every `if` expression at registration time and rejects bad
 input before the UI mounts.
 
 ```ts
-import { agenticForm, FormRegistry, type FormDef } from '@maverick/agentic-ui';
+import { agenticForm, FormRegistry, type FormDef } from '@infra-tools/agentic-ui';
 
 env.get(FormRegistry).register(
   agenticForm({
@@ -204,7 +204,7 @@ that returns it.
 ```ts
 // examples/demo-ediscovery-shell/src/app/agentic/custodian-intake-card.component.ts
 import { Component, computed, input } from '@angular/core';
-import { FormRendererComponent } from '@maverick/agentic-ui';
+import { FormRendererComponent } from '@infra-tools/agentic-ui';
 
 @Component({
   selector: 'app-custodian-intake-card',
@@ -344,7 +344,7 @@ registration:
 Surface these errors at boot time:
 
 ```ts
-import { FormCompositionError } from '@maverick/agentic-ui';
+import { FormCompositionError } from '@infra-tools/agentic-ui';
 
 try {
   registerForms(env);

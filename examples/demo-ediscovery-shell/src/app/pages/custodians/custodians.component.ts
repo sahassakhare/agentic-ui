@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } 
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { listAuditEvents, listDocuments, listLegalHolds } from '@maverick/demo-ediscovery-shared';
+import { listAuditEvents, listDocuments, listLegalHolds } from '@infra-tools/demo-ediscovery-shared';
 import { environment } from '../../../environments/environment';
 import { MatterStore } from '../../services/matter.store';
 import { IconComponent } from '../../ui/icon.component';

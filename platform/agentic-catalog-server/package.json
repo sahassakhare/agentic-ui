@@ -1,5 +1,5 @@
 {
-  "name": "@maverick/agentic-catalog-server",
+  "name": "@infra-tools/agentic-catalog-server",
   "version": "0.1.0",
   "description": "Capability catalog server — control-plane T2 foundation. Hono + Postgres (RLS) + JWT/JWKS. Multi-tenant capability registry, federated identity, audit trail.",
   "license": "Apache-2.0",

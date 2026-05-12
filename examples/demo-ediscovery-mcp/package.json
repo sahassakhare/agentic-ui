@@ -1,5 +1,5 @@
 {
-  "name": "@maverick/demo-ediscovery-mcp",
+  "name": "@infra-tools/demo-ediscovery-mcp",
   "version": "0.1.0",
   "private": true,
   "description": "MCP server exposing the eDiscovery review + search toolset to analyst workstations (Claude Desktop, Cursor, Zed). Reuses the same handlers the host shell calls so audit trails, TAR scores, and privilege workflows behave identically across surfaces.",
@@ -11,9 +11,9 @@
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@maverick/agentic-ui": "file:../../dist/agentic-ui",
-    "@maverick/agentic-ui-mcp": "file:../../projects/agentic-ui-mcp",
-    "@maverick/demo-ediscovery-shared": "file:../demo-ediscovery-shared",
+    "@infra-tools/agentic-ui": "file:../../dist/agentic-ui",
+    "@infra-tools/agentic-ui-mcp": "file:../../projects/agentic-ui-mcp",
+    "@infra-tools/demo-ediscovery-shared": "file:../demo-ediscovery-shared",
     "zod": "^3.23.8"
   },
   "devDependencies": {

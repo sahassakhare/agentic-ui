@@ -1,5 +1,5 @@
 {
-  "name": "@maverick/agentic-ui",
+  "name": "@infra-tools/agentic-ui",
   "version": "1.1.0",
   "description": "Reusable agentic UI library for Angular — pluggable AG-UI / Hashbrown / A2UI backends, MFE-aware registries, OpenTelemetry observability.",
   "license": "Apache-2.0",

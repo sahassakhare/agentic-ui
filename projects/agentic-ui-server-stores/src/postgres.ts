@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from 'pg';
-import type { ThreadStateStore } from '@maverick/agentic-ui-server';
+import type { ThreadStateStore } from '@infra-tools/agentic-ui-server';
 
 /**
  * Construction options for {@link PostgresThreadStateStore}.
@@ -60,7 +60,7 @@ export interface PostgresThreadStateStoreOptions {
  * import {
  *   PostgresThreadStateStore,
  *   createSchemaSql,
- * } from '@maverick/agentic-ui-server-stores/postgres';
+ * } from '@infra-tools/agentic-ui-server-stores/postgres';
  *
  * const pool = new Pool({ connectionString: process.env.DATABASE_URL });
  *

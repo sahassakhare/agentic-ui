@@ -1,4 +1,4 @@
-import { defineCapabilityModule } from '@maverick/agentic-ui';
+import { defineCapabilityModule } from '@infra-tools/agentic-ui';
 
 /**
  * Capability module exposed by the "<%= remoteName %>" MFE remote.

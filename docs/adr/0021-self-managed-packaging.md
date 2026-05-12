@@ -74,7 +74,7 @@ The ops console build output is static assets. We ship it as
 `nginx:1.27-alpine` with an envsubst-able config that proxies
 `/v1/*` to the catalog. Reasons:
 
-- **30 MB image.** A Node-based static-server image (`@maverick/ops-console`
+- **30 MB image.** A Node-based static-server image (`@infra-tools/ops-console`
   running an Express + serve-static stack) would be 200 MB.
 - **Same-origin catalog API.** Browser hits `/v1/...` on the ops
   console host; nginx reverse-proxies to the catalog. No CORS

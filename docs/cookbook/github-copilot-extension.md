@@ -24,11 +24,11 @@ and is shipped under
                                                              │
                                           AgenticBackend.run │
                                                              ▼
-                                          @maverick/agentic-ui catalog
+                                          @infra-tools/agentic-ui catalog
                                           (same tools, same audit chain)
 ```
 
-`@maverick/agentic-ui-copilot-skill` covers the boxed boilerplate —
+`@infra-tools/agentic-ui-copilot-skill` covers the boxed boilerplate —
 signature verify, body parse, OpenAI-shaped SSE serialise. You
 write the `SkillHandler` that bridges Copilot's `messages` array
 into your existing agent loop.
@@ -36,7 +36,7 @@ into your existing agent loop.
 ## Step 1 — install the skill package
 
 ```bash
-npm install @maverick/agentic-ui-copilot-skill express
+npm install @infra-tools/agentic-ui-copilot-skill express
 ```
 
 ## Step 2 — implement the handler
@@ -49,7 +49,7 @@ SSE chunk Copilot Chat displays in-line.
 import type {
   SkillHandler,
   SkillEvent,
-} from '@maverick/agentic-ui-copilot-skill';
+} from '@infra-tools/agentic-ui-copilot-skill';
 import { runAgent } from './my-agent';  // your existing agent loop
 
 export const copilotHandler: SkillHandler =
@@ -103,7 +103,7 @@ forgets — but emit it explicitly for clarity.
 ```ts
 // server/main.ts
 import express from 'express';
-import { createCopilotSkillMiddleware } from '@maverick/agentic-ui-copilot-skill';
+import { createCopilotSkillMiddleware } from '@infra-tools/agentic-ui-copilot-skill';
 import { copilotHandler } from './copilot-handler';
 
 const app = express();

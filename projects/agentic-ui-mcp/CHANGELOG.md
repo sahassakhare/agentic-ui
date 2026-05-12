@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `@maverick/agentic-ui-mcp` are documented in this file.
+All notable changes to `@infra-tools/agentic-ui-mcp` are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -24,7 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 
-- **`createMcpServer({ name, version, tools, beforeCall?, afterCall? })`** — wraps any list of `@maverick/agentic-ui` `ToolDef`s as a Model Context Protocol server. Hosts that consume MCP servers (Claude Desktop, Cursor, Continue, Zed, Windsurf, the upcoming Copilot MCP support) can mount the server and invoke its tools.
+- **`createMcpServer({ name, version, tools, beforeCall?, afterCall? })`** — wraps any list of `@infra-tools/agentic-ui` `ToolDef`s as a Model Context Protocol server. Hosts that consume MCP servers (Claude Desktop, Cursor, Continue, Zed, Windsurf, the upcoming Copilot MCP support) can mount the server and invoke its tools.
 - **Three transports** on the returned `McpServerHandle`:
   - `startStdio()` — default for desktop MCP hosts; reads stdin / writes stdout.
   - `startHttp({ port, cors? })` — Server-Sent Events for remote MCP hosts. CORS allowlist optional but recommended for production.
@@ -44,7 +44,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Node 20.19+
 - TypeScript 5.9+
 - `@modelcontextprotocol/sdk` ^1.0.0 (pinned — bump deliberately)
-- `@maverick/agentic-ui` ^1.0.0 (peer)
+- `@infra-tools/agentic-ui` ^1.0.0 (peer)
 - `zod` ^3.23.0 (peer)
 
 ### Production-grade scope

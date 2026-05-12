@@ -5,7 +5,7 @@ import {
   CapabilityRegistry,
   OperationRegistry,
   ToolRegistry,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 import { PersonaService } from '../services/persona.service';
 import { IconComponent, type IconName } from '../ui/icon.component';
 

@@ -10,7 +10,7 @@
 
 ## Context
 
-`@maverick/agentic-ui-server` already ships a `ThreadStateStore<TState>` interface and an `InMemoryThreadStateStore` default. The interface is async-shaped:
+`@infra-tools/agentic-ui-server` already ships a `ThreadStateStore<TState>` interface and an `InMemoryThreadStateStore` default. The interface is async-shaped:
 
 ```ts
 interface ThreadStateStore<TState = unknown> {
@@ -30,18 +30,18 @@ This ADR records the design decisions that shape the adapter package.
 
 ### D1 — Adapters live in a sibling package, not in `agentic-ui-server`
 
-New package: `@maverick/agentic-ui-server-stores`. The Redis + Postgres adapters live there, not in `agentic-ui-server`. Reasoning:
+New package: `@infra-tools/agentic-ui-server-stores`. The Redis + Postgres adapters live there, not in `agentic-ui-server`. Reasoning:
 
 - **Embedded-first principle (ADR-010 D3)** applies tonally even to the server-side surface. Pulling `ioredis` + `pg` into `agentic-ui-server` would inflate install size + dependency surface for every consumer, including those who only need the in-memory default.
 - **Optional peer dependencies are awkward in a single package**. Declaring `ioredis` + `pg` as optional peers on `agentic-ui-server` forces consumers to wade through warnings about missing peers. A separate package puts the peer-dep declaration where it's actually load-bearing.
-- **Mirrors the existing pattern**: `@maverick/agentic-ui-mcp` is a sibling to the runtime tier; `@maverick/agentic-ui-server-stores` is the same pattern for the server tier.
+- **Mirrors the existing pattern**: `@infra-tools/agentic-ui-mcp` is a sibling to the runtime tier; `@infra-tools/agentic-ui-server-stores` is the same pattern for the server tier.
 
 ### D2 — Both adapters declare optional peer dependencies
 
 `ioredis ^5.4` and `pg ^8.11` are declared in `peerDependencies` *and* `peerDependenciesMeta.{optional: true}`. Consumers install only the adapter they use:
 
 ```bash
-npm install @maverick/agentic-ui-server-stores
+npm install @infra-tools/agentic-ui-server-stores
 npm install ioredis    # for Redis
 # OR
 npm install pg         # for Postgres
@@ -171,5 +171,5 @@ Out of scope:
 - [ADR-010 — Platform principles, Apache 2.0, codified non-goals](./0010-platform-principles-and-license.md)
 - [ADR-011 — RegistryProviderHook design](./0011-registry-provider-hook.md)
 - [docs/plans/platform-evolution-plan.md](../plans/platform-evolution-plan.md) §4.1 R3
-- [`@maverick/agentic-ui-server`](../../projects/agentic-ui-server/) — the package that owns the `ThreadStateStore<TState>` interface
+- [`@infra-tools/agentic-ui-server`](../../projects/agentic-ui-server/) — the package that owns the `ThreadStateStore<TState>` interface
 - [docs/cookbook/production-deployment.md](../cookbook/production-deployment.md) — existing concept doc

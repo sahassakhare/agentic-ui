@@ -5,7 +5,7 @@ The library bakes a `AgenticTelemetrySink` interface in from M1 — every regist
 ## Dev — console sink (zero deps)
 
 ```ts
-import { provideAgenticTelemetryConsole } from '@maverick/agentic-ui/otel';
+import { provideAgenticTelemetryConsole } from '@infra-tools/agentic-ui/otel';
 
 providers: [
   provideAgenticUi(),
@@ -34,7 +34,7 @@ npm install @opentelemetry/api @opentelemetry/sdk-trace-web @opentelemetry/expor
 import { trace, metrics } from '@opentelemetry/api';
 import { WebTracerProvider } from '@opentelemetry/sdk-trace-web';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { provideAgenticTelemetry } from '@maverick/agentic-ui/otel';
+import { provideAgenticTelemetry } from '@infra-tools/agentic-ui/otel';
 
 const provider = new WebTracerProvider({
   spanProcessors: [
@@ -68,14 +68,14 @@ Bundle delta: 30–80 KB gzipped (the SDK + exporter; the lib's adapter itself i
 
 ## Cross-process tracing
 
-The AG-UI HTTP request from `AgUiBackend` to your agent server can carry W3C `traceparent` headers when the OTel SDK is wired (the OTel browser SDK auto-instruments `fetch` if you register the `FetchInstrumentation`). The server-side route handler in `@maverick/agentic-ui-server` can extract the trace context and continue the trace via `@opentelemetry/sdk-node` or your runtime's equivalent — the lib doesn't hard-code this so you can choose Tempo / Jaeger / Honeycomb / Grafana.
+The AG-UI HTTP request from `AgUiBackend` to your agent server can carry W3C `traceparent` headers when the OTel SDK is wired (the OTel browser SDK auto-instruments `fetch` if you register the `FetchInstrumentation`). The server-side route handler in `@infra-tools/agentic-ui-server` can extract the trace context and continue the trace via `@opentelemetry/sdk-node` or your runtime's equivalent — the lib doesn't hard-code this so you can choose Tempo / Jaeger / Honeycomb / Grafana.
 
 ## Custom sink
 
 You can write a sink that forwards to Datadog, StatsD, or a custom HTTP endpoint by implementing `AgenticTelemetrySink` directly:
 
 ```ts
-import type { AgenticTelemetrySink, TelemetrySpan } from '@maverick/agentic-ui';
+import type { AgenticTelemetrySink, TelemetrySpan } from '@infra-tools/agentic-ui';
 
 class DatadogSink implements AgenticTelemetrySink {
   startSpan(name: string, attrs?: Record<string, unknown>): TelemetrySpan {

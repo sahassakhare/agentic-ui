@@ -34,10 +34,10 @@ connector forwards into our agent server.
 
 ## Decision
 
-### D1 — Ship `@maverick/agentic-ui-copilot-studio-connector` as a server-side adapter package
+### D1 — Ship `@infra-tools/agentic-ui-copilot-studio-connector` as a server-side adapter package
 
-Same shape as `@maverick/agentic-ui-teams-bot` and
-`@maverick/agentic-ui-copilot-skill`: protocol + manifest, no
+Same shape as `@infra-tools/agentic-ui-teams-bot` and
+`@infra-tools/agentic-ui-copilot-skill`: protocol + manifest, no
 LLM, no Angular dependency. Adopters wire their existing agent
 behind a `ConnectorActionHandler`.
 

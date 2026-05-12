@@ -1,4 +1,4 @@
-import { agenticTool, agenticWidget, type ComponentDef, type ToolDef } from '@maverick/agentic-ui';
+import { agenticTool, agenticWidget, type ComponentDef, type ToolDef } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 import { FlightCardComponent } from './flight-card.component';
 import { PointsCardComponent } from './points-card.component';

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { ChatShellComponent } from '@maverick/agentic-ui';
+import { ChatShellComponent } from '@infra-tools/agentic-ui';
 
 /**
  * `<%= classify(name) %>Component` — host wrapper for the agentic chat

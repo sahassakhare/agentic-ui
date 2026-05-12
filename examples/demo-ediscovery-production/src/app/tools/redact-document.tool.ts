@@ -1,4 +1,4 @@
-import { agenticTool } from '@maverick/agentic-ui';
+import { agenticTool } from '@infra-tools/agentic-ui';
 import {
   appendAudit,
   getDocument,
@@ -6,7 +6,7 @@ import {
   nextAuditId,
   updateDocument,
   type RedactionSpan,
-} from '@maverick/demo-ediscovery-shared';
+} from '@infra-tools/demo-ediscovery-shared';
 import { z } from 'zod';
 import { ACTOR, MATTER_ID } from '../matter-context';
 

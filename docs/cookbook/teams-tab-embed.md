@@ -1,6 +1,6 @@
 # Teams Tab embed
 
-Goal: ship any `@maverick/agentic-ui` host (the eDiscovery shell, a
+Goal: ship any `@infra-tools/agentic-ui` host (the eDiscovery shell, a
 bookings shell, a custom Angular app) as a Microsoft Teams Tab —
 operators stay inside Teams; the agentic UI runs inside an iframe;
 context (active tenant, user, theme) bridges in from Teams's SDK.
@@ -46,7 +46,7 @@ import {
   provideAgenticUi,
   provideAgUiBackend,
   provideTeamsContext,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 
 const FALLBACK_TENANT = 'demo';
 
@@ -92,7 +92,7 @@ Any component / service can read the signal:
 
 ```ts
 import { inject, computed } from '@angular/core';
-import { TEAMS_CONTEXT } from '@maverick/agentic-ui';
+import { TEAMS_CONTEXT } from '@infra-tools/agentic-ui';
 
 @Component({...})
 export class HeaderComponent {
@@ -164,7 +164,7 @@ can't invoke stay hidden via `setScopePolicy`.
 Path 1a covers embed-the-Angular-app-as-a-Tab. For Teams-**native**
 chat (the agent answers from Teams's chat composer with Adaptive
 Cards), see Path 1b in the plan — that ships as a separate
-`@maverick/agentic-ui-teams-bot` package once the demand is real.
+`@infra-tools/agentic-ui-teams-bot` package once the demand is real.
 
 For invoking the same tools from Microsoft 365 Copilot or GitHub
 Copilot Chat, see Paths 1c and 2a in the plan.

@@ -78,7 +78,7 @@ Modeled after Rust / React / TC39. Required for all changes listed in the [CONTR
 
 ### Versioning
 
-[Semantic Versioning 2.0](https://semver.org/spec/v2.0.0.html) for all `@maverick/*` packages.
+[Semantic Versioning 2.0](https://semver.org/spec/v2.0.0.html) for all `@infra-tools/*` packages.
 
 - **Major (X.0.0)** — breaking changes. Avoided per [ADR-010](./docs/adr/0010-platform-principles-and-license.md) (P2: zero breaking changes through v1.x). Major bumps require RFC + community-process notice ≥30 days.
 - **Minor (1.X.0)** — new features, additive changes only. RFCed for substantive features; non-RFC for additive convenience APIs.

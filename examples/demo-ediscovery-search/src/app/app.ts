@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterOutlet } from '@angular/router';
-import { listCustodians } from '@maverick/demo-ediscovery-shared';
+import { listCustodians } from '@infra-tools/demo-ediscovery-shared';
 
 import { environment } from '../environments/environment';
 import { semanticSearchTool } from './tools/semantic-search.tool';

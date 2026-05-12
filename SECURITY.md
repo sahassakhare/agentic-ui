@@ -4,7 +4,7 @@
 
 **Do not report security issues via public GitHub issues.**
 
-If you discover a vulnerability in `@maverick/agentic-ui`, `@maverick/agentic-ui-server`, `@maverick/agentic-ui-mcp`, or any related project under this repository, please report it privately so we can investigate and fix it before it becomes public.
+If you discover a vulnerability in `@infra-tools/agentic-ui`, `@infra-tools/agentic-ui-server`, `@infra-tools/agentic-ui-mcp`, or any related project under this repository, please report it privately so we can investigate and fix it before it becomes public.
 
 ### How to report
 

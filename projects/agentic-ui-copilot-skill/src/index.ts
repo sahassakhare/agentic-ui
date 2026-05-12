@@ -27,7 +27,7 @@ import { streamCopilotResponse } from './stream.js';
  * Usage (Express):
  * ```ts
  * import express from 'express';
- * import { createCopilotSkillMiddleware } from '@maverick/agentic-ui-copilot-skill';
+ * import { createCopilotSkillMiddleware } from '@infra-tools/agentic-ui-copilot-skill';
  *
  * const app = express();
  * app.post('/copilot/skill',

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { FormRendererComponent } from '@maverick/agentic-ui';
+import { FormRendererComponent } from '@infra-tools/agentic-ui';
 import { PersonaService } from '../services/persona.service';
 
 /**

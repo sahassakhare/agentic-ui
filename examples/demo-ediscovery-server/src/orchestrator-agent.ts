@@ -4,7 +4,7 @@ import {
   InMemoryThreadStateStore,
   type ServerAgent,
   type ThreadStateStore,
-} from '@maverick/agentic-ui-server';
+} from '@infra-tools/agentic-ui-server';
 import { log } from './logger.js';
 
 /**

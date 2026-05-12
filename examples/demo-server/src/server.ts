@@ -9,7 +9,7 @@ import {
   registerSpecialists,
   type AgentResolver,
   type ServerAgent,
-} from '@maverick/agentic-ui-server';
+} from '@infra-tools/agentic-ui-server';
 import { GeminiAgent } from './gemini-agent.js';
 import { OrchestratorAgent } from './orchestrator-agent.js';
 import { bearerAuth } from './auth.js';

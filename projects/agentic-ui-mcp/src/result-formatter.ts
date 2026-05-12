@@ -1,4 +1,4 @@
-import type { ToolResultRenderHints } from '@maverick/agentic-ui';
+import type { ToolResultRenderHints } from '@infra-tools/agentic-ui';
 
 /**
  * One element of an MCP `tools/call` response's `content` array.

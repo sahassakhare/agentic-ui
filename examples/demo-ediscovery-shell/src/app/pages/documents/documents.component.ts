@@ -13,7 +13,7 @@ import {
   updateDocument,
   type Document,
   type DocumentTag,
-} from '@maverick/demo-ediscovery-shared';
+} from '@infra-tools/demo-ediscovery-shared';
 import { environment } from '../../../environments/environment';
 import { MatterStore } from '../../services/matter.store';
 import { PersonaService } from '../../services/persona.service';

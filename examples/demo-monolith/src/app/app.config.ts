@@ -4,7 +4,7 @@ import {
   provideAgenticTelemetryConsole,
   provideAgenticUi,
   provideAgUiBackend,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 
 import { environment } from '../environments/environment';
 import { tools, widgets } from './agentic/agentic';

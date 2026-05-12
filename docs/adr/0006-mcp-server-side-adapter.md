@@ -1,4 +1,4 @@
-# ADR-006: MCP server-side adapter — `@maverick/agentic-ui-mcp`
+# ADR-006: MCP server-side adapter — `@infra-tools/agentic-ui-mcp`
 
 **Status**: Accepted (implementing).
 
@@ -33,14 +33,14 @@ fields MCP wants:
 
 ## Decision
 
-Ship **one new optional npm package**: `@maverick/agentic-ui-mcp`.
+Ship **one new optional npm package**: `@infra-tools/agentic-ui-mcp`.
 
 - Wraps `@modelcontextprotocol/sdk` for the wire-format implementation.
 - Single primary export: `createMcpServer({ name, version, tools, ... })` — takes a `ToolDef[]` and returns a configured server with stdio + HTTP/SSE transports.
-- Lives in its own package (not bundled into `@maverick/agentic-ui`) so consumers building only an Angular host pay zero bytes for MCP code.
+- Lives in its own package (not bundled into `@infra-tools/agentic-ui`) so consumers building only an Angular host pay zero bytes for MCP code.
 - No new core-library changes required; the package consumes the existing public types.
 
-Supplementary, on the **core** library (`@maverick/agentic-ui`):
+Supplementary, on the **core** library (`@infra-tools/agentic-ui`):
 - Document a non-breaking convention on `ToolDef` return values:
   - existing `components: [{name, props}]` continues to render through `<mvk-widget-container>`,
   - **new optional** `markdown: string` for hosts that render only markdown,
@@ -50,14 +50,14 @@ Supplementary, on the **core** library (`@maverick/agentic-ui`):
 ### Public API surface
 
 ```ts
-// @maverick/agentic-ui-mcp — single package entry
+// @infra-tools/agentic-ui-mcp — single package entry
 
 export interface CreateMcpServerOptions {
   /** Server name advertised to MCP hosts (claude_desktop_config.json mountpoint). */
   readonly name: string;
   /** Semver. Surfaced in MCP `initialize` responses. */
   readonly version: string;
-  /** The tools to expose. Reuses ToolDef from @maverick/agentic-ui. */
+  /** The tools to expose. Reuses ToolDef from @infra-tools/agentic-ui. */
   readonly tools: readonly ToolDef[];
   /** Optional pre-call hook — auth, audit, rate-limit, etc. */
   readonly beforeCall?: (params: { name: string; args: unknown; callId: string }) => void | Promise<void>;
@@ -84,7 +84,7 @@ export function createMcpServer(opts: CreateMcpServerOptions): McpServerHandle;
 Documented on `ToolDef` (one line of new TypeScript optionality, no breakage):
 
 ```ts
-// Standardised on @maverick/agentic-ui as `ToolResultRenderHints` —
+// Standardised on @infra-tools/agentic-ui as `ToolResultRenderHints` —
 // purely additive, every field optional, consumers ignore unrecognised fields.
 
 interface ToolResultRenderHints {
@@ -116,7 +116,7 @@ forward-compatible tools today aren't blocked when ADR-007 lands.
 This ADR ships a **library-grade** package — the API is stable,
 tested, and works against today's MCP hosts. It does **not** ship
 multi-tenant operational infrastructure, which is consumer-side and
-matches how the rest of v1 of `@maverick/agentic-ui` is positioned.
+matches how the rest of v1 of `@infra-tools/agentic-ui` is positioned.
 
 | Aspect | What ADR-006 ships | What's consumer's responsibility |
 |---|---|---|
@@ -143,7 +143,7 @@ operational layer is opt-in / consumer-side.
 - [ ] Create `projects/agentic-ui-mcp/` (lib package, mirror `projects/agentic-ui-server/` structure: `package.json`, `tsconfig.json`, `src/index.ts`, `CHANGELOG.md`).
 - [ ] Add to workspace `tsconfig.json` references; add `npm test` workflow path.
 - [ ] Declare runtime deps: `@modelcontextprotocol/sdk@^1.x` (pin), `zod@^3` (peer to match core lib).
-- [ ] Declare *peer* dep on `@maverick/agentic-ui` (consumer brings their own version).
+- [ ] Declare *peer* dep on `@infra-tools/agentic-ui` (consumer brings their own version).
 
 ### Phase 1 — core adapter (1 day)
 
@@ -195,8 +195,8 @@ operational layer is opt-in / consumer-side.
   - Auth, rate-limit, and audit examples via `beforeCall`
   - Limitations section (no generative UI in markdown hosts; document the escape hatches)
 - [ ] **CHANGELOG** entries on both:
-  - `@maverick/agentic-ui` `[Unreleased]` — note the optional `markdown` / `image_url` fields on `ToolDef` return values (additive, non-breaking).
-  - `@maverick/agentic-ui-mcp` `[0.1.0]` — first release, full feature list.
+  - `@infra-tools/agentic-ui` `[Unreleased]` — note the optional `markdown` / `image_url` fields on `ToolDef` return values (additive, non-breaking).
+  - `@infra-tools/agentic-ui-mcp` `[0.1.0]` — first release, full feature list.
 - [ ] **README documentation table** — link the new cookbook entry.
 - [ ] **Compodoc summary** — include the new cookbook page so the generated site picks it up.
 
@@ -204,7 +204,7 @@ operational layer is opt-in / consumer-side.
 
 - [ ] Run all 8 demo apps; confirm no regressions in the existing chat-shell render path (the `markdown` / `image_url` fields shouldn't change anything for `<mvk-chat-shell>`).
 - [ ] Manual smoke: install `examples/demo-mcp-server` in Claude Desktop's `claude_desktop_config.json`, run a tool call, capture the result.
-- [ ] Bundle-size guard: confirm `@maverick/agentic-ui` core hasn't grown — the MCP code lives in its own package.
+- [ ] Bundle-size guard: confirm `@infra-tools/agentic-ui` core hasn't grown — the MCP code lives in its own package.
 
 **Total**: ≈ 3–4 days end-to-end.
 
@@ -212,12 +212,12 @@ operational layer is opt-in / consumer-side.
 
 A change request implementing this ADR is "done" when:
 
-1. `npm install @maverick/agentic-ui-mcp` works against an unrelated app and produces a buildable Node binary that exposes the consumer's `ToolDef[]` as an MCP server.
+1. `npm install @infra-tools/agentic-ui-mcp` works against an unrelated app and produces a buildable Node binary that exposes the consumer's `ToolDef[]` as an MCP server.
 2. Mounting the demo MCP server in Claude Desktop's `claude_desktop_config.json` lets the user type *"Book a flight from LAX to JFK on May 5"* and see the demo's `bookFlight` handler run with the typed result returned to Claude.
 3. The same `bookFlightTool` registered in `<mvk-chat-shell>` (via `provideAgenticUi({ tools: [bookFlightTool] })`) continues to render the `flightCard` widget — proving the dual-consumer pattern works without forks.
 4. A new cookbook entry walks an integrator from zero to "my tool runs in Claude Desktop" in ≤ 10 minutes.
 5. Lib build green; CI green; existing 85 tests pass; new MCP-package tests pass.
-6. Zero new bytes shipped to consumers of the core `@maverick/agentic-ui` package who don't import the MCP package.
+6. Zero new bytes shipped to consumers of the core `@infra-tools/agentic-ui` package who don't import the MCP package.
 
 ## Consequences
 
@@ -229,9 +229,9 @@ A change request implementing this ADR is "done" when:
 
 ## Alternatives considered
 
-1. **Bundle MCP support directly into `@maverick/agentic-ui`**.
+1. **Bundle MCP support directly into `@infra-tools/agentic-ui`**.
    *Rejected*: pollutes the core-library bundle with Node-only deps (`@modelcontextprotocol/sdk`, stdio transports) that browsers don't need. Optional packages keep the core surface tight.
-2. **Bundle into `@maverick/agentic-ui-server`**.
+2. **Bundle into `@infra-tools/agentic-ui-server`**.
    *Rejected*: agentic-ui-server is the AG-UI route handler library — its concern is the `ServerAgent` contract, not protocol bridges. MCP isn't AG-UI; it's a sibling protocol with its own wire format. Different lifecycle, different deps, different consumer audience.
 3. **Server-render Angular components to PNGs as the default tool-result**.
    *Rejected for v1*: heavy infra (puppeteer, image cache); fragile (font, viewport, environment differences); cost. The markdown convention covers ≥ 90 % of useful renderings; image rendering is a Tier 2 follow-up.

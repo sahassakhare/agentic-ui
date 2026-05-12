@@ -1,5 +1,5 @@
 {
-  "name": "@maverick/agentic-ui-opa-authorizer",
+  "name": "@infra-tools/agentic-ui-opa-authorizer",
   "version": "0.1.0",
   "description": "Optional runtime plugin that gates ToolRegistry / ComponentRegistry reads via OPA decisions (Open Policy Agent). Slice OPA-B / ADR-040. Stays outside the core lib per ADR-010 D4.",
   "license": "Apache-2.0",
@@ -26,10 +26,10 @@
   },
   "peerDependencies": {
     "@angular/core": ">=21.0.0",
-    "@maverick/agentic-ui": ">=1.2.0"
+    "@infra-tools/agentic-ui": ">=1.2.0"
   },
   "devDependencies": {
-    "@maverick/agentic-ui": "file:../../dist/agentic-ui",
+    "@infra-tools/agentic-ui": "file:../../dist/agentic-ui",
     "typescript": "~5.9.0",
     "vitest": "^4.1.5"
   }

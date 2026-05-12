@@ -11,7 +11,7 @@ This is **Path 1c** in
 and detailed in
 [ADR-042](../adr/0042-copilot-studio-connector.md).
 
-> Adapter package: `@maverick/agentic-ui-copilot-studio-connector`.
+> Adapter package: `@infra-tools/agentic-ui-copilot-studio-connector`.
 > Sibling adapters cover GitHub Copilot Chat ([P2](github-copilot-extension.md)),
 > Teams chat ([P1](teams-bot-adaptive-cards.md)), and the Teams Tab
 > embed ([P0](teams-tab-embed.md)). Most production deployments
@@ -32,13 +32,13 @@ and detailed in
    │  POST /api/copilot-studio/actions/{toolName}                       │
    │  Authorization: Bearer <AAD v2.0 JWT for the signed-in M365 user> │
    │                                                                    │
-   │  ┌─── @maverick/agentic-ui-copilot-studio-connector ───────────┐   │
+   │  ┌─── @infra-tools/agentic-ui-copilot-studio-connector ───────────┐   │
    │  │  verifyConnectorJwt  →  readConnectorIdentity  →  handler   │   │
    │  └─────────────────────────────────────────────────────────────┘   │
    │                                ↓                                   │
    │                       AgenticBackend.run                           │
    │                                ↓                                   │
-   │                    @maverick/agentic-ui catalog                    │
+   │                    @infra-tools/agentic-ui catalog                    │
    │                    (same tools, same audit chain)                  │
    └────────────────────────────────────────────────────────────────────┘
 ```
@@ -46,7 +46,7 @@ and detailed in
 ## Step 1 — install
 
 ```bash
-npm install @maverick/agentic-ui-copilot-studio-connector express
+npm install @infra-tools/agentic-ui-copilot-studio-connector express
 ```
 
 ## Step 2 — generate the Connector manifest at build time
@@ -58,7 +58,7 @@ schemas change:
 // scripts/build-connector.ts
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { z } from 'zod';
-import { buildConnectorManifest } from '@maverick/agentic-ui-copilot-studio-connector';
+import { buildConnectorManifest } from '@infra-tools/agentic-ui-copilot-studio-connector';
 
 mkdirSync('dist', { recursive: true });
 
@@ -107,7 +107,7 @@ per tool name; the middleware does verify + parse + dispatch.
 
 ```ts
 // server/copilot-studio-handlers.ts
-import type { ConnectorActionHandler } from '@maverick/agentic-ui-copilot-studio-connector';
+import type { ConnectorActionHandler } from '@infra-tools/agentic-ui-copilot-studio-connector';
 import { runAgent, mapAadToCatalog } from './my-agent';
 
 export const handlers = new Map<string, ConnectorActionHandler>();
@@ -142,7 +142,7 @@ handlers.set('addCustodian', async ({ args, identity, signal }) => {
 ```ts
 // server/main.ts
 import express from 'express';
-import { createConnectorMiddleware } from '@maverick/agentic-ui-copilot-studio-connector';
+import { createConnectorMiddleware } from '@infra-tools/agentic-ui-copilot-studio-connector';
 import { handlers } from './copilot-studio-handlers';
 
 const app = express();

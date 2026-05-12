@@ -1,6 +1,6 @@
 # Platform seams — the contract surface
 
-This document is the **definitive map** of every place the runtime tier (`@maverick/agentic-ui`) deliberately yields control to the host application: every `InjectionToken<T>`, every `provideX(...)` factory, every audit hook, every scope-policy contract, every backend interface. These are the **platform contracts** the runtime guarantees forever (per [ADR-010](../adr/0010-platform-principles-and-license.md) D4 — zero breaking changes through v1.x).
+This document is the **definitive map** of every place the runtime tier (`@infra-tools/agentic-ui`) deliberately yields control to the host application: every `InjectionToken<T>`, every `provideX(...)` factory, every audit hook, every scope-policy contract, every backend interface. These are the **platform contracts** the runtime guarantees forever (per [ADR-010](../adr/0010-platform-principles-and-license.md) D4 — zero breaking changes through v1.x).
 
 Adopters, contributors, and reviewers should read this as the load-bearing document for "what's pluggable and what isn't." Anything *not* listed here is internal lib state and may change.
 
@@ -166,7 +166,7 @@ Internal lib logger (separate from `AGENTIC_TELEMETRY_SINK` which is for events)
 
 ### `MFE_REGISTRY_SOURCE`
 
-The **federation discovery seam**. Implementations: `provideStaticJsonMfeRegistry({ url })`, `provideSpringBootMfeRegistry({ url })`, `provideRestMfeRegistry({ catalogUrl, tenantId, getToken })` (M2 C1 follow-up — reads from `@maverick/agentic-catalog-server`). Custom implementations supply their own `MfeRegistrySource`.
+The **federation discovery seam**. Implementations: `provideStaticJsonMfeRegistry({ url })`, `provideSpringBootMfeRegistry({ url })`, `provideRestMfeRegistry({ catalogUrl, tenantId, getToken })` (M2 C1 follow-up — reads from `@infra-tools/agentic-catalog-server`). Custom implementations supply their own `MfeRegistrySource`.
 
 **Signature:** [projects/agentic-ui/src/lib/mfe/mfe-registry-source.ts:19](../../projects/agentic-ui/src/lib/mfe/mfe-registry-source.ts#L19)
 
@@ -327,7 +327,7 @@ inject(ApprovalRegistry).setProviderHook(null);  // detach
 
 **Restricted to state-bound replayable registries:** Approval, Operation, future Memory. **Not legal** for Tool / Component / Action / Intent / Form / Backend / Mfe / Validation / Persistence / Layout / SchemaTransformer / Capability — those hold Angular class identities (component constructors, tool handlers) that don't round-trip through external state. See [ADR-011](../adr/0011-registry-provider-hook.md) D5.
 
-**When to override:** Multi-pod deployments that need approvals or long-running operations to converge across pods + survive restarts. Pair with the upcoming `ThreadStateStore` adapter (Redis / Postgres) in [@maverick/agentic-ui-server-stores](../../projects/agentic-ui-server-stores/) (M1 R3 — not yet shipped).
+**When to override:** Multi-pod deployments that need approvals or long-running operations to converge across pods + survive restarts. Pair with the upcoming `ThreadStateStore` adapter (Redis / Postgres) in [@infra-tools/agentic-ui-server-stores](../../projects/agentic-ui-server-stores/) (M1 R3 — not yet shipped).
 
 **Telemetry events emitted:**
 - `agentic.registry.hook_installed` — once per `setProviderHook` call
@@ -337,7 +337,7 @@ inject(ApprovalRegistry).setProviderHook(null);  // detach
 
 ## Tier 2 — Server-side seams (M1 R3 — landed)
 
-These seams live in `@maverick/agentic-ui-server` (the runtime's server companion). They aren't accessible from the browser; they're consumed by the agent server (the Hono / Express / etc. process that hosts agents + routes AG-UI events). Documented here for completeness — they're equally part of the platform contract surface.
+These seams live in `@infra-tools/agentic-ui-server` (the runtime's server companion). They aren't accessible from the browser; they're consumed by the agent server (the Hono / Express / etc. process that hosts agents + routes AG-UI events). Documented here for completeness — they're equally part of the platform contract surface.
 
 ### `ThreadStateStore<TState>`
 
@@ -347,12 +347,12 @@ Per-thread state persistence. Used by the orchestrator's sticky-by-thread routin
 
 **Default:** `InMemoryThreadStateStore<TState>` ships in `agentic-ui-server`. Adequate for single-pod + tests.
 
-**Production adapters** (NEW — `@maverick/agentic-ui-server-stores` package, M1 R3):
+**Production adapters** (NEW — `@infra-tools/agentic-ui-server-stores` package, M1 R3):
 
 | Adapter | Backed by | Subpath import | Best for |
 |---|---|---|---|
-| `RedisThreadStateStore` | `ioredis ^5.4` (peer dep) | `@maverick/agentic-ui-server-stores/redis` | Lowest write latency; TTL via Redis `EX` |
-| `PostgresThreadStateStore` | `pg ^8.11` (peer dep) | `@maverick/agentic-ui-server-stores/postgres` | Stronger durability; reuse existing Postgres |
+| `RedisThreadStateStore` | `ioredis ^5.4` (peer dep) | `@infra-tools/agentic-ui-server-stores/redis` | Lowest write latency; TTL via Redis `EX` |
+| `PostgresThreadStateStore` | `pg ^8.11` (peer dep) | `@infra-tools/agentic-ui-server-stores/postgres` | Stronger durability; reuse existing Postgres |
 
 Both peer deps are **optional** — install only the adapter you use. Subpath imports keep the unused peer dep from loading. Caller owns the client / pool lifecycle. See [ADR-012](../adr/0012-thread-state-store-adapters.md) for the design rationale.
 

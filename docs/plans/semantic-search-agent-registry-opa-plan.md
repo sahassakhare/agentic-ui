@@ -4,7 +4,7 @@
 > **Successor to**: [post-audit-followups-plan.md](./post-audit-followups-plan.md) (slices B1 / A2 / A1 / S1 — all shipped on `main`)
 > **Status**: Draft — awaiting per-slice approval before any code lands.
 > **Approval gate**: Each slice has its own go/no-go. Slices are independent except where flagged.
-> **ADR-010 alignment**: [ADR-010](../adr/0010-platform-principles-and-license.md) §D4 declares **"no OPA / OpenSearch / semantic-search / vector-DB in the runtime."** This plan honors that — every piece below is **either server-side (catalog server)** or **an optional plugin package outside the core lib**. Nothing flows into `@maverick/agentic-ui` core.
+> **ADR-010 alignment**: [ADR-010](../adr/0010-platform-principles-and-license.md) §D4 declares **"no OPA / OpenSearch / semantic-search / vector-DB in the runtime."** This plan honors that — every piece below is **either server-side (catalog server)** or **an optional plugin package outside the core lib**. Nothing flows into `@infra-tools/agentic-ui` core.
 
 ---
 
@@ -201,13 +201,13 @@ CREATE TABLE agents (
 
 REST endpoints: `GET / POST / PATCH / DELETE /v1/catalogs/{tenant}/agents` mirroring the existing MFE patterns. RLS, audit, SSE — all reuse the existing primitives from ADR-027 / ADR-029.
 
-#### New package: `@maverick/agentic-ui-server-registrar`
+#### New package: `@infra-tools/agentic-ui-server-registrar`
 
 A small Node-side package that runs **in the agent server's bootstrap** and POSTs registration on startup. Not a new runtime concept; it's the server-side analog of `provideCatalogCapabilityRegistrar`.
 
 ```ts
 // In your agent server's main.ts:
-import { registerAgentWithCatalog } from '@maverick/agentic-ui-server-registrar';
+import { registerAgentWithCatalog } from '@infra-tools/agentic-ui-server-registrar';
 
 await registerAgentWithCatalog({
   catalogUrl: process.env.CATALOG_URL!,
@@ -228,7 +228,7 @@ The package handles:
 - Periodic heartbeats (PATCH `/agents/{id}` with `status: 'active', lastHealth: now()`).
 - Graceful shutdown (PATCH `status: 'inactive'` on SIGTERM).
 
-Lives at `packages/agentic-ui-server-registrar/` — same layout as `@maverick/agentic-ui-server-stores`. Apache 2.0, optional peer dep.
+Lives at `packages/agentic-ui-server-registrar/` — same layout as `@infra-tools/agentic-ui-server-stores`. Apache 2.0, optional peer dep.
 
 #### Ops console: new `/agents` page
 
@@ -263,10 +263,10 @@ Today the host writes Angular code for this (`PersonaService.canInvoke()` in eDi
 
 ### ADR-010 D4 carve-out
 
-ADR-010 §D4 says: *"no Temporal/NATS/OPA/OpenSearch in the runtime."* This is non-negotiable for the **core** `@maverick/agentic-ui` package. OPA support therefore ships as:
+ADR-010 §D4 says: *"no Temporal/NATS/OPA/OpenSearch in the runtime."* This is non-negotiable for the **core** `@infra-tools/agentic-ui` package. OPA support therefore ships as:
 
 1. **Server-side**: OPA decision endpoint embedded in the catalog server (or via a sidecar). The catalog already has all the data OPA needs (tenant, capability, role-mappings).
-2. **Optional plugin package**: `@maverick/agentic-ui-opa-authorizer` — a separate npm package, optional peer dep, never bundled by the core lib.
+2. **Optional plugin package**: `@infra-tools/agentic-ui-opa-authorizer` — a separate npm package, optional peer dep, never bundled by the core lib.
 
 ### Approach
 
@@ -277,7 +277,7 @@ ADR-010 §D4 says: *"no Temporal/NATS/OPA/OpenSearch in the runtime."* This is n
 - New endpoint: `POST /v1/catalogs/{tenant}/policy/decide` — body is `{ subject, resource, action }`, response is `{ allow: boolean, reason?: string, obligations?: ... }`.
 - Bundle deploy: operators upload a `.rego` file via UI or `mvk policy publish`. Catalog validates syntax, stores, makes available to the decision endpoint.
 
-#### OPA-B — Runtime plugin: `@maverick/agentic-ui-opa-authorizer` (2–3 days)
+#### OPA-B — Runtime plugin: `@infra-tools/agentic-ui-opa-authorizer` (2–3 days)
 
 Lightweight wrapper over the existing `provideCatalogCapabilityAuthorizer`. Replaces the binary disabled-list with an OPA decision per registry read.
 

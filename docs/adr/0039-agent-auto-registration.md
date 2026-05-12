@@ -52,12 +52,12 @@ POST /v1/catalogs/{tenant}/agents
 
 Distinct from `PATCH /agents/:id` which DOES audit + supports the full update shape (manifestUrl, version, capabilities, status). Heartbeats are a hot path; PATCH is rare.
 
-### D4 — `@maverick/agentic-ui-server-registrar` — opt-in helper package
+### D4 — `@infra-tools/agentic-ui-server-registrar` — opt-in helper package
 
 A small server-side npm package that wraps the boot-time POST + heartbeat loop:
 
 ```ts
-import { registerAgentWithCatalog } from '@maverick/agentic-ui-server-registrar';
+import { registerAgentWithCatalog } from '@infra-tools/agentic-ui-server-registrar';
 
 const reg = await registerAgentWithCatalog({
   catalogUrl: process.env.CATALOG_URL!,
@@ -142,14 +142,14 @@ The topology graph (ADR-037) groups capabilities by their `body.source`. Agents 
 - [`agent-repo.ts`](../../platform/agentic-catalog-server/src/repository/agent-repo.ts) — list / find / create / update / heartbeat / soft-delete.
 - [`agents.ts` route](../../platform/agentic-catalog-server/src/routes/agents.ts) — full CRUD + heartbeat endpoint.
 - [`agents.spec.ts`](../../platform/agentic-catalog-server/src/routes/agents.spec.ts) — 10 integration tests against pg-mem (auth, list, POST, 422, 409, PATCH, heartbeat, delete, audit-on-create, no-audit-on-heartbeat).
-- [`@maverick/agentic-ui-server-registrar`](../../projects/agentic-ui-server-registrar) — new npm package; 6 unit tests covering register / 409 recovery / network failure / heartbeat tick / shutdown / explicit-heartbeat.
+- [`@infra-tools/agentic-ui-server-registrar`](../../projects/agentic-ui-server-registrar) — new npm package; 6 unit tests covering register / 409 recovery / network failure / heartbeat tick / shutdown / explicit-heartbeat.
 - [`agents.component.ts`](../../platform/agentic-ops-console/src/app/pages/agents.component.ts) — ops-console `/agents` page with status pills, stale highlight, capability expansion, retire button. Live updates via `CatalogStreamService`.
 
 ## Status snapshot
 
 - catalog tests: 178 → **188** (+10 agents route)
 - ops-console tests: 77 (unchanged — agents page tests deferred to a small follow-up; the page is read-only HTML+signal binding which the existing topology and capabilities tests cover the underlying patterns of)
-- New package `@maverick/agentic-ui-server-registrar`: **6/6 tests**
+- New package `@infra-tools/agentic-ui-server-registrar`: **6/6 tests**
 - lib tests: 453 (unchanged — runtime not affected)
 - mvk-cli tests: 53 (unchanged)
 - **Total: 765/765 passing**

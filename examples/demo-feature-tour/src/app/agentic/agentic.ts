@@ -15,7 +15,7 @@ import {
   type ComponentDef,
   type FormDef,
   type ToolDef,
-} from '@maverick/agentic-ui';
+} from '@infra-tools/agentic-ui';
 import { z } from 'zod';
 import { ProfileService } from '../services/profile.service';
 import { ToastService } from '../services/toast.service';

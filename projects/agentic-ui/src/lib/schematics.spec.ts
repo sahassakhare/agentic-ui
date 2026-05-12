@@ -53,14 +53,14 @@ export const appConfig: ApplicationConfig = {
 
 describe('schematics: tool', () => {
   let runner: SchematicTestRunner;
-  beforeEach(() => { runner = new SchematicTestRunner('@maverick/agentic-ui', COLLECTION_PATH); });
+  beforeEach(() => { runner = new SchematicTestRunner('@infra-tools/agentic-ui', COLLECTION_PATH); });
 
   it('creates a *.tool.ts with agenticTool() + Zod schema scaffold', async () => {
     const tree = await runner.runSchematic('tool', { name: 'bookFlight' }, baseWorkspace());
     const files = tree.files.filter((f) => f.includes('agentic/tools/'));
     expect(files).toContain('/src/app/agentic/tools/book-flight.tool.ts');
     const content = tree.readContent('/src/app/agentic/tools/book-flight.tool.ts');
-    expect(content).toContain("import { agenticTool } from '@maverick/agentic-ui';");
+    expect(content).toContain("import { agenticTool } from '@infra-tools/agentic-ui';");
     expect(content).toContain("import { z } from 'zod';");
     expect(content).toContain("name: 'bookFlight'");
     expect(content).toContain("agenticTool({");
@@ -76,7 +76,7 @@ describe('schematics: tool', () => {
 
 describe('schematics: widget', () => {
   let runner: SchematicTestRunner;
-  beforeEach(() => { runner = new SchematicTestRunner('@maverick/agentic-ui', COLLECTION_PATH); });
+  beforeEach(() => { runner = new SchematicTestRunner('@infra-tools/agentic-ui', COLLECTION_PATH); });
 
   it('creates a standalone component + agenticWidget factory', async () => {
     const tree = await runner.runSchematic('widget', { name: 'FlightCard' }, baseWorkspace());
@@ -94,7 +94,7 @@ describe('schematics: widget', () => {
 
 describe('schematics: action / intent / form', () => {
   let runner: SchematicTestRunner;
-  beforeEach(() => { runner = new SchematicTestRunner('@maverick/agentic-ui', COLLECTION_PATH); });
+  beforeEach(() => { runner = new SchematicTestRunner('@infra-tools/agentic-ui', COLLECTION_PATH); });
 
   it('action: scaffolds *.action.ts with agenticAction()', async () => {
     const tree = await runner.runSchematic('action', { name: 'navigateToBooking' }, baseWorkspace());
@@ -122,18 +122,18 @@ describe('schematics: action / intent / form', () => {
 
 describe('schematics: chat-shell', () => {
   it('scaffolds a standalone component using <mvk-chat-shell>', async () => {
-    const runner = new SchematicTestRunner('@maverick/agentic-ui', COLLECTION_PATH);
+    const runner = new SchematicTestRunner('@infra-tools/agentic-ui', COLLECTION_PATH);
     const tree = await runner.runSchematic('chat-shell', { name: 'Chat' }, baseWorkspace());
     const content = tree.readContent('/src/app/chat/chat.component.ts');
     expect(content).toContain('ChatShellComponent');
     expect(content).toContain('<mvk-chat-shell />');
-    expect(content).toContain('@maverick/agentic-ui');
+    expect(content).toContain('@infra-tools/agentic-ui');
   });
 });
 
 describe('schematics: backend', () => {
   it('scaffolds an AgenticBackend adapter + provider factory', async () => {
-    const runner = new SchematicTestRunner('@maverick/agentic-ui', COLLECTION_PATH);
+    const runner = new SchematicTestRunner('@infra-tools/agentic-ui', COLLECTION_PATH);
     const tree = await runner.runSchematic('backend', { name: 'AcmeBackend' }, baseWorkspace());
     const content = tree.readContent('/src/app/agentic/backends/acme-backend.backend.ts');
     expect(content).toContain('class AcmeBackend implements AgenticBackend');
@@ -144,7 +144,7 @@ describe('schematics: backend', () => {
 
 describe('schematics: mfe-capability', () => {
   it('scaffolds capability.ts + capabilities.json', async () => {
-    const runner = new SchematicTestRunner('@maverick/agentic-ui', COLLECTION_PATH);
+    const runner = new SchematicTestRunner('@infra-tools/agentic-ui', COLLECTION_PATH);
     const tree = await runner.runSchematic('mfe-capability', { remoteName: 'bookings' }, baseWorkspace());
     expect(tree.files).toContain('/src/app/capability/capability.ts');
     expect(tree.files).toContain('/src/app/capability/capabilities.json');
@@ -159,7 +159,7 @@ describe('schematics: mfe-capability', () => {
 
 describe('schematics: agent-server', () => {
   it('scaffolds a Hono server project under projects/<name>/', async () => {
-    const runner = new SchematicTestRunner('@maverick/agentic-ui', COLLECTION_PATH);
+    const runner = new SchematicTestRunner('@infra-tools/agentic-ui', COLLECTION_PATH);
     const tree = await runner.runSchematic('agent-server', { name: 'my-agent', port: 4111 }, baseWorkspace());
     expect(tree.files).toContain('/projects/my-agent/package.json');
     expect(tree.files).toContain('/projects/my-agent/src/server.ts');

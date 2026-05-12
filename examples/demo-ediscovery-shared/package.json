@@ -1,5 +1,5 @@
 {
-  "name": "@maverick/demo-ediscovery-shared",
+  "name": "@infra-tools/demo-ediscovery-shared",
   "version": "0.1.0",
   "private": true,
   "description": "Framework-agnostic eDiscovery domain models + mock data. Imported by demo-ediscovery-server, demo-ediscovery-shell, and (later) demo-ediscovery-mcp — single source of truth for entity types and the in-memory data layer.",

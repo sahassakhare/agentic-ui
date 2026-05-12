@@ -16,7 +16,7 @@
 > | r2 | — | Platform Lead | Added four enterprise-buyer asks (HITL approval, LRO, multi-modal, replay/undo). |
 > | **r3** | **2026-05-07** | **Platform Lead** | **Rewritten as enterprise solution specification: governance, NFRs, compliance & AI-governance framing, formal acceptance criteria per capability, observability + test + release + cost + ops sections, formal risk register, phase gates with quantified exit criteria. Honest schedule (16–18 weeks single-engineer baseline). Feature 7 split to companion RFC. Effort and DoD batching adjusted on review feedback.** |
 >
-> **In one paragraph.** This program adds eight agentic-UI capabilities to the eDiscovery flagship — composable forms, live data fetch, guided workflows, human-in-the-loop approval, long-running operations, multi-modal input, ambient context-driven suggestions, and replay/undo — delivered as additive, governed extensions to the existing `@maverick/agentic-ui` library and protocol surface. Each capability ships as a vertically integrated increment (library code + conformance tests + demo wiring + Playwright E2E + cookbook + observability + threat-model row + accessibility audit), behind feature flags, with named owners, quantified NFRs, and a documented rollback path.
+> **In one paragraph.** This program adds eight agentic-UI capabilities to the eDiscovery flagship — composable forms, live data fetch, guided workflows, human-in-the-loop approval, long-running operations, multi-modal input, ambient context-driven suggestions, and replay/undo — delivered as additive, governed extensions to the existing `@infra-tools/agentic-ui` library and protocol surface. Each capability ships as a vertically integrated increment (library code + conformance tests + demo wiring + Playwright E2E + cookbook + observability + threat-model row + accessibility audit), behind feature flags, with named owners, quantified NFRs, and a documented rollback path.
 
 ---
 
@@ -1698,7 +1698,7 @@ ARB convenes at the close of each phase (A–F) and at any Sev-1.
 
 | Term | Definition |
 |---|---|
-| AG-UI | The agent-UI streaming protocol used by `@maverick/agentic-ui` (existing). |
+| AG-UI | The agent-UI streaming protocol used by `@infra-tools/agentic-ui` (existing). |
 | Capability | A top-level deliverable in this program (F1–F8). |
 | Conformance test | Cross-backend test asserting equivalent behaviour across adapters. |
 | DoR / DoD | Definition of Ready / Definition of Done. |

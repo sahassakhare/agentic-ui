@@ -203,7 +203,7 @@ Repurpose `AGENTIC_APPROVAL_AUDIT_HOOK` and `AGENTIC_OPERATION_AUDIT_HOOK` to al
 
 Bundle a Redis hook implementation in the runtime tier.
 
-**Rejected:** breaks ADR-010 D5 (no bundled DB integration in the runtime). Redis adapter lives in a sibling package (`@maverick/agentic-ui-server-stores`, ADR-012).
+**Rejected:** breaks ADR-010 D5 (no bundled DB integration in the runtime). Redis adapter lives in a sibling package (`@infra-tools/agentic-ui-server-stores`, ADR-012).
 
 ---
 

@@ -50,7 +50,7 @@ The project is organized into three tiers, each with distinct responsibilities a
 
 | Tier | Scope | Delivery |
 |---|---|---|
-| **Tier 1 — Runtime** | The lib that adopters embed in their app: `@maverick/agentic-ui` + `agentic-ui-server` + `agentic-ui-mcp` + Native Federation runtime + 15 registries + chat shell + form/workflow/widget renderers + audit chain + telemetry sink | npm packages |
+| **Tier 1 — Runtime** | The lib that adopters embed in their app: `@infra-tools/agentic-ui` + `agentic-ui-server` + `agentic-ui-mcp` + Native Federation runtime + 15 registries + chat shell + form/workflow/widget renderers + audit chain + telemetry sink | npm packages |
 | **Tier 2 — Control plane** | Capability catalog, IAM (OIDC/SAML/SCIM), audit & compliance service, cost & observability service, ops console, multi-tenancy, deploy pipelines | Separate repository, Docker images |
 | **Tier 3 — Ecosystem** | Multi-framework SDKs (WC core + React + Vue + Svelte + SSR), `mvk` CLI, community catalog, partner integrations, docs portal, certification program | Mix of npm packages, separate repos, hosted services |
 

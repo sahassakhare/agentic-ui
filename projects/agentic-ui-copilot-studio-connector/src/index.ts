@@ -58,7 +58,7 @@ export function readConnectorIdentity(claims: Readonly<Record<string, unknown>>)
  * import {
  *   createConnectorMiddleware,
  *   type ConnectorActionHandler,
- * } from '@maverick/agentic-ui-copilot-studio-connector';
+ * } from '@infra-tools/agentic-ui-copilot-studio-connector';
  *
  * const handlers = new Map<string, ConnectorActionHandler>();
  * handlers.set('placeLegalHold', async ({ args, identity }) => {

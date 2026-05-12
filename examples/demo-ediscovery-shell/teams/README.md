@@ -35,7 +35,7 @@ Upload `ediscovery-teams.zip` to Teams via **Apps → Manage your apps
 ## How the runtime uses Teams context
 
 The shell's `app.config.ts` calls `provideTeamsContext({ loadContext })`
-(from `@maverick/agentic-ui`). When the page detects it's running
+(from `@infra-tools/agentic-ui`). When the page detects it's running
 inside Teams (`?teams=1` query param or `microsoftTeams.app.isHost`),
 it imports `@microsoft/teams-js` lazily and resolves the context
 through it. Outside Teams the call returns `null` and the shell
@@ -78,7 +78,7 @@ context.
 - **No Teams-native chat surface.** The shell still shows its own
   right-rail Matter Coordinator chat inside the tab. For
   Teams-native chat with Adaptive Cards, see Path 1b
-  (`@maverick/agentic-ui-teams-bot`, deferred).
+  (`@infra-tools/agentic-ui-teams-bot`, deferred).
 - **No bot-style notifications.** Use Path 1b or a Power
   Automate flow if you need them.
 

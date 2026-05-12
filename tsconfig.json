@@ -20,10 +20,10 @@
       "dom"
     ],
     "paths": {
-      "@maverick/agentic-ui": [
+      "@infra-tools/agentic-ui": [
         "./dist/agentic-ui"
       ],
-      "@maverick/demo-ediscovery-shared": [
+      "@infra-tools/demo-ediscovery-shared": [
         "./examples/demo-ediscovery-shared/dist/index"
       ],
     }

@@ -1,6 +1,6 @@
 {
   "$schema": "https://typedoc.org/schema.json",
-  "name": "@maverick/agentic-ui",
+  "name": "@infra-tools/agentic-ui",
   "entryPoints": ["projects/agentic-ui/src/public-api.ts"],
   "tsconfig": "projects/agentic-ui/tsconfig.lib.json",
   "out": "docs/api",

@@ -19,7 +19,7 @@ All six agents are constructed and registered in **one Node process**
 
 | Agent id | Implementation | Role |
 |---|---|---|
-| `echo` | [`@maverick/agentic-ui-server` → `EchoAgent`](../../projects/agentic-ui-server/src/echo-agent.ts) | No-LLM smoke-test agent — useful for testing the SSE pipeline without burning quota. |
+| `echo` | [`@infra-tools/agentic-ui-server` → `EchoAgent`](../../projects/agentic-ui-server/src/echo-agent.ts) | No-LLM smoke-test agent — useful for testing the SSE pipeline without burning quota. |
 | `gemini` | [`examples/demo-server/src/gemini-agent.ts`](../../examples/demo-server/src/gemini-agent.ts) → `GeminiAgent` | Original single-domain demo agent (still wired so `demo-monolith` works). |
 | `bookings` | same `GeminiAgent` class, different `systemInstruction` | Flight specialist. |
 | `loyalty` | same `GeminiAgent` class, different `systemInstruction` | Loyalty-program specialist. |

@@ -57,7 +57,7 @@ export class App {
 
 ```ts
 // capability.ts — federation surface
-import { defineCapabilityModule } from '@maverick/agentic-ui';
+import { defineCapabilityModule } from '@infra-tools/agentic-ui';
 import { bookFlightTool } from './tools/book-flight.tool';
 import { flightCardWidget } from './widgets/flight-card.widget';
 

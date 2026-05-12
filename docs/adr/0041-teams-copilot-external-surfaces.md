@@ -8,7 +8,7 @@ ADR-017 (audit chain), ADR-018 (usage meter)
 ## Context
 
 The agentic-ui platform ships as an Angular runtime tier
-(`@maverick/agentic-ui`), an opt-in control plane (catalog server,
+(`@infra-tools/agentic-ui`), an opt-in control plane (catalog server,
 ops console), and a small ecosystem of backend protocol adapters
 (AG-UI, Hashbrown, A2UI). The MCP adapter (ADR-006) already proves
 the pattern: **a new "host ecosystem" gets a new adapter package
@@ -51,16 +51,16 @@ directions. The Angular chat shell, the 15 registries, and the
 catalog server **do not change** to accommodate new ecosystems.
 
 ```
-@maverick/agentic-ui                  (runtime, unchanged)
+@infra-tools/agentic-ui                  (runtime, unchanged)
   ↑                                   AgenticBackend interface
   │                                   ↓
-  ├── @maverick/agentic-ui-mcp        (ADR-006, ships today)
-  ├── @maverick/agentic-ui-teams-bot  (new — Path 1b)
-  ├── @maverick/agentic-ui-copilot-skill (new — Path 2a)
+  ├── @infra-tools/agentic-ui-mcp        (ADR-006, ships today)
+  ├── @infra-tools/agentic-ui-teams-bot  (new — Path 1b)
+  ├── @infra-tools/agentic-ui-copilot-skill (new — Path 2a)
   └── ...future: Slack, Discord, Notion, ServiceNow ...
 ```
 
-This mirrors how `@maverick/agentic-ui-mcp` extends the platform
+This mirrors how `@infra-tools/agentic-ui-mcp` extends the platform
 without touching the runtime — and is the same trade-off ADR-006
 already weighed and ratified. Doing the same for Teams + Copilot
 keeps the runtime tier's surface frozen and the platform
@@ -301,8 +301,8 @@ Per the integration plan
 
 1. **P0** — Teams Tab embed (Path 1a). No package work; just
    manifest + `provideTeamsContext()`. 1 week.
-2. **P1** — `@maverick/agentic-ui-teams-bot` (Path 1b). 3 weeks.
-3. **P2** — `@maverick/agentic-ui-copilot-skill` (Path 2a). 2
+2. **P1** — `@infra-tools/agentic-ui-teams-bot` (Path 1b). 3 weeks.
+3. **P2** — `@infra-tools/agentic-ui-copilot-skill` (Path 2a). 2
    weeks.
 4. **P3** — Microsoft Copilot Studio Connector (Path 1c). 5–6
    weeks. ADR-042 will cover specifics.
