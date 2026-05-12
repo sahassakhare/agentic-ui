@@ -1,7 +1,7 @@
 # Post-chat surfaces plan — agent everywhere, not just in the rail
 
 **Status:** draft · **Owner:** sahas · **Started:** 2026-05-12
-**Related ADRs:** [ADR-043](../adr/0043-layout-registry-promotion.md) LayoutRegistry promotion (drafted) · ADR-044 DashboardRegistry (to draft) · ADR-045 TriggerRegistry (to draft)
+**Related ADRs:** [ADR-043](../adr/0043-layout-registry-promotion.md) LayoutRegistry promotion (accepted) · ADR-044 DashboardRegistry (to draft) · [ADR-045](../adr/0045-trigger-registry.md) TriggerRegistry (drafted, Proposed)
 
 How we extend `@infra-tools/agentic-ui` so the agent participates in **every** web surface — table cells, row menus, bulk toolbars, inline suggestions, multi-pane workspaces, user-built dashboards, scheduled triggers — not just the chat rail. The architectural through-line is one sentence:
 
