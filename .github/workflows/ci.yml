@@ -142,7 +142,7 @@ jobs:
           # + composition DSL, F4 ApprovalRegistry, F5 OperationRegistry,
           # F6 MessageContent union + multi-modal composer.
           # Lower this back if a refactor materially shrinks the surface.
-          size=$(wc -c < dist/agentic-ui/fesm2022/maverick-agentic-ui.mjs)
+          size=$(wc -c < dist/agentic-ui/fesm2022/infra-tools-agentic-ui.mjs)
           echo "FESM size: $size bytes"
           if [ "$size" -gt 348160 ]; then
             echo "::error::Lib FESM exceeded 340 KB ($size B). Investigate before merging."
