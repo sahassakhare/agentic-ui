@@ -6,6 +6,7 @@ import { ApprovalRegistry } from '../registries/approval-registry';
 import { OperationRegistry } from '../registries/operation-registry';
 import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
 import type { AgenticMessage, MessageContent } from '../types/agentic-message';
+import type { LayoutRenderState } from '../layout/types';
 import { AGENTIC_ACTIVE_PERSONA } from './active-persona';
 import { AGENTIC_RUN_STATE_PROVIDER } from './run-state-provider';
 import { randomId } from './message-utils';
@@ -23,6 +24,17 @@ export interface AgenticChatRef {
   readonly value: Signal<readonly AgenticMessage[]>;
   readonly isLoading: Signal<boolean>;
   readonly error: Signal<Error | undefined>;
+  /**
+   * Latest agent-emitted workspace layout (ADR-043 D3) or `null` when
+   * no layout has been emitted or `clearLayout()` was called. Hosts
+   * read this signal and mount `<mvk-workspace-layout>` wherever
+   * (typically the route's main pane). Backends that don't emit
+   * `layout-render` events leave this at `null` — full back-compat
+   * with the existing chat-only flow.
+   */
+  readonly activeLayout: Signal<LayoutRenderState | null>;
+  /** Clear `activeLayout` back to `null`. Useful on route change. */
+  clearLayout(): void;
   /**
    * Append a user message and trigger a new run.
    *
@@ -64,6 +76,9 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
   const messages: WritableSignal<readonly AgenticMessage[]> = signal([]);
   const isLoading = signal(false);
   const lastError = signal<Error | undefined>(undefined);
+  // ADR-043 D3 — latest agent-emitted workspace layout. Stays null when
+  // the backend never emits `layout-render` events (full back-compat).
+  const activeLayout: WritableSignal<LayoutRenderState | null> = signal(null);
 
   let abortController: AbortController | undefined;
   const threadId = randomId('thread');
@@ -145,6 +160,7 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
       tools: filteredTools,
       widgets: widgets.list(),
       messageStream: messages,
+      layoutStream: activeLayout,
       maxLocalTurns,
       signal: abortController.signal,
       telemetry,
@@ -169,6 +185,11 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
     messages.set([]);
     isLoading.set(false);
     lastError.set(undefined);
+    activeLayout.set(null);
+  };
+
+  const clearLayout = (): void => {
+    activeLayout.set(null);
   };
 
   const stop = (): void => {
@@ -180,6 +201,8 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
     value: computed(() => messages()),
     isLoading,
     error: lastError,
+    activeLayout,
+    clearLayout,
     sendMessage,
     reset,
     stop,

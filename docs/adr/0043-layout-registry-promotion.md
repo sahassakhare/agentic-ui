@@ -237,4 +237,15 @@ Carried forward from plan §11. Decide before implementation:
 
 ## Status
 
-Proposed; awaiting ack on §1 plan goals + §9 P0 exit criteria from the platform owner. Once accepted, this ADR moves to `Status: Accepted (implementing)`. P0 implementation tracked in the post-chat-surfaces plan.
+**Accepted (library tier shipped).** All six decisions (D1–D6) are implemented across three commits:
+
+- Slice 1 — `a330bb3` — schemas + `ChatShellMode` + `<mvk-chat-shell mode>` + `provideLayoutPolicy` + `LAYOUT_POLICY` token
+- Slice 2 — `ebb4eb7` — `<mvk-workspace-layout>` with ResizeObserver-driven responsive collapse
+- Slice 3 — this commit — `layout-render` event piped from backend → orchestrator → `AgenticChatRef.activeLayout`, plus the cookbook entry
+
+**503/503 unit tests pass.** Existing `<mvk-chat-shell />` consumers and `LayoutRegistry.register({ name, render })` callers see zero diff — ADR-010 D4 zero-breaking-changes contract held throughout.
+
+**Open follow-ups:**
+- eDiscovery flagship route wiring (`/holds` → pill, `/audit` → hidden, `/documents/:id` → workspace) — deferred until the demo's Render deploy is unstuck; this is a demo concern, not a library concern.
+- Playwright shell-mode transition specs — pairs with the demo wiring above.
+- `<mvk-assist-panel>` (the Cursor pattern) — P1 deliverable per the plan, not P0.

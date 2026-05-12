@@ -187,6 +187,27 @@ export const layoutRenderEventSchema = z.union([
   }),
 ]) satisfies z.ZodType<LayoutRenderEvent>;
 
+/**
+ * The signal-held value of an active workspace layout — same payload as
+ * `LayoutRenderEvent` without the `type` discriminator. Hosts read this
+ * via `AgenticChatRef.activeLayout` and pass `slots` / `responsive` /
+ * `layoutName` into `<mvk-workspace-layout>`. `null` means no active
+ * layout (or it was explicitly cleared).
+ */
+export interface LayoutRenderState {
+  readonly layoutName?: string;
+  readonly slots: SlotMap;
+  readonly responsive?: readonly ResponsiveCollapseRule[];
+  readonly data?: Readonly<Record<string, unknown>>;
+}
+
+export const layoutRenderStateSchema = z.object({
+  layoutName: z.string().min(1).optional(),
+  slots: slotMapSchema,
+  responsive: z.array(responsiveCollapseRuleSchema).readonly().optional(),
+  data: z.record(z.string(), z.unknown()).optional(),
+}) satisfies z.ZodType<LayoutRenderState>;
+
 // ───────────────────────────────────────────────────────────────────────────
 // ADR-043 D4 — LayoutPolicy + LAYOUT_POLICY InjectionToken
 // ───────────────────────────────────────────────────────────────────────────

@@ -56,6 +56,10 @@
     "file": "github-copilot-extension.md"
   },
   {
+    "title": "Agent-directed workspace layouts (ADR-043)",
+    "file": "agent-directed-workspace-layouts.md"
+  },
+  {
     "title": "Domain MFEs as standalone apps + capability providers",
     "file": "domain-mfe-standalone-and-federated.md"
   },

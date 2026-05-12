@@ -14,6 +14,8 @@ import type {
 import type { AgenticTelemetrySink } from '../telemetry/telemetry-sink';
 import type { ApprovalRegistry } from '../registries/approval-registry';
 import type { OperationRegistry } from '../registries/operation-registry';
+import type { LayoutRenderState } from '../layout/types';
+import { layoutRenderStateSchema } from '../layout/types';
 import { appendDelta, appendErrorMessage, attachToolCall, attachWidget, randomId } from './message-utils';
 
 export interface RunOrchestratorOptions {
@@ -24,6 +26,16 @@ export interface RunOrchestratorOptions {
   readonly tools: readonly ToolDef[];
   readonly widgets: readonly ComponentDef[];
   readonly messageStream: WritableSignal<readonly AgenticMessage[]>;
+  /**
+   * Optional sink for agent-emitted `layout-render` events (ADR-043 D3).
+   * When set, every `layout-render` event from the backend is written
+   * here as the active workspace layout. Hosts subscribe via
+   * `AgenticChatRef.activeLayout` and mount `<mvk-workspace-layout>`
+   * wherever (typically the route's main pane). When omitted, the
+   * events are dropped silently — back-compat with backends and apps
+   * that don't use the layout primitive.
+   */
+  readonly layoutStream?: WritableSignal<LayoutRenderState | null>;
   readonly maxLocalTurns: number;
   readonly signal: AbortSignal;
   readonly telemetry: AgenticTelemetrySink;
@@ -112,6 +124,29 @@ export async function runUntilSettled(opts: RunOrchestratorOptions): Promise<voi
 
       for await (const ev of opts.backend.run(runInput)) {
         opts.signal.throwIfAborted();
+        // ADR-043 D3 — agent-directed workspace layouts. Validate the
+        // payload at the orchestrator boundary so a malformed event
+        // never reaches `<mvk-workspace-layout>`; on parse failure,
+        // drop the event with a console.warn (same fail-soft contract
+        // as the existing widget-render path).
+        if (ev.type === 'layout-render' && opts.layoutStream) {
+          const candidate = {
+            layoutName: ev.layoutName,
+            slots: ev.slots,
+            responsive: ev.responsive,
+            data: ev.data,
+          };
+          const parsed = layoutRenderStateSchema.safeParse(candidate);
+          if (parsed.success) {
+            opts.layoutStream.set(parsed.data as LayoutRenderState);
+          } else {
+            // eslint-disable-next-line no-console
+            console.warn(
+              '[agentic-ui] Discarded malformed layout-render event:',
+              parsed.error.issues,
+            );
+          }
+        }
         const next = handleEvent(ev, messages, pendingCalls, activeMessageId);
         messages = next.messages;
         activeMessageId = next.activeMessageId;

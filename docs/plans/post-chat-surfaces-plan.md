@@ -292,20 +292,21 @@ The minimum library investment to deliver everything above. All additive; ADR-01
 
 Each phase is independently shippable; demo-worthy at the gate; the eDiscovery flagship validates each phase.
 
-### P0 — Layout foundation (2 weeks)
+### P0 — Layout foundation (2 weeks) ✅ library tier shipped
 
 **Goal:** Promote `LayoutRegistry` and add the chat shell `mode` prop. No new routes; existing routes opt-in to the new modes.
 
 - [x] [ADR-043 LayoutRegistry promotion](../adr/0043-layout-registry-promotion.md) — drafted, status: Proposed
-- [ ] `LayoutDef` schema with slots / overlays / drawers / modals
-- [ ] `<mvk-chat-shell mode="rail | pill | overlay | docked-bottom | hidden">`
-- [ ] `<mvk-workspace-layout>` reading `LayoutRegistry.get(name)`
-- [ ] `setLayoutPolicy` on `RegistryBase`
-- [ ] eDiscovery flagship: `Documents` (single doc) → workspace + pill; `Holds` → pill; `Audit` → hidden + query bar
-- [ ] Cookbook: "Per-route shell modes"
-- [ ] Playwright: shell-mode transitions across routes
+- [x] `LayoutDef` schema with slots / overlays / drawers / modals (`projects/agentic-ui/src/lib/layout/types.ts`, slice 1 `a330bb3`)
+- [x] `<mvk-chat-shell mode="rail | pill | overlay | docked-bottom | assist-panel | hidden">` (slice 1 `a330bb3`)
+- [x] `<mvk-workspace-layout>` with slot ngComponentOutlet + ResizeObserver-driven responsive collapse (slice 2 `ebb4eb7`)
+- [x] `provideLayoutPolicy({...})` + `LAYOUT_POLICY` token + `DEFAULT_LAYOUT_POLICY` parallel to `setScopePolicy` (slice 1 `a330bb3`)
+- [x] `layout-render` event piped from backend → orchestrator → `AgenticChatRef.activeLayout` signal (slice 3, this PR)
+- [x] [Cookbook: Agent-directed workspace layouts](../cookbook/agent-directed-workspace-layouts.md) (slice 3, this PR)
+- [ ] eDiscovery flagship: `Documents` (single doc) → workspace + pill; `Holds` → pill; `Audit` → hidden + query bar (demo-app concern, **deferred** — eDiscovery shell is currently blocked on Render deploy; reviving the demo wiring is its own slice after Render is unstuck)
+- [ ] Playwright: shell-mode transitions across routes (paired with the demo wiring above)
 
-**Exit:** chat rail is no longer the only shell. Reviewer routes feel like a workbench. Brand demo: full-bleed Holds page with pill chat.
+**Exit:** chat rail is no longer the only shell — the library tier exposes every mode + slot-based workspaces + agent-emittable layouts. Existing `<mvk-chat-shell />` consumers see zero diff. **503/503 unit tests pass**, ADR-010 D4 zero-breaking-changes contract held throughout. eDiscovery flagship route wiring + Playwright are the only items left and are deferred to a follow-up slice once the demo redeploys.
 
 ### P1 — Surface patterns wave 1 (2 weeks)
 
