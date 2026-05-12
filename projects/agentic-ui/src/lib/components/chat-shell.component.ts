@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  HostBinding,
   computed,
   inject,
   input,
@@ -13,6 +14,11 @@ import {
   type AgenticChatRef,
   type MessageContent,
 } from '../internal';
+import {
+  ChatShellMode,
+  CHAT_SHELL_MODES,
+  LAYOUT_POLICY,
+} from '../layout/types';
 import { WidgetContainerComponent } from './widget-container.component';
 
 /**
@@ -209,6 +215,67 @@ const DEFAULT_MAX_BYTES = 10 * 1024 * 1024;
 export class ChatShellComponent {
   readonly placeholder = input<string>('Ask the agent…');
   readonly maxLocalTurns = input<number>(10);
+
+  /**
+   * Presentation mode for the chat shell (ADR-043 D2).
+   *
+   * - `'rail'` *(default)* — persistent right rail, ~360px. Back-compat
+   *   with every existing `<mvk-chat-shell />` consumer.
+   * - `'pill'` — floating corner pill, expands on click. For inspector-
+   *   first routes (doc review, canvas work) where the work is foreground.
+   * - `'overlay'` — full-screen transient overlay; dismissible.
+   * - `'docked-bottom'` — sticky ~120px strip at the bottom; for glance-
+   *   driven dashboards where proactive alerts surface without competing.
+   * - `'assist-panel'` — Cursor-style structured-affordance panel (next
+   *   actions, explain-on-cursor, scoped query). Pairs with the
+   *   `<mvk-assist-panel>` component arriving in P1.
+   * - `'hidden'` — chat is the wrong primitive (Audit, query-bar routes).
+   *
+   * Apps that wire `provideLayoutPolicy({...})` get this resolved per
+   * route + persona via the `LAYOUT_POLICY` token — bind via
+   * `[mode]="layoutPolicy.shellMode(router.url)"`. Apps that pass `mode`
+   * explicitly override the policy.
+   *
+   * @default the `LAYOUT_POLICY.shellMode('/')` result, which defaults
+   *   to `'rail'` when no policy is provided.
+   *
+   * @see [ADR-043](../../../../docs/adr/0043-layout-registry-promotion.md)
+   */
+  readonly mode = input<ChatShellMode | undefined>(undefined);
+
+  private readonly layoutPolicy = inject(LAYOUT_POLICY);
+
+  /**
+   * Effective mode used to render the shell. Honours the explicit `[mode]`
+   * input when set; otherwise consults the active persona's `LayoutPolicy`.
+   * Falls back to `'rail'` when neither resolves.
+   */
+  readonly effectiveMode = computed<ChatShellMode>(() => {
+    const explicit = this.mode();
+    if (explicit && CHAT_SHELL_MODES.includes(explicit)) {
+      return explicit;
+    }
+    try {
+      const fromPolicy = this.layoutPolicy.shellMode('/');
+      if (CHAT_SHELL_MODES.includes(fromPolicy)) {
+        return fromPolicy;
+      }
+    } catch {
+      // Policy resolution shouldn't throw, but if it does, fall through to
+      // rail mode so the shell never fails to render.
+    }
+    return 'rail';
+  });
+
+  /**
+   * Mirror `effectiveMode` onto the host element as `data-mode="..."` so
+   * apps and themes can style by mode without piercing the component
+   * (e.g. `mvk-chat-shell[data-mode="pill"] { ... }`).
+   */
+  @HostBinding('attr.data-mode')
+  get hostMode(): ChatShellMode {
+    return this.effectiveMode();
+  }
 
   /**
    * Controls how tool calls render inside the assistant message bubble.
