@@ -665,7 +665,7 @@ GitHub Actions runs the full pipeline (build → test → three production demo 
 
 ### Publishing to npm
 
-A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) builds and publishes the three packages to npm with [provenance attestations](https://docs.npmjs.com/generating-provenance-statements):
+A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) builds and publishes all six packages to npm with [provenance attestations](https://docs.npmjs.com/generating-provenance-statements):
 
 | Package | npm | Source dir | Purpose |
 |---|---|---|---|
