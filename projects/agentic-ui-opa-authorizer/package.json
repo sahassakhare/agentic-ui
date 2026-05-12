@@ -1,10 +1,12 @@
 {
   "name": "@infra-tools/agentic-ui-opa-authorizer",
-  "version": "0.1.0",
+  "version": "1.2.0",
   "description": "Optional runtime plugin that gates ToolRegistry / ComponentRegistry reads via OPA decisions (Open Policy Agent). Slice OPA-B / ADR-040. Stays outside the core lib per ADR-010 D4.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
-  "bugs": { "url": "https://github.com/sahassakhare/agentic-ui/issues" },
+  "bugs": {
+    "url": "https://github.com/sahassakhare/agentic-ui/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/sahassakhare/agentic-ui",
@@ -18,7 +20,11 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -32,5 +38,9 @@
     "@infra-tools/agentic-ui": "file:../../dist/agentic-ui",
     "typescript": "~5.9.0",
     "vitest": "^4.1.5"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@infra-tools/agentic-ui-teams-bot",
-  "version": "0.1.0",
+  "version": "1.2.0",
   "description": "Microsoft Teams Bot Framework adapter for the @infra-tools/agentic-ui platform. Translates AgenticBackend events into Adaptive Cards posted into Teams chat conversations. Verifies inbound Bot Framework JWTs and signs outbound replies with the bot's AAD credentials. Adopters bring their own LLM behind a TeamsBotHandler.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
@@ -25,7 +25,10 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist/**", "README.md"],
+  "files": [
+    "dist/**",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -p tsconfig.json --watch",

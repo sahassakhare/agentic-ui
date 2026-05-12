@@ -1,6 +1,6 @@
 {
   "name": "@infra-tools/agentic-ui-server-registrar",
-  "version": "0.1.0",
+  "version": "1.2.0",
   "description": "Server-side helper that auto-registers an agent server with the Maverick catalog (slice AGT / ADR-039). Ships with heartbeat + graceful-shutdown hooks. Mirrors the runtime tier's provideCatalogCapabilityRegistrar pattern (ADR-032).",
   "license": "Apache-2.0",
   "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
@@ -20,7 +20,11 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -30,5 +34,9 @@
     "@types/node": "^22.10.0",
     "typescript": "~5.9.0",
     "vitest": "^4.1.5"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

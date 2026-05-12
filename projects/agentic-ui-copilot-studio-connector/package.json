@@ -1,6 +1,6 @@
 {
   "name": "@infra-tools/agentic-ui-copilot-studio-connector",
-  "version": "0.1.0",
+  "version": "1.2.0",
   "description": "Microsoft Copilot Studio Connector adapter for the @infra-tools/agentic-ui platform. Translates Zod tool schemas into a Power Platform Connector OpenAPI 3 manifest, verifies inbound Azure AD JWTs, and dispatches action handlers with optional Adaptive Card responses. Adopters bring their own LLM behind a ConnectorActionHandler.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
@@ -25,7 +25,10 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist/**", "README.md"],
+  "files": [
+    "dist/**",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "watch": "tsc -p tsconfig.json --watch",
@@ -35,7 +38,9 @@
     "zod": "^3.23.0"
   },
   "peerDependenciesMeta": {
-    "zod": { "optional": true }
+    "zod": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

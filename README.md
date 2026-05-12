@@ -661,31 +661,37 @@ GitHub Actions runs the full pipeline (build → test → three production demo 
 
 ## Versioning and release
 
-`@infra-tools/agentic-ui` follows [Semantic Versioning](https://semver.org/). Current version: **1.1.0** — see [CHANGELOG.md](./projects/agentic-ui/CHANGELOG.md) for full notes.
+All published packages share a unified version line — currently **1.2.0** — and follow [Semantic Versioning](https://semver.org/). See per-package `CHANGELOG.md` for details.
 
 ### Publishing to npm
 
-A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) builds and publishes all six packages to npm with [provenance attestations](https://docs.npmjs.com/generating-provenance-statements):
+A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) builds and publishes all **nine** packages to npm with [provenance attestations](https://docs.npmjs.com/generating-provenance-statements):
 
 | Package | npm | Source dir | Purpose |
 |---|---|---|---|
-| `@infra-tools/agentic-ui` | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui) | `projects/agentic-ui` | Angular runtime tier — chat shell, 15 registries, F1-F6 capabilities |
-| `@infra-tools/agentic-ui-server` | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-server.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-server) | `projects/agentic-ui-server` | Server-side helpers — generic Agent interface + AG-UI SSE route handler |
-| `@infra-tools/agentic-ui-mcp` | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-mcp.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-mcp) | `projects/agentic-ui-mcp` | MCP server-side adapter — Claude Desktop / Cursor / Continue / Zed (ADR-006) |
-| `@infra-tools/agentic-ui-copilot-skill` | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-copilot-skill.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-copilot-skill) | `projects/agentic-ui-copilot-skill` | GitHub Copilot Extensions webhook adapter (ADR-041 / plan P2) |
-| `@infra-tools/agentic-ui-teams-bot` | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-teams-bot.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-teams-bot) | `projects/agentic-ui-teams-bot` | Microsoft Teams Bot Framework adapter — Adaptive Cards in Teams chat (ADR-041 / plan P1) |
-| `@infra-tools/agentic-ui-copilot-studio-connector` | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-copilot-studio-connector.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-copilot-studio-connector) | `projects/agentic-ui-copilot-studio-connector` | Microsoft Copilot Studio Connector — exposes catalog tools to M365 Copilot (ADR-041 + ADR-042 / plan P3) |
+| [`@infra-tools/agentic-ui`](https://www.npmjs.com/package/@infra-tools/agentic-ui) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui) | [`projects/agentic-ui`](./projects/agentic-ui) | Angular runtime tier — chat shell, 15 registries, F1–F6 capabilities |
+| [`@infra-tools/agentic-ui-server`](https://www.npmjs.com/package/@infra-tools/agentic-ui-server) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-server.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-server) | [`projects/agentic-ui-server`](./projects/agentic-ui-server) | Server-side helpers — generic Agent interface + AG-UI SSE route handler |
+| [`@infra-tools/agentic-ui-mcp`](https://www.npmjs.com/package/@infra-tools/agentic-ui-mcp) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-mcp.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-mcp) | [`projects/agentic-ui-mcp`](./projects/agentic-ui-mcp) | MCP server-side adapter — Claude Desktop / Cursor / Continue / Zed ([ADR-006](./docs/adr/0006-mcp-server-side-adapter.md)) |
+| [`@infra-tools/agentic-ui-copilot-skill`](https://www.npmjs.com/package/@infra-tools/agentic-ui-copilot-skill) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-copilot-skill.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-copilot-skill) | [`projects/agentic-ui-copilot-skill`](./projects/agentic-ui-copilot-skill) | GitHub Copilot Extensions webhook adapter ([ADR-041](./docs/adr/0041-teams-copilot-external-surfaces.md) / plan P2) |
+| [`@infra-tools/agentic-ui-teams-bot`](https://www.npmjs.com/package/@infra-tools/agentic-ui-teams-bot) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-teams-bot.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-teams-bot) | [`projects/agentic-ui-teams-bot`](./projects/agentic-ui-teams-bot) | Microsoft Teams Bot Framework adapter — Adaptive Cards in Teams chat ([ADR-041](./docs/adr/0041-teams-copilot-external-surfaces.md) / plan P1) |
+| [`@infra-tools/agentic-ui-copilot-studio-connector`](https://www.npmjs.com/package/@infra-tools/agentic-ui-copilot-studio-connector) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-copilot-studio-connector.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-copilot-studio-connector) | [`projects/agentic-ui-copilot-studio-connector`](./projects/agentic-ui-copilot-studio-connector) | M365 Copilot Studio Connector — Power Platform actions invocable from M365 Copilot ([ADR-042](./docs/adr/0042-copilot-studio-connector.md) / plan P3) |
+| [`@infra-tools/agentic-ui-server-stores`](https://www.npmjs.com/package/@infra-tools/agentic-ui-server-stores) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-server-stores.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-server-stores) | [`projects/agentic-ui-server-stores`](./projects/agentic-ui-server-stores) | Redis + Postgres adapters for `ThreadStateStore` ([ADR-012](./docs/adr/0012-thread-state-store-adapters.md)) |
+| [`@infra-tools/agentic-ui-server-registrar`](https://www.npmjs.com/package/@infra-tools/agentic-ui-server-registrar) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-server-registrar.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-server-registrar) | [`projects/agentic-ui-server-registrar`](./projects/agentic-ui-server-registrar) | Server-side helper that auto-registers an agent server with the catalog ([ADR-039](./docs/adr/0039-agent-auto-registration.md)) |
+| [`@infra-tools/agentic-ui-opa-authorizer`](https://www.npmjs.com/package/@infra-tools/agentic-ui-opa-authorizer) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-opa-authorizer.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-opa-authorizer) | [`projects/agentic-ui-opa-authorizer`](./projects/agentic-ui-opa-authorizer) | OPA-backed `CapabilityAuthorizer` for fine-grained per-tool policy ([ADR-040](./docs/adr/0040-opa-policy-integration.md)) |
 
 Two ways to trigger a publish:
 
-1. **GitHub Release** (recommended). Tag the commit with one of:
-   - `agentic-ui-v1.1.0` → publishes `@infra-tools/agentic-ui`
-   - `agentic-ui-server-v0.1.0` → publishes `@infra-tools/agentic-ui-server`
-   - `agentic-ui-mcp-v0.1.0` → publishes `@infra-tools/agentic-ui-mcp`
-   - `agentic-ui-copilot-skill-v0.1.0` → publishes `@infra-tools/agentic-ui-copilot-skill`
-   - `agentic-ui-teams-bot-v0.1.0` → publishes `@infra-tools/agentic-ui-teams-bot`
-   - `agentic-ui-copilot-studio-connector-v0.1.0` → publishes `@infra-tools/agentic-ui-copilot-studio-connector`
-   - `v1.1.0` (legacy) → publishes the primary `@infra-tools/agentic-ui`
+1. **GitHub Release** (recommended). Tag the commit with one of the recognised prefixes:
+   - `agentic-ui-v<X.Y.Z>` → `@infra-tools/agentic-ui`
+   - `agentic-ui-server-v<X.Y.Z>` → `@infra-tools/agentic-ui-server`
+   - `agentic-ui-mcp-v<X.Y.Z>` → `@infra-tools/agentic-ui-mcp`
+   - `agentic-ui-copilot-skill-v<X.Y.Z>` → `@infra-tools/agentic-ui-copilot-skill`
+   - `agentic-ui-teams-bot-v<X.Y.Z>` → `@infra-tools/agentic-ui-teams-bot`
+   - `agentic-ui-copilot-studio-connector-v<X.Y.Z>` → `@infra-tools/agentic-ui-copilot-studio-connector`
+   - `agentic-ui-server-stores-v<X.Y.Z>` → `@infra-tools/agentic-ui-server-stores`
+   - `agentic-ui-server-registrar-v<X.Y.Z>` → `@infra-tools/agentic-ui-server-registrar`
+   - `agentic-ui-opa-authorizer-v<X.Y.Z>` → `@infra-tools/agentic-ui-opa-authorizer`
+   - `v<X.Y.Z>` (legacy) → primary `@infra-tools/agentic-ui`
 
    Then create the GitHub Release for that tag — the workflow fires automatically on `release: published`.
 
@@ -693,13 +699,13 @@ Two ways to trigger a publish:
 
 ### One-time setup
 
-Generate an npm Automation Token (npmjs.com → Access Tokens → Generate New Token → Automation) with publish access on the `@maverick` scope. Add to GitHub: **Settings → Secrets and variables → Actions → New repository secret → name `NPM_TOKEN`**.
+Generate an npm **Granular Access Token** (npmjs.com → Access Tokens → Generate New Token → Granular Access Token) with **Read and write** on the `@infra-tools` scope and **"Allow this token to bypass 2FA"** enabled (required for non-interactive CI publishes when your account has 2FA-on-publish on). Add to GitHub: **Settings → Secrets and variables → Actions → New repository secret → name `NPM_TOKEN`**.
 
 Once the first publish succeeds, switching to [npm Trusted Publishing](https://docs.npmjs.com/trusted-publishers) is recommended — the workflow already requests an OIDC token, so the secret can then be removed.
 
 ### Tagging convention
 
-Annotated tags `<package>-vMAJOR.MINOR.PATCH` against the commit that bumps that package's `package.json#version`. Each package versions independently — agentic-ui can be at 1.1.0 while agentic-ui-server is at 0.1.0.
+Annotated tags `<package>-v<MAJOR>.<MINOR>.<PATCH>` against the commit that bumps that package's `package.json#version`. The repo currently ships all nine packages on a **unified version line** (1.2.0) for clarity at the public-API boundary; package-by-package independent versioning is supported by the workflow if/when that diverges.
 
 ## Compatibility
 

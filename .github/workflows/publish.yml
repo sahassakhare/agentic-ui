@@ -51,6 +51,9 @@ on:
           - agentic-ui-copilot-skill
           - agentic-ui-teams-bot
           - agentic-ui-copilot-studio-connector
+          - agentic-ui-server-stores
+          - agentic-ui-server-registrar
+          - agentic-ui-opa-authorizer
       dry_run:
         description: "Dry run — build + `npm publish --dry-run`, but don't push to npm"
         required: false
@@ -103,18 +106,21 @@ jobs:
               agentic-ui-copilot-studio-connector-v*)  pkgs="agentic-ui-copilot-studio-connector" ;;
               agentic-ui-copilot-skill-v*)             pkgs="agentic-ui-copilot-skill" ;;
               agentic-ui-teams-bot-v*)                 pkgs="agentic-ui-teams-bot" ;;
+              agentic-ui-server-stores-v*)             pkgs="agentic-ui-server-stores" ;;
+              agentic-ui-server-registrar-v*)          pkgs="agentic-ui-server-registrar" ;;
+              agentic-ui-opa-authorizer-v*)            pkgs="agentic-ui-opa-authorizer" ;;
               agentic-ui-server-v*)                    pkgs="agentic-ui-server" ;;
               agentic-ui-mcp-v*)                       pkgs="agentic-ui-mcp" ;;
               agentic-ui-v*)                           pkgs="agentic-ui" ;;
               v*)                                      pkgs="agentic-ui" ;;       # legacy default
               *)
-                echo "::error::Unrecognised tag format: $tag (expected agentic-ui-v*, agentic-ui-server-v*, agentic-ui-mcp-v*, agentic-ui-copilot-skill-v*, agentic-ui-teams-bot-v*, agentic-ui-copilot-studio-connector-v*, or v*)"
+                echo "::error::Unrecognised tag format: $tag"
                 exit 1
                 ;;
             esac
           else
             case "${{ inputs.package }}" in
-              all) pkgs="agentic-ui agentic-ui-server agentic-ui-mcp agentic-ui-copilot-skill agentic-ui-teams-bot agentic-ui-copilot-studio-connector" ;;
+              all) pkgs="agentic-ui agentic-ui-server agentic-ui-mcp agentic-ui-copilot-skill agentic-ui-teams-bot agentic-ui-copilot-studio-connector agentic-ui-server-stores agentic-ui-server-registrar agentic-ui-opa-authorizer" ;;
               *)   pkgs="${{ inputs.package }}" ;;
             esac
           fi
@@ -126,17 +132,24 @@ jobs:
           # Always build everything — small enough that conditional builds
           # aren't worth the complexity. Per-package skip happens at publish.
           npm run build:lib
-          # agentic-ui-mcp depends on the freshly-built lib via
-          # `file:../../dist/agentic-ui` — install pulls that into its
-          # node_modules so tsc can resolve `@infra-tools/agentic-ui`.
-          # The other sibling packages have no cross-deps on the lib;
-          # they compile standalone against their own types.
+          # Packages with `file:` cross-deps on workspace siblings need a
+          # local npm install AFTER the dep is built, so tsc can resolve
+          # the renamed `@infra-tools/agentic-ui*` specifier from their
+          # node_modules:
+          #   agentic-ui-mcp        → @infra-tools/agentic-ui     (file:../../dist/agentic-ui)
+          #   agentic-ui-opa-authorizer → @infra-tools/agentic-ui (file:../../dist/agentic-ui)
           npm --prefix projects/agentic-ui-mcp                      install --no-audit --fund=false
+          npm --prefix projects/agentic-ui-opa-authorizer           install --no-audit --fund=false
           npm --prefix projects/agentic-ui-server                   run build
+          # server-stores depends on the just-built agentic-ui-server.
+          npm --prefix projects/agentic-ui-server-stores            install --no-audit --fund=false
           npm --prefix projects/agentic-ui-mcp                      run build
           npm --prefix projects/agentic-ui-copilot-skill            run build
           npm --prefix projects/agentic-ui-teams-bot                run build
           npm --prefix projects/agentic-ui-copilot-studio-connector run build
+          npm --prefix projects/agentic-ui-server-stores            run build
+          npm --prefix projects/agentic-ui-server-registrar         run build
+          npm --prefix projects/agentic-ui-opa-authorizer           run build
 
       - name: Publish @infra-tools/agentic-ui
         working-directory: dist/agentic-ui
@@ -259,6 +272,66 @@ jobs:
             npm publish
           fi
 
+      - name: Publish @infra-tools/agentic-ui-server-stores
+        working-directory: projects/agentic-ui-server-stores
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PKGS: ${{ steps.target.outputs.pkgs }}
+        run: |
+          set -e
+          if ! [[ " $PKGS " == *" agentic-ui-server-stores "* ]]; then
+            echo "::notice::@infra-tools/agentic-ui-server-stores not in target list — skipping"; exit 0
+          fi
+          version=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-server-stores@$version" version > /dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-server-stores@$version already on npm — skipping"; exit 0
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --dry-run
+          else
+            npm publish
+          fi
+
+      - name: Publish @infra-tools/agentic-ui-server-registrar
+        working-directory: projects/agentic-ui-server-registrar
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PKGS: ${{ steps.target.outputs.pkgs }}
+        run: |
+          set -e
+          if ! [[ " $PKGS " == *" agentic-ui-server-registrar "* ]]; then
+            echo "::notice::@infra-tools/agentic-ui-server-registrar not in target list — skipping"; exit 0
+          fi
+          version=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-server-registrar@$version" version > /dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-server-registrar@$version already on npm — skipping"; exit 0
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --dry-run
+          else
+            npm publish
+          fi
+
+      - name: Publish @infra-tools/agentic-ui-opa-authorizer
+        working-directory: projects/agentic-ui-opa-authorizer
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PKGS: ${{ steps.target.outputs.pkgs }}
+        run: |
+          set -e
+          if ! [[ " $PKGS " == *" agentic-ui-opa-authorizer "* ]]; then
+            echo "::notice::@infra-tools/agentic-ui-opa-authorizer not in target list — skipping"; exit 0
+          fi
+          version=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-opa-authorizer@$version" version > /dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-opa-authorizer@$version already on npm — skipping"; exit 0
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --dry-run
+          else
+            npm publish
+          fi
+
       - name: Summary
         if: always()
         run: |
@@ -275,7 +348,7 @@ jobs:
             echo
             echo "| Package | Version |"
             echo "|---|---|"
-            for p in agentic-ui agentic-ui-server agentic-ui-mcp agentic-ui-copilot-skill agentic-ui-teams-bot agentic-ui-copilot-studio-connector; do
+            for p in agentic-ui agentic-ui-server agentic-ui-mcp agentic-ui-copilot-skill agentic-ui-teams-bot agentic-ui-copilot-studio-connector agentic-ui-server-stores agentic-ui-server-registrar agentic-ui-opa-authorizer; do
               # agentic-ui's manifest is in dist/ after build; the others are
               # at projects/<name>/package.json (no build-time rewrite).
               if [ "$p" = "agentic-ui" ] && [ -f dist/agentic-ui/package.json ]; then
