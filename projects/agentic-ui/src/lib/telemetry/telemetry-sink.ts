@@ -31,7 +31,9 @@ export type TelemetryEventName =
   | 'agentic.platform.sse.event_received'
   | 'agentic.platform.sse.parse_error'
   | 'agentic.platform.opa.decision'
-  | 'agentic.platform.opa.decision_failed';
+  | 'agentic.platform.opa.decision_failed'
+  | 'agentic.trigger.fire'
+  | 'agentic.trigger.error';
 
 export interface AgenticTelemetrySink {
   startSpan(name: TelemetryEventName, attributes?: Readonly<Record<string, unknown>>): TelemetrySpan;

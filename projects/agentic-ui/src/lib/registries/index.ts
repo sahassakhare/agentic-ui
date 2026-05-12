@@ -13,3 +13,4 @@ export * from './layout-registry';
 export * from './schema-transformer-registry';
 export * from './approval-registry';
 export * from './operation-registry';
+export * from './trigger-registry';

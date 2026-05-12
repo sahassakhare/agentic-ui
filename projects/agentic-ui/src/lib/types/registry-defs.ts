@@ -785,3 +785,76 @@ export interface SchemaTransformerDef extends RegistryEntry {
   /** Pure transform; throws on shapes it can't convert. */
   readonly transform: (input: unknown) => unknown;
 }
+
+// ── TriggerRegistry (ADR-045) ───────────────────────────────────────
+
+/**
+ * What kind of pattern the `TriggerDef.spec` describes.
+ *
+ * - `cron` — time-based; `spec.expression` evaluated against now()
+ * - `webhook` — HTTP-pushed; the server-side runner exposes a path
+ * - `queue` — internal event-bus driven (BullMQ / NATS / etc.)
+ *
+ * The browser-side runner [(ADR-045 D3)](../../../../docs/adr/0045-trigger-registry.md#d3--browser-side-runner-via-providetriggerrunner-kinds-cron-)
+ * supports `cron` only. `webhook` and `queue` are deferred to the
+ * server-side runner (ADR-045 D6 / future ADR-046).
+ */
+export type TriggerKind = 'cron' | 'webhook' | 'queue';
+
+export type TriggerSpec =
+  | { readonly kind: 'cron'; readonly expression: string; readonly timezone?: string }
+  | { readonly kind: 'webhook'; readonly path: string; readonly secret?: string }
+  | { readonly kind: 'queue'; readonly topic: string };
+
+/** Where the trigger dispatches when it fires. */
+export type TriggerTarget =
+  | { readonly kind: 'tool'; readonly tool: string; readonly args?: unknown }
+  | { readonly kind: 'action'; readonly action: string; readonly payload?: unknown }
+  | { readonly kind: 'notification'; readonly compose: (firing: TriggerFiringContext) => NotificationDraft };
+
+/**
+ * Context passed to a notification target's `compose()` function. Carries
+ * the firing identity so the notification can be persona-attributed and
+ * audit-chained.
+ */
+export interface TriggerFiringContext {
+  readonly triggerId: string;
+  readonly firedAt: string;          // ISO timestamp
+  readonly firedBy: string;          // 'system' | persona id
+  readonly correlationId: string;    // unique per fire — links to audit chain
+}
+
+/** A draft notification a trigger emits; the host renders it in the Inbox / tray. */
+export interface NotificationDraft {
+  readonly title: string;
+  readonly body?: string;
+  readonly severity?: 'info' | 'warning' | 'error';
+  /** Optional action button payload — e.g. {kind: 'route', target: '/holds/H-1'}. */
+  readonly cta?: TriggerTarget;
+}
+
+/**
+ * Registered trigger — fires its `target` on the `spec` cadence.
+ *
+ * Persona attribution via `runAs` (ADR-045 D5). Without it, the trigger
+ * falls back to the locked-down `'trigger:default'` persona that hosts
+ * must explicitly map. Loud-safe default.
+ *
+ * Disabled at the registry level via `lifecycle: 'disabled'` (from
+ * RegistryEntry's governance hooks, ADR-014). Disabled triggers stay
+ * registered (visible in the ops console) but never fire.
+ *
+ * @see [ADR-045](../../../../docs/adr/0045-trigger-registry.md)
+ */
+export interface TriggerDef extends RegistryEntry {
+  /** Human-readable description; surfaces in the ops console. */
+  readonly description: string;
+  /** Kind discriminator — matches `spec.kind` for type-narrowing. */
+  readonly kind: TriggerKind;
+  /** Firing pattern. */
+  readonly spec: TriggerSpec;
+  /** What happens when the trigger fires. */
+  readonly target: TriggerTarget;
+  /** Optional persona id for the fire's scope + audit attribution. */
+  readonly runAs?: string;
+}
