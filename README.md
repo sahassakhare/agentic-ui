@@ -665,7 +665,7 @@ The npm-published packages cover **899 unit tests** across 74 spec files, execut
 | `@infra-tools/agentic-ui-copilot-skill` | **17** | GitHub ECDSA P-256 signed-request verifier · request parser · OpenAI-shaped SSE chunk stream |
 | `@infra-tools/agentic-ui-copilot-studio-connector` | **26** | Zod → OpenAPI translator (every supported primitive + refinement + permissive fallback) · Power-Platform manifest builder · Azure AD JWT verifier (audience + tenant + JWKS) · identity extraction |
 
-GitHub Actions runs the full pipeline (build → test → three production demo builds → 200 KB FESM size guard) on every push and pull request. See `.github/workflows/ci.yml`. The eDiscovery flagship adds **16 Playwright tests across 6 specs** under [`e2e/`](./e2e/README.md).
+GitHub Actions runs the full pipeline (build → test → three production demo builds → 660 KB FESM size guard) on every push and pull request. See `.github/workflows/ci.yml`. The eDiscovery flagship adds **25 Playwright tests across 11 specs** under [`e2e/`](./e2e/README.md) — including a dedicated post-chat-surfaces video walkthrough (no LLM required).
 
 ## Versioning and release
 

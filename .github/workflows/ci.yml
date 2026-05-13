@@ -127,25 +127,38 @@ jobs:
           npm ci --no-audit --fund=false
           npx tsc -p tsconfig.json
 
-      - name: Bundle-size guard (lib FESM under 340 KB)
+      - name: Bundle-size guard (lib FESM under 660 KB)
         run: |
-          # Cap raised 300 KB → 340 KB for the audit Gaps 4 / 1 / 3 / 2
-          # platform-integration providers (ADRs 031–034):
-          #   provideAgenticPlatform composite + per-feature options
-          #   provideCatalogCapabilityRegistrar + RegistrarService
-          #   provideCatalogCapabilityAuthorizer + AuthorizerService + composer
-          #   provideCatalogUsageMetering + MeteringSink wrapper + queue
-          # Post-F6 baseline was ~258 KB; post-ADR-034 is ~313 KB. The
-          # 340 KB cap leaves ~27 KB headroom for one more capability /
-          # platform slice before the next budget review.
-          # Earlier raise: 200 KB → 300 KB to accommodate F1 form-renderer
-          # + composition DSL, F4 ApprovalRegistry, F5 OperationRegistry,
-          # F6 MessageContent union + multi-modal composer.
+          # Cap raised 340 KB → 660 KB for the post-chat-surfaces
+          # program (plan P0–P5 + federation-symmetry extension):
+          #   3 new registries — TriggerRegistry, DashboardRegistry,
+          #   PlaybookRegistry — full RegistryBase semantics each
+          #   1 new service — PlaybookRunner (start/cancel/approve/skip)
+          #   1 new helper — TileResultCache + tileCacheKey
+          #   16 new components — workspace-layout, cmd-k-palette,
+          #   smart-cell, row-action-menu, bulk-toolbar, assist-panel,
+          #   notification-tray, inbox, lifecycle-stages,
+          #   dashboard-{tile,canvas,preview}, review-queue,
+          #   timeline-canvas, cal-workbench, playbook-runner
+          #   2 new providers — provideLayoutPolicy, provideTriggerRunner
+          #   Zod schemas for layout-render + slot validation
+          #   defineCapabilityModule federation symmetry across
+          #   triggers + dashboards + playbooks
+          # Post-ADR-034 baseline was ~313 KB; post-P5 + federation
+          # symmetry is ~628 KB (almost 2x — matches the scope).
+          # Tree-shaking holds: apps that don't import these surfaces
+          # don't pay for them (sideEffects: false). The FESM cap is
+          # the maximum surface size, not the per-consumer ship cost.
+          # 660 KB leaves ~32 KB headroom for one more capability
+          # slice before the next budget review.
+          # Earlier raises: 200 → 300 KB (F1 form/composition, F4
+          # Approval, F5 Operation, F6 multi-modal); 300 → 340 KB
+          # (audit Gaps 4/1/3/2 platform-integration providers).
           # Lower this back if a refactor materially shrinks the surface.
           size=$(wc -c < dist/agentic-ui/fesm2022/infra-tools-agentic-ui.mjs)
           echo "FESM size: $size bytes"
-          if [ "$size" -gt 348160 ]; then
-            echo "::error::Lib FESM exceeded 340 KB ($size B). Investigate before merging."
+          if [ "$size" -gt 675840 ]; then
+            echo "::error::Lib FESM exceeded 660 KB ($size B). Investigate before merging."
             exit 1
           fi
 
