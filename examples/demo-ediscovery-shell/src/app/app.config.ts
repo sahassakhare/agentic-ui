@@ -27,6 +27,7 @@ import {
   provideAgUiBackend,
   provideLayoutPolicy,
   provideStaticJsonMfeRegistry,
+  provideTeamsContext,
   provideToolFilter,
   provideTriggerRunner,
   ToolRegistry,
@@ -433,6 +434,23 @@ export const appConfig: ApplicationConfig = {
     // runner. Registered TriggerDef entries with `kind: 'cron'` fire
     // on schedule; webhook/queue specs defer to a server-side runner.
     provideTriggerRunner(),
+    // Use case §24 — Teams Tab embed seam (no Teams SDK dep here).
+    // The `loadContext` resolves only when the shell is loaded inside
+    // a Teams Tab iframe (microsoftTeams.app.initialize() was called).
+    // Outside Teams the loader returns null and `fallback` provides
+    // a deterministic "demo persona" context. Production hosts wire
+    // `loadContext: async () => { await microsoftTeams.app.initialize();
+    // return microsoftTeams.app.getContext(); }` and bind the theme
+    // signal to their CSS theme switcher. See cookbook/teams-tab-embed.md.
+    ...provideTeamsContext({
+      loadContext: async () => null as never,   // null → fallback kicks in (we're not inside Teams)
+      fallback: {
+        tenantId: environment.catalogTenantId,
+        userPrincipalName: null,
+        theme: 'default',
+        locale: 'en-US',
+      },
+    }),
     // Order matters — environment initializers fire in registration
     // order. Tools register, persona policy installs, then the catalog
     // platform layer (registrar reads the populated registry; authorizer

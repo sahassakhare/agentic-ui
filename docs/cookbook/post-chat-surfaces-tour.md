@@ -256,6 +256,35 @@ The `/audit` route renders the last 12 chain-linked events as a horizontal strip
 
 ---
 
+## What's wired in the eDiscovery shell vs the lib
+
+The shell uses every post-chat-surfaces primitive from the library, with a few extension patterns that go beyond the lib's defaults:
+
+| § | Library primitive | eDiscovery shell wiring |
+|---|---|---|
+| 17 | `provideLayoutPolicy({...})` | ✅ Wired in [`app.config.ts`](../../examples/demo-ediscovery-shell/src/app/app.config.ts) — per-persona density + route-based shellMode. |
+| 17 | `<mvk-workspace-layout>` | ✅ [`/workspace`](https://ediscovery-shell.onrender.com/workspace) demo route shows the slot-based primitive with persona-driven density. The default routes (`/documents`, `/holds`, etc.) keep using the hand-rolled three-pane chassis since most routes don't need slot composition — the lib's primitive is for "the agent reshapes the canvas mid-turn" workflows. |
+| 18 | `<mvk-cmd-k-palette>` | ⚠️ Replaced by a richer internal component ([`<mvk-command-palette>`](../../examples/demo-ediscovery-shell/src/app/ui/command-palette.component.ts)) that extends the same pattern (IntentRegistry → ToolRegistry → free-text) with **headless agent invocation**. Press ⌘K to invoke without opening the chat shell. The lib's bare-bones `<mvk-cmd-k-palette>` is what simpler hosts use; the eDiscovery flagship demonstrates the extension. |
+| 18 | `<mvk-smart-cell>` + `<mvk-row-action-menu>` + `<mvk-bulk-toolbar>` + `<mvk-assist-panel>` | ✅ All wired — Documents page columns + row kebab + bulk toolbar, Custodians page assist panel. |
+| 19 | `TriggerRegistry` + `provideTriggerRunner` + `<mvk-notification-tray>` + `<mvk-inbox>` + `<mvk-lifecycle-stages>` | ✅ All five wired — 3 triggers seeded at boot, tray in the header, `/inbox` route, lifecycle widget on `/holds` + `/productions`. |
+| 20 | `DashboardRegistry` + `<mvk-dashboard-canvas>` + `TileResultCache` | ✅ Wired — 3 host dashboards + 3 MFE-contributed (federation symmetry). Canvas uses `<mvk-dashboard-tile>` + `TileResultCache` internally. `<mvk-dashboard-preview>` is not used (would surface when the LLM proposes a new dashboard via `proposeDashboard` — chat-driven flow not wired in this demo). |
+| 21 | `<mvk-review-queue>` + `<mvk-timeline-canvas>` + `<mvk-cal-workbench>` | ✅ All wired as `/review-queue` + `/timeline` + `/cal` routes. |
+| 22 | `PlaybookRegistry` + `PlaybookRunner` + `<mvk-playbook-runner>` | ✅ All wired — 3 PlaybookDefs (`initialPrivilegePass v1`, `qcPrivilegePass v2`, `productionRelease v1`). |
+| 23 | `provideAgenticPlatform({...})` | ✅ Wired. Catalog adapters (persona resolver, MFE registry, capability registrar / authorizer, usage metering) all opt-in via per-feature options. |
+| 24 | `provideTeamsContext({ loadContext })` | ✅ Wired — falls back to demo context outside Teams. Production hosts plug `microsoftTeams.app.getContext()` into `loadContext`. |
+
+## §25–§27 — External chat-surface deployments (deferred)
+
+The library packages for the three external chat surfaces are published and tested, but the eDiscovery flagship doesn't have live demo deployments of them. Each one needs platform-specific external configuration:
+
+| § | Package | What's required to deploy |
+|---|---|---|
+| 25 | [`@infra-tools/agentic-ui-teams-bot`](../../projects/agentic-ui-teams-bot/) | Microsoft Bot Framework registration (Azure Bot resource + AAD app + Teams Connector) + a Node service exposing the bot webhook. Cookbook: [teams-bot-adaptive-cards.md](./teams-bot-adaptive-cards.md). |
+| 26 | [`@infra-tools/agentic-ui-copilot-skill`](../../projects/agentic-ui-copilot-skill/) | GitHub App with Copilot Extensions permissions + a public webhook endpoint. Cookbook: [github-copilot-extension.md](./github-copilot-extension.md). |
+| 27 | [`@infra-tools/agentic-ui-copilot-studio-connector`](../../projects/agentic-ui-copilot-studio-connector/) | Power Platform Custom Connector registration + Azure AD app (per-tenant). Cookbook: [copilot-studio-connector.md](./copilot-studio-connector.md). |
+
+These three are intentionally not wired into the Render demo because they require **per-environment platform configuration** that goes beyond a self-contained showcase. The library packages, snapshot tests, and cookbook walkthroughs are all in place — adopters with Microsoft / GitHub developer accounts can wire them in ~1–2 hours each following the cookbooks.
+
 ## How to verify each pillar yourself
 
 If you don't trust the videos, the deterministic Playwright spec exercises the same surfaces — each test is one pillar:
@@ -265,8 +294,8 @@ cd e2e
 EDIS_BASE_URL=https://ediscovery-shell.onrender.com \
   npx playwright test specs/11-post-chat-surfaces.spec.ts
 
-# After ~4 min: 8/9 tests pass (the failing §17 documents the known
-# chat-shell-mode reactivity follow-up — see §17 above).
+# After ~6-8 min: 9/9 tests pass against live Render (with the pre-warm
+# hook + waitForShellReady gate that handles cold-start latency).
 # Open the report to scrub through every test's video:
 npx playwright show-report playwright-report
 ```

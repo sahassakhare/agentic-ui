@@ -224,5 +224,7 @@ export class SidebarComponent {
     { path: '/review-queue', label: 'Review queue', icon: 'circle-check' },
     { path: '/timeline',     label: 'Timeline',     icon: 'audit' },
     { path: '/cal',          label: 'CAL workbench', icon: 'bolt' },
+    // ── Workspace layout demo (P0 / §17) ─────────────────────────────
+    { path: '/workspace',    label: 'Workspace',    icon: 'dashboard' },
   ];
 }

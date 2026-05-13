@@ -67,6 +67,12 @@ export const routes: Routes = [
     path: 'cal',
     loadComponent: () => import('./pages/cal/cal.component').then((m) => m.CalPage),
   },
+  // Use case §17 demo — slot-based workspace via <mvk-workspace-layout>
+  // showing the lib's primitive alongside the hand-rolled three-pane.
+  {
+    path: 'workspace',
+    loadComponent: () => import('./pages/workspace/workspace-demo.component').then((m) => m.WorkspaceDemoPage),
+  },
   // ── Trimodal direct-mount surfaces (plan R3) ──────────────────────────
   // Same registry definitions the chat agent invokes — without the chat
   // shell. Proves forms/workflows are surface-independent.
