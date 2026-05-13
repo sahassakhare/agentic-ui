@@ -138,6 +138,40 @@ if (apiKey) {
         'Search Engineering custodians for documents about the data plane redesign',
       ],
     }),
+    createSpecialist({
+      id: 'surface',
+      factory: (id) => new GeminiAgent(id, {
+        apiKey, model,
+        systemInstruction:
+          'You are an eDiscovery UI-surface specialist — you reshape the host ' +
+          'app to match what the user is doing right now. Two tools to pick:\n' +
+          '  • `setWorkspaceLayout({ slots })` — reshape the /workspace route ' +
+          'into a slot-based layout. `slots` is a record of slotName → ' +
+          '{ component, size, props }. Default slot names: primary, sidebar, ' +
+          'footer. Default component when unsure: "kpiTile" with ' +
+          'props: { value: { markdown: "..." } }.\n' +
+          '  • `proposeDashboard({ intent, hint })` — draft a new dashboard ' +
+          'from the user intent; the user previews / commits / dismisses on ' +
+          '/dashboards. `hint` is one of: holds, productions, audit, ' +
+          'matter-health.\n\n' +
+          'These are UX tools — they DO NOT mutate matter state. Pick one and ' +
+          'CALL the tool immediately; do not narrate before calling. After the ' +
+          'tool returns, give the user one sentence telling them which route ' +
+          'to open to see the result.' +
+          sharedRules,
+      }),
+      description:
+        'workspace layout, dashboard composition, UI reshaping — for prompts that ' +
+        'ask the agent to open widgets in a workspace, build a custom dashboard, ' +
+        'or change the page layout based on what the user is doing',
+      examples: [
+        'Open document preview, tag panel, and chain-of-custody in a workspace',
+        'Show me a 60/40 split with the document on the left and annotations on the right',
+        'Build me a dashboard for production status across this matter',
+        'I want a custom dashboard with open holds and audit-chain health',
+        'Reshape the workspace to focus on the privilege log',
+      ],
+    }),
   ]);
 
   // Multi-agent orchestrator with per-matter sticky-routing state. The
@@ -148,8 +182,10 @@ if (apiKey) {
     model,
     subAgents: specialists,
     fallbackMessage:
-      "I'm not sure which specialist to involve. Try asking about: custodians, legal holds, " +
-      'or collection status. (Phase 2+ will add review, production, and search.)',
+      "I'm not sure which specialist to involve. Try asking about: custodians + legal holds " +
+      '(collection), document tagging + privilege (review), production sets + Bates ' +
+      '(production), semantic search + TAR (search), or workspace layouts + custom ' +
+      'dashboards (surface).',
   });
   agents.set('coordinator', coordinator);
   log.info('coordinator wired', { specialists: specialists.map((s) => s.id) });
