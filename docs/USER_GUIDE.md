@@ -1314,6 +1314,8 @@ Import `dist/connector.json` into Power Platform → publish to Copilot Studio �
 
 ## End-to-end coverage — video walkthroughs
 
+> **Looking for the user-facing tour?** Start with [post-chat-surfaces-tour.md](./cookbook/post-chat-surfaces-tour.md) — step-by-step instructions on what to click, what to expect, and where each surface lives in the live demo. The section below is the *technical* coverage view (Playwright spec + video file paths) — useful for verification, less useful for first-time orientation.
+
 Every post-chat-surfaces use case in the eDiscovery flagship has a deterministic Playwright spec under [`e2e/specs/`](../e2e/specs/). The tour spec ([`11-post-chat-surfaces.spec.ts`](../e2e/specs/11-post-chat-surfaces.spec.ts)) runs the §17–§22 pillars **without a Gemini key** — every assertion is against host-side registry state and dispatch-agnostic widgets — and records video for every test (`test.use({ video: 'on' })`).
 
 The flagship is deployed live on Render — you can poke at it directly before running the spec:
