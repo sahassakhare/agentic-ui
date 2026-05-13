@@ -304,11 +304,17 @@ This library is opinionated for one shape of work — agent-driven UI in Angular
 | 14 | [Human-in-the-loop approval](#14-human-in-the-loop-approval) | `agenticApproval({ tool, required, approverRoles })` + chat-shell intercept | [approval-flow](./cookbook/approval-flow.md) |
 | 15 | [Long-running operations](#15-long-running-operations) | `agenticTool({ longRunning: true })` + `OperationRegistry` + `<mvk-operation-progress>` | [long-running-operations](./cookbook/long-running-operations.md) |
 | 16 | [Multi-modal input](#16-multi-modal-input) | `MessageContent` union + composer paperclip / drag-drop / paste-image | [multi-modal-input](./cookbook/multi-modal-input.md) |
-| 17 | [Wire the catalog platform](#17-wire-the-catalog-platform) | `provideAgenticPlatform({...})` — single composite provider for IAM persona + MFE registry + capability registrar / authorizer + usage metering | [ADR-031](./adr/0031-provide-agentic-platform.md) |
-| 18 | [Embed the shell as a Teams Tab](#18-external-surface--embed-the-shell-as-a-teams-tab) | `provideTeamsContext({ loadContext })` bridges `microsoftTeams.app.getContext()` into a signal; no hard SDK dep | [teams-tab-embed](./cookbook/teams-tab-embed.md) |
-| 19 | [Teams chat-native via Bot Framework](#19-external-surface--teams-chat-native-via-bot-framework) | `@infra-tools/agentic-ui-teams-bot` — JWT verify + AAD bearer + Adaptive Card responses in Teams chat | [teams-bot-adaptive-cards](./cookbook/teams-bot-adaptive-cards.md) |
-| 20 | [GitHub Copilot Extension](#20-external-surface--github-copilot-extension) | `@infra-tools/agentic-ui-copilot-skill` — wraps the GitHub Copilot Extensions webhook protocol | [github-copilot-extension](./cookbook/github-copilot-extension.md) |
-| 21 | [Microsoft Copilot Studio Connector](#21-external-surface--microsoft-copilot-studio-connector) | `@infra-tools/agentic-ui-copilot-studio-connector` — Zod→OpenAPI manifest + Azure AD JWT + per-persona Connector publishing | [copilot-studio-connector](./cookbook/copilot-studio-connector.md) |
+| 17 | [Persona-shaped workspace layouts (P0)](#17-persona-shaped-workspace-layouts-post-chat-surfaces-p0) | Promoted `LayoutRegistry` + `<mvk-workspace-layout>` + `provideLayoutPolicy({...})` ([ADR-043](./adr/0043-layout-registry-promotion.md)) | [agent-directed-workspace-layouts](./cookbook/agent-directed-workspace-layouts.md) |
+| 18 | [In-context agent affordances (P1)](#18-in-context-agent-affordances-post-chat-surfaces-p1) | `<mvk-cmd-k-palette>`, `<mvk-smart-cell>`, `<mvk-row-action-menu>`, `<mvk-bulk-toolbar>`, `<mvk-assist-panel>` | [cmd-k-palette](./cookbook/cmd-k-palette.md) |
+| 19 | [Proactive triggers + inbox (P2)](#19-proactive-triggers--inbox-post-chat-surfaces-p2) | `TriggerRegistry` + `provideTriggerRunner({...})` + `<mvk-notification-tray>` + `<mvk-inbox>` + `<mvk-lifecycle-stages>` ([ADR-045](./adr/0045-trigger-registry.md)) | [proactive-triggers-and-inbox](./cookbook/proactive-triggers-and-inbox.md) |
+| 20 | [User-built + conversational + live dashboards (P3)](#20-user-built--conversational--live-dashboards-post-chat-surfaces-p3) | `DashboardRegistry` + `<mvk-dashboard-canvas>` + `<mvk-dashboard-preview>` + `TileResultCache` ([ADR-044](./adr/0044-dashboard-registry.md)) | [dashboards](./cookbook/dashboards.md) |
+| 21 | [Workflow surfaces — review queue, timeline, CAL (P4)](#21-workflow-surfaces--review-queue-timeline-cal-post-chat-surfaces-p4) | `<mvk-review-queue>`, `<mvk-timeline-canvas>`, `<mvk-cal-workbench>` — Workflow E / D / C | [review-queue](./cookbook/review-queue.md) |
+| 22 | [Versioned tool-call playbooks (P5)](#22-versioned-tool-call-playbooks-post-chat-surfaces-p5) | `PlaybookRegistry` + `PlaybookRunner` + `<mvk-playbook-runner>` — chain-hashed `origin: 'playbook'` audit | [playbooks](./cookbook/playbooks.md) |
+| 23 | [Wire the catalog platform](#23-wire-the-catalog-platform) | `provideAgenticPlatform({...})` — single composite provider for IAM persona + MFE registry + capability registrar / authorizer + usage metering | [ADR-031](./adr/0031-provide-agentic-platform.md) |
+| 24 | [Embed the shell as a Teams Tab](#24-external-surface--embed-the-shell-as-a-teams-tab) | `provideTeamsContext({ loadContext })` bridges `microsoftTeams.app.getContext()` into a signal; no hard SDK dep | [teams-tab-embed](./cookbook/teams-tab-embed.md) |
+| 25 | [Teams chat-native via Bot Framework](#25-external-surface--teams-chat-native-via-bot-framework) | `@infra-tools/agentic-ui-teams-bot` — JWT verify + AAD bearer + Adaptive Card responses in Teams chat | [teams-bot-adaptive-cards](./cookbook/teams-bot-adaptive-cards.md) |
+| 26 | [GitHub Copilot Extension](#26-external-surface--github-copilot-extension) | `@infra-tools/agentic-ui-copilot-skill` — wraps the GitHub Copilot Extensions webhook protocol | [github-copilot-extension](./cookbook/github-copilot-extension.md) |
+| 27 | [Microsoft Copilot Studio Connector](#27-external-surface--microsoft-copilot-studio-connector) | `@infra-tools/agentic-ui-copilot-studio-connector` — Zod→OpenAPI manifest + Azure AD JWT + per-persona Connector publishing | [copilot-studio-connector](./cookbook/copilot-studio-connector.md) |
 
 ---
 
@@ -917,7 +923,156 @@ Full walkthrough — including HIPAA gating, cost telemetry, and privacy-on-data
 
 ---
 
-### 17. Wire the catalog platform
+### 17. Persona-shaped workspace layouts (post-chat-surfaces P0)
+
+> **Scenario.** A partner reviewing privilege wants three panels open at once — Documents, an AI assist sidebar, and the chat rail — without the chat dominating the screen. A reviewer in the same app wants a fullscreen review queue with the chat collapsed to an icon. A junior associate's first-run view is the original right-rail layout. Same Angular app, three different operators, three different surface shapes — and the LLM should be able to ask the host to switch the shape per turn ("open this in a workspace mode").
+
+**Library responsibility.**
+
+- `LayoutRegistry` is the seventh registry — promoted from internal use under [ADR-043](./adr/0043-layout-registry-promotion.md). It registers `LayoutDef` entries, each declaring a `mode` (`rail` / `split` / `workspace` / `assist-panel` / `fullscreen`), a set of named slots, and optional responsive breakpoints.
+- `<mvk-workspace-layout>` renders any registered `LayoutDef`. Slots accept Angular content projection by `slot=` attribute; ResizeObserver-driven slot resizing is handled in CSS Grid.
+- `provideLayoutPolicy({ default: 'split', perPersona: { partner: 'workspace', reviewer: 'fullscreen' } })` lets you set a host-wide default + per-persona overrides. The chat shell reads the policy through the `LAYOUT_POLICY` InjectionToken — no other library code knows about personas; the policy itself is what's persona-aware.
+- The LLM can emit a `layout-render` event mid-turn; the chat shell Zod-validates the payload at the boundary and either swaps the layout or warns and falls back to the previous one.
+
+```ts
+inject(LayoutRegistry).register({
+  name: 'review-workspace',
+  mode: 'workspace',
+  slots: [
+    { id: 'primary', minSize: 400 },
+    { id: 'assist',  minSize: 280, defaultSize: 320 },
+    { id: 'chat',    minSize: 320, defaultSize: 360, collapsible: true },
+  ],
+});
+```
+
+Full walkthrough — including how the LLM's `layout-render` event flows through the chat shell and the migration story from the pre-promotion rail-only layout — in the [agent-directed-workspace-layouts](./cookbook/agent-directed-workspace-layouts.md) cookbook.
+
+---
+
+### 18. In-context agent affordances (post-chat-surfaces P1)
+
+> **Scenario.** A reviewer sees a custodian row in a table and wants to ask *"Why is this custodian under hold?"* — without leaving the row, opening the chat rail, and re-typing context. A partner pressing ⌘K wants to invoke `releaseLegalHold` by name without scrolling the chat. A bulk-selection of 40 documents needs *one* "request review for selected" action, not 40 separate prompts.
+
+**Library responsibility.**
+
+Five dispatch-agnostic components — every one a typed `(action)` emitter the host wires to its dispatcher (so no component knows about routes / actions / mutators directly):
+
+- **`<mvk-cmd-k-palette>`** — ⌘K / Ctrl+K palette resolving free-text → `IntentRegistry` matches → `ToolRegistry` fallback. Recent + pinned section, keyboard navigation, persona-filtered.
+- **`<mvk-smart-cell>`** — a single-cell agent-computed value in a table. Names a tool to invoke; renders loading / result / error; persona scope filters at the cell level (no access → "no access" stub, not 403).
+- **`<mvk-row-action-menu>`** — kebab menu populated from `IntentRegistry` filtered by `context: 'row'`. Resolves entries → tools / actions / routes.
+- **`<mvk-bulk-toolbar>`** — selection-aware toolbar that materialises above a table when N rows are selected; intent entries with `context: 'bulk-selection'`.
+- **`<mvk-assist-panel>`** — Cursor-pattern sidebar: structured affordances (intents + tool buttons + recent runs) over a free-text chat area; same `(action)` emitter pattern as the others.
+
+```html
+<mvk-bulk-toolbar
+  [selection]="selectedDocIds()"
+  context="document"
+  (action)="onBulkAction($event)" />
+```
+
+Full walkthroughs in the [cmd-k-palette](./cookbook/cmd-k-palette.md), [smart-cell](./cookbook/smart-cell.md), [row-action-menu](./cookbook/row-action-menu.md), [bulk-toolbar](./cookbook/bulk-toolbar.md), and [assist-panel](./cookbook/assist-panel.md) cookbooks.
+
+---
+
+### 19. Proactive triggers + inbox (post-chat-surfaces P2)
+
+> **Scenario.** An overdue legal-hold acknowledgement should ping the case manager without anyone typing in the chat. An ingest-complete queue event should fire `refreshMatter` for the affected case. Every fire should land in a tray + a full inbox route, with chain-hashed audit attributing the firing.
+
+**Library responsibility.**
+
+- `TriggerRegistry` — eighth registry ([ADR-045](./adr/0045-trigger-registry.md)). Holds `TriggerDef` entries: discriminated by `kind` (`cron` / `webhook` / `queue`) and dispatching to a discriminated `target` (`tool` / `action` / `notification` with a `compose(ctx)` callback returning a `NotificationDraft`).
+- `provideTriggerRunner({...})` wires the browser-side cron runner — webhook + queue targets defer to the server-side runner (deferred to a future ADR-046). Every firing chain-hashes with `origin: 'trigger'` + the trigger's `runAs` persona for audit attribution.
+- `<mvk-notification-tray>` — bell icon + unread badge + dropdown; signal-driven from a `NotificationRegistry` write that the trigger runner performs on the `notification` target kind.
+- `<mvk-inbox>` — full-page route widget rendering the same notifications with filters, CTAs (route / action / tool buttons), bulk-mark-read.
+- `<mvk-lifecycle-stages>` — multi-stage horizontal lifecycle widget for `Operation`-backed long-running flows (e.g. *Ingest → Process → Index → Review-ready*). Useful when a trigger fires a long-running tool and the inbox entry should show progress.
+
+```ts
+inject(TriggerRegistry).register({
+  name: 'dailyAckSweep',
+  kind: 'cron',
+  spec: { kind: 'cron', expression: '@daily' },
+  target: { kind: 'tool', tool: 'sweepHoldAcks', args: {} },
+  runAs: 'caseManager',
+});
+```
+
+Full walkthrough in the [proactive-triggers-and-inbox](./cookbook/proactive-triggers-and-inbox.md) cookbook.
+
+---
+
+### 20. User-built + conversational + live dashboards (post-chat-surfaces P3)
+
+> **Scenario.** Legal ops want a "Matter health" dashboard: open holds count, recent emails, custodian timeline, ingest progress — all tiles, refreshing on demand or on a schedule, drillable to the underlying tool result. They want the LLM to be able to propose a dashboard ("show me production status across all open matters"), let them preview it, and save it.
+
+**Library responsibility.**
+
+- `DashboardRegistry` — ninth registry ([ADR-044](./adr/0044-dashboard-registry.md)). `DashboardDef` composes `TileDef[]` over a `LayoutRegistry`-named layout, optional `FilterDef[]` for cross-matter parameter threading, and `version` + `parentVersion` for revision history.
+- `TileInvocation` is a discriminated union: `kind: 'tool'` (re-invokes the tool, chain-hashed), `kind: 'data'` (re-queries a `DataSourceRegistry` source — no audit), or `kind: 'static'` (literal props).
+- `<mvk-dashboard-tile>` renders one tile. `<mvk-dashboard-canvas>` renders the whole dashboard. `<mvk-dashboard-preview>` is the editable preview shell adopters open when the LLM proposes a new dashboard.
+- `TileResultCache` is a singleton cross-instance cache keyed by `tileCacheKey()` (stable-sorted JSON). `cacheTtlMs` per tile, `refreshOn: 'event'` for push-driven refresh, `drilldown: { route | tool | action }` for the click-through.
+- Persona scope filters tiles automatically — unauthorised tiles render as "no-access" stubs, not 403s, not silent omissions.
+
+```ts
+inject(DashboardRegistry).register({
+  name: 'matterHealth',
+  title: 'Matter health',
+  layout: 'two-col',
+  tiles: [
+    { id: 'open-holds', slot: 'primary', title: 'Open holds', component: 'countTile',
+      invocation: { kind: 'tool', tool: 'countOpenHolds', args: { matterId: 'M-1' } },
+      refreshOn: 'event', drilldown: { route: '/holds?status=open' } },
+    /* …more tiles */
+  ],
+  version: 'v1',
+});
+```
+
+Full walkthroughs in the [dashboards](./cookbook/dashboards.md) (registry + canvas), [conversational-dashboards](./cookbook/conversational-dashboards.md) (LLM proposes, host previews + commits), and [live-dashboards](./cookbook/live-dashboards.md) (cache + refresh + drilldown) cookbooks.
+
+---
+
+### 21. Workflow surfaces — review queue, timeline, CAL (post-chat-surfaces P4)
+
+> **Scenario.** Workflows that aren't a chat-shell turn: a senior reviewer needs a queue routed by persona (partner sees only escalations; senior sees only QC) with explicit decisions appended to the audit chain. An investigator needs a timeline canvas to reconstruct who did what when, drillable into the underlying tool results. A data scientist needs a Continuous Active Learning training loop with bulk labelling + classifier-refresh round trips.
+
+**Library responsibility.**
+
+Three purpose-built widgets, each composing existing registries with workflow-specific UI semantics:
+
+- **`<mvk-review-queue>`** (Workflow E) — multi-reviewer queue. Reads a tool-backed `WorkflowQueueItem[]` signal; emits `(decision)` events the host wires to whichever `agenticAction` represents an approve / reject / escalate. Audit chain entries shape: `tool-approved` / `tool-rejected` (same shape as F4 approvals).
+- **`<mvk-timeline-canvas>`** (Workflow D) — investigation timeline. Renders a `TimelineEvent[]` signal as a horizontal canvas with severity coding, drill-in panels, and an LLM-driven *"summarise events between t1 and t2"* affordance.
+- **`<mvk-cal-workbench>`** (Workflow C) — CAL training loop. Renders a batch of documents to label, captures decisions, fires the classifier-refresh tool, shows updated confidence on the next batch. Pairs with `ActionRegistry` for the train + commit + revert decisions.
+
+All three are signal-backed, OnPush, dispatch-agnostic. The same `setScopePolicy` filter that hides tools from the LLM also hides queue items from reviewers they're not entitled to see.
+
+Full walkthroughs in the [review-queue](./cookbook/review-queue.md), [timeline-canvas](./cookbook/timeline-canvas.md), and [cal-workbench](./cookbook/cal-workbench.md) cookbooks.
+
+---
+
+### 22. Versioned tool-call playbooks (post-chat-surfaces P5)
+
+> **Scenario.** Legal ops want to apply *Initial Privilege Pass v3* across matters: a sequence of 7 tool calls in a specific order (scope → search → tag → cal-round → privilege-log → snapshot → export). Same playbook, different matters; same audit shape, different `matterId` arg. Editing it produces v4 with `parentVersion: v3`. Every step chain-hashes through audit with `origin: 'playbook'` + the step index — a single playbook run is one tamper-evident block in the chain.
+
+**Library responsibility.**
+
+- `PlaybookRegistry` — eighteenth registry. Holds `PlaybookDef` entries: `name`, `title`, `version`, `parentVersion?`, `description`, persona scope, and a `steps: PlaybookStep[]` array.
+- `PlaybookStep` carries `id`, `tool`, `args`, plus two opt-in modifiers: `requiresApproval: true` halts the run with an Approve / Skip gate before invoking (use for irreversible operations), `continueOnError: true` keeps the run going past a failed step (overall ends `'failed'` regardless).
+- `PlaybookRunner` is a `providedIn: 'root'` service. `start(def)` returns a `RunningPlaybook` handle exposing a signal-backed live state, a terminal-state promise, and `cancel()` / `approve()` / `skip()` methods.
+- `<mvk-playbook-runner>` renders the live state — per-step status pill, inline error, Result disclosure, Approve / Skip / Cancel buttons surfacing on the right steps; dispatch-agnostic same as everything else.
+- Persona-blocked tools (`ToolRegistry.get` returns `undefined`) record the step as failed with *"tool not visible to this persona"* — no silent-drop semantics.
+
+```ts
+const handle = inject(PlaybookRunner).start(initialPrivilegePassPlaybook);
+effect(() => console.log(handle.state()));   // signal-backed live snapshot
+await handle.done;                            // terminal state
+```
+
+Full walkthrough — including cross-matter parameterisation, the eight-registries-one-workflow composition shape, and what's NOT in scope (conditional branching, parallel fan-out, visual builder, cross-tenant) — in the [playbooks](./cookbook/playbooks.md) cookbook.
+
+---
+
+### 23. Wire the catalog platform
 
 > **Scenario.** Your runtime app already works embedded — tools register in code, widgets render inline, MFE remotes load from a JSON file. Now an operator asks: *"Where do I see what tools the running apps actually expose? Why did toggling `releaseLegalHold` to `disabled` in the ops console do nothing? Why is the Usage page always empty?"* You need the runtime to integrate with the [Maverick catalog server](../platform/agentic-catalog-server/) — but you don't want to wire 4–5 separate providers and thread the same three config values through each.
 
@@ -989,7 +1144,7 @@ mvk new app demo --with-platform --tenant acme
 
 ---
 
-### 18. External surface — embed the shell as a Teams Tab
+### 24. External surface — embed the shell as a Teams Tab
 
 > **Scenario.** Your operators live in Microsoft Teams. Asking them to open a separate browser tab for the agentic UI is friction. You want the same Angular app — same tools, same audit chain — running inside a Teams Tab next to their channel chat.
 
@@ -1022,7 +1177,7 @@ The eDiscovery demo ships a Teams manifest scaffold at `examples/demo-ediscovery
 
 ---
 
-### 19. External surface — Teams chat-native via Bot Framework
+### 25. External surface — Teams chat-native via Bot Framework
 
 > **Scenario.** Operators don't just want the app inside Teams — they want to **converse with the agent in Teams chat** (channel / DM / group). Tool results render as Adaptive Cards in the conversation; rich UIs deep-link back to the Teams Tab.
 
@@ -1058,7 +1213,7 @@ Fidelity matrix: F4 approvals + F5 long-running operations render natively in Te
 
 ---
 
-### 20. External surface — GitHub Copilot Extension
+### 26. External surface — GitHub Copilot Extension
 
 > **Scenario.** Your developers and analysts already live in GitHub Copilot Chat (VS Code, JetBrains, github.com). You want them to invoke the catalog's tools from there — `@maverick-ediscovery place a legal hold for Project Phoenix`.
 
@@ -1091,7 +1246,7 @@ Two-week vertical slice covering the protocol layer + the GitHub App registratio
 
 ---
 
-### 21. External surface — Microsoft Copilot Studio Connector
+### 27. External surface — Microsoft Copilot Studio Connector
 
 > **Scenario.** Your enterprise runs on Microsoft 365 Copilot — across Word, Outlook, Teams, and the Copilot web surface. You want every catalog tool callable from Copilot Studio's NL routing without the user thinking about which app they're in.
 
