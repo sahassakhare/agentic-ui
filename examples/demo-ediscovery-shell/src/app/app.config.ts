@@ -27,6 +27,7 @@ import {
   provideAgUiBackend,
   provideStaticJsonMfeRegistry,
   provideToolFilter,
+  provideTriggerRunner,
   ToolRegistry,
   type ApprovalAuditEvent,
   type CapabilityModule,
@@ -38,6 +39,7 @@ import { environment } from '../environments/environment';
 import { routes } from './app.routes';
 import { buildTools, registerApprovals, registerDataSources, registerForms, widgets } from './agentic/agentic';
 import { registerNavigationActions } from './agentic/navigation-actions';
+import { registerPostChatSurfaces } from './agentic/post-chat-surfaces';
 import { PersonaService } from './services/persona.service';
 import { MatterStore } from './services/matter.store';
 
@@ -80,6 +82,11 @@ function bootAgenticCapabilities() {
     // from the moment the shell boots get queued correctly.
     registerApprovals(env);
     inject(ToolRegistry).registerAll(buildTools(env));
+    // Post-chat surfaces (P0-P5): one tile-renderer widget +
+    // dailyAckSweep TriggerDef + matterHealth DashboardDef +
+    // initialPrivilegePass PlaybookDef. Runs AFTER tools register so
+    // dashboard tiles + playbook steps can resolve real tool names.
+    registerPostChatSurfaces(env);
   });
 }
 
@@ -373,6 +380,10 @@ export const appConfig: ApplicationConfig = {
     // the already-filtered tools through ToolRegistry.signal(), so the
     // tool filter only carries the per-turn keyword budget now.
     provideToolFilter(keywordToolFilter({ maxTools: 12, floor: 5 })),
+    // Post-chat surfaces P2 (ADR-045) — browser-side cron trigger
+    // runner. Registered TriggerDef entries with `kind: 'cron'` fire
+    // on schedule; webhook/queue specs defer to a server-side runner.
+    provideTriggerRunner(),
     // Order matters — environment initializers fire in registration
     // order. Tools register, persona policy installs, then the catalog
     // platform layer (registrar reads the populated registry; authorizer

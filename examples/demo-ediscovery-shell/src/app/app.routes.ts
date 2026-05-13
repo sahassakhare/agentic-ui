@@ -34,6 +34,23 @@ export const routes: Routes = [
     path: 'operations',
     loadComponent: () => import('./pages/operations/operations.component').then((m) => m.OperationsComponent),
   },
+  // ── Post-chat surfaces (P2 / P3 / P5) ─────────────────────────────────
+  // Inbox, dashboards, and playbooks routes wrap the dispatch-agnostic
+  // widgets shipped in the lib (mvk-inbox / mvk-dashboard-canvas /
+  // mvk-playbook-runner). Each reads from a registry the shell registers
+  // at boot via `registerPostChatSurfaces` in app.config.ts.
+  {
+    path: 'inbox',
+    loadComponent: () => import('./pages/inbox/inbox.component').then((m) => m.InboxPage),
+  },
+  {
+    path: 'dashboards',
+    loadComponent: () => import('./pages/dashboards/dashboards.component').then((m) => m.DashboardsPage),
+  },
+  {
+    path: 'playbooks',
+    loadComponent: () => import('./pages/playbooks/playbooks.component').then((m) => m.PlaybooksPage),
+  },
   // ── Trimodal direct-mount surfaces (plan R3) ──────────────────────────
   // Same registry definitions the chat agent invokes — without the chat
   // shell. Proves forms/workflows are surface-independent.

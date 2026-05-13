@@ -3,9 +3,12 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import {
   ApprovalRegistry,
   CapabilityRegistry,
+  DashboardRegistry,
   OperationRegistry,
+  PlaybookRegistry,
   ToolRegistry,
 } from '@infra-tools/agentic-ui';
+import { NotificationsStore } from '../services/notifications.store';
 import { PersonaService } from '../services/persona.service';
 import { IconComponent, type IconName } from '../ui/icon.component';
 
@@ -144,6 +147,9 @@ export class SidebarComponent {
   private readonly capabilityRegistry = inject(CapabilityRegistry);
   private readonly approvalRegistry = inject(ApprovalRegistry);
   private readonly operationRegistry = inject(OperationRegistry);
+  private readonly dashboardRegistry = inject(DashboardRegistry);
+  private readonly playbookRegistry = inject(PlaybookRegistry);
+  private readonly notifications = inject(NotificationsStore);
   private readonly persona = inject(PersonaService);
 
   protected readonly tools = computed(() => this.toolRegistry.signal().length);
@@ -183,6 +189,34 @@ export class SidebarComponent {
       icon: 'bolt',
       badge: () => {
         const n = this.activeOps();
+        return n > 0 ? n : null;
+      },
+    },
+    // ── Post-chat surfaces (P2 / P3 / P5) ────────────────────────────
+    {
+      path: '/inbox',
+      label: 'Inbox',
+      icon: 'audit',
+      badge: () => {
+        const n = this.notifications.unreadCount();
+        return n > 0 ? n : null;
+      },
+    },
+    {
+      path: '/dashboards',
+      label: 'Dashboards',
+      icon: 'dashboard',
+      badge: () => {
+        const n = this.dashboardRegistry.signal().length;
+        return n > 0 ? n : null;
+      },
+    },
+    {
+      path: '/playbooks',
+      label: 'Playbooks',
+      icon: 'audit',
+      badge: () => {
+        const n = this.playbookRegistry.signal().length;
         return n > 0 ? n : null;
       },
     },
