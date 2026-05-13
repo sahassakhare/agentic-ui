@@ -211,6 +211,221 @@ Catalog: 164 → 165 tests (+1 covering 409 on duplicate).
   migration, and the existing console / OTel telemetry sink is
   preserved. Each is straightforward to opt into when needed.
 
+### Added — post-chat-surfaces program (P0–P5)
+
+The agent escaped the chat rail across six phases from the
+[post-chat-surfaces plan](../../docs/plans/post-chat-surfaces-plan.md).
+Three new registries land in the Extended tier (15 → 18), 16 new
+dispatch-agnostic widgets, one new service (`PlaybookRunner`), one
+new helper (`TileResultCache`). All additions are opt-in and
+backward-compatible — existing 1.x consumers see zero behaviour
+change without explicit wiring.
+
+#### P0 — Persona-shaped workspace layouts ([ADR-043](../../docs/adr/0043-layout-registry-promotion.md))
+
+- **`LayoutRegistry` promoted** from Seam to Extended tier. New
+  `LayoutDef` shape: `name`, `mode` (`'rail' | 'split' | 'workspace' | 'assist-panel' | 'fullscreen'`),
+  `slots: SlotDef[]`, optional responsive breakpoints. Existing
+  `LayoutRegistry.register` calls keep working — the new fields are
+  additive.
+- **`<mvk-workspace-layout>`** — renders any registered `LayoutDef`
+  via CSS Grid + Angular content projection by `slot=` attribute.
+  ResizeObserver-driven slot resizing, collapsible chat slot.
+- **`provideLayoutPolicy({ default, perPersona })`** + **`LAYOUT_POLICY`**
+  InjectionToken — host-wide layout default + per-persona overrides.
+  Chat shell reads the policy without knowing anything about
+  personas.
+- **`layout-render` event** — LLM-emittable mid-turn layout swap;
+  Zod-validated at the boundary, fallback + console warning on
+  invalid input.
+
+#### P1 — In-context agent affordances
+
+Five dispatch-agnostic components — every one emits a typed
+`(action)` event the host wires to its dispatcher. No component
+knows about routes / actions / mutators directly.
+
+- **`<mvk-cmd-k-palette>`** — ⌘K / Ctrl+K command palette. Resolves
+  free-text → `IntentRegistry` matches → `ToolRegistry` fallback.
+  Recent + pinned sections, keyboard navigation, persona-filtered.
+- **`<mvk-smart-cell>`** — single-cell agent-computed table value.
+  Names a tool to invoke; renders loading / result / error. Persona
+  scope filters at the cell level — no access renders a "no access"
+  stub, not 403.
+- **`<mvk-row-action-menu>`** — kebab menu populated from
+  `IntentRegistry` filtered by `context: 'row'`.
+- **`<mvk-bulk-toolbar>`** — selection-aware toolbar that
+  materialises when N rows are selected; `IntentRegistry` entries
+  with `context: 'bulk-selection'`.
+- **`<mvk-assist-panel>`** — Cursor-pattern structured affordance
+  panel over a free-text chat area.
+
+#### P2 — Proactive triggers + inbox ([ADR-045](../../docs/adr/0045-trigger-registry.md))
+
+- **`TriggerRegistry`** — 16th registry. `TriggerDef` carries
+  discriminated `spec` (`'cron' | 'webhook' | 'queue'`) and
+  discriminated `target` (`'tool' | 'action' | 'notification'`
+  with a `compose(ctx)` callback returning a `NotificationDraft`).
+- **`provideTriggerRunner({...})`** — browser-side cron runner;
+  webhook + queue targets defer to a future server-side runner.
+  Every firing chain-hashes with `origin: 'trigger'` + the
+  trigger's `runAs` persona.
+- **`<mvk-notification-tray>`** — bell + unread badge + dropdown.
+- **`<mvk-inbox>`** — full-page route widget with filters + CTAs
+  (route / action / tool buttons) + bulk-mark-read.
+- **`<mvk-lifecycle-stages>`** — multi-stage horizontal lifecycle
+  widget for `Operation`-backed long-running flows.
+
+#### P3 — User-built + conversational + live dashboards ([ADR-044](../../docs/adr/0044-dashboard-registry.md))
+
+- **`DashboardRegistry`** — 17th registry. `DashboardDef` composes
+  `TileDef[]` over a `LayoutRegistry`-named layout, optional
+  `FilterDef[]` for cross-matter parameter threading, `version` +
+  `parentVersion` for revision history.
+- **`TileInvocation`** discriminated union: `kind: 'tool'`
+  (re-invokes the tool, chain-hashed), `kind: 'data'` (re-queries a
+  `DataSourceRegistry` source, no audit), `kind: 'static'` (literal
+  props).
+- **`<mvk-dashboard-tile>`** + **`<mvk-dashboard-canvas>`** +
+  **`<mvk-dashboard-preview>`** — single-tile, full-canvas, and
+  editable-preview surfaces.
+- **`TileResultCache`** — singleton cross-instance cache keyed by
+  `tileCacheKey()` (stable-sorted JSON). `cacheTtlMs` per tile,
+  `refreshOn: 'event'` for push-driven refresh,
+  `drilldown: { route | tool | action }` for the click-through.
+- **`bumpDashboardVersion(prev, draft)`** helper for the
+  edit-creates-vN+1 / `parentVersion` chain.
+- Persona-blocked tiles render as "no-access" stubs, not 403s, not
+  silent omissions.
+
+#### P4 — Workflow surfaces
+
+Three purpose-built widgets, each composing existing registries
+with workflow-specific UI semantics:
+
+- **`<mvk-review-queue>`** (Workflow E) — multi-reviewer queue;
+  `(decision)` events for approve / reject / escalate; audit chain
+  shape `tool-approved` / `tool-rejected` (same as F4 approvals).
+- **`<mvk-timeline-canvas>`** (Workflow D) — investigation timeline
+  with severity coding + drill-in panels.
+- **`<mvk-cal-workbench>`** (Workflow C) — Continuous Active
+  Learning training loop with bulk labelling + classifier-refresh
+  round trips.
+
+#### P5 — Versioned tool-call playbooks
+
+- **`PlaybookRegistry`** — 18th registry. `PlaybookDef` carries
+  `name` / `title` / `version` / `parentVersion?` / `description` /
+  persona scope / `steps: PlaybookStep[]`.
+- **`PlaybookStep`** with two opt-in modifiers:
+  `requiresApproval: true` halts on an Approve / Skip gate before
+  invoking, `continueOnError: true` keeps the run going past a
+  failed step (overall ends `'failed'` regardless).
+- **`PlaybookRunner`** (`providedIn: 'root'` service). `start(def)`
+  returns a `RunningPlaybook` handle exposing a signal-backed live
+  `state`, a terminal-state `done` promise, and
+  `cancel()` / `approve()` / `skip()` methods. Persona-blocked
+  tools (`ToolRegistry.get` returns `undefined`) record the step
+  as failed with *"tool not visible to this persona"* — no
+  silent-drop semantics.
+- **`<mvk-playbook-runner>`** — renders the live state with
+  per-step status pill, inline error, Result disclosure, Approve /
+  Skip / Cancel buttons surfacing on the right steps.
+- Every step chain-hashes through audit with `origin: 'playbook'` +
+  playbook name + version + step index.
+
+#### Post-P5 — Federation symmetry + scaffolding parity
+
+- **`defineCapabilityModule` extended** to federate the three new
+  registries symmetrically: `triggers?` / `dashboards?` /
+  `playbooks?` options + matching `CapabilityManifest.exposes`
+  index fields. `apply()` injects the three registries via DI only
+  when the module contributes entries of that kind (tree-shaking
+  honest). Disposer calls `removeBySource` on every contributed
+  registry. Federation symmetry now applies to all 18 registries.
+- **Three new schematics** in the published collection: `ng g
+  @infra-tools/agentic-ui:trigger | dashboard | playbook`. Trigger
+  generator emits the correct `kind` × `targetKind` discriminator
+  shape at template time (no boilerplate placeholders for unused
+  kinds). Snapshot-tested.
+
+### Tests — post-chat-surfaces program
+
+**441 → 811 lib tests** (+370 across P0–P5 + federation symmetry +
+schematics specs). Coverage by phase:
+
+- P0 layout: workspace-layout component + slot resizing + layout
+  policy (per-persona overrides + LLM `layout-render` event
+  validation).
+- P1 affordances: cmd-k-palette resolution + scope, smart-cell
+  persona filter + state transitions, row-action-menu + bulk-toolbar
+  emission, assist-panel structured affordances.
+- P2 triggers: trigger-registry CRUD + persona scope + manifest
+  exposes; provide-trigger-runner cron firing + audit chain
+  attribution; notification-tray + inbox signal-driven render;
+  lifecycle-stages multi-stage progression.
+- P3 dashboards: dashboard-registry + version chain;
+  dashboard-tile / canvas / preview rendering; TileResultCache key
+  invariants + TTL + push refresh; persona-blocked stub rendering.
+- P4 workflows: review-queue + timeline-canvas + cal-workbench —
+  signal-backed host fields, decision emission, severity coding,
+  CAL classifier-refresh round trip.
+- P5 playbooks: playbook-registry; PlaybookRunner happy path +
+  approval gate + continueOnError + cancellation + persona-blocked;
+  mvk-playbook-runner component (empty state, status pills, action
+  emissions, error rendering, Result disclosure).
+- Post-P5: capability-module federation symmetry (manifest exposes,
+  source tagging, apply() across all 18 registries, disposer reap,
+  host-sourced entries survive remote unload, explicit-registries
+  apply path); schematics snapshot tests for trigger × 3
+  (cron/tool default, webhook/notification, queue/action), dashboard
+  × 1, playbook × 1.
+
+**All 18 registries exercised; ADR-010 D4 zero-breaking-changes
+contract held.**
+
+### Architecture decisions — post-chat-surfaces program
+
+- [ADR-043 — Layout registry promotion](../../docs/adr/0043-layout-registry-promotion.md) (**Accepted**)
+- [ADR-044 — Dashboard registry](../../docs/adr/0044-dashboard-registry.md) (**Proposed**)
+- [ADR-045 — Trigger registry](../../docs/adr/0045-trigger-registry.md) (**Proposed**)
+
+### Documentation — post-chat-surfaces program
+
+16 new cookbook entries plus README + USER_GUIDE refresh:
+
+- [agent-directed-workspace-layouts](../../docs/cookbook/agent-directed-workspace-layouts.md) (P0)
+- [cmd-k-palette](../../docs/cookbook/cmd-k-palette.md) +
+  [smart-cell](../../docs/cookbook/smart-cell.md) +
+  [row-action-menu](../../docs/cookbook/row-action-menu.md) +
+  [bulk-toolbar](../../docs/cookbook/bulk-toolbar.md) +
+  [assist-panel](../../docs/cookbook/assist-panel.md) (P1)
+- [proactive-triggers-and-inbox](../../docs/cookbook/proactive-triggers-and-inbox.md) +
+  [lifecycle-stages](../../docs/cookbook/lifecycle-stages.md) (P2)
+- [dashboards](../../docs/cookbook/dashboards.md) +
+  [conversational-dashboards](../../docs/cookbook/conversational-dashboards.md) +
+  [live-dashboards](../../docs/cookbook/live-dashboards.md) (P3)
+- [review-queue](../../docs/cookbook/review-queue.md) +
+  [timeline-canvas](../../docs/cookbook/timeline-canvas.md) +
+  [cal-workbench](../../docs/cookbook/cal-workbench.md) (P4)
+- [playbooks](../../docs/cookbook/playbooks.md) (P5)
+- [schematics reference](../../docs/cookbook/schematics.md) — three
+  new generator sections (trigger / dashboard / playbook)
+- README §Features + §Use cases (rows 17–22) + §Documentation +
+  Architecture diagrams refreshed for 18 registries / 13 generators
+- USER_GUIDE §17–§22 walkthroughs + matrix table refreshed for the
+  six new in-app pillars
+
+### eDiscovery flagship updates — post-chat-surfaces program
+
+**Deferred — waits on Render redeploy** (the flagship's runtime
+host is currently unstable). The library tier is fully shipped and
+demoable in isolation; the eDiscovery wiring (cross-matter
+dashboards, "Initial Privilege Pass v3" playbook, etc.) lands when
+the host is back. The plan's §9 P0–P5 acceptance criteria all read
+against the library, not the demo, so this defer doesn't block the
+program from being declared shipped at the library tier.
+
 ## [1.2.0] — 2026-05-07
 
 This minor release lands **six new capabilities** from the [r3 dynamic-UI plan](../../docs/plans/ediscovery-dynamic-ui-plan.md): runtime-composed forms, live data fetching from generative UI, guided multi-step workflows, human-in-the-loop approval, long-running operations, and multi-modal input. All additions are opt-in and backward-compatible — existing 1.0 / 1.1 consumers see zero behaviour change without explicit wiring.
