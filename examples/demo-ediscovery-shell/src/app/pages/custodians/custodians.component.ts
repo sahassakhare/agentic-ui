@@ -5,6 +5,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { AssistPanelComponent, type AssistAction } from '@infra-tools/agentic-ui';
 import { listAuditEvents, listDocuments, listLegalHolds } from '@infra-tools/demo-ediscovery-shared';
 import { environment } from '../../../environments/environment';
+import { InterviewPrepComponent } from '../../agentic/interview-prep.component';
 import { CUSTODIAN_CONTEXT_INTENT_IDS } from '../../agentic/post-chat-surfaces';
 import { MatterStore } from '../../services/matter.store';
 import { IconComponent } from '../../ui/icon.component';
@@ -19,7 +20,7 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
 @Component({
   selector: 'app-custodians',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, IconComponent, TagChipComponent, StatusBadgeComponent, EmptyStateComponent, AssistPanelComponent],
+  imports: [DecimalPipe, IconComponent, TagChipComponent, StatusBadgeComponent, EmptyStateComponent, AssistPanelComponent, InterviewPrepComponent],
   template: `
     <section class="page-head">
       <div>
@@ -120,6 +121,17 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
                 askPlaceholder="Ask about this custodian…"
                 (intentSelected)="onAssistIntent($event)"
                 (ask)="onAssistAsk($event)" />
+            </section>
+
+            <!-- Workflow F (post-chat-surfaces design doc) — three-phase
+                 interview prep surface. Question list + note capture +
+                 cross-reference findings. Domain-specific composition
+                 on top of the lib's seams; no new lib code. -->
+            <section class="block">
+              <header class="b-head">
+                <h3>Interview prep for {{ c.name.split(' ')[0] }}</h3>
+              </header>
+              <app-interview-prep [custodian]="c" />
             </section>
 
             <section class="block">
