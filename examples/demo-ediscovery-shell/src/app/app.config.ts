@@ -391,9 +391,11 @@ export const appConfig: ApplicationConfig = {
     provideLayoutPolicy({
       resolvePersona: () => inject(PersonaService).active(),
       byPersona: {
-        partner:    { density: () => 'compact',     shellMode: () => 'rail' },
-        reviewer:   { density: () => 'dense',       shellMode: (r) => r.startsWith('/documents') ? 'pill' : 'rail' },
-        paralegal:  { density: () => 'comfortable', shellMode: () => 'rail' },
+        'lead-counsel':    { density: () => 'compact',     shellMode: () => 'rail' },
+        'associate':       { density: () => 'comfortable', shellMode: () => 'rail' },
+        'vendor-reviewer': { density: () => 'dense',       shellMode: (r) => r.startsWith('/documents') ? 'pill' : 'rail' },
+        'paralegal':       { density: () => 'comfortable', shellMode: () => 'rail' },
+        'lit-support':     { density: () => 'comfortable', shellMode: () => 'rail' },
       },
       fallback: { density: () => 'comfortable', shellMode: () => 'rail' },
     }),

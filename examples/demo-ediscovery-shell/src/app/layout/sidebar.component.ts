@@ -220,5 +220,9 @@ export class SidebarComponent {
         return n > 0 ? n : null;
       },
     },
+    // ── Workflow surfaces (P4) ───────────────────────────────────────
+    { path: '/review-queue', label: 'Review queue', icon: 'circle-check' },
+    { path: '/timeline',     label: 'Timeline',     icon: 'audit' },
+    { path: '/cal',          label: 'CAL workbench', icon: 'bolt' },
   ];
 }

@@ -51,6 +51,22 @@ export const routes: Routes = [
     path: 'playbooks',
     loadComponent: () => import('./pages/playbooks/playbooks.component').then((m) => m.PlaybooksPage),
   },
+  // ── Post-chat surfaces P4 — Workflow surfaces ─────────────────────────
+  // /review-queue (Workflow E), /timeline (Workflow D), /cal (Workflow C).
+  // Each route wraps the corresponding lib component with seeded demo
+  // data; production hosts would wire real tools / data sources.
+  {
+    path: 'review-queue',
+    loadComponent: () => import('./pages/review-queue/review-queue.component').then((m) => m.ReviewQueuePage),
+  },
+  {
+    path: 'timeline',
+    loadComponent: () => import('./pages/timeline/timeline.component').then((m) => m.TimelinePage),
+  },
+  {
+    path: 'cal',
+    loadComponent: () => import('./pages/cal/cal.component').then((m) => m.CalPage),
+  },
   // ── Trimodal direct-mount surfaces (plan R3) ──────────────────────────
   // Same registry definitions the chat agent invokes — without the chat
   // shell. Proves forms/workflows are surface-independent.
