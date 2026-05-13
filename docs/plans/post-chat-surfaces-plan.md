@@ -355,19 +355,20 @@ Each phase is independently shippable; demo-worthy at the gate; the eDiscovery f
 
 **Exit:** users build dashboards in chat or by dragging; tiles are governed tool calls; production pipeline replaces the spreadsheet shape. Brand demo: GC asks "show me audit integrity by matter", agent assembles a dashboard, drills into a degraded matter, opens its production pipeline.
 
-### P4 — Review Queue + Timeline + CAL (3 weeks) — P4.A library tier shipped
+### P4 — Review Queue + Timeline + CAL (3 weeks) — P4.A + P4.C library tier shipped
 
 **Goal:** Two new routes + the CAL training loop.
 
-- [x] `<mvk-review-queue>` component (Workflow E) — P4.A, this PR. Persona-routed groups + configurable actions per state + dispatch-agnostic `(decision)` / `(open)` events, 15 specs, [cookbook](../cookbook/review-queue.md)
+- [x] `<mvk-review-queue>` component (Workflow E) — P4.A. Persona-routed groups + configurable actions per state + dispatch-agnostic `(decision)` / `(open)` events, 15 specs, [cookbook](../cookbook/review-queue.md)
 - [ ] CAL training loop wired through `PersistenceRegistry` (Workflow C) — P4.B
-- [ ] `<mvk-timeline-canvas>` (Workflow D) — P4.C
+- [x] `<mvk-timeline-canvas>` (Workflow D) — P4.C, this PR. Day-grouped events + multi-select kind filter + key-moment toggle + dispatch-agnostic emissions, 14 specs, [cookbook](../cookbook/timeline-canvas.md)
 - [ ] `/timeline` route (eDiscovery demo wiring, deferred)
 - [ ] `/review-queue` route (eDiscovery demo wiring, deferred until Render is unstuck)
 - [x] [Cookbook: review queue](../cookbook/review-queue.md) (P4.A)
+- [x] [Cookbook: timeline canvas](../cookbook/timeline-canvas.md) (P4.C)
 - [ ] Playwright: CAL round 1→2→3 convergence, timeline drag-and-annotate
 
-**Exit:** workflow-shaped routes; agent proposes, humans dispose; chain-hash captures every reviewer decision. P4.A delivers the review queue at the library tier — host wires it to any store. P4.B (CAL loop) + P4.C (timeline canvas) follow.
+**Exit:** workflow-shaped routes; agent proposes, humans dispose; chain-hash captures every reviewer decision. P4.A + P4.C deliver the review queue + investigation timeline canvas at the library tier — hosts wire to their stores. P4.B (CAL training loop) follows.
 
 ### P5 — Cross-matter analytics + playbooks (2 weeks)
 

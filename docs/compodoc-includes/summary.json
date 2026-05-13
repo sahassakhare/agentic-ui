@@ -104,6 +104,10 @@
     "file": "review-queue.md"
   },
   {
+    "title": "Investigation timeline canvas (Workflow D)",
+    "file": "timeline-canvas.md"
+  },
+  {
     "title": "Domain MFEs as standalone apps + capability providers",
     "file": "domain-mfe-standalone-and-federated.md"
   },
