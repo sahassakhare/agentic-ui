@@ -20,7 +20,21 @@ The implementer-facing reference (registry shapes, code snippets, factory call s
 
 ## Watch the videos
 
-If you'd rather skim a pre-recorded run before clicking, the Playwright tour spec records video for every test. Produce them locally with one command:
+Every pillar below has an inline `<video>` walkthrough recorded against the live Render demo. GitHub renders them natively in this page — just click play. All 9 videos are checked in under [`docs/assets/videos/`](../assets/videos/) and total ~1 MB (the longest is the §18 in-context affordances run at 194 KB).
+
+| Pillar | Direct link |
+|---|---|
+| §17 Workspace layouts | [17-workspace-layouts.webm](../assets/videos/17-workspace-layouts.webm) |
+| §18 In-context affordances | [18-in-context-affordances.webm](../assets/videos/18-in-context-affordances.webm) |
+| §19 Triggers + inbox | [19-triggers-and-inbox.webm](../assets/videos/19-triggers-and-inbox.webm) |
+| §20 Dashboards | [20-dashboards.webm](../assets/videos/20-dashboards.webm) |
+| §21 Workflow surfaces | [21-workflow-surfaces.webm](../assets/videos/21-workflow-surfaces.webm) |
+| §22 Playbooks | [22-playbooks.webm](../assets/videos/22-playbooks.webm) |
+| Custodians (assist + interview prep) | [custodians-interview-prep.webm](../assets/videos/custodians-interview-prep.webm) |
+| Holds (lifecycle widget) | [holds-lifecycle.webm](../assets/videos/holds-lifecycle.webm) |
+| Audit (chain-hash viz) | [audit-chain-viz.webm](../assets/videos/audit-chain-viz.webm) |
+
+To **regenerate** them after a code change, run the Playwright spec against either Render or localhost — it records video for every test, then copy the new `.webm` files into `docs/assets/videos/`:
 
 ```bash
 cd e2e
@@ -28,10 +42,6 @@ EDIS_BASE_URL=https://ediscovery-shell.onrender.com \
   npx playwright test specs/11-post-chat-surfaces.spec.ts --reporter=html
 npx playwright show-report playwright-report
 ```
-
-The HTML report opens in your browser. Click any test → Attachments → Video. Each `.webm` is ~80–200 KB; the full run is ~4 min.
-
-The video paths in the deep-link table below assume you've run that command — they live under `test-results/<spec-folder>/video.webm`.
 
 ---
 
@@ -52,7 +62,9 @@ The chat shell on the right side of every page. Its **mode** is decided by the r
 
 ### Video
 
-- `test-results/11-post-chat-surfaces-§17--d552b-r-route-per-persona-density-chromium/video.webm`
+<video src="../assets/videos/17-workspace-layouts.webm" controls preload="metadata" width="720"></video>
+
+[Open in new tab →](../assets/videos/17-workspace-layouts.webm)
 
 ---
 
@@ -72,7 +84,9 @@ The chat is not the only way to invoke a tool. The Documents page surfaces three
 
 ### Video
 
-- `test-results/11-post-chat-surfaces-§18--2374d-ow-action-menu-bulk-toolbar-chromium/video.webm`
+<video src="../assets/videos/18-in-context-affordances.webm" controls preload="metadata" width="720"></video>
+
+[Open in new tab →](../assets/videos/18-in-context-affordances.webm)
 
 ---
 
@@ -100,7 +114,9 @@ The agent reaches you without a prompt. Three pre-seeded notifications land in t
 
 ### Video
 
-- `test-results/11-post-chat-surfaces-§19--f974f-eeded-notifications-visible-chromium/video.webm`
+<video src="../assets/videos/19-triggers-and-inbox.webm" controls preload="metadata" width="720"></video>
+
+[Open in new tab →](../assets/videos/19-triggers-and-inbox.webm)
 
 ---
 
@@ -123,7 +139,9 @@ Six dashboards in a left-rail picker. Three are registered by the host at boot (
 
 ### Video
 
-- `test-results/11-post-chat-surfaces-§20--21c85-ost-MFE-contributed-visible-chromium/video.webm`
+<video src="../assets/videos/20-dashboards.webm" controls preload="metadata" width="720"></video>
+
+[Open in new tab →](../assets/videos/20-dashboards.webm)
 
 ---
 
@@ -167,9 +185,23 @@ Three purpose-built widgets for the workflows that aren't chat-shaped: multi-rev
 
 ### Video
 
-- `test-results/11-post-chat-surfaces-§21--78026-—-review-queue-timeline-cal-chromium/video.webm`
-- `test-results/11-post-chat-surfaces-Cust-d2bd8-rview-prep-lifecycle-stages-chromium/video.webm`
-- `test-results/11-post-chat-surfaces-Hold-8cdb0-ycle-stages-widget-rendered-chromium/video.webm`
+**Workflow surfaces (review-queue → timeline → CAL):**
+
+<video src="../assets/videos/21-workflow-surfaces.webm" controls preload="metadata" width="720"></video>
+
+[Open in new tab →](../assets/videos/21-workflow-surfaces.webm)
+
+**Custodians (assist-panel + interview-prep):**
+
+<video src="../assets/videos/custodians-interview-prep.webm" controls preload="metadata" width="720"></video>
+
+[Open in new tab →](../assets/videos/custodians-interview-prep.webm)
+
+**Holds (lifecycle-stages widget):**
+
+<video src="../assets/videos/holds-lifecycle.webm" controls preload="metadata" width="720"></video>
+
+[Open in new tab →](../assets/videos/holds-lifecycle.webm)
 
 ---
 
@@ -193,7 +225,9 @@ Named, versioned, persona-scoped sequences of tool calls. Three are pre-register
 
 ### Video
 
-- `test-results/11-post-chat-surfaces-§22--8d738-tart-run-chain-hashed-steps-chromium/video.webm`
+<video src="../assets/videos/22-playbooks.webm" controls preload="metadata" width="720"></video>
+
+[Open in new tab →](../assets/videos/22-playbooks.webm)
 
 ---
 
@@ -216,7 +250,9 @@ The `/audit` route renders the last 12 chain-linked events as a horizontal strip
 
 ### Video
 
-- `test-results/11-post-chat-surfaces-Audi-74cc1-alization-when-events-exist-chromium/video.webm`
+<video src="../assets/videos/audit-chain-viz.webm" controls preload="metadata" width="720"></video>
+
+[Open in new tab →](../assets/videos/audit-chain-viz.webm)
 
 ---
 

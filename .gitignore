@@ -62,6 +62,11 @@ PLAN.md
 # We commit the .gif (which the README embeds) but not the .webm Playwright
 # produces — it's a regenerable intermediate, ~700 KB per capture.
 docs/assets/*.webm
+# Exception: docs/assets/videos/ holds the canonical post-chat-surfaces
+# tour videos (~100-200 KB each, 9 total). These ARE committed because
+# they're embedded inline in docs/cookbook/post-chat-surfaces-tour.md
+# via <video> tags that GitHub renders natively.
+!docs/assets/videos/**
 
 # Office lock files (created when a file is open in Word/PowerPoint/Excel).
 ~$*
