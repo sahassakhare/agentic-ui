@@ -771,6 +771,8 @@ handler: async ({ docId, flag }, ctx) => {
 
 Pair with use case 4 (persona scope) and use case 9 (OTel) and you have the three-piece compliance story: who *can* do it, who *did* do it, and what happened in the system when they did. The Audit Trail page in the eDiscovery demo verifies the chain on render — a `verified` badge means the hashes match end-to-end; a `break` badge means tampering was detected.
 
+**Chain-hash visualization.** The `/audit` route also renders the most recent 12 chain-linked events as a horizontal strip of connected hash blocks (`<section class="chain-viz">`). Each block shows the 8-char truncated `chainHash`, the action, the actor, and a left-border colour by action family (hold / custodian / document / privilege). Click the head block (rightmost, highlighted with an accent ring) to scroll the main trail to that entry and flash the row for ~1.4s. Domain-specific composition on top of the chain primitive — no new library code; just three computed signals + a `scrollToEntry(id)` helper that uses `document.querySelector('[data-audit-id]')`.
+
 ---
 
 ### 11. Composable forms at runtime
@@ -1012,6 +1014,7 @@ Full walkthrough in the [proactive-triggers-and-inbox](./cookbook/proactive-trig
 - `<mvk-dashboard-tile>` renders one tile. `<mvk-dashboard-canvas>` renders the whole dashboard. `<mvk-dashboard-preview>` is the editable preview shell adopters open when the LLM proposes a new dashboard.
 - `TileResultCache` is a singleton cross-instance cache keyed by `tileCacheKey()` (stable-sorted JSON). `cacheTtlMs` per tile, `refreshOn: 'event'` for push-driven refresh, `drilldown: { route | tool | action }` for the click-through.
 - Persona scope filters tiles automatically — unauthorised tiles render as "no-access" stubs, not 403s, not silent omissions.
+- **Federation symmetry.** MFE remotes ship dashboards alongside their tools + widgets via `defineCapabilityModule({ dashboards: [...] })` — the host's `DashboardRegistry` indexes them with `source: 'remote:<name>'` and `removeBySource` reaps them symmetrically on unload. The eDiscovery flagship registers 3 host dashboards (`matterHealth`, `productionStatus`, `auditSnapshot`) + 3 MFE-contributed templates (`reviewProductivity` from the review remote, `productionThroughput` from production, `searchPerformance` from search) — 6 total visible in `/dashboards` once federation completes.
 
 ```ts
 inject(DashboardRegistry).register({
@@ -1043,10 +1046,17 @@ Three purpose-built widgets, each composing existing registries with workflow-sp
 - **`<mvk-review-queue>`** (Workflow E) — multi-reviewer queue. Reads a tool-backed `WorkflowQueueItem[]` signal; emits `(decision)` events the host wires to whichever `agenticAction` represents an approve / reject / escalate. Audit chain entries shape: `tool-approved` / `tool-rejected` (same shape as F4 approvals).
 - **`<mvk-timeline-canvas>`** (Workflow D) — investigation timeline. Renders a `TimelineEvent[]` signal as a horizontal canvas with severity coding, drill-in panels, and an LLM-driven *"summarise events between t1 and t2"* affordance.
 - **`<mvk-cal-workbench>`** (Workflow C) — CAL training loop. Renders a batch of documents to label, captures decisions, fires the classifier-refresh tool, shows updated confidence on the next batch. Pairs with `ActionRegistry` for the train + commit + revert decisions.
+- **`<mvk-lifecycle-stages>`** (Workflows A + B — hold + production pipelines). Renders a horizontal Issue → Acknowledge → Track → Release (or Scope → Bates → Finalise → Deliver) progression with per-stage owner / `slaWarning` / inline action button. The eDiscovery flagship maps each `LegalHold` to a `StageDef[]` via `stagesForHold()` on `/holds` and each `ProductionSet.status` via `stagesForProduction()` on `/productions`. `(action)` emits `StageAction` the host wires to `ToolRegistry` (e.g. `acknowledgeLegalHold`, `assignBatesNumbers`).
 
-All three are signal-backed, OnPush, dispatch-agnostic. The same `setScopePolicy` filter that hides tools from the LLM also hides queue items from reviewers they're not entitled to see.
+All four are signal-backed, OnPush, dispatch-agnostic. The same `setScopePolicy` filter that hides tools from the LLM also hides queue items from reviewers they're not entitled to see.
 
-Full walkthroughs in the [review-queue](./cookbook/review-queue.md), [timeline-canvas](./cookbook/timeline-canvas.md), and [cal-workbench](./cookbook/cal-workbench.md) cookbooks.
+**Workflow F (custodian interview prep)** lives on `/custodians` as the demo's `<app-interview-prep>` component — domain-specific composition on top of the lib's seams, no new lib code. Three vertical phases bound to one custodian:
+
+1. **Pre-interview** — agent-generated question list seeded deterministically from the custodian's department + hold state. Production would call a `generateInterviewQuestions` tool.
+2. **During interview** — signal-backed notes textarea; production persists via `PersistenceRegistry`.
+3. **Post-interview** — agent-flagged inconsistencies against the documentary record (`findInconsistencies` tool in production).
+
+Full walkthroughs in the [review-queue](./cookbook/review-queue.md), [timeline-canvas](./cookbook/timeline-canvas.md), [cal-workbench](./cookbook/cal-workbench.md), and [lifecycle-stages](./cookbook/lifecycle-stages.md) cookbooks.
 
 ---
 
@@ -1304,41 +1314,79 @@ Import `dist/connector.json` into Power Platform → publish to Copilot Studio �
 
 ## End-to-end coverage — video walkthroughs
 
-Every use-case scenario in the eDiscovery flagship has a deterministic Playwright spec under [`e2e/specs/`](../e2e/specs/). The post-chat-surfaces tour spec ([`11-post-chat-surfaces.spec.ts`](../e2e/specs/11-post-chat-surfaces.spec.ts)) runs the §17–§22 pillars **without a Gemini key** — every assertion is against host-side registry state and dispatch-agnostic widgets, no chat turn — and records video for every test (`test.use({ video: 'on' })`).
+Every post-chat-surfaces use case in the eDiscovery flagship has a deterministic Playwright spec under [`e2e/specs/`](../e2e/specs/). The tour spec ([`11-post-chat-surfaces.spec.ts`](../e2e/specs/11-post-chat-surfaces.spec.ts)) runs the §17–§22 pillars **without a Gemini key** — every assertion is against host-side registry state and dispatch-agnostic widgets — and records video for every test (`test.use({ video: 'on' })`).
 
-### What it captures
+The flagship is deployed live on Render — you can poke at it directly before running the spec:
+
+| Surface | URL |
+|---|---|
+| Shell | https://ediscovery-shell.onrender.com |
+| Review remote | https://ediscovery-review.onrender.com |
+| Production remote | https://ediscovery-production.onrender.com |
+| Search remote | https://ediscovery-search.onrender.com |
+| Agent server (Gemini) | https://ediscovery-agent-server.onrender.com |
+
+**Cold-start expectation:** Render's starter-tier static-site spins down after 15 min of inactivity. First-visitor cold-start takes **~30 seconds** before `<mvk-chat-shell>` appears in the DOM (Render container spin-up + Native Federation loading 3 MFE remotes + Angular bootstrap). Subsequent visits within the warm window are ~2-3s.
+
+### What the spec captures
+
+The 9 tests below each produce a `video.webm`. The Playwright report links to every video; on the HTML report click any test row → Attachments → Video.
 
 | Spec test | Use case § | What the video shows |
 |---|---|---|
-| `§17 Workspace layouts — shellMode per route + per-persona density` | 17 | Chat shell mode flipping `rail` → `hidden` (Audit) → `pill` (Holds) → `rail` (Inbox) as the user clicks through the sidebar |
-| `§18 In-context affordances — smart-cell + row-action-menu + bulk-toolbar` | 18 | Documents page AI-flag column + kebab menu opening + bulk toolbar materializing on row-select |
-| `§19 Proactive triggers + inbox — seeded notifications visible` | 19 | `/inbox` route + header bell tray with the seeded notifications |
-| `§20 Dashboards — 3 host + 3 MFE-contributed visible` | 20 | `/dashboards` picker showing **6 dashboards** total (3 from host + 3 federated remotes via `defineCapabilityModule({ dashboards })`) |
-| `§21 Workflow surfaces — review-queue, timeline, cal` | 21 | `/review-queue`, `/timeline`, `/cal` routes loading their workflow widgets |
-| `§22 Playbooks — picker + start run + chain-hashed steps` | 22 | `/playbooks` picker + clicking Start run + `<mvk-playbook-runner>` rendering the live state |
-| `Custodians — assist-panel + interview-prep + lifecycle-stages` | 18 + WfF | `<mvk-assist-panel>` + the three-phase interview-prep surface on a selected custodian |
+| `§17 Workspace layouts — shellMode per route + per-persona density` | 17 | Initial chat shell mode flag (`data-mode` host attribute set by `provideLayoutPolicy.shellMode(route)`). The test then clicks Audit / Holds / Inbox in the sidebar, capturing the routed-page chrome on each. *Note: `<mvk-chat-shell>` reads the layout policy at HostBinding-getter time, not on Router navigation — live mode reactivity is a separate lib follow-up.* |
+| `§18 In-context affordances — smart-cell + row-action-menu + bulk-toolbar` | 18 | Documents page AI-flag column (`<mvk-smart-cell>`) + kebab opens (`<mvk-row-action-menu>`) + bulk toolbar materializes on row-select (`<mvk-bulk-toolbar>`) |
+| `§19 Proactive triggers + inbox — seeded notifications visible` | 19 | `/inbox` route + header bell tray (`<mvk-notification-tray>`) with the seeded notifications |
+| `§20 Dashboards — host + MFE-contributed visible` | 20 | `/dashboards` picker. Host registers 3 dashboards at boot; 3 more arrive as the federated remotes load (`defineCapabilityModule({ dashboards: [...] })` from review/production/search). End state typically shows **6 dashboards** total, but the spec asserts ≥ 3 since the MFE load is async on Render cold-start. |
+| `§21 Workflow surfaces — review-queue, timeline, cal` | 21 | `/review-queue` (`<mvk-review-queue>`) + `/timeline` (`<mvk-timeline-canvas>`) + `/cal` (`<mvk-cal-workbench>`) routes loading their workflow widgets |
+| `§22 Playbooks — picker + start run + chain-hashed steps` | 22 | `/playbooks` picker (3 registered: initial / qc-v2 / production-release) + Start run + `<mvk-playbook-runner>` rendering the live state |
+| `Custodians — assist-panel + interview-prep + lifecycle-stages` | 18 + WfF | Selected-custodian detail pane with `<mvk-assist-panel>` (Cursor-pattern intent affordances) + `<app-interview-prep>` three-phase surface (Workflow F) |
 | `Holds — lifecycle-stages widget rendered` | WfA | The Hold lifecycle widget rendering Issue → Acknowledge → Track → Release |
-| `Audit — chain-hash visualization renders + jump-to-entry works` | Audit | The hash-block strip + the click-to-jump-and-flash interaction |
+| `Audit — page renders + chain-hash visualization when events exist` | Audit | The audit trail page chrome + the chain-hash hash-block strip if the chain has events (`<section class="chain-viz">`). The strip's click-to-flash interaction is asserted only when present so a clean-slate audit log doesn't fail the test. |
 
-### How to run
+### How to run — against live Render (no setup needed)
+
+```bash
+cd e2e
+EDIS_BASE_URL=https://ediscovery-shell.onrender.com \
+  npx playwright test specs/11-post-chat-surfaces.spec.ts
+```
+
+Allow ~6–8 minutes for the full run. The first test takes the cold-start hit; later tests reuse the warm container.
+
+### How to run — against localhost
 
 ```bash
 # 1. Start the shell + 3 MFE remotes locally (separate terminals)
-ng serve demo-ediscovery-shell    --port 4300
-ng serve demo-ediscovery-review   --port 4302
+ng serve demo-ediscovery-shell      --port 4300
+ng serve demo-ediscovery-review     --port 4302
 ng serve demo-ediscovery-production --port 4303
-ng serve demo-ediscovery-search   --port 4304
+ng serve demo-ediscovery-search     --port 4304
 
-# 2. Run the post-chat-surfaces spec (no agent server needed —
-#    this spec is LLM-free)
+# 2. Run the spec (no agent server needed — this spec is LLM-free)
 cd e2e
 npx playwright test specs/11-post-chat-surfaces.spec.ts
 ```
 
-Outputs land in [`e2e/results/test-results/<spec>-<test>-chromium/`](../e2e/results/) — one `video.webm` per test. The HTML report links to each:
+### Where the videos land
+
+```
+test-results/
+├── 11-post-chat-surfaces-§17--…-chromium/video.webm
+├── 11-post-chat-surfaces-§18--…-chromium/video.webm
+├── 11-post-chat-surfaces-§19--…-chromium/video.webm
+├── 11-post-chat-surfaces-§20--…-chromium/video.webm
+├── 11-post-chat-surfaces-§21--…-chromium/video.webm
+├── 11-post-chat-surfaces-§22--…-chromium/video.webm
+├── 11-post-chat-surfaces-Cust-…-chromium/video.webm
+├── 11-post-chat-surfaces-Hold-…-chromium/video.webm
+└── 11-post-chat-surfaces-Audi-…-chromium/video.webm
+```
+
+The HTML report links to every video:
 
 ```bash
-npx playwright show-report e2e/results
+npx playwright show-report playwright-report
 ```
 
 ### CI
