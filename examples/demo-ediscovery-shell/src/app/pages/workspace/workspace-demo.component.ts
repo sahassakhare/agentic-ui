@@ -5,6 +5,7 @@ import {
   type ResponsiveCollapseRule,
 } from '@infra-tools/agentic-ui';
 import { PersonaService } from '../../services/persona.service';
+import { WorkspaceLayoutStore } from '../../services/workspace-layout.store';
 
 /**
  * `/workspace` — demo of the lib's slot-based `<mvk-workspace-layout>`
@@ -48,6 +49,17 @@ import { PersonaService } from '../../services/persona.service';
       </div>
     </section>
 
+    @if (agentDriven()) {
+      <div class="agent-banner" role="status">
+        <span class="dot" aria-hidden="true">●</span>
+        <div>
+          <strong>Agent-driven layout active.</strong>
+          <span class="dim"> Slots emitted by the LLM via the <code>setWorkspaceLayout</code> tool. Click "Reset" to drop back to the per-persona default.</span>
+        </div>
+        <button type="button" class="reset" (click)="resetLayout()">Reset</button>
+      </div>
+    }
+
     <div class="canvas" [attr.data-density]="density()">
       <mvk-workspace-layout
         [slots]="slots()"
@@ -56,10 +68,10 @@ import { PersonaService } from '../../services/persona.service';
     </div>
 
     <p class="footnote">
-      <em>Currently bound to the <code>kpiTile</code> widget for all three slots — substitute
-      with <code>documentPreview</code>, <code>tagPanel</code>, <code>redactionEditor</code>, etc.
-      from the federated remotes in production. The slot map shape is exactly what the
-      <code>LAYOUT_RENDER</code> AG-UI event payload carries — same data, agent-emittable.</em>
+      <em>Default slots are bound to the <code>kpiTile</code> widget for all three slots. Production would substitute
+      <code>documentPreview</code>, <code>tagPanel</code>, <code>redactionEditor</code>, etc. from the federated remotes.
+      Ask the chat assistant: <em>"open document preview + tag panel + privilege log in a workspace"</em> and the agent's
+      <code>setWorkspaceLayout</code> tool reshapes this canvas live — the slot map is persisted per persona.</em>
     </p>
   `,
   styles: `
@@ -80,10 +92,36 @@ import { PersonaService } from '../../services/persona.service';
     .canvas[data-density="dense"]        { padding: var(--s-1); }
     .footnote { margin-top: var(--s-4); font-size: var(--fs-xs); color: var(--c-text-2); }
     .footnote code { font-size: 0.82em; }
+    .agent-banner {
+      display: flex; align-items: center; gap: var(--s-3);
+      padding: var(--s-3) var(--s-4); margin-bottom: var(--s-3);
+      background: var(--c-info-soft, #dbeafe);
+      border: 1px solid var(--c-info, #0284c7);
+      border-left-width: 4px; border-radius: var(--r-md);
+      font-size: var(--fs-sm);
+    }
+    .agent-banner .dot { color: var(--c-info, #0284c7); font-size: 0.9rem; }
+    .agent-banner strong { color: var(--c-text-1); }
+    .agent-banner .dim { color: var(--c-text-2); }
+    .agent-banner .reset {
+      margin-left: auto; padding: 0.35rem 0.8rem;
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--r-md); font-size: var(--fs-xs); cursor: pointer;
+    }
+    .agent-banner .reset:hover { background: var(--c-surface-1); }
   `,
 })
 export class WorkspaceDemoPage {
   private readonly persona = inject(PersonaService);
+  private readonly store = inject(WorkspaceLayoutStore);
+
+  /** True when the agent emitted a SlotMap via setWorkspaceLayout. */
+  protected readonly agentDriven = computed(() => this.store.slots() !== null);
+
+  /** Drop the agent-emitted slots → fall back to the per-persona default. */
+  protected resetLayout(): void {
+    this.store.clear();
+  }
 
   /** Persona-aware density signal — drives the slot padding. */
   protected readonly density = computed(() => {
@@ -101,6 +139,13 @@ export class WorkspaceDemoPage {
    * the sidebar + footer).
    */
   protected readonly slots = computed<SlotMap>(() => {
+    // Agent-emitted slot map takes precedence — the setWorkspaceLayout
+    // tool writes here when the LLM picks it, and the canvas re-renders
+    // live without a navigation. Fall through to the per-persona
+    // default below if no agent slots are pending.
+    const agent = this.store.slots();
+    if (agent) return agent;
+
     const dense = this.density() !== 'comfortable';
     return {
       primary: {

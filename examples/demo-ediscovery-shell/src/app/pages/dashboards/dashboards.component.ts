@@ -4,7 +4,9 @@ import {
   DashboardCanvasComponent,
   DashboardRegistry,
   type CanvasTileDrilldown,
+  type DashboardDef,
 } from '@infra-tools/agentic-ui';
+import { ProposedDashboardStore } from '../../services/proposed-dashboard.store';
 
 /**
  * `/dashboards` route — user-built dashboards surface
@@ -34,6 +36,21 @@ import {
         </p>
       </div>
     </section>
+
+    @if (proposed(); as p) {
+      <div class="proposal" role="status">
+        <span class="dot" aria-hidden="true">★</span>
+        <div class="meta">
+          <strong>Agent proposed: {{ p.title }}</strong>
+          <span class="dim">{{ p.tiles.length }} tile(s) · {{ p.description }}</span>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn" [class.active]="previewing()" (click)="togglePreview()">{{ previewing() ? 'Stop preview' : 'Preview' }}</button>
+          <button type="button" class="btn primary" (click)="commit()">Commit</button>
+          <button type="button" class="btn ghost" (click)="dismiss()">Dismiss</button>
+        </div>
+      </div>
+    }
 
     @if (active(); as d) {
       <div class="layout">
@@ -81,22 +98,74 @@ import {
     .item strong { font-size: var(--fs-sm); }
     .item .hint { font-size: var(--fs-xs); color: var(--c-text-2); }
     .canvas-wrap { min-height: 360px; }
+    .proposal {
+      display: flex; align-items: center; gap: var(--s-3);
+      padding: var(--s-3) var(--s-4); margin-bottom: var(--s-4);
+      background: var(--c-info-soft, #dbeafe);
+      border: 1px solid var(--c-info, #0284c7);
+      border-left-width: 4px; border-radius: var(--r-md);
+      font-size: var(--fs-sm);
+    }
+    .proposal .dot { color: var(--c-info, #0284c7); font-size: 1.05rem; }
+    .proposal .meta { display: flex; flex-direction: column; gap: 2px; }
+    .proposal strong { color: var(--c-text-1); }
+    .proposal .dim { color: var(--c-text-2); font-size: var(--fs-xs); }
+    .proposal .actions { margin-left: auto; display: flex; gap: var(--s-2); }
+    .proposal .btn {
+      padding: 0.4rem 0.85rem; font-size: var(--fs-xs); cursor: pointer;
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--r-md); color: var(--c-text-1);
+    }
+    .proposal .btn:hover { background: var(--c-surface-1); }
+    .proposal .btn.primary { background: var(--c-accent, #6366f1); color: white; border-color: transparent; }
+    .proposal .btn.primary:hover { filter: brightness(1.07); }
+    .proposal .btn.ghost { background: transparent; border-color: transparent; color: var(--c-text-2); }
+    .proposal .btn.active { background: var(--c-accent, #6366f1); color: white; border-color: transparent; }
   `,
 })
 export class DashboardsPage {
   private readonly registry = inject(DashboardRegistry);
   private readonly router = inject(Router);
+  private readonly proposalStore = inject(ProposedDashboardStore);
 
   protected readonly dashboards = this.registry.signal;
   protected readonly count = computed(() => this.dashboards().length);
   protected readonly selected = signal<string | null>(this.dashboards()[0]?.name ?? null);
 
-  protected readonly active = computed(() =>
-    this.dashboards().find((d) => d.name === this.selected()) ?? this.dashboards()[0] ?? null,
-  );
+  /** Agent-proposed pending DashboardDef (set by the proposeDashboard tool). */
+  protected readonly proposed = this.proposalStore.proposal;
+
+  /** When true, the canvas renders the proposed def instead of the picker selection. */
+  protected readonly previewing = signal(false);
+
+  protected readonly active = computed<DashboardDef | null>(() => {
+    if (this.previewing()) {
+      const p = this.proposed();
+      if (p) return p;
+    }
+    return this.dashboards().find((d) => d.name === this.selected()) ?? this.dashboards()[0] ?? null;
+  });
 
   protected onDrilldown(ev: CanvasTileDrilldown): void {
     if (ev.target.route) void this.router.navigateByUrl(ev.target.route);
     // ev.target.tool would dispatch through ToolRegistry in production.
+  }
+
+  /** Toggle preview mode — canvas swaps to the proposed def + back. */
+  protected togglePreview(): void {
+    this.previewing.update((v) => !v);
+  }
+
+  /** Register the proposed def in the registry + select it in the picker. */
+  protected commit(): void {
+    const committed = this.proposalStore.commit();
+    this.previewing.set(false);
+    if (committed) this.selected.set(committed.name);
+  }
+
+  /** Drop the proposal — the banner disappears. */
+  protected dismiss(): void {
+    this.proposalStore.dismiss();
+    this.previewing.set(false);
   }
 }

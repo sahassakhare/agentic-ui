@@ -18,6 +18,7 @@ import {
   type ToolDef,
 } from '@infra-tools/agentic-ui';
 import { ApprovalSummaryDiffComponent } from './approval-summary-diff.component';
+import { proposeDashboardTool, setWorkspaceLayoutTool } from './dynamic-surface.tools';
 import {
   isoNow,
   nextCustodianId,
@@ -86,6 +87,10 @@ export function buildTools(env: EnvironmentInjector): ToolDef[] {
     openOperationsTool(env) as ToolDef,
     openCustodianIntakePageTool(env) as ToolDef,
     runTARClassifierTool() as ToolDef,
+    // Agent-emittable surfaces (post-chat-surfaces P0 + P3) — the LLM
+    // can reshape /workspace or propose a /dashboards entry by name.
+    setWorkspaceLayoutTool(env) as ToolDef,
+    proposeDashboardTool(env) as ToolDef,
   ];
 }
 

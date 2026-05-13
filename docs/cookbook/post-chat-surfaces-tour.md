@@ -256,6 +256,38 @@ The `/audit` route renders the last 12 chain-linked events as a horizontal strip
 
 ---
 
+## Agent-driven surfaces — the "the agent reshapes the screen" demo
+
+Two of the post-chat surfaces — `/workspace` and `/dashboards` — accept **live updates from the agent** via dedicated tools. Type a prompt in the chat shell:
+
+| Prompt | What happens |
+|---|---|
+| *"Open document preview, tag panel, and chain-of-custody in a workspace"* | The agent picks the `setWorkspaceLayout` tool → it builds a SlotMap → writes to `WorkspaceLayoutStore` → `/workspace` re-renders the slots **live** (no navigation). A blue banner appears at the top of `/workspace`: *"Agent-driven layout active"* with a Reset button. |
+| *"Build me a dashboard for production status"* | The agent picks the `proposeDashboard` tool → it builds a `DashboardDef` from the intent + topic hint → writes to `ProposedDashboardStore` → a blue banner appears at the top of `/dashboards`: *"Agent proposed: Production status"* with Preview / Commit / Dismiss buttons. **Preview** swaps the canvas to show the proposed def without committing; **Commit** registers it into `DashboardRegistry` so it joins the picker; **Dismiss** drops it. |
+
+### Why dedicated tools and not the AG-UI `LAYOUT_RENDER` event?
+
+The library ships both — the event-based path (`LayoutRenderEvent` consumed by `<mvk-chat-shell>`) and the tool-based path. The eDiscovery demo uses tools so:
+
+1. Every agent decision is a chain-hashed audit entry. The user can see *which prompt led to which layout* in the `/audit` route.
+2. Persona scope filters apply automatically. A vendor-reviewer that can't invoke `setWorkspaceLayout` doesn't see it surface as an option; the lib's `RegistryBase.setScopePolicy` filter handles this without any per-tool plumbing.
+3. The proposal is reversible. Commit / Dismiss gives the user explicit say.
+
+The `LAYOUT_RENDER` event path is fine for ad-hoc agent-driven shapes — the demo uses tools when *user preference* matters.
+
+### User preference persistence
+
+- **Workspace layout** — the slot map is persisted to `localStorage` under `ediscovery.workspace-layout:<personaId>`. Refresh the page; the agent-emitted layout is still there. Switch persona; the layout switches to that persona's preferred shape (or falls back to the per-persona default if nothing was saved).
+- **Dashboard commits** — when the user clicks Commit, the proposed def joins `DashboardRegistry`. Persistence here is in-memory by default; production hosts would bind the registry to `PersistenceRegistry` for cross-session retention.
+
+### Where the tool definitions live
+
+- [`agentic/dynamic-surface.tools.ts`](../../examples/demo-ediscovery-shell/src/app/agentic/dynamic-surface.tools.ts) — `setWorkspaceLayout` + `proposeDashboard` factories.
+- [`services/workspace-layout.store.ts`](../../examples/demo-ediscovery-shell/src/app/services/workspace-layout.store.ts) — signal-backed slot map with persona-scoped localStorage persistence.
+- [`services/proposed-dashboard.store.ts`](../../examples/demo-ediscovery-shell/src/app/services/proposed-dashboard.store.ts) — signal-backed pending DashboardDef + commit-to-registry helper.
+
+---
+
 ## What's wired in the eDiscovery shell vs the lib
 
 The shell uses every post-chat-surfaces primitive from the library, with a few extension patterns that go beyond the lib's defaults:
