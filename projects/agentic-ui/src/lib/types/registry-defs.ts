@@ -277,6 +277,12 @@ export interface CapabilityManifest {
     readonly actions?: readonly string[];
     readonly forms?: readonly string[];
     readonly prompts?: readonly string[];
+    /** ADR-045 triggers contributed by this remote. */
+    readonly triggers?: readonly string[];
+    /** ADR-044 dashboard templates contributed by this remote. */
+    readonly dashboards?: readonly string[];
+    /** Post-chat-surfaces P5 playbooks contributed by this remote. */
+    readonly playbooks?: readonly string[];
   };
   /** Optional URL of the manifest document (if loaded out-of-band). */
   readonly manifestUrl?: string;
