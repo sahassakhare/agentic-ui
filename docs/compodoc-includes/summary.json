@@ -108,6 +108,10 @@
     "file": "timeline-canvas.md"
   },
   {
+    "title": "Continuous Active Learning workbench (Workflow C)",
+    "file": "cal-workbench.md"
+  },
+  {
     "title": "Domain MFEs as standalone apps + capability providers",
     "file": "domain-mfe-standalone-and-federated.md"
   },

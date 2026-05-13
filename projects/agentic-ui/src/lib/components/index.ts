@@ -19,3 +19,4 @@ export * from './dashboard-preview.component';
 export * from './tile-result-cache';
 export * from './review-queue.component';
 export * from './timeline-canvas.component';
+export * from './cal-workbench.component';
