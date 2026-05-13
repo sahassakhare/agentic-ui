@@ -25,6 +25,7 @@ import {
   provideAgenticTelemetryConsole,
   provideAgenticUi,
   provideAgUiBackend,
+  provideLayoutPolicy,
   provideStaticJsonMfeRegistry,
   provideToolFilter,
   provideTriggerRunner,
@@ -380,6 +381,22 @@ export const appConfig: ApplicationConfig = {
     // the already-filtered tools through ToolRegistry.signal(), so the
     // tool filter only carries the per-turn keyword budget now.
     provideToolFilter(keywordToolFilter({ maxTools: 12, floor: 5 })),
+    // Post-chat surfaces P0 (ADR-043 D4) — persona-shaped chat-shell
+    // presentation. Partner gets a compact rail (working alongside
+    // routed content all day); reviewer gets a denser pill on
+    // /documents (full-screen review is the primary affordance, chat
+    // is a quick aside); paralegal gets the default rail mode they
+    // already know. The chat-shell + assist-panel read LAYOUT_POLICY
+    // at render time, so persona switches reshape the chrome live.
+    provideLayoutPolicy({
+      resolvePersona: () => inject(PersonaService).active(),
+      byPersona: {
+        partner:    { density: () => 'compact',     shellMode: () => 'rail' },
+        reviewer:   { density: () => 'dense',       shellMode: (r) => r.startsWith('/documents') ? 'pill' : 'rail' },
+        paralegal:  { density: () => 'comfortable', shellMode: () => 'rail' },
+      },
+      fallback: { density: () => 'comfortable', shellMode: () => 'rail' },
+    }),
     // Post-chat surfaces P2 (ADR-045) — browser-side cron trigger
     // runner. Registered TriggerDef entries with `kind: 'cron'` fire
     // on schedule; webhook/queue specs defer to a server-side runner.

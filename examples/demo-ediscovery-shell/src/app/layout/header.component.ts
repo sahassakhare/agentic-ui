@@ -1,8 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { ToolRegistry } from '@infra-tools/agentic-ui';
+import { Router } from '@angular/router';
+import { NotificationTrayComponent, ToolRegistry, type TrayNotification } from '@infra-tools/agentic-ui';
 import { listAuditEvents, listLegalHolds } from '@infra-tools/demo-ediscovery-shared';
 import { environment } from '../../environments/environment';
 import { IconComponent } from '../ui/icon.component';
+import { NotificationsStore } from '../services/notifications.store';
 import { PERSONAS, PersonaService, type Persona } from '../services/persona.service';
 
 /**
@@ -17,7 +19,7 @@ import { PERSONAS, PersonaService, type Persona } from '../services/persona.serv
 @Component({
   selector: 'app-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [IconComponent],
+  imports: [IconComponent, NotificationTrayComponent],
   template: `
     <header class="bar">
       <div class="left">
@@ -38,12 +40,11 @@ import { PERSONAS, PersonaService, type Persona } from '../services/persona.serv
       </div>
 
       <div class="right">
-        <button type="button" class="icon-btn" aria-label="Notifications" [class.has-pip]="pendingCount() > 0">
-          <svg-icon name="bell" [size]="17" />
-          @if (pendingCount() > 0) {
-            <span class="pip">{{ pendingCount() }}</span>
-          }
-        </button>
+        <mvk-notification-tray
+          [notifications]="notificationsStore.notifications()"
+          (activate)="onNotificationActivate($event)"
+          (markRead)="notificationsStore.markRead($event)"
+          (markAllRead)="notificationsStore.markAllRead()" />
 
         <div class="persona-wrap">
           <button type="button" class="persona-btn" (click)="togglePersona()">
@@ -205,7 +206,9 @@ import { PERSONAS, PersonaService, type Persona } from '../services/persona.serv
 export class HeaderComponent {
   protected readonly matterId = environment.matterId;
   protected readonly personaService = inject(PersonaService);
+  protected readonly notificationsStore = inject(NotificationsStore);
   private readonly toolRegistry = inject(ToolRegistry);
+  private readonly router = inject(Router);
 
   protected readonly active = this.personaService.active;
   protected readonly activeProfile = computed(() => this.personaService.profile(this.active()));
@@ -247,5 +250,14 @@ export class HeaderComponent {
   select(p: Persona): void {
     this.personaService.setActive(p);
     this.personaOpen.set(false);
+  }
+
+  /** Tray (activate) — host dispatches the notification's cta. */
+  protected onNotificationActivate(n: TrayNotification): void {
+    this.notificationsStore.markRead(n.id);
+    const cta = n.draft.cta;
+    if (cta?.kind === 'route') void this.router.navigateByUrl(cta.target);
+    // tool / action CTAs would dispatch through ToolRegistry /
+    // ActionRegistry; the demo only handles route CTAs.
   }
 }
