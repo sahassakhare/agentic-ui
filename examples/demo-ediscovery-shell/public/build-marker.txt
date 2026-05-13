@@ -1,0 +1,3 @@
+2026-05-13T06:15:00Z — post-chat-surfaces program shipped; commit 1771dbb + render-diagnose.
+This file should be present at /build-marker.txt on the deployed shell.
+If it 404s, the build is not running OR the publish path is wrong.
