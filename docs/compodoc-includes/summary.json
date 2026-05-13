@@ -112,6 +112,10 @@
     "file": "cal-workbench.md"
   },
   {
+    "title": "Playbooks — versioned tool-call sequences (P5)",
+    "file": "playbooks.md"
+  },
+  {
     "title": "Domain MFEs as standalone apps + capability providers",
     "file": "domain-mfe-standalone-and-federated.md"
   },

@@ -963,3 +963,85 @@ export interface DashboardDef extends RegistryEntry {
   /** Previous version's `version` value — chains the edit history. */
   readonly parentVersion?: string;
 }
+
+// ── PlaybookRegistry (P5 of post-chat-surfaces plan) ─────────────────
+
+/**
+ * One step in a playbook — a named tool invocation with deterministic
+ * args. The runtime fires steps in declared order; each step's tool
+ * call inherits the playbook's audit attribution.
+ */
+export interface PlaybookStep {
+  readonly id: string;
+  /** Human-readable title surfaced in the runner UI. */
+  readonly title: string;
+  /** Optional short description for the runner UI. */
+  readonly description?: string;
+  /** `ToolRegistry` name to invoke. */
+  readonly tool: string;
+  /** Args passed verbatim to the tool's handler. */
+  readonly args: Readonly<Record<string, unknown>>;
+  /**
+   * When true, a failure in this step does NOT abort the playbook —
+   * the runner records the failure and continues. Default: false.
+   */
+  readonly continueOnError?: boolean;
+  /**
+   * When true, the runner halts before invoking and surfaces a
+   * confirm-or-skip affordance. Used for irreversible operations.
+   */
+  readonly requiresApproval?: boolean;
+}
+
+/**
+ * A versioned, persona-scoped sequence of tool calls — the *"Initial
+ * Privilege Pass v3"* shape. Joins `DashboardDef` as a first-class
+ * artefact in the catalog; same `removeBySource` symmetry for MFE-
+ * contributed playbooks; same persona scope; same audit attribution.
+ *
+ * @see [post-chat-surfaces-plan §5 / Workflow G](../../../../docs/plans/post-chat-surfaces-plan.md#4-complex-workflows-worth-modelling)
+ */
+export interface PlaybookDef extends RegistryEntry {
+  readonly title: string;
+  readonly description?: string;
+  /** Ordered steps the runner fires sequentially. */
+  readonly steps: readonly PlaybookStep[];
+  /** Version string; edits create new versions linked via `parentVersion`. */
+  readonly version?: string;
+  /** Previous version's `version` — chains the edit history. */
+  readonly parentVersion?: string;
+}
+
+/** Step states the runner emits as it fires the playbook. */
+export type PlaybookStepStatus =
+  | 'pending'
+  | 'awaiting-approval'
+  | 'running'
+  | 'success'
+  | 'failed'
+  | 'skipped'
+  | 'cancelled';
+
+/** Live state per step. Hosts read this via `RunningPlaybook.state`. */
+export interface PlaybookStepState {
+  readonly stepId: string;
+  readonly status: PlaybookStepStatus;
+  /** Captured tool result on success. */
+  readonly result?: unknown;
+  /** Captured error message on failure. */
+  readonly error?: string;
+  readonly startedAt?: string;
+  readonly finishedAt?: string;
+}
+
+/** Overall run status — derived from the step states. */
+export type PlaybookRunStatus = 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
+
+/** Snapshot of a running playbook. */
+export interface PlaybookRun {
+  readonly playbookName: string;
+  readonly version?: string;
+  readonly startedAt: string;
+  readonly steps: readonly PlaybookStepState[];
+  readonly overall: PlaybookRunStatus;
+}

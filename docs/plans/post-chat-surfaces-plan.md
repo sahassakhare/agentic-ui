@@ -371,17 +371,17 @@ Each phase is independently shippable; demo-worthy at the gate; the eDiscovery f
 
 **Exit:** workflow-shaped routes; agent proposes, humans dispose; chain-hash captures every reviewer decision. All three P4 workflows (E review queue, C CAL training loop, D investigation timeline) shipped at the library tier — hosts wire to their stores. Only eDiscovery demo wiring + Playwright remain (deferred until Render is unstuck).
 
-### P5 — Cross-matter analytics + playbooks (2 weeks)
+### P5 — Cross-matter analytics + playbooks (2 weeks) ✅ library tier shipped
 
 **Goal:** Cross-matter dashboards + saved tool-call sequences ("playbooks").
 
-- [ ] `DashboardDef.filters` for cross-matter parameter threading
-- [ ] Playbook subtype: versioned tool-call sequence in `DashboardRegistry`
-- [ ] `<mvk-playbook-runner>` component
-- [ ] eDiscovery flagship: cross-matter dashboard demo · "Initial Privilege Pass v3" playbook
-- [ ] Cookbook: "Playbooks"
+- [x] `DashboardDef.filters` for cross-matter parameter threading (already shipped in P3.A)
+- [x] **`PlaybookRegistry`** (18th registry) — versioned tool-call sequences as their own first-class artefact, not a `DashboardRegistry` subtype (cleaner semantics: steps fire vs. tiles render)
+- [x] `<mvk-playbook-runner>` component + `PlaybookRunner` service — fires steps sequentially, supports approval gates + continueOnError + cancellation, 24 specs
+- [ ] eDiscovery flagship: cross-matter dashboard demo · "Initial Privilege Pass v3" playbook (demo wiring, deferred until Render is unstuck)
+- [x] [Cookbook: Playbooks](../cookbook/playbooks.md) — register/fire pattern, defensibility property, cross-matter parameterisation, the eight-registries-one-workflow Workflow G shape
 
-**Exit:** dashboards span matters; legal ops apply versioned playbooks across matters; audit captures playbook executions.
+**Exit:** dashboards span matters via P3.A's `filters.matterIds`; legal ops apply versioned playbooks across matters via `PlaybookRegistry` + `PlaybookRunner`; audit captures every step's tool call with `origin: 'playbook'` + the playbook id/version/step index. **Library tier shipped — all 18 registries + 19 components + 16 cookbooks landed across P0-P5.**
 
 **Total: ~14 weeks** of focused engineering, spread across the team. Each phase ships an exit demo; nothing is half-finished at a gate.
 
