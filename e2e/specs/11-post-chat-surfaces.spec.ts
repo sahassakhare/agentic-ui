@@ -215,6 +215,66 @@ test('Holds — lifecycle-stages widget rendered', async ({ page }) => {
   await expect(page.locator('mvk-lifecycle-stages').first()).toBeVisible();
 });
 
+/**
+ * Agent-driven workspace layout — end-to-end via the chat shell.
+ * The user types a "open X in a workspace" prompt → coordinator
+ * routes to the `surface` specialist → setWorkspaceLayout tool
+ * fires → WorkspaceLayoutStore signal updates → /workspace
+ * re-renders with the agent-banner showing "Agent-driven layout
+ * active" + a Reset button.
+ *
+ * Skipped when:
+ *   - the agent server is in echo-placeholder mode (no Gemini key)
+ *   - the chat shell never reports back within ~120s (cold-start
+ *     + Gemini round-trip)
+ *
+ * The test waits for the banner using a generous timeout because
+ * the full chain — chat-shell turn submit → coordinator route →
+ * surface specialist run → tool call → store write → banner
+ * render — easily takes 30-60s on Render starter-tier.
+ */
+test('Agent-driven workspace layout — chat prompt reshapes /workspace live', async ({ page }) => {
+  // Pre-warm path: /workspace first, so the LayoutPolicy + base
+  // shell are loaded. Then we click the persona avatar to make sure
+  // setScopePolicy doesn't gate the surface specialist (defaults to
+  // paralegal which has broad tool access).
+  await page.goto('/workspace');
+  await waitForShellReady(page);
+  await expect(page.locator('mvk-workspace-layout')).toBeVisible({ timeout: 30_000 });
+
+  // No agent banner yet — initial state is the per-persona default.
+  const banner = page.locator('.agent-banner', { hasText: 'Agent-driven layout active' });
+  expect(await banner.count()).toBe(0);
+
+  // Find the chat composer + submit a workspace prompt. Selectors
+  // come from the lib's <mvk-chat-shell> composer — input + send
+  // button (or Enter key).
+  const composer = page.locator('mvk-chat-shell input[type="text"], mvk-chat-shell input:not([type])').first();
+  await expect(composer).toBeVisible({ timeout: 30_000 });
+  await composer.fill('Open document preview, tag panel, and chain-of-custody in a workspace');
+  await composer.press('Enter');
+
+  // Wait for the agent banner to appear. This is the visible signal
+  // that the surface specialist picked setWorkspaceLayout + the
+  // store wrote + the canvas re-rendered. Generous timeout for
+  // Gemini + Render cold-start.
+  try {
+    await expect(banner).toBeVisible({ timeout: 120_000 });
+  } catch (e) {
+    // Fall back: agent server might be in echo mode or unreachable.
+    // Inspect the chat transcript for the coordinator fallback message.
+    const transcript = await page.locator('mvk-chat-shell .transcript').textContent().catch(() => '');
+    if (transcript.includes('not sure which specialist') || transcript.includes('echo placeholder')) {
+      test.skip(true, `Coordinator could not route the prompt. Transcript: ${transcript.slice(0, 300)}`);
+    }
+    throw e;
+  }
+
+  // Reset button hides the banner + restores the default layout.
+  await page.locator('.agent-banner button.reset').click();
+  await expect(banner).not.toBeVisible();
+});
+
 test('Audit — page renders + chain-hash visualization when events exist', async ({ page }) => {
   await page.goto('/audit');
   await waitForShellReady(page);

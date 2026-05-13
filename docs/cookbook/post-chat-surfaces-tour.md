@@ -33,6 +33,7 @@ Every pillar below has an inline `<video>` walkthrough recorded against the live
 | Custodians (assist + interview prep) | [custodians-interview-prep.webm](../assets/videos/custodians-interview-prep.webm) |
 | Holds (lifecycle widget) | [holds-lifecycle.webm](../assets/videos/holds-lifecycle.webm) |
 | Audit (chain-hash viz) | [audit-chain-viz.webm](../assets/videos/audit-chain-viz.webm) |
+| Agent-driven workspace (chat → setWorkspaceLayout) | [agent-driven-workspace.webm](../assets/videos/agent-driven-workspace.webm) |
 
 To **regenerate** them after a code change, run the Playwright spec against either Render or localhost — it records video for every test, then copy the new `.webm` files into `docs/assets/videos/`:
 
@@ -280,11 +281,23 @@ The `LAYOUT_RENDER` event path is fine for ad-hoc agent-driven shapes — the de
 - **Workspace layout** — the slot map is persisted to `localStorage` under `ediscovery.workspace-layout:<personaId>`. Refresh the page; the agent-emitted layout is still there. Switch persona; the layout switches to that persona's preferred shape (or falls back to the per-persona default if nothing was saved).
 - **Dashboard commits** — when the user clicks Commit, the proposed def joins `DashboardRegistry`. Persistence here is in-memory by default; production hosts would bind the registry to `PersistenceRegistry` for cross-session retention.
 
-### Where the tool definitions live
+### Video — agent reshaping /workspace live from a chat prompt
 
-- [`agentic/dynamic-surface.tools.ts`](../../examples/demo-ediscovery-shell/src/app/agentic/dynamic-surface.tools.ts) — `setWorkspaceLayout` + `proposeDashboard` factories.
-- [`services/workspace-layout.store.ts`](../../examples/demo-ediscovery-shell/src/app/services/workspace-layout.store.ts) — signal-backed slot map with persona-scoped localStorage persistence.
-- [`services/proposed-dashboard.store.ts`](../../examples/demo-ediscovery-shell/src/app/services/proposed-dashboard.store.ts) — signal-backed pending DashboardDef + commit-to-registry helper.
+<video src="../assets/videos/agent-driven-workspace.webm" controls preload="metadata" width="720"></video>
+
+[Open in new tab →](../assets/videos/agent-driven-workspace.webm)
+
+The video records the deterministic end-to-end flow against the live Render demo: navigate to `/workspace` → type *"Open document preview, tag panel, and chain-of-custody in a workspace"* in the chat composer → the coordinator routes to the `surface` specialist → Gemini picks `setWorkspaceLayout` and emits the SlotMap → the canvas re-renders with the agent banner → the user clicks Reset to drop back to the per-persona default.
+
+### Where the wiring lives
+
+| Layer | File |
+|---|---|
+| Tool factories (host-side) | [`agentic/dynamic-surface.tools.ts`](../../examples/demo-ediscovery-shell/src/app/agentic/dynamic-surface.tools.ts) |
+| Workspace store (signal + per-persona localStorage) | [`services/workspace-layout.store.ts`](../../examples/demo-ediscovery-shell/src/app/services/workspace-layout.store.ts) |
+| Proposed-dashboard store (signal + commit-to-registry) | [`services/proposed-dashboard.store.ts`](../../examples/demo-ediscovery-shell/src/app/services/proposed-dashboard.store.ts) |
+| Coordinator routing (agent server) | [`examples/demo-ediscovery-server/src/server.ts`](../../examples/demo-ediscovery-server/src/server.ts) — `surface` specialist registered alongside collection / review / production / search |
+| End-to-end Playwright test | [`e2e/specs/11-post-chat-surfaces.spec.ts`](../../e2e/specs/11-post-chat-surfaces.spec.ts) — "Agent-driven workspace layout — chat prompt reshapes /workspace live" |
 
 ---
 
