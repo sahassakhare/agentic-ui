@@ -383,6 +383,12 @@ Each phase is independently shippable; demo-worthy at the gate; the eDiscovery f
 
 **Exit:** dashboards span matters via P3.A's `filters.matterIds`; legal ops apply versioned playbooks across matters via `PlaybookRegistry` + `PlaybookRunner`; audit captures every step's tool call with `origin: 'playbook'` + the playbook id/version/step index. **Library tier shipped — all 18 registries + 19 components + 16 cookbooks landed across P0-P5.**
 
+### Post-P5 — Federation symmetry + scaffolding parity ✅ shipped
+
+- [x] **Federation symmetry extension** — `defineCapabilityModule` accepts `triggers` / `dashboards` / `playbooks`; `CapabilityManifest.exposes` indexes them; `removeBySource` reaps them on unload. The federation seam now applies to all 18 registries, not just the original five. (+8 specs)
+- [x] **Schematics parity** — `ng g @infra-tools/agentic-ui:trigger | dashboard | playbook` generators bring the schematics collection from 10 to 13. Trigger generator emits the correct discriminator shape (cron / webhook / queue × tool / action / notification) at template time, no boilerplate placeholders. Snapshot-tested (+5 specs).
+- [x] **README + cookbook refresh** — registry / generator / test counts updated everywhere; new "Post-chat surfaces" Features bullet + Use case row 22 link the cookbook tour together.
+
 **Total: ~14 weeks** of focused engineering, spread across the team. Each phase ships an exit demo; nothing is half-finished at a gate.
 
 ---
@@ -449,7 +455,7 @@ Per-phase exit gates the team agrees on up-front. Each gate is "demo-grade", not
 ## 10. What this plan deliberately does NOT do
 
 - **No drag-drop dashboard product polish.** We ship the seam (`DashboardRegistry` + canvas) — not Tableau. Resize-snap, layout-templates-marketplace, etc. are out of scope.
-- **No bespoke shell per surface.** Every new surface is an Angular component reading from the same 15 + 2 registries. No "review-queue framework".
+- **No bespoke shell per surface.** Every new surface is an Angular component reading from the same 18 registries. No "review-queue framework".
 - **No replacement of `<mvk-chat-shell>`.** It stays as the canonical chat surface and one of the five layout modes.
 - **No production-grade trigger durability in v1.** `TriggerRegistry` v1 is in-process cron + webhook receiver. Distributed/queue-backed triggers (Temporal-style) explicitly out of scope; ADR-010 says no Temporal in the runtime.
 - **No new auth/RBAC primitives.** Persona scope + chain-hash audit already cover every pattern in this plan.
