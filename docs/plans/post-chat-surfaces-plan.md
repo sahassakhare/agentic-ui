@@ -338,7 +338,7 @@ Each phase is independently shippable; demo-worthy at the gate; the eDiscovery f
 
 **Exit:** Library tier delivers all four P2 components — TriggerRegistry + runner + tray + inbox + lifecycle widget — with 56 new specs (4 + 17 + 17 + 18 + 17). SLA-driven hold acknowledgment reminders draft themselves; ops console shows trigger firings in the audit ledger via the `agentic.trigger.fire` telemetry event. Brand demo (eDiscovery flagship wiring) deferred to a follow-up slice once the demo Render deploy lands.
 
-### P3 — DashboardRegistry + production pipeline (3 weeks) — P3.A library tier shipped
+### P3 — DashboardRegistry + production pipeline (3 weeks) — P3.A + P3.B library tier shipped
 
 **Goal:** First-class dashboards + the $5–10M revenue-line workflow.
 

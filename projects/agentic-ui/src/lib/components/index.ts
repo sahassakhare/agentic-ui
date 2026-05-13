@@ -15,3 +15,4 @@ export * from './inbox.component';
 export * from './lifecycle-stages.component';
 export * from './dashboard-tile.component';
 export * from './dashboard-canvas.component';
+export * from './dashboard-preview.component';
