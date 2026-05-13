@@ -11,6 +11,7 @@ import { environment } from '../../../environments/environment';
 import { MatterStore } from '../../services/matter.store';
 import { IconComponent } from '../../ui/icon.component';
 import { StatusBadgeComponent, type StatusTone } from '../../ui/status-badge.component';
+import { LifecycleStagesComponent, type StageAction, type StageDef } from '@infra-tools/agentic-ui';
 import { EmptyStateComponent } from '../../ui/empty-state.component';
 
 /**
@@ -26,7 +27,7 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
 @Component({
   selector: 'app-productions',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, IconComponent, StatusBadgeComponent, EmptyStateComponent],
+  imports: [DecimalPipe, IconComponent, StatusBadgeComponent, EmptyStateComponent, LifecycleStagesComponent],
   template: `
     <section class="page-head">
       <div>
@@ -81,6 +82,17 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
               <div class="kpi"><span class="lbl">Bates last</span><strong><code>{{ batesLast(p) }}</code></strong></div>
               <div class="kpi"><span class="lbl">Total redactions</span><strong>{{ totalRedactions(p) }}</strong></div>
             </div>
+
+            <!-- Workflow B (post-chat-surfaces) — lib pipeline widget.
+                 Same data the custom Lifecycle block below renders, but
+                 through the registry-driven primitive. (action) emits a
+                 StageAction the host wires to its production tools. -->
+            <section class="block">
+              <header class="b-head"><h3>Lifecycle (lib widget)</h3></header>
+              <mvk-lifecycle-stages
+                [stages]="stagesForProduction(p)"
+                (action)="onStageAction(p.id, $event)" />
+            </section>
 
             <section class="block">
               <header class="b-head"><h3>Lifecycle</h3></header>
@@ -303,6 +315,36 @@ export class ProductionsComponent {
       { idx: 3, label: 'Finalised',  desc: 'Set is reviewed and locked',              done: stage >= 3, current: stage === 3 },
       { idx: 4, label: 'Delivered',  desc: 'Hand-off to opposing counsel complete',   done: stage >= 4, current: stage === 4 },
     ];
+  }
+
+  /**
+   * Map a `ProductionSet` to the lib's `StageDef[]` shape. Workflow B
+   * pipeline: Scope → Bates → Finalise → Deliver. The "Bates" stage
+   * surfaces an action button while active, wired to
+   * `assignBatesNumbers` in production.
+   */
+  protected stagesForProduction(p: ProductionSet): readonly StageDef[] {
+    const stage = { draft: 1, review: 2, finalized: 3, delivered: 4 }[p.status] ?? 0;
+    const status = (n: number): StageDef['status'] =>
+      stage > n ? 'done' : stage === n ? 'active' : 'pending';
+    return [
+      { id: 'scope',     title: 'Scope',     status: status(1), owner: 'paralegal',
+        description: 'Set created with scope filters' },
+      { id: 'bates',     title: 'Bates',     status: status(2), owner: 'lit-support',
+        description: 'Sequential ids stamped on every doc',
+        action: stage === 1 ? { key: 'stamp-bates', label: 'Run Bates' } : undefined },
+      { id: 'finalise',  title: 'Finalise',  status: status(3), owner: 'reviewer',
+        description: 'Set is reviewed and locked',
+        action: stage === 2 ? { key: 'finalise', label: 'Finalise set' } : undefined },
+      { id: 'deliver',   title: 'Deliver',   status: status(4), owner: 'partner',
+        description: 'Hand-off to opposing counsel complete',
+        action: stage === 3 ? { key: 'deliver', label: 'Export & deliver' } : undefined },
+    ];
+  }
+
+  /** Lib lifecycle widget (action) — production wires to ToolRegistry. */
+  protected onStageAction(prodId: string, ev: StageAction): void {
+    console.info('[productions] stage action:', ev.actionKey, 'on', prodId, '/', ev.stageId);
   }
 
   select(id: string): void { this.active.set(id); }

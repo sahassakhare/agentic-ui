@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, viewChildren, type ElementRef } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { listCustodians } from '@infra-tools/demo-ediscovery-shared';
+import { LifecycleStagesComponent, type StageAction, type StageDef } from '@infra-tools/agentic-ui';
+import { listCustodians, type LegalHold } from '@infra-tools/demo-ediscovery-shared';
 import { environment } from '../../../environments/environment';
 import { MatterStore } from '../../services/matter.store';
 import { IconComponent } from '../../ui/icon.component';
@@ -17,7 +18,7 @@ import { AgenticSlotComponent } from '../../ui/agentic-slot.component';
 @Component({
   selector: 'app-holds',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [IconComponent, StatusBadgeComponent, EmptyStateComponent, AgenticSlotComponent],
+  imports: [IconComponent, StatusBadgeComponent, EmptyStateComponent, AgenticSlotComponent, LifecycleStagesComponent],
   template: `
     <section class="page-head">
       <div>
@@ -91,6 +92,15 @@ import { AgenticSlotComponent } from '../../ui/agentic-slot.component';
             </header>
 
             <p class="scope">{{ hold.scope }}</p>
+
+            <!-- Workflow A (post-chat-surfaces) — lib lifecycle widget.
+                 Sits above the existing hand-rolled timeline; adopters
+                 see the registry-driven equivalent. (action) emits a
+                 StageAction the host wires to ToolRegistry. -->
+            <mvk-lifecycle-stages
+              [stages]="stagesForHold(hold)"
+              title="Hold lifecycle"
+              (action)="onStageAction(hold.id, $event)" />
 
             <div class="timeline">
               <div class="step" data-done="true">
@@ -303,5 +313,38 @@ export class HoldsComponent {
     if (!iso) return '—';
     const d = new Date(iso);
     return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+
+  /**
+   * Map a `LegalHold` to the `<mvk-lifecycle-stages>` widget's shape.
+   * Workflow A from the post-chat-surfaces plan: Issue → Acknowledge →
+   * Track → Release. The "Track" middle stage stays `active` while the
+   * hold is still in effect, surfaces an action button to send a
+   * reminder — wired to `acknowledgeLegalHold` in production.
+   */
+  protected stagesForHold(hold: LegalHold): readonly StageDef[] {
+    const acked    = !!hold.acknowledgedAt;
+    const released = !!hold.releasedAt;
+    return [
+      { id: 'issue',       title: 'Issue',       status: 'done',
+        owner: 'auto',                                   updatedAt: hold.issuedAt },
+      { id: 'acknowledge', title: 'Acknowledge', status: acked ? 'done' : 'pending',
+        owner: acked ? 'custodian' : 'awaiting custodian',
+        updatedAt: hold.acknowledgedAt,
+        slaWarning: !acked ? 'follow-up overdue' : undefined,
+        action: acked ? undefined : { key: 'remind', label: 'Send reminder' } },
+      { id: 'track',       title: 'Track',       status: released ? 'done' : (acked ? 'active' : 'pending'),
+        owner: 'paralegal',
+        action: !released && acked ? { key: 'review', label: 'Re-issue check' } : undefined },
+      { id: 'release',     title: 'Release',     status: released ? 'done' : 'pending',
+        owner: released ? 'partner' : 'pending sign-off',
+        updatedAt: hold.releasedAt,
+        action: !released ? { key: 'release', label: 'Release hold' } : undefined },
+    ];
+  }
+
+  /** Lib lifecycle widget (action) — production wires to ToolRegistry. */
+  protected onStageAction(holdId: string, ev: StageAction): void {
+    console.info('[holds] stage action:', ev.actionKey, 'on', holdId, '/', ev.stageId);
   }
 }

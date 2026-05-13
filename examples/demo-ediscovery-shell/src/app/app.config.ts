@@ -32,6 +32,7 @@ import {
   ToolRegistry,
   type ApprovalAuditEvent,
   type CapabilityModule,
+  type ChatShellMode,
   type OperationAuditEvent,
 } from '@infra-tools/agentic-ui';
 import { appendAudit, isoNow, nextAuditId } from '@infra-tools/demo-ediscovery-shared';
@@ -269,6 +270,23 @@ function loadDemoRemotes() {
   });
 }
 
+/**
+ * Route → ChatShellMode mapping from the post-chat-surfaces design.
+ * Captures the intuition that some routes want the chat at hand
+ * (rail / docked-bottom), some want it peripheral (pill), and some
+ * want it absent (hidden — Audit, where the chain-hash query bar is
+ * the right primitive).
+ */
+function shellModeForRoute(route: string): ChatShellMode {
+  if (route.startsWith('/audit'))         return 'hidden';
+  if (route.startsWith('/holds'))         return 'pill';
+  if (route.startsWith('/productions'))   return 'pill';
+  if (route.startsWith('/review-queue'))  return 'pill';
+  if (route.startsWith('/timeline'))      return 'pill';
+  if (route.startsWith('/documents/'))    return 'pill';   // single-doc workspace
+  return 'rail';
+}
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
@@ -381,23 +399,35 @@ export const appConfig: ApplicationConfig = {
     // the already-filtered tools through ToolRegistry.signal(), so the
     // tool filter only carries the per-turn keyword budget now.
     provideToolFilter(keywordToolFilter({ maxTools: 12, floor: 5 })),
-    // Post-chat surfaces P0 (ADR-043 D4) — persona-shaped chat-shell
-    // presentation. Partner gets a compact rail (working alongside
-    // routed content all day); reviewer gets a denser pill on
-    // /documents (full-screen review is the primary affordance, chat
-    // is a quick aside); paralegal gets the default rail mode they
-    // already know. The chat-shell + assist-panel read LAYOUT_POLICY
-    // at render time, so persona switches reshape the chrome live.
+    // Post-chat surfaces P0 (ADR-043 D4) — persona × route shell-mode
+    // matrix. The chat-shell + assist-panel read LAYOUT_POLICY at
+    // render time, so both persona switches and route changes reshape
+    // the chrome live. Tracks the route table from the design doc:
+    //   Dashboard        → rail (chat at hand, dashboard is glance-driven)
+    //   Documents list   → rail
+    //   Custodians       → rail
+    //   Holds            → pill (canvas is the artifact)
+    //   Audit            → hidden (browsing a hash chain — chat is the
+    //                       wrong primitive)
+    //   Productions      → pill
+    //   Review queue     → pill (keyboard-driven throughput)
+    //   Timeline         → pill (full-bleed canvas)
+    //   Inbox            → rail
+    //   Dashboards (P3)  → rail
+    //   Playbooks (P5)   → rail
+    // Density is persona-driven (compact for lead-counsel etc.); the
+    // shellMode function is the same across personas — modes are a
+    // function of *what* you're doing, not *who* you are.
     provideLayoutPolicy({
       resolvePersona: () => inject(PersonaService).active(),
       byPersona: {
-        'lead-counsel':    { density: () => 'compact',     shellMode: () => 'rail' },
-        'associate':       { density: () => 'comfortable', shellMode: () => 'rail' },
-        'vendor-reviewer': { density: () => 'dense',       shellMode: (r) => r.startsWith('/documents') ? 'pill' : 'rail' },
-        'paralegal':       { density: () => 'comfortable', shellMode: () => 'rail' },
-        'lit-support':     { density: () => 'comfortable', shellMode: () => 'rail' },
+        'lead-counsel':    { density: () => 'compact',     shellMode: shellModeForRoute },
+        'associate':       { density: () => 'comfortable', shellMode: shellModeForRoute },
+        'vendor-reviewer': { density: () => 'dense',       shellMode: shellModeForRoute },
+        'paralegal':       { density: () => 'comfortable', shellMode: shellModeForRoute },
+        'lit-support':     { density: () => 'comfortable', shellMode: shellModeForRoute },
       },
-      fallback: { density: () => 'comfortable', shellMode: () => 'rail' },
+      fallback: { density: () => 'comfortable', shellMode: shellModeForRoute },
     }),
     // Post-chat surfaces P2 (ADR-045) — browser-side cron trigger
     // runner. Registered TriggerDef entries with `kind: 'cron'` fire

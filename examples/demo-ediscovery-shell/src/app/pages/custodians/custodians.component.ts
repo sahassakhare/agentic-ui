@@ -2,8 +2,10 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } 
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { AssistPanelComponent, type AssistAction } from '@infra-tools/agentic-ui';
 import { listAuditEvents, listDocuments, listLegalHolds } from '@infra-tools/demo-ediscovery-shared';
 import { environment } from '../../../environments/environment';
+import { CUSTODIAN_CONTEXT_INTENT_IDS } from '../../agentic/post-chat-surfaces';
 import { MatterStore } from '../../services/matter.store';
 import { IconComponent } from '../../ui/icon.component';
 import { TagChipComponent } from '../../ui/tag-chip.component';
@@ -17,7 +19,7 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
 @Component({
   selector: 'app-custodians',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, IconComponent, TagChipComponent, StatusBadgeComponent, EmptyStateComponent],
+  imports: [DecimalPipe, IconComponent, TagChipComponent, StatusBadgeComponent, EmptyStateComponent, AssistPanelComponent],
   template: `
     <section class="page-head">
       <div>
@@ -99,6 +101,26 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
                 <strong>{{ hotCount() }} / {{ respCount() }}</strong>
               </div>
             </div>
+
+            <!-- Post-chat surfaces P1 (pattern 6 — "next best action"
+                 sidebar / Cursor pattern). Renders persona-filtered
+                 intents for the active custodian. (intentSelected)
+                 dispatches the mapsTo target through Router / Tool /
+                 Action registries; the demo logs for visibility. -->
+            <section class="block assist-block">
+              <header class="b-head">
+                <h3>Suggested for {{ c.name.split(' ')[0] }}</h3>
+              </header>
+              <mvk-assist-panel
+                context="custodian"
+                [intents]="custodianIntentIds"
+                [filterContext]="c"
+                [focusedItem]="c"
+                [focusLabel]="c.name"
+                askPlaceholder="Ask about this custodian…"
+                (intentSelected)="onAssistIntent($event)"
+                (ask)="onAssistAsk($event)" />
+            </section>
 
             <section class="block">
               <header class="b-head">
@@ -346,6 +368,22 @@ export class CustodiansComponent {
 
   protected readonly list = this.store.custodians;
   protected readonly active = signal<string | null>(null);
+
+  /** Intent allow-list for the per-custodian `<mvk-assist-panel>`. */
+  protected readonly custodianIntentIds = CUSTODIAN_CONTEXT_INTENT_IDS;
+
+  /** Assist-panel intent click → dispatch the mapsTo target. */
+  protected onAssistIntent(ev: AssistAction): void {
+    console.info('[custodians] assist intent:', ev.intentId, 'mapsTo', ev.mapsTo);
+    // Production: dispatch through Router (kind:'route') /
+    // ActionRegistry (kind:'action') / ToolRegistry (kind:'tool').
+  }
+
+  /** Assist-panel free-text ask → forward to chat. */
+  protected onAssistAsk(text: string): void {
+    console.info('[custodians] assist ask:', text);
+    // Production: send to ChatShell via injectAgenticChat().sendMessage().
+  }
 
   /** Sync `?id=…` from the URL into the active selection so the
       `openCustodian` action and direct deep-links both work.

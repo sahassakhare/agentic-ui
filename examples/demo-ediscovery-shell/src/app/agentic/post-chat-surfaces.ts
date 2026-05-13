@@ -351,6 +351,30 @@ const documentBulkIntents: readonly IntentDef[] = [
   }) as IntentDef,
 ];
 
+const custodianContextIntents: readonly IntentDef[] = [
+  agenticIntent({
+    id: 'cust.placeHold',
+    description: 'Place a legal hold on this custodian',
+    examples: ['place hold', 'put on hold', 'add to hold'],
+    schema: z.object({ custodianId: z.string() }),
+    mapsTo: { kind: 'tool', target: 'placeLegalHold' },
+  }) as IntentDef,
+  agenticIntent({
+    id: 'cust.openHolds',
+    description: "Open this custodian's holds",
+    examples: ['show holds', 'open holds for this person'],
+    schema: z.object({ custodianId: z.string() }),
+    mapsTo: { kind: 'route', target: '/holds' },
+  }) as IntentDef,
+  agenticIntent({
+    id: 'cust.openDocs',
+    description: "Open this custodian's documents",
+    examples: ['show documents', 'open docs'],
+    schema: z.object({ custodianId: z.string() }),
+    mapsTo: { kind: 'route', target: '/documents' },
+  }) as IntentDef,
+];
+
 /**
  * Exported so the Documents page can pass these ids into
  * `<mvk-row-action-menu>` + `<mvk-bulk-toolbar>` — the components
@@ -359,6 +383,7 @@ const documentBulkIntents: readonly IntentDef[] = [
  */
 export const DOCUMENT_ROW_INTENT_IDS  = documentRowIntents.map((i) => i.id);
 export const DOCUMENT_BULK_INTENT_IDS = documentBulkIntents.map((i) => i.id);
+export const CUSTODIAN_CONTEXT_INTENT_IDS = custodianContextIntents.map((i) => i.id);
 
 /**
  * Boot-time registration for the post-chat-surfaces program (P0-P5).
@@ -380,5 +405,9 @@ export function registerPostChatSurfaces(env: EnvironmentInjector): void {
   playbooks.register(qcPrivilegePassPlaybook);
   playbooks.register(productionReleasePlaybook);
   const intents = env.get(IntentRegistry);
-  for (const intent of [...documentRowIntents, ...documentBulkIntents]) intents.register(intent);
+  for (const intent of [
+    ...documentRowIntents,
+    ...documentBulkIntents,
+    ...custodianContextIntents,
+  ]) intents.register(intent);
 }
