@@ -17,3 +17,4 @@ export * from './dashboard-tile.component';
 export * from './dashboard-canvas.component';
 export * from './dashboard-preview.component';
 export * from './tile-result-cache';
+export * from './review-queue.component';

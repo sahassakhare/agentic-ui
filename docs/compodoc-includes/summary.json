@@ -100,6 +100,10 @@
     "file": "live-dashboards.md"
   },
   {
+    "title": "Multi-reviewer review queue (Workflow E)",
+    "file": "review-queue.md"
+  },
+  {
     "title": "Domain MFEs as standalone apps + capability providers",
     "file": "domain-mfe-standalone-and-federated.md"
   },

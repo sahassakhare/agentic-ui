@@ -355,18 +355,19 @@ Each phase is independently shippable; demo-worthy at the gate; the eDiscovery f
 
 **Exit:** users build dashboards in chat or by dragging; tiles are governed tool calls; production pipeline replaces the spreadsheet shape. Brand demo: GC asks "show me audit integrity by matter", agent assembles a dashboard, drills into a degraded matter, opens its production pipeline.
 
-### P4 — Review Queue + Timeline + CAL (3 weeks)
+### P4 — Review Queue + Timeline + CAL (3 weeks) — P4.A library tier shipped
 
 **Goal:** Two new routes + the CAL training loop.
 
-- [ ] `/review-queue` route (Workflow E)
-- [ ] CAL training loop wired through `PersistenceRegistry` (Workflow C)
-- [ ] `<mvk-timeline-canvas>` (Workflow D)
-- [ ] `/timeline` route
-- [ ] Cookbook: "Build a review queue"
+- [x] `<mvk-review-queue>` component (Workflow E) — P4.A, this PR. Persona-routed groups + configurable actions per state + dispatch-agnostic `(decision)` / `(open)` events, 15 specs, [cookbook](../cookbook/review-queue.md)
+- [ ] CAL training loop wired through `PersistenceRegistry` (Workflow C) — P4.B
+- [ ] `<mvk-timeline-canvas>` (Workflow D) — P4.C
+- [ ] `/timeline` route (eDiscovery demo wiring, deferred)
+- [ ] `/review-queue` route (eDiscovery demo wiring, deferred until Render is unstuck)
+- [x] [Cookbook: review queue](../cookbook/review-queue.md) (P4.A)
 - [ ] Playwright: CAL round 1→2→3 convergence, timeline drag-and-annotate
 
-**Exit:** workflow-shaped routes; agent proposes, humans dispose; chain-hash captures every reviewer decision.
+**Exit:** workflow-shaped routes; agent proposes, humans dispose; chain-hash captures every reviewer decision. P4.A delivers the review queue at the library tier — host wires it to any store. P4.B (CAL loop) + P4.C (timeline canvas) follow.
 
 ### P5 — Cross-matter analytics + playbooks (2 weeks)
 
