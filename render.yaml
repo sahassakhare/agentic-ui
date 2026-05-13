@@ -76,6 +76,13 @@ services:
     #   4. envsubst → mfes.json with the live remote URLs.
     #   5. Generate _redirects so /api/* proxies to the agent server.
     buildCommand: |
+      # set -euo pipefail makes silent failures loud — without it Render
+      # marks the build "succeeded" if the last command (printf to
+      # _redirects) exits 0 even when npm ci / build:lib / ng build
+      # failed upstream. Diagnosed 2026-05-13: a build was succeeding in
+      # 1m31s and serving a stub bundle instead of the real shell.
+      set -euo pipefail
+      echo "[render] node=$(node --version) npm=$(npm --version) git=$(git rev-parse --short HEAD)"
       # Render's fromService.property: host returns just the bare service
       # name (e.g. "ediscovery-review"), NOT the full FQDN. Append the
       # `.onrender.com` suffix to compose absolute URLs.
@@ -160,6 +167,8 @@ services:
     rootDir: .
     autoDeploy: true
     buildCommand: |
+      set -euo pipefail
+      echo "[render] node=$(node --version) git=$(git rev-parse --short HEAD)"
       npm ci
       npm run build:lib
       npm run build:ediscovery-shared
@@ -189,6 +198,8 @@ services:
     rootDir: .
     autoDeploy: true
     buildCommand: |
+      set -euo pipefail
+      echo "[render] node=$(node --version) git=$(git rev-parse --short HEAD)"
       npm ci
       npm run build:lib
       npm run build:ediscovery-shared
@@ -215,6 +226,8 @@ services:
     rootDir: .
     autoDeploy: true
     buildCommand: |
+      set -euo pipefail
+      echo "[render] node=$(node --version) git=$(git rev-parse --short HEAD)"
       npm ci
       npm run build:lib
       npm run build:ediscovery-shared
