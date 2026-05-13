@@ -18,6 +18,9 @@ generators are available via `ng add` / `ng generate`.
 | Add an `ActionRegistry` action (NgRx-style command) | `ng g @infra-tools/agentic-ui:action <name>` |
 | Map common phrasings to a tool/action/route | `ng g @infra-tools/agentic-ui:intent <name>` |
 | Add a schema-driven form | `ng g @infra-tools/agentic-ui:form <name>` |
+| Add a `TriggerRegistry` cron / webhook / queue trigger | `ng g @infra-tools/agentic-ui:trigger <name>` |
+| Add a `DashboardRegistry` definition with tile placeholders | `ng g @infra-tools/agentic-ui:dashboard <name>` |
+| Add a `PlaybookRegistry` versioned tool-call sequence | `ng g @infra-tools/agentic-ui:playbook <name>` |
 
 Every generator is a thin wrapper over the same primitives shown in the
 hand-written cookbook entries; you can drop in and out at any time.
@@ -206,6 +209,52 @@ ng g @infra-tools/agentic-ui:form <name>
 Generates `<name>.form.ts` with `agenticForm({...})` carrying a Zod
 `fieldsSchema` and a `submit` callback stub. Pairs with
 `<mvk-form-renderer>` for the agent-fillable form pattern.
+
+### `trigger` — `TriggerRegistry` registration (ADR-045)
+
+```bash
+ng g @infra-tools/agentic-ui:trigger <name> \
+  [--kind=cron|webhook|queue] \
+  [--spec="@daily"] \
+  [--targetKind=tool|action|notification] \
+  [--target=<id>] \
+  [--runAs=<persona>]
+```
+
+Generates `<name>.trigger.ts` containing a fully-typed `TriggerDef`
+matching the requested `kind` + `targetKind` discriminator. Register it
+on boot with `inject(TriggerRegistry).register(...)`. The runtime
+browser cron runner picks it up once `provideTriggerRunner({...})` is
+wired (webhook + queue targets defer to the server-side runner).
+
+### `dashboard` — `DashboardRegistry` registration (ADR-044)
+
+```bash
+ng g @infra-tools/agentic-ui:dashboard <name> \
+  [--title="..."] \
+  [--description="..."] \
+  [--layout=two-col]
+```
+
+Generates `<name>.dashboard.ts` with a `DashboardDef` skeleton and three
+commented tile placeholders — one per `TileInvocation` kind (`tool` /
+`data` / `static`). Render it via `<mvk-dashboard-canvas
+[dashboard]="dashboards.get('<name>')" />`.
+
+### `playbook` — `PlaybookRegistry` registration (post-chat-surfaces P5)
+
+```bash
+ng g @infra-tools/agentic-ui:playbook <name> \
+  [--title="..."] \
+  [--description="..."]
+```
+
+Generates `<name>.playbook.ts` with a `PlaybookDef` shell and commented
+step placeholders highlighting the two opt-in step modifiers
+(`requiresApproval` for irreversible operations, `continueOnError` for
+non-fatal steps). Fire from a route via `inject(PlaybookRunner)
+.start(<name>Playbook)` — every step chain-hashes through audit with
+`origin: 'playbook'`.
 
 ## Pipelines — common multi-step flows
 

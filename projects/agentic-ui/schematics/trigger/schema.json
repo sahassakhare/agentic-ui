@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "MaverickAgenticUiTrigger",
+  "title": "Generate a cron / webhook / queue trigger (ADR-045)",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "$default": { "$source": "argv", "index": 0 },
+      "x-prompt": "Trigger id (e.g., dailyAckSweep)?"
+    },
+    "project": { "type": "string", "$default": { "$source": "projectName" } },
+    "path": { "type": "string", "default": "app/agentic/triggers" },
+    "description": { "type": "string", "default": "Trigger description." },
+    "kind": { "type": "string", "enum": ["cron", "webhook", "queue"], "default": "cron" },
+    "spec": { "type": "string", "default": "@daily", "description": "Cron expression / webhook path / queue topic depending on kind." },
+    "targetKind": { "type": "string", "enum": ["tool", "action", "notification"], "default": "tool" },
+    "target": { "type": "string", "default": "myTool" },
+    "runAs": { "type": "string", "description": "Optional persona id for audit attribution + scope." }
+  },
+  "required": ["name"]
+}

@@ -55,6 +55,21 @@
       "factory": "./form/index#formSchematic",
       "schema": "./form/schema.json",
       "aliases": ["f"]
+    },
+    "trigger": {
+      "description": "Scaffold a TriggerDef (ADR-045) — cron / webhook / queue with a tool / action / notification target.",
+      "factory": "./trigger/index#triggerSchematic",
+      "schema": "./trigger/schema.json"
+    },
+    "dashboard": {
+      "description": "Scaffold a DashboardDef (ADR-044) with tile placeholders for tool / data / static invocations.",
+      "factory": "./dashboard/index#dashboardSchematic",
+      "schema": "./dashboard/schema.json"
+    },
+    "playbook": {
+      "description": "Scaffold a PlaybookDef (post-chat-surfaces P5) — a versioned tool-call sequence with approval + continueOnError step hints.",
+      "factory": "./playbook/index#playbookSchematic",
+      "schema": "./playbook/schema.json"
     }
   }
 }

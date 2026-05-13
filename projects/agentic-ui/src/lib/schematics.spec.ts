@@ -169,3 +169,88 @@ describe('schematics: agent-server', () => {
     expect(server).toContain('EchoAgent');
   });
 });
+
+describe('schematics: trigger', () => {
+  let runner: SchematicTestRunner;
+  beforeEach(() => { runner = new SchematicTestRunner('@infra-tools/agentic-ui', COLLECTION_PATH); });
+
+  it('scaffolds a cron + tool TriggerDef by default', async () => {
+    const tree = await runner.runSchematic('trigger', { name: 'dailyAckSweep' }, baseWorkspace());
+    expect(tree.files).toContain('/src/app/agentic/triggers/daily-ack-sweep.trigger.ts');
+    const content = tree.readContent('/src/app/agentic/triggers/daily-ack-sweep.trigger.ts');
+    expect(content).toContain("import type { TriggerDef } from '@infra-tools/agentic-ui';");
+    expect(content).toContain("name: 'dailyAckSweep'");
+    expect(content).toContain("kind: 'cron'");
+    expect(content).toContain("{ kind: 'cron', expression: '@daily' }");
+    expect(content).toContain("{ kind: 'tool', tool: 'myTool', args: {} }");
+    expect(content).toContain('runAs: undefined');
+  });
+
+  it('honors --kind=webhook + --targetKind=notification', async () => {
+    const tree = await runner.runSchematic(
+      'trigger',
+      { name: 'inboundPagerDuty', kind: 'webhook', spec: '/hooks/pagerduty', targetKind: 'notification', runAs: 'oncall' },
+      baseWorkspace(),
+    );
+    const content = tree.readContent('/src/app/agentic/triggers/inbound-pager-duty.trigger.ts');
+    expect(content).toContain("kind: 'webhook'");
+    expect(content).toContain("{ kind: 'webhook', path: '/hooks/pagerduty' }");
+    expect(content).toContain("kind: 'notification'");
+    expect(content).toContain('compose:');
+    expect(content).toContain("runAs: 'oncall'");
+  });
+
+  it('honors --kind=queue + --targetKind=action', async () => {
+    const tree = await runner.runSchematic(
+      'trigger',
+      { name: 'ingestComplete', kind: 'queue', spec: 'matters.ingest.complete', targetKind: 'action', target: 'refreshMatter' },
+      baseWorkspace(),
+    );
+    const content = tree.readContent('/src/app/agentic/triggers/ingest-complete.trigger.ts');
+    expect(content).toContain("{ kind: 'queue', topic: 'matters.ingest.complete' }");
+    expect(content).toContain("{ kind: 'action', action: 'refreshMatter' }");
+  });
+});
+
+describe('schematics: dashboard', () => {
+  it('scaffolds a DashboardDef with commented tile placeholders', async () => {
+    const runner = new SchematicTestRunner('@infra-tools/agentic-ui', COLLECTION_PATH);
+    const tree = await runner.runSchematic(
+      'dashboard',
+      { name: 'matterHealth', title: 'Matter health', description: 'Matter-level KPIs.', layout: 'three-col' },
+      baseWorkspace(),
+    );
+    expect(tree.files).toContain('/src/app/agentic/dashboards/matter-health.dashboard.ts');
+    const content = tree.readContent('/src/app/agentic/dashboards/matter-health.dashboard.ts');
+    expect(content).toContain("import type { DashboardDef } from '@infra-tools/agentic-ui';");
+    expect(content).toContain("name: 'matterHealth'");
+    expect(content).toContain("title: 'Matter health'");
+    expect(content).toContain("layout: 'three-col'");
+    expect(content).toContain('tiles: [');
+    // Sanity check that tile examples for all three invocation kinds are present.
+    expect(content).toContain("kind: 'tool'");
+    expect(content).toContain("kind: 'data'");
+    expect(content).toContain("kind: 'static'");
+  });
+});
+
+describe('schematics: playbook', () => {
+  it('scaffolds a PlaybookDef with step placeholders', async () => {
+    const runner = new SchematicTestRunner('@infra-tools/agentic-ui', COLLECTION_PATH);
+    const tree = await runner.runSchematic(
+      'playbook',
+      { name: 'initialPrivilegePass', title: 'Initial privilege pass', description: 'First-pass privilege review.' },
+      baseWorkspace(),
+    );
+    expect(tree.files).toContain('/src/app/agentic/playbooks/initial-privilege-pass.playbook.ts');
+    const content = tree.readContent('/src/app/agentic/playbooks/initial-privilege-pass.playbook.ts');
+    expect(content).toContain("import type { PlaybookDef } from '@infra-tools/agentic-ui';");
+    expect(content).toContain("name: 'initialPrivilegePass'");
+    expect(content).toContain("title: 'Initial privilege pass'");
+    expect(content).toContain("version: 'v1'");
+    expect(content).toContain('steps: [');
+    // The placeholder block should hint at both gating modifiers.
+    expect(content).toContain('requiresApproval');
+    expect(content).toContain('continueOnError');
+  });
+});
