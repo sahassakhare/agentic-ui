@@ -2,7 +2,17 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } 
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { SmartCellComponent } from '@infra-tools/agentic-ui';
+import {
+  BulkToolbarComponent,
+  RowActionMenuComponent,
+  SmartCellComponent,
+  type BulkActionResult,
+  type RowActionResult,
+} from '@infra-tools/agentic-ui';
+import {
+  DOCUMENT_BULK_INTENT_IDS,
+  DOCUMENT_ROW_INTENT_IDS,
+} from '../../agentic/post-chat-surfaces';
 import {
   appendAudit,
   getCustodian,
@@ -44,7 +54,7 @@ const ALL_TAGS: readonly DocumentTag[] = ['responsive', 'non-responsive', 'privi
 @Component({
   selector: 'app-documents',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, IconComponent, TagChipComponent, EmptyStateComponent, StatusBadgeComponent, SmartCellComponent],
+  imports: [DecimalPipe, IconComponent, TagChipComponent, EmptyStateComponent, StatusBadgeComponent, SmartCellComponent, BulkToolbarComponent, RowActionMenuComponent],
   template: `
     <section class="page-head">
       <div>
@@ -115,6 +125,14 @@ const ALL_TAGS: readonly DocumentTag[] = ['responsive', 'non-responsive', 'privi
           <button type="button" (click)="bulkTag('hot')">+ hot</button>
           <button type="button" class="warn" (click)="clearSelection()">Clear</button>
         </div>
+        <!-- Post-chat surfaces P1: <mvk-bulk-toolbar> reads from IntentRegistry,
+             surfaces persona-filtered actions across the selection. Coexists
+             with the hand-rolled bulk strip above so adopters see both. -->
+        <mvk-bulk-toolbar
+          [selection]="selected()"
+          [intents]="bulkIntentIds"
+          entity="document"
+          (selected)="onBulkAction($event)" />
       }
     </section>
 
@@ -181,7 +199,13 @@ const ALL_TAGS: readonly DocumentTag[] = ['responsive', 'non-responsive', 'privi
                     }
                   </div>
                 </td>
-                <td><svg-icon name="chevron-right" [size]="14" /></td>
+                <td class="row-actions" (click)="$event.stopPropagation()">
+                  <mvk-row-action-menu
+                    [row]="d"
+                    [intents]="rowIntentIds"
+                    entity="document"
+                    (selected)="onRowAction($event)" />
+                </td>
               </tr>
             }
           </tbody>
@@ -564,6 +588,30 @@ export class DocumentsComponent {
     if (d.tags.includes('hot'))   return 'HOT';
     if (d.tags.includes('redact')) return 'REDACT';
     return '—';
+  }
+
+  /**
+   * Intent allow-lists for the post-chat-surfaces P1 affordances on
+   * this page. Both `<mvk-row-action-menu>` and `<mvk-bulk-toolbar>`
+   * take an explicit list of `IntentDef.id` strings, then persona-
+   * filter them via `IntentRegistry.get()` before rendering.
+   *
+   * Registered in `agentic/post-chat-surfaces.ts`.
+   */
+  protected readonly rowIntentIds  = DOCUMENT_ROW_INTENT_IDS;
+  protected readonly bulkIntentIds = DOCUMENT_BULK_INTENT_IDS;
+
+  /** Row-menu (selected) — dispatch the intent's mapsTo target. */
+  protected onRowAction(ev: RowActionResult): void {
+    // For demo: log + (production) ToolRegistry/ActionRegistry/Router
+    // dispatch based on ev.mapsTo.kind. The Documents page already has
+    // an open-row drawer wired up for chevron-click navigation.
+    console.info('[documents] row intent:', ev.intentId, 'on', (ev.row as Document).id, 'mapsTo', ev.mapsTo);
+  }
+
+  /** Bulk-toolbar (action) — same dispatch shape, across N selected. */
+  protected onBulkAction(ev: BulkActionResult): void {
+    console.info('[documents] bulk intent:', ev.intentId, 'on', ev.selection.length, 'items, mapsTo', ev.mapsTo);
   }
   initials(name: string): string {
     return (name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2) || '?').toUpperCase();
