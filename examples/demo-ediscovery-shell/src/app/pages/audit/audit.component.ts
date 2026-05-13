@@ -64,6 +64,41 @@ const FAMILY_LABELS: Record<ActionFamily, string> = {
       </div>
     </section>
 
+    <!-- Chain-hash visualization (post-chat-surfaces design doc — Audit
+         page addition). Horizontal strip of the last N events as
+         connected hash blocks. prevHash → chainHash transitions
+         render as arrow links; the head is on the right. Clicking a
+         block scrolls the main trail below to that entry. -->
+    @if (chained().length > 0) {
+      <section class="chain-viz" aria-label="Chain-hash visualization">
+        <header class="cv-head">
+          <h2>Chain-hash visualization</h2>
+          <p class="hint">
+            Last {{ chained().length }} entries · head <code>{{ chain().head?.slice(0, 8) ?? '—' }}…</code>
+            · click a block to jump to the entry
+          </p>
+        </header>
+        <div class="cv-strip" role="list">
+          @for (e of chained(); track e.id; let i = $index) {
+            <div class="cv-cell" role="listitem">
+              @if (i > 0) { <span class="cv-arrow" aria-hidden="true">→</span> }
+              <button
+                type="button"
+                class="cv-block"
+                [attr.data-family]="familyOf(e.action)"
+                [class.head]="i === chained().length - 1"
+                (click)="scrollToEntry(e.id)"
+                [attr.aria-label]="'Jump to ' + e.action + ' by ' + e.actor">
+                <span class="cv-hash"><code>{{ (e.chainHash ?? '?').slice(0, 8) }}</code></span>
+                <span class="cv-action">{{ formatAction(e.action) }}</span>
+                <span class="cv-actor">{{ e.actor }}</span>
+              </button>
+            </div>
+          }
+        </div>
+      </section>
+    }
+
     <section class="filters">
       <div class="filter-group">
         <span class="filter-label">Family</span>
@@ -85,7 +120,7 @@ const FAMILY_LABELS: Record<ActionFamily, string> = {
     } @else {
       <ol class="trail">
         @for (e of filtered(); track e.id) {
-          <li>
+          <li [attr.data-audit-id]="e.id">
             <div class="time">
               <span class="day">{{ shortDay(e.timestamp) }}</span>
               <span class="hour">{{ shortTime(e.timestamp) }}</span>
@@ -134,6 +169,44 @@ const FAMILY_LABELS: Record<ActionFamily, string> = {
     h1 { margin: 0.2rem 0 0.3rem; font-size: var(--fs-2xl); font-weight: 600; letter-spacing: -0.02em; }
     .muted { color: var(--c-text-mute); margin: 0; font-size: var(--fs-sm); max-width: 580px; }
     .counter { font-size: var(--fs-xs); color: var(--c-text-mute); font-variant-numeric: tabular-nums; }
+
+    .chain-viz {
+      margin-bottom: var(--s-4);
+      padding: var(--s-3) var(--s-4);
+      background: var(--c-surface-0);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-md);
+    }
+    .cv-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); margin-bottom: var(--s-3); }
+    .cv-head h2 { margin: 0; font-size: var(--fs-md); color: var(--c-text-1); }
+    .cv-head .hint { margin: 0; font-size: var(--fs-xs); color: var(--c-text-mute); }
+    .cv-head code { font-family: ui-monospace, monospace; }
+    .cv-strip { display: flex; align-items: stretch; gap: 4px; overflow-x: auto; padding: 4px 2px; }
+    .cv-cell { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .cv-arrow { color: var(--c-text-faint); font-size: 0.9rem; }
+    .cv-block {
+      display: flex; flex-direction: column; gap: 1px;
+      padding: 0.4rem 0.55rem; min-width: 110px;
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-left: 3px solid var(--c-text-faint);
+      border-radius: var(--r-sm); cursor: pointer; text-align: left;
+      font-family: inherit;
+    }
+    .cv-block:hover { background: var(--c-surface-1); }
+    .cv-block.head { border-color: var(--c-accent, #6366f1); box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15); }
+    .cv-block[data-family="hold"]      { border-left-color: #f59e0b; }
+    .cv-block[data-family="custodian"] { border-left-color: #3b82f6; }
+    .cv-block[data-family="document"]  { border-left-color: #10b981; }
+    .cv-block[data-family="privilege"] { border-left-color: #ef4444; }
+    .cv-hash { font-size: 0.7rem; color: var(--c-text-faint); font-variant-numeric: tabular-nums; }
+    .cv-hash code { font-family: ui-monospace, monospace; }
+    .cv-action { font-size: 0.78rem; font-weight: 600; color: var(--c-text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cv-actor  { font-size: 0.7rem; color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+    .trail li.flash { animation: flash 1.4s ease-out; }
+    @keyframes flash {
+      0%   { background: rgba(99, 102, 241, 0.25); }
+      100% { background: transparent; }
+    }
 
     .integrity {
       display: flex; align-items: center; justify-content: space-between;
@@ -277,6 +350,26 @@ export class AuditComponent {
     if (f === 'all') return this.all();
     return this.all().filter((e) => this.familyOf(e.action) === f);
   });
+
+  /**
+   * Last N events that carry a `chainHash` (oldest → newest order
+   * with the head on the right). Drives the chain-viz strip above
+   * the filters. Limited to 12 cells so the strip stays readable
+   * without horizontal scroll on common viewports.
+   */
+  protected readonly chained = computed(() => {
+    const withHash = this.all().filter((e) => !!e.chainHash);
+    return withHash.slice(0, 12).reverse();
+  });
+
+  /** Scroll the trail item with `data-id="<id>"` into view + highlight it. */
+  scrollToEntry(id: string): void {
+    const el = document.querySelector(`li[data-audit-id="${id}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1400);
+  }
 
   countFor(f: ActionFamily): number {
     if (f === 'all') return this.all().length;
