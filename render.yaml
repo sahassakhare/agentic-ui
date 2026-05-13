@@ -118,6 +118,15 @@ services:
       printf '/*  /index.html  200\n' \
         > dist/demo-ediscovery-shell/browser/_redirects
     staticPublishPath: dist/demo-ediscovery-shell/browser
+    # SPA fallback — every non-file path serves index.html so client-side
+    # routing (Angular Router) takes over. _redirects file alone is NOT
+    # honored by Render's static-site service; this routes block is the
+    # canonical mechanism. Diagnosed 2026-05-13: /inbox + /dashboards +
+    # /playbooks were all 404'ing despite a correct _redirects file.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       # fromService.property: host returns the bare service name (NOT the
       # FQDN). The build command above appends `.onrender.com` to form a
