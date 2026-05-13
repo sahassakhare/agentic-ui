@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } 
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { SmartCellComponent } from '@infra-tools/agentic-ui';
 import {
   appendAudit,
   getCustodian,
@@ -43,7 +44,7 @@ const ALL_TAGS: readonly DocumentTag[] = ['responsive', 'non-responsive', 'privi
 @Component({
   selector: 'app-documents',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, IconComponent, TagChipComponent, EmptyStateComponent, StatusBadgeComponent],
+  imports: [DecimalPipe, IconComponent, TagChipComponent, EmptyStateComponent, StatusBadgeComponent, SmartCellComponent],
   template: `
     <section class="page-head">
       <div>
@@ -135,6 +136,7 @@ const ALL_TAGS: readonly DocumentTag[] = ['responsive', 'non-responsive', 'privi
               <th>Custodian</th>
               <th>Authored</th>
               <th class="num">Size</th>
+              <th>AI flag</th>
               <th>Tags</th>
               <th></th>
             </tr>
@@ -165,6 +167,11 @@ const ALL_TAGS: readonly DocumentTag[] = ['responsive', 'non-responsive', 'privi
                 </td>
                 <td><span class="date">{{ shortDate(d.authoredAt) }}</span></td>
                 <td class="num">{{ kb(d.fileSize) }}</td>
+                <td class="ai-cell" (click)="$event.stopPropagation()">
+                  <mvk-smart-cell
+                    [value]="aiFlag(d)"
+                    tool="markPrivileged" />
+                </td>
                 <td>
                   <div class="tags">
                     @if (d.tags.length === 0) { <span class="muted">—</span> }
@@ -544,6 +551,19 @@ export class DocumentsComponent {
 
   custodianName(id: string): string {
     return getCustodian(id)?.name ?? id;
+  }
+  /**
+   * Synthetic agent-classification flag shown in the `mvk-smart-cell`
+   * "AI flag" column. In production this would be a row field populated
+   * by a `markPrivileged` / `runTARClassifier` tool call; for the demo
+   * we derive it from the row metadata so the surface lights up
+   * without burning a chat turn per row.
+   */
+  aiFlag(d: Document): string {
+    if (d.privilegeReason)        return 'PRIV';
+    if (d.tags.includes('hot'))   return 'HOT';
+    if (d.tags.includes('redact')) return 'REDACT';
+    return '—';
   }
   initials(name: string): string {
     return (name.split(/\s+/).map((p) => p[0]).join('').slice(0, 2) || '?').toUpperCase();
