@@ -16,9 +16,12 @@ import {
 import type { TileDef } from '../types/registry-defs';
 import {
   DashboardTileComponent,
+  type DashboardTileAnnotate,
   type DashboardTileDrilldown,
   type DashboardTileExplain,
+  type TileAnnotation,
 } from './dashboard-tile.component';
+import { TileResultCache } from './tile-result-cache';
 
 // ── test widgets ──────────────────────────────────────────────────
 
@@ -41,8 +44,10 @@ class TestValueWidgetComponent {
     <mvk-dashboard-tile
       [tile]="tile()"
       [refreshTick]="refreshTick()"
+      [annotations]="annotations()"
       (drilldown)="drilldownCalls.push($event)"
-      (explain)="explainCalls.push($event)" />
+      (explain)="explainCalls.push($event)"
+      (annotate)="annotateCalls.push($event)" />
   `,
 })
 class HostComponent {
@@ -54,8 +59,10 @@ class HostComponent {
     invocation: { kind: 'static', props: 'hello' },
   });
   refreshTick: WritableSignal<number> = signal(0);
+  annotations: WritableSignal<readonly TileAnnotation[]> = signal([]);
   drilldownCalls: DashboardTileDrilldown[] = [];
   explainCalls: DashboardTileExplain[] = [];
+  annotateCalls: DashboardTileAnnotate[] = [];
 }
 
 function seedComponents(): void {
@@ -432,6 +439,260 @@ describe('DashboardTileComponent — refresh', () => {
     fixture.componentInstance.refreshTick.set(1);
     fixture.detectChanges();
     await settle(fixture);
+    expect(calls).toBe(2);
+  });
+});
+
+// ── annotations ──────────────────────────────────────────────────
+
+describe('DashboardTileComponent — annotations', () => {
+  beforeEach(() => undefined);
+
+  it('hides the notes badge when no annotations supplied', async () => {
+    const fixture = await setup({
+      id: 't1',
+      slot: 'a',
+      title: 'No notes',
+      component: 'valueWidget',
+      invocation: { kind: 'static', props: 1 },
+    });
+    expect(fixture.nativeElement.querySelector('button.note-btn')).toBeNull();
+  });
+
+  it('shows the notes badge with count when annotations are provided', async () => {
+    const fixture = await setup({
+      id: 't1',
+      slot: 'a',
+      title: 'With notes',
+      component: 'valueWidget',
+      invocation: { kind: 'static', props: 1 },
+    });
+    fixture.componentInstance.annotations.set([
+      { id: 'a', author: 'Sarah', body: 'Worth a deeper look', createdAt: '2026-04-12T10:00:00Z' },
+      { id: 'b', author: 'GC',    body: 'Approved',           createdAt: '2026-04-13T08:00:00Z' },
+    ]);
+    fixture.detectChanges();
+    const badge = fixture.nativeElement.querySelector('button.note-btn') as HTMLButtonElement;
+    expect(badge).not.toBeNull();
+    expect(badge.textContent).toContain('2');
+  });
+
+  it('toggles the notes panel open/closed on badge click', async () => {
+    const fixture = await setup({
+      id: 't1',
+      slot: 'a',
+      title: 'With notes',
+      component: 'valueWidget',
+      invocation: { kind: 'static', props: 1 },
+    });
+    fixture.componentInstance.annotations.set([
+      { id: 'a', author: 'Sarah', body: 'A note', createdAt: '2026-04-12T10:00:00Z' },
+    ]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('section.notes')).toBeNull();
+
+    (fixture.nativeElement.querySelector('button.note-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('section.notes')).not.toBeNull();
+
+    (fixture.nativeElement.querySelector('button.note-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('section.notes')).toBeNull();
+  });
+
+  it('posting a non-empty note emits (annotate) with the tile id + body, and clears the input', async () => {
+    const fixture = await setup({
+      id: 'tile-7',
+      slot: 'a',
+      title: 'Post note here',
+      component: 'valueWidget',
+      invocation: { kind: 'static', props: 1 },
+    });
+    fixture.componentInstance.annotations.set([
+      { id: 'seed', author: 'Sarah', body: 'first', createdAt: '2026-04-12T10:00:00Z' },
+    ]);
+    fixture.detectChanges();
+    // open the notes panel
+    (fixture.nativeElement.querySelector('button.note-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    // Drive the noteDraft signal directly (jsdom ngModel flake-proof).
+    const panel = fixture.debugElement.children[0].componentInstance as unknown as {
+      noteDraft: WritableSignal<string>;
+    };
+    panel.noteDraft.set('Looks good.');
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('button.note-submit') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.annotateCalls).toEqual([
+      { tileId: 'tile-7', body: 'Looks good.' },
+    ]);
+    expect(panel.noteDraft()).toBe('');
+  });
+
+  it('renders one li.note per supplied annotation with author + body', async () => {
+    const fixture = await setup({
+      id: 't1',
+      slot: 'a',
+      title: 'Notes',
+      component: 'valueWidget',
+      invocation: { kind: 'static', props: 1 },
+    });
+    fixture.componentInstance.annotations.set([
+      { id: 'a', author: 'Sarah', body: 'first note',  createdAt: '2026-04-12T10:00:00Z' },
+      { id: 'b', author: 'GC',    body: 'second note', createdAt: '2026-04-13T08:00:00Z' },
+    ]);
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('button.note-btn') as HTMLButtonElement).click();
+    fixture.detectChanges();
+
+    const notes = Array.from(fixture.nativeElement.querySelectorAll('li.note:not(.empty)'));
+    expect(notes).toHaveLength(2);
+    expect((notes[0] as HTMLElement).textContent).toContain('Sarah');
+    expect((notes[0] as HTMLElement).textContent).toContain('first note');
+  });
+});
+
+// ── cross-instance cache ─────────────────────────────────────────
+
+describe('DashboardTileComponent — cross-instance cache dedupe', () => {
+  beforeEach(() => undefined);
+
+  it('two tiles with the same tool+args within TTL share one fetch', async () => {
+    // Two host fixtures mounted concurrently — same TileResultCache
+    // singleton (providedIn: 'root') means the second tile reads from
+    // the cache when the first one warmed it.
+    TestBed.configureTestingModule({ imports: [HostComponent] });
+    seedComponents();
+    let calls = 0;
+    TestBed.inject(ToolRegistry).register(
+      agenticTool({
+        name: 'shared',
+        description: '',
+        schema: z.object({ k: z.string() }),
+        handler: async (args) => {
+          calls += 1;
+          return { k: args.k, calls };
+        },
+      }) as ToolDef,
+    );
+    const sharedArgs = { k: 'same' };
+    const a = TestBed.createComponent(HostComponent);
+    const b = TestBed.createComponent(HostComponent);
+    a.componentInstance.tile.set({
+      id: 'a',
+      slot: 's',
+      title: 'A',
+      component: 'valueWidget',
+      invocation: { kind: 'tool', tool: 'shared', args: sharedArgs },
+      cacheTtlMs: 60_000,
+    });
+    b.componentInstance.tile.set({
+      id: 'b',
+      slot: 's',
+      title: 'B',
+      component: 'valueWidget',
+      invocation: { kind: 'tool', tool: 'shared', args: sharedArgs },
+      cacheTtlMs: 60_000,
+    });
+    a.detectChanges();
+    b.detectChanges();
+
+    // Both tiles fire concurrently — TileResultCache.track dedupes
+    // the in-flight promise so only one handler call happens.
+    await new Promise((r) => setTimeout(r, 5));
+    a.detectChanges();
+    b.detectChanges();
+    await new Promise((r) => setTimeout(r, 5));
+    a.detectChanges();
+    b.detectChanges();
+
+    expect(calls).toBe(1);
+
+    // And both tiles render the same value from the shared cache.
+    expect(a.nativeElement.querySelector('[data-testid="val"]')?.textContent).toContain('"calls":1');
+    expect(b.nativeElement.querySelector('[data-testid="val"]')?.textContent).toContain('"calls":1');
+  });
+
+  it('different args bypass the shared cache (per-args keying)', async () => {
+    TestBed.configureTestingModule({ imports: [HostComponent] });
+    seedComponents();
+    let calls = 0;
+    TestBed.inject(ToolRegistry).register(
+      agenticTool({
+        name: 'perArg',
+        description: '',
+        schema: z.object({ k: z.string() }),
+        handler: async (args) => {
+          calls += 1;
+          return args.k;
+        },
+      }) as ToolDef,
+    );
+    const a = TestBed.createComponent(HostComponent);
+    const b = TestBed.createComponent(HostComponent);
+    a.componentInstance.tile.set({
+      id: 'a',
+      slot: 's',
+      title: 'A',
+      component: 'valueWidget',
+      invocation: { kind: 'tool', tool: 'perArg', args: { k: 'alpha' } },
+      cacheTtlMs: 60_000,
+    });
+    b.componentInstance.tile.set({
+      id: 'b',
+      slot: 's',
+      title: 'B',
+      component: 'valueWidget',
+      invocation: { kind: 'tool', tool: 'perArg', args: { k: 'beta' } },
+      cacheTtlMs: 60_000,
+    });
+    a.detectChanges();
+    b.detectChanges();
+    await new Promise((r) => setTimeout(r, 5));
+    a.detectChanges();
+    b.detectChanges();
+    await new Promise((r) => setTimeout(r, 5));
+
+    expect(calls).toBe(2);
+  });
+
+  it('cacheTtlMs unset means no cache reuse — every fire hits the tool', async () => {
+    TestBed.configureTestingModule({ imports: [HostComponent] });
+    seedComponents();
+    TestBed.inject(TileResultCache).clear();
+    let calls = 0;
+    TestBed.inject(ToolRegistry).register(
+      agenticTool({
+        name: 'uncached',
+        description: '',
+        schema: z.object({}),
+        handler: async () => {
+          calls += 1;
+          return calls;
+        },
+      }) as ToolDef,
+    );
+    const fixture = TestBed.createComponent(HostComponent);
+    fixture.componentInstance.tile.set({
+      id: 't',
+      slot: 's',
+      title: 'T',
+      component: 'valueWidget',
+      invocation: { kind: 'tool', tool: 'uncached', args: {} },
+      // no cacheTtlMs — cache is bypassed
+    });
+    fixture.detectChanges();
+    await new Promise((r) => setTimeout(r, 5));
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('button[aria-label="Refresh tile"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    await new Promise((r) => setTimeout(r, 5));
+    fixture.detectChanges();
+
     expect(calls).toBe(2);
   });
 });

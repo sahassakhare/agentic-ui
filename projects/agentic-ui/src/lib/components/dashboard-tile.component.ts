@@ -11,10 +11,12 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ComponentRegistry } from '../registries/component-registry';
 import { DataSourceRegistry } from '../registries/data-source-registry';
 import { ToolRegistry } from '../registries/tool-registry';
 import type { TileDef, TileDrilldown } from '../types/registry-defs';
+import { TileResultCache, tileCacheKey } from './tile-result-cache';
 
 interface ResolvedTile {
   readonly component: Type<unknown>;
@@ -39,6 +41,24 @@ export interface DashboardTileDrilldown {
 export interface DashboardTileExplain {
   readonly tileId: string;
   readonly value: unknown;
+}
+
+/**
+ * One annotation pinned to a tile — typically "leave a note for the
+ * team" from a reviewer. The host owns persistence; the tile renders
+ * the list and emits `(annotate)` when the user adds one.
+ */
+export interface TileAnnotation {
+  readonly id: string;
+  readonly author: string;
+  readonly body: string;
+  readonly createdAt: string;
+}
+
+/** Emitted when the user adds a note to a tile. */
+export interface DashboardTileAnnotate {
+  readonly tileId: string;
+  readonly body: string;
 }
 
 /**
@@ -81,13 +101,22 @@ export interface DashboardTileExplain {
  */
 @Component({
   selector: 'mvk-dashboard-tile',
-  imports: [NgComponentOutlet],
+  imports: [NgComponentOutlet, FormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <article class="tile" [attr.data-tile-id]="tile().id">
       <header class="tile-head">
         <h3 class="tile-title">{{ tile().title }}</h3>
         <span class="actions">
+          @if (annotations().length > 0) {
+            <button type="button"
+                    class="icon-btn note-btn"
+                    [attr.aria-label]="annotations().length + ' notes — show'"
+                    title="Show notes"
+                    (click)="toggleNotes()">
+              💬 <span class="note-count">{{ annotations().length }}</span>
+            </button>
+          }
           @if (tile().explainable) {
             <button type="button"
                     class="icon-btn"
@@ -127,6 +156,35 @@ export interface DashboardTileExplain {
           </div>
         }
       </div>
+
+      @if (notesOpen()) {
+        <section class="notes" aria-label="Tile notes">
+          <ul class="note-list" role="list">
+            @for (n of annotations(); track n.id) {
+              <li class="note">
+                <header class="note-head">
+                  <span class="note-author">{{ n.author }}</span>
+                  <time class="note-time" [attr.datetime]="n.createdAt">{{ n.createdAt }}</time>
+                </header>
+                <p class="note-body">{{ n.body }}</p>
+              </li>
+            } @empty {
+              <li class="note empty">No notes yet.</li>
+            }
+          </ul>
+          <form class="note-form" (submit)="onAddNote($event)">
+            <input
+              type="text"
+              class="note-input"
+              [ngModel]="noteDraft()"
+              (ngModelChange)="noteDraft.set($event)"
+              name="note"
+              placeholder="Leave a note for the team…"
+              aria-label="New note" />
+            <button type="submit" class="note-submit" [disabled]="!noteDraft().trim()">Post</button>
+          </form>
+        </section>
+      }
     </article>
   `,
   styles: `
@@ -170,6 +228,32 @@ export interface DashboardTileExplain {
     .state-loading { color: #6b7280; }
     .state-error { background: #fee2e2; color: #991b1b; cursor: help; }
     .state-blocked { color: #9ca3af; }
+    .note-btn { display: inline-flex; align-items: center; gap: 0.15rem; font-size: 0.8rem; padding: 0 0.3rem; width: auto; }
+    .note-count { font-weight: 600; }
+    .notes {
+      border-top: 1px solid #e5e7eb; padding: 0.5rem 0.75rem;
+      background: #fafafa; max-height: 220px; overflow-y: auto;
+    }
+    .note-list { list-style: none; margin: 0 0 0.4rem 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+    .note { font-size: 0.8rem; line-height: 1.35; }
+    .note.empty { color: #9ca3af; font-style: italic; }
+    .note-head { display: flex; gap: 0.4rem; align-items: baseline; }
+    .note-author { font-weight: 600; color: #111827; }
+    .note-time { color: #9ca3af; font-size: 0.75em; }
+    .note-body { margin: 0.15rem 0 0 0; color: #4b5563; }
+    .note-form { display: flex; gap: 0.3rem; }
+    .note-input {
+      flex: 1; padding: 0.35rem 0.5rem;
+      border: 1px solid #e5e7eb; border-radius: 0.3rem; font: inherit; font-size: 0.8rem;
+    }
+    .note-input:focus { outline: 2px solid #6366f1; outline-offset: -1px; border-color: transparent; }
+    .note-submit {
+      padding: 0.35rem 0.7rem;
+      background: #2563eb; color: white; border: 0;
+      border-radius: 0.3rem; font: inherit; font-size: 0.8rem; font-weight: 600;
+      cursor: pointer;
+    }
+    .note-submit:disabled { opacity: 0.5; cursor: not-allowed; }
   `,
 })
 export class DashboardTileComponent {
@@ -190,14 +274,31 @@ export class DashboardTileComponent {
   /** Emitted when the user clicks the Explain affordance. */
   readonly explain = output<DashboardTileExplain>();
 
+  /**
+   * Optional notes pinned to this tile — host owns persistence
+   * (typically via `PersistenceRegistry`). When non-empty, a 💬
+   * badge with the count surfaces in the tile header; clicking
+   * expands the notes panel below the body.
+   */
+  readonly annotations = input<readonly TileAnnotation[]>([]);
+
+  /** Emitted when the user posts a new note via the panel form. */
+  readonly annotate = output<DashboardTileAnnotate>();
+
   private readonly tools = inject(ToolRegistry);
   private readonly dataSources = inject(DataSourceRegistry);
   private readonly components = inject(ComponentRegistry);
+  private readonly cache = inject(TileResultCache);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly loading = signal(false);
   protected readonly errorMessage = signal<string | undefined>(undefined);
   protected readonly value = signal<unknown>(undefined);
+
+  /** Whether the notes panel is currently expanded. */
+  protected readonly notesOpen = signal(false);
+  /** Current draft text for the new-note input. */
+  protected readonly noteDraft = signal('');
 
   /** Track which invocation has run so we don't refire on every change. */
   private invocationKey = '';
@@ -270,17 +371,6 @@ export class DashboardTileComponent {
       return;
     }
 
-    // Cache hit?
-    const now = Date.now();
-    if (
-      tile.cacheTtlMs &&
-      tile.cacheTtlMs > 0 &&
-      this.lastFetchAt > 0 &&
-      now - this.lastFetchAt < tile.cacheTtlMs
-    ) {
-      return;
-    }
-
     if (tile.invocation.kind === 'tool') {
       if (this.personaBlocked()) {
         this.value.set(undefined);
@@ -293,12 +383,28 @@ export class DashboardTileComponent {
         this.errorMessage.set(`Unknown tool "${tile.invocation.tool}"`);
         return;
       }
+
+      const args = tile.invocation.args;
+      const cacheKey = tileCacheKey('tool', tile.invocation.tool, args);
+      const ttl = tile.cacheTtlMs ?? 0;
+
+      // Cross-instance cache hit?
+      const cached = this.cache.read(cacheKey, ttl);
+      if (cached !== undefined) {
+        this.value.set(cached);
+        this.errorMessage.set(undefined);
+        this.lastFetchAt = Date.now();
+        return;
+      }
+
       this.loading.set(true);
       this.errorMessage.set(undefined);
       try {
-        const args = tile.invocation.args;
         const ctx = buildTileToolContext(tile.id);
-        const result = await def.handler(args, ctx);
+        // track() dedupes concurrent fires across instances —
+        // two tiles invoking the same {tool, args} pair share one
+        // underlying call.
+        const result = await this.cache.track(cacheKey, () => def.handler(args, ctx));
         this.value.set(result);
         this.lastFetchAt = Date.now();
       } catch (err) {
@@ -315,14 +421,29 @@ export class DashboardTileComponent {
         this.errorMessage.set(`Unknown data source "${tile.invocation.source}"`);
         return;
       }
+
+      const query = tile.invocation.query;
+      const cacheKey = tileCacheKey('data', tile.invocation.source, query);
+      const ttl = tile.cacheTtlMs ?? 0;
+
+      const cached = this.cache.read(cacheKey, ttl);
+      if (cached !== undefined) {
+        this.value.set(cached);
+        this.errorMessage.set(undefined);
+        this.lastFetchAt = Date.now();
+        return;
+      }
+
       this.loading.set(true);
       this.errorMessage.set(undefined);
       try {
         // adapter() can return Observable (streams) or Promise (one-shots);
         // tiles read first emission for both. Hosts that need live stream
         // updates wire via refreshOn: 'event' + their own subscription.
-        const result = source.adapter(tile.invocation.query);
-        const fetched = await unwrapDataSourceResult(result);
+        const fetched = await this.cache.track(cacheKey, async () => {
+          const result = source.adapter(query);
+          return unwrapDataSourceResult(result);
+        });
         this.value.set(fetched);
         this.lastFetchAt = Date.now();
       } catch (err) {
@@ -342,6 +463,20 @@ export class DashboardTileComponent {
 
   protected onExplain(): void {
     this.explain.emit({ tileId: this.tile().id, value: this.value() });
+  }
+
+  /** Toggle the notes panel below the tile body. */
+  protected toggleNotes(): void {
+    this.notesOpen.update((v) => !v);
+  }
+
+  /** Post the current draft as a new annotation; clears the input. */
+  protected onAddNote(ev: Event): void {
+    ev.preventDefault();
+    const body = this.noteDraft().trim();
+    if (!body) return;
+    this.annotate.emit({ tileId: this.tile().id, body });
+    this.noteDraft.set('');
   }
 }
 

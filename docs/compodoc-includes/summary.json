@@ -96,6 +96,10 @@
     "file": "conversational-dashboards.md"
   },
   {
+    "title": "Live + drillable dashboards (P3.C)",
+    "file": "live-dashboards.md"
+  },
+  {
     "title": "Domain MFEs as standalone apps + capability providers",
     "file": "domain-mfe-standalone-and-federated.md"
   },
