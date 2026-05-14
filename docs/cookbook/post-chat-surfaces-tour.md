@@ -18,30 +18,37 @@ The implementer-facing reference (registry shapes, code snippets, factory call s
 >
 > If you click a *Try asking* prompt before the chat shell mounts, nothing happens — the chat-shell view-child isn't there yet to receive the message. Wait for the chat composer input to appear in the right rail, then click.
 
-## Watch the videos
+## Watch the walkthroughs
 
-Every pillar below has an inline `<video>` walkthrough recorded against the live Render demo. GitHub renders them natively in this page — just click play. All 9 videos are checked in under [`docs/assets/videos/`](../assets/videos/) and total ~1 MB (the longest is the §18 in-context affordances run at 194 KB).
+Each pillar below has an inline **GIF** walkthrough recorded against the live Render demo. GitHub renders these natively in this page — just scroll down. For frame-accurate full-quality playback, every GIF has a *"Open in new tab →"* link below it pointing at the corresponding `.webm` (which downloads + opens in your default video player).
 
-| Pillar | Direct link |
-|---|---|
-| §17 Workspace layouts | [17-workspace-layouts.webm](../assets/videos/17-workspace-layouts.webm) |
-| §18 In-context affordances | [18-in-context-affordances.webm](../assets/videos/18-in-context-affordances.webm) |
-| §19 Triggers + inbox | [19-triggers-and-inbox.webm](../assets/videos/19-triggers-and-inbox.webm) |
-| §20 Dashboards | [20-dashboards.webm](../assets/videos/20-dashboards.webm) |
-| §21 Workflow surfaces | [21-workflow-surfaces.webm](../assets/videos/21-workflow-surfaces.webm) |
-| §22 Playbooks | [22-playbooks.webm](../assets/videos/22-playbooks.webm) |
-| Custodians (assist + interview prep) | [custodians-interview-prep.webm](../assets/videos/custodians-interview-prep.webm) |
-| Holds (lifecycle widget) | [holds-lifecycle.webm](../assets/videos/holds-lifecycle.webm) |
-| Audit (chain-hash viz) | [audit-chain-viz.webm](../assets/videos/audit-chain-viz.webm) |
-| Agent-driven workspace (chat → setWorkspaceLayout) | [agent-driven-workspace.webm](../assets/videos/agent-driven-workspace.webm) |
+| Pillar | Inline GIF | Full-quality `.webm` |
+|---|---|---|
+| §17 Workspace layouts | [17-workspace-layouts.gif](../assets/gifs/17-workspace-layouts.gif) | [download `.webm`](../assets/videos/17-workspace-layouts.webm) |
+| §18 In-context affordances | [18-in-context-affordances.gif](../assets/gifs/18-in-context-affordances.gif) | [download `.webm`](../assets/videos/18-in-context-affordances.webm) |
+| §19 Triggers + inbox | [19-triggers-and-inbox.gif](../assets/gifs/19-triggers-and-inbox.gif) | [download `.webm`](../assets/videos/19-triggers-and-inbox.webm) |
+| §20 Dashboards | [20-dashboards.gif](../assets/gifs/20-dashboards.gif) | [download `.webm`](../assets/videos/20-dashboards.webm) |
+| §21 Workflow surfaces | [21-workflow-surfaces.gif](../assets/gifs/21-workflow-surfaces.gif) | [download `.webm`](../assets/videos/21-workflow-surfaces.webm) |
+| §22 Playbooks | [22-playbooks.gif](../assets/gifs/22-playbooks.gif) | [download `.webm`](../assets/videos/22-playbooks.webm) |
+| Custodians (assist + interview prep) | [custodians-interview-prep.gif](../assets/gifs/custodians-interview-prep.gif) | [download `.webm`](../assets/videos/custodians-interview-prep.webm) |
+| Holds (lifecycle widget) | [holds-lifecycle.gif](../assets/gifs/holds-lifecycle.gif) | [download `.webm`](../assets/videos/holds-lifecycle.webm) |
+| Audit (chain-hash viz) | [audit-chain-viz.gif](../assets/gifs/audit-chain-viz.gif) | [download `.webm`](../assets/videos/audit-chain-viz.webm) |
+| Agent-driven workspace (chat → setWorkspaceLayout) | [agent-driven-workspace.gif](../assets/gifs/agent-driven-workspace.gif) | [download `.webm`](../assets/videos/agent-driven-workspace.webm) |
 
-To **regenerate** them after a code change, run the Playwright spec against either Render or localhost — it records video for every test, then copy the new `.webm` files into `docs/assets/videos/`:
+The GIFs are checked in under [`docs/assets/gifs/`](../assets/gifs/) (~6 MB total at 8 fps / 900 px wide). The `.webm` originals are under [`docs/assets/videos/`](../assets/videos/) (~1.6 MB total at 30 fps full-quality).
+
+**Why both?** GitHub's markdown renderer strips `<video>` tags (security policy) but happily renders `![]()` images including animated GIFs. GIFs play inline; the `.webm` link is for adopters who want to scrub frame-by-frame.
+
+To **regenerate** after a code change, run the Playwright spec — it records `.webm` for every test, then re-encode to GIF:
 
 ```bash
 cd e2e
 EDIS_BASE_URL=https://ediscovery-shell.onrender.com \
   npx playwright test specs/11-post-chat-surfaces.spec.ts --reporter=html
-npx playwright show-report playwright-report
+
+# (Optional) Re-encode the .webm → .gif with ffmpeg's 2-pass palette flow.
+# A bundled binary works: npm i @ffmpeg-installer/ffmpeg
+# See scripts/encode-tour-gifs.mjs (if present) for the loop.
 ```
 
 ---
@@ -63,7 +70,7 @@ The chat shell on the right side of every page. Its **mode** is decided by the r
 
 ### Video
 
-<video src="../assets/videos/17-workspace-layouts.webm" controls preload="metadata" width="720"></video>
+![17-workspace-layouts](../assets/gifs/17-workspace-layouts.gif)
 
 [Open in new tab →](../assets/videos/17-workspace-layouts.webm)
 
@@ -85,7 +92,7 @@ The chat is not the only way to invoke a tool. The Documents page surfaces three
 
 ### Video
 
-<video src="../assets/videos/18-in-context-affordances.webm" controls preload="metadata" width="720"></video>
+![18-in-context-affordances](../assets/gifs/18-in-context-affordances.gif)
 
 [Open in new tab →](../assets/videos/18-in-context-affordances.webm)
 
@@ -115,7 +122,7 @@ The agent reaches you without a prompt. Three pre-seeded notifications land in t
 
 ### Video
 
-<video src="../assets/videos/19-triggers-and-inbox.webm" controls preload="metadata" width="720"></video>
+![19-triggers-and-inbox](../assets/gifs/19-triggers-and-inbox.gif)
 
 [Open in new tab →](../assets/videos/19-triggers-and-inbox.webm)
 
@@ -140,7 +147,7 @@ Six dashboards in a left-rail picker. Three are registered by the host at boot (
 
 ### Video
 
-<video src="../assets/videos/20-dashboards.webm" controls preload="metadata" width="720"></video>
+![20-dashboards](../assets/gifs/20-dashboards.gif)
 
 [Open in new tab →](../assets/videos/20-dashboards.webm)
 
@@ -188,19 +195,19 @@ Three purpose-built widgets for the workflows that aren't chat-shaped: multi-rev
 
 **Workflow surfaces (review-queue → timeline → CAL):**
 
-<video src="../assets/videos/21-workflow-surfaces.webm" controls preload="metadata" width="720"></video>
+![21-workflow-surfaces](../assets/gifs/21-workflow-surfaces.gif)
 
 [Open in new tab →](../assets/videos/21-workflow-surfaces.webm)
 
 **Custodians (assist-panel + interview-prep):**
 
-<video src="../assets/videos/custodians-interview-prep.webm" controls preload="metadata" width="720"></video>
+![custodians-interview-prep](../assets/gifs/custodians-interview-prep.gif)
 
 [Open in new tab →](../assets/videos/custodians-interview-prep.webm)
 
 **Holds (lifecycle-stages widget):**
 
-<video src="../assets/videos/holds-lifecycle.webm" controls preload="metadata" width="720"></video>
+![holds-lifecycle](../assets/gifs/holds-lifecycle.gif)
 
 [Open in new tab →](../assets/videos/holds-lifecycle.webm)
 
@@ -226,7 +233,7 @@ Named, versioned, persona-scoped sequences of tool calls. Three are pre-register
 
 ### Video
 
-<video src="../assets/videos/22-playbooks.webm" controls preload="metadata" width="720"></video>
+![22-playbooks](../assets/gifs/22-playbooks.gif)
 
 [Open in new tab →](../assets/videos/22-playbooks.webm)
 
@@ -251,7 +258,7 @@ The `/audit` route renders the last 12 chain-linked events as a horizontal strip
 
 ### Video
 
-<video src="../assets/videos/audit-chain-viz.webm" controls preload="metadata" width="720"></video>
+![audit-chain-viz](../assets/gifs/audit-chain-viz.gif)
 
 [Open in new tab →](../assets/videos/audit-chain-viz.webm)
 
@@ -283,7 +290,7 @@ The `LAYOUT_RENDER` event path is fine for ad-hoc agent-driven shapes — the de
 
 ### Video — agent reshaping /workspace live from a chat prompt
 
-<video src="../assets/videos/agent-driven-workspace.webm" controls preload="metadata" width="720"></video>
+![agent-driven-workspace](../assets/gifs/agent-driven-workspace.gif)
 
 [Open in new tab →](../assets/videos/agent-driven-workspace.webm)
 
