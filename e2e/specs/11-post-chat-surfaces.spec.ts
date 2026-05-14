@@ -59,11 +59,29 @@ test.beforeAll(async ({ browser, baseURL }) => {
  * instead of recording the user clicking on a blank/loading page.
  */
 async function waitForShellReady(page: import('@playwright/test').Page): Promise<void> {
-  // 90s ceiling — even with the pre-warm hook, Render occasionally
-  // serves a slow page (cf-ray cold-cache, MFE federation latency).
-  // 60s was enough for 8/9 runs but tripped on /review-queue once.
-  await page.locator('app-sidebar').waitFor({ state: 'visible', timeout: 90_000 });
+  // We need to wait for actual PAINTED content, not just DOM
+  // attachment. `await locator.waitFor({ state: 'visible' })` returns
+  // as soon as an element has non-zero size — which can happen mid-
+  // bootstrap before the browser has finished CSS / layout / paint.
+  //
+  // Without this stronger gate the recorded video shows ~30s of blank
+  // background (because Render cold-starts + Angular hydration paints
+  // late) followed by ~5s of actual content at the end.
+  //
+  // The signal we wait for: the matter name in the header. It's
+  // statically rendered by app-header once the matter store + persona
+  // service have both hydrated — i.e. when the app is genuinely ready.
+  await page.locator('app-header .matter-name, app-header').first()
+    .waitFor({ state: 'visible', timeout: 90_000 });
   await page.locator('mvk-chat-shell').waitFor({ state: 'attached', timeout: 30_000 });
+  // Let the network settle (the catalog registrar fires ~100 background
+  // POSTs that 409 — they don't fail the page but Playwright videos
+  // capture the visual jitter from incremental hydration).
+  await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => {});
+  // Small extra settle so the final paint cycle completes before the
+  // test's first interaction. Without this the video can still show a
+  // half-rendered frame at click time.
+  await page.waitForTimeout(800);
 }
 
 test('§17 Workspace layouts — shellMode per route + per-persona density', async ({ page }) => {
