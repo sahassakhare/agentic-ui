@@ -307,6 +307,69 @@ Both persistence + versioning paths have deterministic Playwright coverage in [`
 - *"Committed dashboard persists across reload"*
 - *"Committed dashboard versions chain across commits"*
 
+### Swapping the storage backend — IndexedDB / server-side / Dexie
+
+`PersistenceRegistry` is the **seam**. The two stores resolve their adapter by name (`'localStorage'`), so changing what's registered under that name changes where they read/write — without either store's code being touched. The lib ships three built-in factories:
+
+| Factory | Backed by | When to use |
+|---|---|---|
+| `memoryStore(name)` | `Map<string,unknown>` | SSR / tests / fallback when no browser storage. Default `'memory'`. |
+| `webStorageStore(name, storage)` | `Storage` (`localStorage` / `sessionStorage`) | Default. Synchronous, ~5 MB quota, JSON-serialized. Defaults `'localStorage'` + `'sessionStorage'`. |
+| `indexedDbStore(name, opts?)` | `IDBDatabase` | Multi-MB to GB quota; structured-clone semantics (preserves `Date` / `Map` / `Set` / typed-arrays without JSON roundtrip); async; **not auto-registered**. |
+
+**Pattern — swap to IndexedDB without touching stores:**
+
+```ts
+import { provideEnvironmentInitializer, inject } from '@angular/core';
+import { PersistenceRegistry, indexedDbStore } from '@infra-tools/agentic-ui';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    // …existing providers…
+    provideEnvironmentInitializer(() => {
+      const reg = inject(PersistenceRegistry);
+      // Re-register under the SAME 'localStorage' name. RegistryBase's
+      // default 'replace' conflict policy means the IDB adapter takes
+      // over for every consumer that asks for `reg.get('localStorage')`
+      // — WorkspaceLayoutStore, ProposedDashboardStore, the chat
+      // transcript persistence, etc. — all flip at once.
+      reg.register(indexedDbStore('localStorage', { dbName: 'my-app' }));
+    }),
+  ],
+};
+```
+
+**Pattern — server-side adapter (custom):**
+
+The same shape (`{ read, write, remove, clear }`, all `Promise`-returning) lets adopters write a thin HTTP wrapper:
+
+```ts
+function httpPersistenceStore(name: string, base: string): PersistenceDef {
+  return {
+    name,
+    kind: 'json',
+    read: async (key) => {
+      const res = await fetch(`${base}/kv/${encodeURIComponent(key)}`);
+      return res.ok ? res.json() : undefined;
+    },
+    write: async (key, value) => {
+      await fetch(`${base}/kv/${encodeURIComponent(key)}`, {
+        method: 'PUT', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(value),
+      });
+    },
+    remove: async (key) => {
+      await fetch(`${base}/kv/${encodeURIComponent(key)}`, { method: 'DELETE' });
+    },
+    clear: async () => { await fetch(`${base}/kv`, { method: 'DELETE' }); },
+  };
+}
+```
+
+Register `httpPersistenceStore('localStorage', '/api/preferences')` in `app.config.ts` and the user's workspace + dashboard preferences now live on the server, accessible across devices. **Zero changes** to `WorkspaceLayoutStore` or `ProposedDashboardStore` — that's the seam paying off.
+
+Adapter coverage lives in [`persistence-registry.spec.ts`](../../projects/agentic-ui/src/lib/registries/persistence-registry.spec.ts) — round-trip, structured-clone preservation, swap-by-name semantics, all three factories.
+
 ### Video — agent reshaping /workspace live from a chat prompt
 
 ![agent-driven-workspace](../assets/gifs/agent-driven-workspace.gif)
