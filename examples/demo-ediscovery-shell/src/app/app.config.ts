@@ -45,6 +45,7 @@ import { registerNavigationActions } from './agentic/navigation-actions';
 import { registerPostChatSurfaces } from './agentic/post-chat-surfaces';
 import { PersonaService } from './services/persona.service';
 import { MatterStore } from './services/matter.store';
+import { ProposedDashboardStore } from './services/proposed-dashboard.store';
 
 function telemetryProvider() {
   switch (environment.telemetry) {
@@ -90,6 +91,13 @@ function bootAgenticCapabilities() {
     // initialPrivilegePass PlaybookDef. Runs AFTER tools register so
     // dashboard tiles + playbook steps can resolve real tool names.
     registerPostChatSurfaces(env);
+    // Phase A — rehydrate user-committed DashboardDef entries from
+    // PersistenceRegistry so they survive page reloads. Fires AFTER
+    // host + post-chat registrations so the persisted entries can
+    // override seeded ones by name (most-recent-commit wins). Async
+    // read but fire-and-forget — the picker rerenders when the
+    // registry signal fires.
+    void env.get(ProposedDashboardStore).rehydrateCommittedDashboards();
   });
 }
 

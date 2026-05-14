@@ -1,5 +1,5 @@
 import { effect, inject, Injectable, signal } from '@angular/core';
-import type { SlotMap } from '@infra-tools/agentic-ui';
+import { PersistenceRegistry, type SlotMap } from '@infra-tools/agentic-ui';
 import { PersonaService } from './persona.service';
 
 /**
@@ -12,12 +12,18 @@ import { PersonaService } from './persona.service';
  *     without a navigation or page reload.
  *
  *  2. **Host.** A boot-time effect rehydrates the last-saved slot
- *     map per persona from localStorage. Switching persona in the
- *     header restores that persona's preferred workspace shape.
+ *     map per persona via `PersistenceRegistry`. Switching persona
+ *     in the header restores that persona's preferred workspace
+ *     shape.
  *
- * Persistence key: `ediscovery.workspace-layout:<personaId>`. The
- * agent's writes are persisted automatically — a `prompt → reshape
- * → save → restore-after-refresh` round-trip works end-to-end.
+ * Persistence key: `ediscovery.workspace-layout:<personaId>`.
+ *
+ * Routed through `PersistenceRegistry.get('localStorage')` rather
+ * than raw `localStorage.setItem` so the storage backend stays
+ * swappable — adopters can register a Dexie / IndexedDB / server-
+ * side adapter under the same name and the store flips over with
+ * no code change here. That preserves the lib's seam: the registry
+ * decides storage, the store decides semantics.
  *
  * Out-of-scope: the LAYOUT_RENDER AG-UI event chain. This store
  * exposes the same SlotMap shape the event carries, but the wiring
@@ -27,39 +33,51 @@ import { PersonaService } from './persona.service';
 @Injectable({ providedIn: 'root' })
 export class WorkspaceLayoutStore {
   private readonly persona = inject(PersonaService);
+  private readonly persistence = inject(PersistenceRegistry);
+
+  /**
+   * Default adapter — `localStorage` when available, `memory`
+   * (in-memory Map) otherwise. Adopters that want IndexedDB swap
+   * this in their `app.config.ts` by registering a Dexie adapter
+   * named `localStorage` (or by changing this lookup name).
+   */
+  private readonly adapter = this.persistence.get('localStorage') ?? this.persistence.get('memory');
 
   private readonly _slots = signal<SlotMap | null>(null);
   readonly slots = this._slots.asReadonly();
 
-  /** Set the workspace slot map. Saves to localStorage under the active persona. */
+  /** Set the workspace slot map. Persists via the registered adapter. */
   set(slots: SlotMap): void {
     this._slots.set(slots);
-    this.persist(slots);
+    void this.adapter?.write(this.keyFor(this.persona.active()), slots).catch(() => {
+      /* swallow — store still has the in-memory signal value */
+    });
   }
 
   /** Clear the slot map (the /workspace page falls back to its built-in default). */
   clear(): void {
     this._slots.set(null);
-    try { localStorage.removeItem(this.keyFor(this.persona.active())); } catch { /* noop */ }
-  }
-
-  private persist(slots: SlotMap): void {
-    try { localStorage.setItem(this.keyFor(this.persona.active()), JSON.stringify(slots)); } catch { /* noop */ }
+    void this.adapter?.remove(this.keyFor(this.persona.active())).catch(() => { /* noop */ });
   }
 
   private keyFor(personaId: string): string {
     return `ediscovery.workspace-layout:${personaId}`;
   }
 
-  /** Rehydrate on construction + on persona switch. */
+  /**
+   * Rehydrate on construction + on persona switch. Adapter reads
+   * are async (Promise-based) so we fire-and-forget into the
+   * signal — Angular's `effect()` runs synchronously and we set
+   * the value once the read resolves.
+   */
   private readonly _hydrate = effect(() => {
     const personaId = this.persona.active();
-    try {
-      const raw = localStorage.getItem(this.keyFor(personaId));
-      if (raw) this._slots.set(JSON.parse(raw) as SlotMap);
-      else     this._slots.set(null);
-    } catch {
+    if (!this.adapter) {
       this._slots.set(null);
+      return;
     }
+    void this.adapter.read(this.keyFor(personaId))
+      .then((value) => this._slots.set((value as SlotMap | undefined) ?? null))
+      .catch(() => this._slots.set(null));
   });
 }

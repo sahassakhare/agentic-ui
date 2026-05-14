@@ -8,7 +8,7 @@ import type { AgenticBackend } from './agentic-backend';
  * orchestrator calls `removeBySource('remote:<name>')` once and every
  * registry strips the matching entries in one pass.
  */
-export type CapabilitySource = 'host' | `remote:${string}` | `mcp:${string}` | `external:${string}`;
+export type CapabilitySource = 'host' | 'user' | `team:${string}` | `remote:${string}` | `mcp:${string}` | `external:${string}`;
 
 /**
  * Common shape every registry entry shares. The uniform `name` lets registries
@@ -766,6 +766,24 @@ export interface PersistenceDef extends RegistryEntry {
  * A layout component the agent can choose by name. Lets the agent emit
  * `widget-render` events with a layout name + per-slot widgets, instead of
  * a single component — for richer generative UIs (split panes, dashboards).
+ *
+ * Two flavours, distinguished by which optional field is populated:
+ *
+ *  - **Component-based** — `component: Type<unknown>` is set. The layout
+ *    is a single Angular component that projects per-slot content via
+ *    `ng-content[slot]` (the original v1 shape).
+ *
+ *  - **Slot-map** — `slotMap?` is set. The layout is a richer
+ *    `SlotMap` payload (see [`layout/types.ts`](../layout/types.ts) /
+ *    [ADR-043 D1](../../../../docs/adr/0043-layout-registry-promotion.md))
+ *    that `<mvk-workspace-layout>` consumes directly. This is the shape
+ *    the agent emits via `LayoutRenderEvent` and the shape user-saved
+ *    layouts use. Both flavours coexist on the same registry — adopters
+ *    pick whichever they need.
+ *
+ * Versioning mirrors `DashboardDef`: edits to a saved layout create
+ * `version: 'vN'` with `parentVersion: 'vN-1'`, so the audit chain
+ * captures the edit history.
  */
 export interface LayoutDef extends RegistryEntry {
   /** Human-readable description. */
@@ -774,6 +792,20 @@ export interface LayoutDef extends RegistryEntry {
   readonly slots: readonly string[];
   /** Layout component; expected to project per-slot content via ng-content[slot]. */
   readonly component: Type<unknown>;
+  /**
+   * Optional slot map — the richer shape `<mvk-workspace-layout>`
+   * consumes when an entry represents an agent-emitted or user-saved
+   * slot-based composition (ADR-043 D1).
+   *
+   * Typed as `unknown` here to avoid pulling `SlotMap` from
+   * `layout/types.ts` into the registry-defs base module (which has no
+   * other layout-types dependency). Consumers cast back to `SlotMap`.
+   */
+  readonly slotMap?: unknown;
+  /** Version string; edits create new versions linked via `parentVersion`. */
+  readonly version?: string;
+  /** Previous version's `version` — chains the edit history. */
+  readonly parentVersion?: string;
 }
 
 /** Schema vocabulary tag. */

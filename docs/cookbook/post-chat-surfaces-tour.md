@@ -285,8 +285,12 @@ The `LAYOUT_RENDER` event path is fine for ad-hoc agent-driven shapes — the de
 
 ### User preference persistence
 
-- **Workspace layout** — the slot map is persisted to `localStorage` under `ediscovery.workspace-layout:<personaId>`. Refresh the page; the agent-emitted layout is still there. Switch persona; the layout switches to that persona's preferred shape (or falls back to the per-persona default if nothing was saved).
-- **Dashboard commits** — when the user clicks Commit, the proposed def joins `DashboardRegistry`. Persistence here is in-memory by default; production hosts would bind the registry to `PersistenceRegistry` for cross-session retention.
+Both surfaces route writes through [`PersistenceRegistry`](../../projects/agentic-ui/src/lib/registries/persistence-registry.ts) (lib **Seam tier**) rather than raw `localStorage.setItem`, so adopters can swap the backing store to Dexie / IndexedDB / a server-side adapter by registering a different adapter under the `localStorage` name — neither store has to change.
+
+- **Workspace layout** — `WorkspaceLayoutStore.set(slots)` writes the SlotMap under `ediscovery.workspace-layout:<personaId>`. The store's rehydrate effect re-reads on mount and on every persona switch — refresh the page and the agent-emitted layout is still there; switch persona and the layout switches to that persona's preferred shape (or falls back to the per-persona default if nothing was saved).
+- **Dashboard commits** — `ProposedDashboardStore.commit()` stamps `source: 'user'` on the proposed def, registers it into `DashboardRegistry` for the running session, AND appends a copy to the persisted `ediscovery.committed-dashboards` list. On next boot, `bootAgenticCapabilities()` calls `rehydrateCommittedDashboards()` after the host + post-chat seed registrations, so the user's committed dashboards reappear in the picker. The `'user'` source tag lets adopters later `DashboardRegistry.removeBySource('user')` to wipe user commits without touching seeded ones.
+
+Both behaviours have deterministic Playwright coverage in [`11-post-chat-surfaces.spec.ts`](../../e2e/specs/11-post-chat-surfaces.spec.ts) — *"Workspace layout persists across reload"* + *"Committed dashboard persists across reload"*.
 
 ### Video — agent reshaping /workspace live from a chat prompt
 

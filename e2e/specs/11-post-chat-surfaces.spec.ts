@@ -293,6 +293,88 @@ test('Agent-driven workspace layout — chat prompt reshapes /workspace live', a
   await expect(banner).not.toBeVisible();
 });
 
+/**
+ * Phase A persistence — both stores route through PersistenceRegistry's
+ * `localStorage` adapter (which is JSON-serialized webStorageStore on
+ * any browser). We verify durability the lightweight way:
+ *
+ *   1. Pre-seed localStorage under the exact keys the stores use.
+ *   2. Reload + waitForShellReady.
+ *   3. Assert the visible signal the store derives from its hydrated
+ *      state — agent-banner for workspace, picker entry for dashboards.
+ *
+ * This bypasses the agent round-trip (no Gemini key needed) while still
+ * exercising the rehydrate path the agent's commit() / set() lands in.
+ */
+test('Workspace layout persists across reload (PersistenceRegistry rehydrate)', async ({ page }) => {
+  // First land on the route so the localStorage origin exists, then
+  // seed the slot map under the lead-counsel key (the env default
+  // persona). The store's hydrate `effect()` fires on every persona
+  // change AND on mount, so the reload below picks the seeded value up.
+  await page.goto('/workspace');
+  await waitForShellReady(page);
+  await page.evaluate(() => {
+    const slotMap = {
+      primary: { component: 'kpiTile', size: { default: '60%' } },
+      sidebar: { component: 'kpiTile', size: { default: '40%' } },
+    };
+    localStorage.setItem(
+      'ediscovery.workspace-layout:lead-counsel',
+      JSON.stringify(slotMap),
+    );
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitForShellReady(page);
+  // The agent-banner is the visible derived signal — it shows when
+  // `store.slots()` is non-null, which only happens after rehydrate.
+  const banner = page.locator('.agent-banner', { hasText: 'Agent-driven layout active' });
+  await expect(banner).toBeVisible({ timeout: 15_000 });
+});
+
+test('Committed dashboard persists across reload (rehydrateCommittedDashboards)', async ({ page }) => {
+  // Seed a user-committed DashboardDef. The shape mirrors what
+  // `proposeDashboard` builds + `commit()` stamps with `source:'user'`.
+  // app.config.bootAgenticCapabilities calls
+  // ProposedDashboardStore.rehydrateCommittedDashboards() AFTER the
+  // host + post-chat registrations, so this entry should join the
+  // picker on next boot.
+  await page.goto('/');
+  await waitForShellReady(page);
+  await page.evaluate(() => {
+    const def = {
+      name: 'agentProposed.persistence-smoke',
+      title: 'Persistence smoke test',
+      description: 'Pre-seeded committed dashboard — verifies rehydrate path',
+      source: 'user',
+      layout: 'rail',
+      version: 'v1',
+      tiles: [
+        {
+          id: 'persist-blurb',
+          slot: 'primary',
+          title: 'Hello from rehydrate',
+          component: 'kpiTile',
+          invocation: {
+            kind: 'static',
+            props: { markdown: 'Rendered after page reload via PersistenceRegistry' },
+          },
+          refreshOn: 'load',
+        },
+      ],
+    };
+    localStorage.setItem('ediscovery.committed-dashboards', JSON.stringify([def]));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitForShellReady(page);
+  await page.locator('app-sidebar a.nav-link', { hasText: 'Dashboards' }).click();
+  await expect(page).toHaveURL(/\/dashboards/);
+  // Picker entry — match the title we seeded.
+  const seededEntry = page.locator('app-dashboards-page aside.list button.item', {
+    hasText: 'Persistence smoke test',
+  });
+  await expect(seededEntry).toBeVisible({ timeout: 15_000 });
+});
+
 test('Audit — page renders + chain-hash visualization when events exist', async ({ page }) => {
   await page.goto('/audit');
   await waitForShellReady(page);
