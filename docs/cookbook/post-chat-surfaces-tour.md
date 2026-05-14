@@ -290,7 +290,22 @@ Both surfaces route writes through [`PersistenceRegistry`](../../projects/agenti
 - **Workspace layout** — `WorkspaceLayoutStore.set(slots)` writes the SlotMap under `ediscovery.workspace-layout:<personaId>`. The store's rehydrate effect re-reads on mount and on every persona switch — refresh the page and the agent-emitted layout is still there; switch persona and the layout switches to that persona's preferred shape (or falls back to the per-persona default if nothing was saved).
 - **Dashboard commits** — `ProposedDashboardStore.commit()` stamps `source: 'user'` on the proposed def, registers it into `DashboardRegistry` for the running session, AND appends a copy to the persisted `ediscovery.committed-dashboards` list. On next boot, `bootAgenticCapabilities()` calls `rehydrateCommittedDashboards()` after the host + post-chat seed registrations, so the user's committed dashboards reappear in the picker. The `'user'` source tag lets adopters later `DashboardRegistry.removeBySource('user')` to wipe user commits without touching seeded ones.
 
-Both behaviours have deterministic Playwright coverage in [`11-post-chat-surfaces.spec.ts`](../../e2e/specs/11-post-chat-surfaces.spec.ts) — *"Workspace layout persists across reload"* + *"Committed dashboard persists across reload"*.
+### Versioned edits — full history, not just the latest
+
+When the user iterates on the same dashboard (re-prompts the agent and commits again under the same `name`), `commit()` doesn't overwrite — it **bumps the version + chains the previous tip as `parentVersion`**. The persisted list keeps every version, so adopters can later surface an edit history (*"v3 of 5 — see previous versions"*).
+
+| Commit # | `version` | `parentVersion` | Result in picker |
+|---|---|---|---|
+| 1st | `v1` | `undefined` | Shows v1's title |
+| 2nd (same `name`) | `v2` | `v1` | Picker swaps to v2's title; v1 stays in persistent history |
+| 3rd | `v3` | `v2` | …and so on. |
+
+On boot, `rehydrateCommittedDashboards()` groups by `name`, sorts by version, and registers **only the latest** into `DashboardRegistry` (the picker source). The full chain is held in the store's `history()` signal — adopters can read `store.historyFor(name)` to render a "previous versions" affordance. The `DashboardDef.version` + `parentVersion` fields are part of the lib type (`DashboardRegistry` + `LayoutDef` both carry them) so adopters get the same shape uniformly across the registry tier.
+
+Both persistence + versioning paths have deterministic Playwright coverage in [`11-post-chat-surfaces.spec.ts`](../../e2e/specs/11-post-chat-surfaces.spec.ts):
+- *"Workspace layout persists across reload"*
+- *"Committed dashboard persists across reload"*
+- *"Committed dashboard versions chain across commits"*
 
 ### Video — agent reshaping /workspace live from a chat prompt
 

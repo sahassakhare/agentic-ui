@@ -375,6 +375,55 @@ test('Committed dashboard persists across reload (rehydrateCommittedDashboards)'
   await expect(seededEntry).toBeVisible({ timeout: 15_000 });
 });
 
+test('Committed dashboard versions chain across commits (rehydrate picks latest)', async ({ page }) => {
+  // Phase B — seed two committed entries with the SAME name but
+  // different versions (v1 + v2 chained). On rehydrate the store
+  // groups by name, picks the highest version, and registers ONLY
+  // that one into DashboardRegistry. The picker thus shows the v2
+  // title — not v1 — proving the chain semantics.
+  await page.goto('/');
+  await waitForShellReady(page);
+  await page.evaluate(() => {
+    const base = {
+      name: 'agentProposed.version-chain',
+      source: 'user',
+      layout: 'rail',
+      tiles: [
+        {
+          id: 'blurb',
+          slot: 'primary',
+          title: 'Test',
+          component: 'kpiTile',
+          invocation: { kind: 'static', props: { markdown: 'Version-chain smoke test' } },
+          refreshOn: 'load',
+        },
+      ],
+    };
+    const chain = [
+      { ...base, version: 'v1', title: 'Version-chain (v1 — should NOT appear)' },
+      { ...base, version: 'v2', parentVersion: 'v1', title: 'Version-chain (v2 — latest)' },
+    ];
+    localStorage.setItem('ediscovery.committed-dashboards', JSON.stringify(chain));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await waitForShellReady(page);
+  await page.locator('app-sidebar a.nav-link', { hasText: 'Dashboards' }).click();
+  await expect(page).toHaveURL(/\/dashboards/);
+  // The v2 title shows; the v1 title is not in the picker. We assert
+  // both directions because "picker shows v2" alone would still pass
+  // if rehydrate accidentally registered both versions under the same
+  // name (registry replace-policy would keep one — depending on
+  // insertion order, that could be the wrong one).
+  const v2 = page.locator('app-dashboards-page aside.list button.item', {
+    hasText: 'Version-chain (v2 — latest)',
+  });
+  await expect(v2).toBeVisible({ timeout: 15_000 });
+  const v1 = page.locator('app-dashboards-page aside.list button.item', {
+    hasText: 'Version-chain (v1 — should NOT appear)',
+  });
+  expect(await v1.count()).toBe(0);
+});
+
 test('Audit — page renders + chain-hash visualization when events exist', async ({ page }) => {
   await page.goto('/audit');
   await waitForShellReady(page);

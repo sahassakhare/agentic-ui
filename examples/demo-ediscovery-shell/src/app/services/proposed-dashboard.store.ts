@@ -4,6 +4,18 @@ import { DashboardRegistry, PersistenceRegistry, type DashboardDef } from '@infr
 const COMMITTED_KEY = 'ediscovery.committed-dashboards';
 
 /**
+ * Parse `vN` → numeric N for sort/compare. Returns 0 for unset or
+ * unparseable strings — un-versioned legacy entries thus sort below
+ * `v1`, which is the intended ordering (a re-commit of an un-versioned
+ * entry becomes `v1`, not `v?`).
+ */
+function versionNum(v: string | undefined): number {
+  if (!v) return 0;
+  const m = /^v(\d+)$/.exec(v);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+/**
  * Signal-backed store for an agent-proposed `DashboardDef` pending
  * user review. The `proposeDashboard` tool the LLM picks builds a
  * draft `DashboardDef` and pushes it here; the /dashboards page
@@ -33,6 +45,20 @@ export class ProposedDashboardStore {
   private readonly _proposal = signal<DashboardDef | null>(null);
   readonly proposal = this._proposal.asReadonly();
 
+  /**
+   * Full version chain of every user-committed dashboard, keyed by
+   * `def.name`. Phase B keeps the entire history (not just the latest)
+   * so adopters can show a "v3 of 5 — see previous versions" affordance
+   * on the dashboards picker. Newest version last in each array.
+   */
+  private readonly _history = signal<Record<string, DashboardDef[]>>({});
+  readonly history = this._history.asReadonly();
+
+  /** Convenience — version chain for a specific dashboard name. Oldest first. */
+  historyFor(name: string): readonly DashboardDef[] {
+    return this._history()[name] ?? [];
+  }
+
   /** Stash the agent's proposed dashboard. Overwrites any prior pending proposal. */
   propose(def: DashboardDef): void {
     this._proposal.set(def);
@@ -54,22 +80,39 @@ export class ProposedDashboardStore {
   commit(): DashboardDef | null {
     const def = this._proposal();
     if (!def) return null;
-    const stamped: DashboardDef = { ...def, source: 'user' };
+    // Phase B — auto-bump version on re-commit of the same name. The
+    // proposing tool stamps `v1` by default; if a user-committed entry
+    // already exists under this name, we override that to the next
+    // version + chain `parentVersion` to the previous tip.
+    const chain = this.historyFor(def.name);
+    const previousTip = chain[chain.length - 1];
+    const nextVersion = `v${versionNum(previousTip?.version) + 1}`;
+    const stamped: DashboardDef = {
+      ...def,
+      source: 'user',
+      version: nextVersion,
+      parentVersion: previousTip?.version,
+    };
     this.registry.register(stamped);
+    // Update in-memory history signal in the same tick so consumers
+    // (e.g. a "v2 of 2" badge in the picker) re-render synchronously.
+    this._history.update((h) => ({ ...h, [stamped.name]: [...chain, stamped] }));
     void this.persistCommitted(stamped).catch(() => { /* swallow — runtime registry still has it */ });
     this._proposal.set(null);
     return stamped;
   }
 
   /**
-   * Add a single committed def to the persisted list. Reads the
-   * existing list, dedups by name (most-recent wins), writes back.
+   * Append a committed def to the persisted list. Phase B keeps the
+   * FULL chain (every version) rather than dedup-by-name — that's how
+   * we can later restore the version-edit history. Read-modify-write
+   * race is acceptable here: commits are user-driven (one at a time).
    */
   private async persistCommitted(def: DashboardDef): Promise<void> {
     if (!this.adapter) return;
     const raw = (await this.adapter.read(COMMITTED_KEY)) as DashboardDef[] | undefined;
     const existing = Array.isArray(raw) ? raw : [];
-    const next = [...existing.filter((d) => d.name !== def.name), def];
+    const next = [...existing, def];
     await this.adapter.write(COMMITTED_KEY, next);
   }
 
@@ -84,12 +127,29 @@ export class ProposedDashboardStore {
     if (!this.adapter) return;
     const raw = (await this.adapter.read(COMMITTED_KEY)) as DashboardDef[] | undefined;
     if (!Array.isArray(raw)) return;
+    // Phase B — the persisted list is the FULL version chain (every
+    // commit, all versions). Group by name + sort ascending so the
+    // last entry per name is the highest version, then register that
+    // one (the picker shows latest). The in-memory `_history` signal
+    // captures the full chain so a "v3 of 5" affordance has the data
+    // to show prior versions.
+    const grouped = new Map<string, DashboardDef[]>();
     for (const def of raw) {
-      try {
-        const stamped: DashboardDef = def.source === 'user' ? def : { ...def, source: 'user' };
-        this.registry.register(stamped);
-      } catch { /* dup */ }
+      const stamped: DashboardDef = def.source === 'user' ? def : { ...def, source: 'user' };
+      const list = grouped.get(stamped.name) ?? [];
+      list.push(stamped);
+      grouped.set(stamped.name, list);
     }
+    const historySnapshot: Record<string, DashboardDef[]> = {};
+    for (const [name, list] of grouped) {
+      list.sort((a, b) => versionNum(a.version) - versionNum(b.version));
+      historySnapshot[name] = list;
+      const latest = list[list.length - 1];
+      try {
+        this.registry.register(latest);
+      } catch { /* dup — replace policy means this can't actually throw, but be defensive */ }
+    }
+    this._history.set(historySnapshot);
   }
 
   /** Test/admin helper — wipe all user-committed dashboards. */
@@ -97,5 +157,6 @@ export class ProposedDashboardStore {
     if (!this.adapter) return;
     await this.adapter.remove(COMMITTED_KEY).catch(() => { /* noop */ });
     this.registry.removeBySource('user');
+    this._history.set({});
   }
 }
