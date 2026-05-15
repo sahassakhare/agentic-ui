@@ -226,5 +226,7 @@ export class SidebarComponent {
     { path: '/cal',          label: 'CAL workbench', icon: 'bolt' },
     // ── Workspace layout demo (P0 / §17) ─────────────────────────────
     { path: '/workspace',    label: 'Workspace',    icon: 'dashboard' },
+    // ── ADR-046 PR3 D4 — layout audit chain viewer ────────────────────
+    { path: '/audit/layouts', label: 'Layout audit', icon: 'audit' },
   ];
 }

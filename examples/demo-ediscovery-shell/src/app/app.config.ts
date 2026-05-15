@@ -26,12 +26,17 @@ import {
   provideAgenticUi,
   provideAgentContext,
   provideAgUiBackend,
+  provideLayoutAudit,
   provideLayoutPolicy,
   provideLayoutResolver,
+  provideLayoutTiers,
   provideStaticJsonMfeRegistry,
   provideTeamsContext,
   provideToolFilter,
   provideTriggerRunner,
+  memoryStore,
+  PersistenceRegistry,
+  STANDARD_LAYOUT_TIERS,
   ToolRegistry,
   type ApprovalAuditEvent,
   type CapabilityModule,
@@ -45,6 +50,7 @@ import { routes } from './app.routes';
 import { buildTools, registerApprovals, registerDataSources, registerForms, widgets } from './agentic/agentic';
 import { registerNavigationActions } from './agentic/navigation-actions';
 import { registerPostChatSurfaces } from './agentic/post-chat-surfaces';
+import { registerLayoutTemplates } from './agentic/layout-templates';
 import { PersonaService } from './services/persona.service';
 import { MatterStore } from './services/matter.store';
 import { ProposedDashboardStore } from './services/proposed-dashboard.store';
@@ -78,6 +84,16 @@ function telemetryProvider() {
 function bootAgenticCapabilities() {
   return provideEnvironmentInitializer(() => {
     const env = inject(EnvironmentInjector);
+    // ADR-046 PR2 D2/D3 — register the four memory-backed adapters
+    // that back the layered tiers. Production hosts swap memoryStore
+    // for httpPersistenceStore + a real auth-gated backend; the
+    // demo runs in-memory so the cookbook story is "wire your own
+    // adapter under the same names".
+    const persistence = env.get(PersistenceRegistry);
+    persistence.register(memoryStore('org-store'));
+    persistence.register(memoryStore('matter-store'));
+    persistence.register(memoryStore('persona-store'));
+    persistence.register(memoryStore('user-store'));
     // Data sources MUST register before forms — composition widgets that
     // declare `dataSources` validate at mount, and mount happens as soon
     // as the agent surfaces a form-card widget (Capability F2).
@@ -94,6 +110,12 @@ function bootAgenticCapabilities() {
     // initialPrivilegePass PlaybookDef. Runs AFTER tools register so
     // dashboard tiles + playbook steps can resolve real tool names.
     registerPostChatSurfaces(env);
+    // ADR-046 PR4 D6 — seed sample layout / dashboard templates with
+    // representative approval states so the catalog UI has content
+    // to render. Runs AFTER the registries are available (providedIn:
+    // 'root', so they're always available — but the seed reads the
+    // matter id for matter-scoped templates).
+    registerLayoutTemplates(env);
     // Phase A — rehydrate user-committed DashboardDef entries from
     // PersistenceRegistry so they survive page reloads. Fires AFTER
     // host + post-chat registrations so the persisted entries can
@@ -502,6 +524,55 @@ export const appConfig: ApplicationConfig = {
     // provider line wires the contributors so AgentContextProvider.compose()
     // returns the assembled block as soon as a host queries it.
     provideAgentContext(),
+    // ADR-046 PR2 D2/D3 — multi-tier layered storage. Four tiers, in
+    // precedence order (user-saved beats matter-default beats persona-
+    // default beats org-default). Each tier is backed by a memory
+    // adapter for the demo (registered in bootAgenticCapabilities);
+    // production hosts swap memoryStore for httpPersistenceStore
+    // pointing at their layout-prefs backend, no other code change.
+    provideLayoutTiers([
+      { ...STANDARD_LAYOUT_TIERS['userSaved'],      scope: () => inject(PersonaService).active() },
+      { ...STANDARD_LAYOUT_TIERS['matterDefault'],  scope: () => inject(MatterStore).matterId },
+      { ...STANDARD_LAYOUT_TIERS['personaDefault'], scope: () => inject(PersonaService).active() },
+      { ...STANDARD_LAYOUT_TIERS['orgDefault'] },
+    ]),
+    // ADR-046 PR3 D4 — chain-hashed LAYOUT_APPLIED events. Sink routes
+    // into demo-ediscovery-shared's existing appendAudit so the new
+    // layout chain lives alongside the existing tool-call / approval
+    // chain. Attribution attaches userId (the active persona) + matterId
+    // + route so the discovery query "show me the privilege panel
+    // Sarah saw at 14:30Z" becomes a real lookup.
+    provideLayoutAudit({
+      sink: () => {
+        // Snapshot matterId at sink construction — every emit attributes
+        // to the active matter without re-injecting per turn.
+        const matterId = inject(MatterStore).matterId;
+        return {
+          emit: (event) => {
+            appendAudit({
+              id: nextAuditId(),
+              matterId,
+              timestamp: isoNow(),
+              action: 'layout.applied',
+              actor: event.attribution?.['userId'] ?? 'system',
+              target: { type: 'layout', id: event.id },
+              after: {
+                chainHash: event.chainHash,
+                prevHash: event.prevHash,
+                slotNames: Object.keys(event.slots),
+                applied: event.appliedRules.map((r) => `${r.slotName}<-${r.source}`),
+                route: event.attribution?.['route'],
+              },
+            });
+          },
+        };
+      },
+      attribution: () => ({
+        userId: inject(PersonaService).active(),
+        matterId: inject(MatterStore).matterId,
+        route: inject(Router).url,
+      }),
+    }),
     // Post-chat surfaces P2 (ADR-045) — browser-side cron trigger
     // runner. Registered TriggerDef entries with `kind: 'cron'` fire
     // on schedule; webhook/queue specs defer to a server-side runner.

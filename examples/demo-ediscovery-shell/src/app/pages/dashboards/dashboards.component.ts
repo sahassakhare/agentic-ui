@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import {
   DashboardCanvasComponent,
   DashboardRegistry,
+  DashboardTemplateRegistry,
   type CanvasTileDrilldown,
   type DashboardDef,
 } from '@infra-tools/agentic-ui';
@@ -79,6 +80,41 @@ import { ProposedDashboardStore } from '../../services/proposed-dashboard.store'
     } @else {
       <p class="muted">No dashboards registered.</p>
     }
+
+    <!-- ADR-046 PR4 D6 — approved DashboardTemplate catalog. End users
+         see only approved templates; admin reviewers see the full set
+         via a separate review surface (not in this demo). -->
+    <section class="templates-catalog">
+      <header>
+        <h2>Approved dashboard templates</h2>
+        <span class="dim">{{ approvedTemplates().length }} approved · {{ pendingReviewCount() }} in review</span>
+      </header>
+      @if (approvedTemplates().length === 0) {
+        <p class="muted small">No approved templates yet. Org admins publish templates via the catalog.</p>
+      } @else {
+        <ul class="template-grid">
+          @for (template of approvedTemplates(); track template.name) {
+            <li class="template-card">
+              <div class="card-head">
+                <strong>{{ template.title }}</strong>
+                <span class="visibility-pill">{{ template.visibility }}</span>
+              </div>
+              <p class="desc">{{ template.description }}</p>
+              <div class="tag-row">
+                @for (tag of template.tags; track tag) {
+                  <span class="tag">{{ tag }}</span>
+                }
+              </div>
+              <footer>
+                <span class="version">{{ template.version ?? 'v1' }}</span>
+                <span class="dim">· author {{ template.author.userId }}</span>
+                <span class="dim">· {{ template.approvalChain.length }} approval event(s)</span>
+              </footer>
+            </li>
+          }
+        </ul>
+      }
+    </section>
   `,
   styles: `
     :host { display: block; }
@@ -121,12 +157,45 @@ import { ProposedDashboardStore } from '../../services/proposed-dashboard.store'
     .proposal .btn.primary:hover { filter: brightness(1.07); }
     .proposal .btn.ghost { background: transparent; border-color: transparent; color: var(--c-text-2); }
     .proposal .btn.active { background: var(--c-accent, #6366f1); color: white; border-color: transparent; }
+    .templates-catalog { margin-top: var(--s-6); padding-top: var(--s-4); border-top: 1px solid var(--c-border); }
+    .templates-catalog header { display: flex; align-items: baseline; gap: var(--s-3); margin-bottom: var(--s-3); }
+    .templates-catalog h2 { margin: 0; font-size: var(--fs-lg); }
+    .templates-catalog .dim { color: var(--c-text-faint); font-size: var(--fs-xs); }
+    .templates-catalog .small { font-size: var(--fs-sm); }
+    .template-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--s-3); }
+    .template-card {
+      padding: var(--s-3); border: 1px solid var(--c-border); border-radius: var(--r-md);
+      background: var(--c-surface); display: flex; flex-direction: column; gap: var(--s-2);
+    }
+    .template-card .card-head { display: flex; justify-content: space-between; align-items: center; gap: var(--s-2); }
+    .template-card .card-head strong { font-size: var(--fs-sm); }
+    .visibility-pill {
+      padding: 1px 8px; border-radius: var(--r-sm); background: var(--c-surface-1);
+      border: 1px solid var(--c-border); font-family: ui-monospace, monospace; font-size: 0.72rem;
+      color: var(--c-text-2); text-transform: lowercase;
+    }
+    .template-card .desc { margin: 0; color: var(--c-text-2); font-size: var(--fs-xs); }
+    .template-card .tag-row { display: flex; flex-wrap: wrap; gap: 4px; }
+    .template-card .tag {
+      padding: 1px 7px; border-radius: var(--r-sm); background: var(--c-surface-1);
+      font-family: ui-monospace, monospace; font-size: 0.7rem; color: var(--c-text-2);
+    }
+    .template-card footer { display: flex; flex-wrap: wrap; gap: var(--s-2); font-size: var(--fs-xs); color: var(--c-text-2); margin-top: auto; }
+    .template-card .version { font-family: ui-monospace, monospace; color: var(--c-text-1); }
   `,
 })
 export class DashboardsPage {
   private readonly registry = inject(DashboardRegistry);
   private readonly router = inject(Router);
   private readonly proposalStore = inject(ProposedDashboardStore);
+  private readonly templateRegistry = inject(DashboardTemplateRegistry);
+
+  /** Templates in `approved` state — surfaced to end users. */
+  protected readonly approvedTemplates = this.templateRegistry.approved;
+  /** Count of templates awaiting reviewer attention — admin-facing signal. */
+  protected readonly pendingReviewCount = computed(
+    () => this.templateRegistry.pendingReview().length,
+  );
 
   protected readonly dashboards = this.registry.signal;
   protected readonly count = computed(() => this.dashboards().length);

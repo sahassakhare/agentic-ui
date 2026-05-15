@@ -73,6 +73,13 @@ export const routes: Routes = [
     path: 'workspace',
     loadComponent: () => import('./pages/workspace/workspace-demo.component').then((m) => m.WorkspaceDemoPage),
   },
+  // ADR-046 PR3 D4 — chain-hashed LAYOUT_APPLIED audit trail viewer.
+  // Reads from LayoutAuditTracker.chain() + offers a timestamp scrubber
+  // for at-or-before-T snapshot inspection.
+  {
+    path: 'audit/layouts',
+    loadComponent: () => import('./pages/audit-layouts/audit-layouts.component').then((m) => m.AuditLayoutsPage),
+  },
   // ── Trimodal direct-mount surfaces (plan R3) ──────────────────────────
   // Same registry definitions the chat agent invokes — without the chat
   // shell. Proves forms/workflows are surface-independent.
