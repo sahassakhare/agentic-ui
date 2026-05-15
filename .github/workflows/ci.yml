@@ -127,38 +127,38 @@ jobs:
           npm ci --no-audit --fund=false
           npx tsc -p tsconfig.json
 
-      - name: Bundle-size guard (lib FESM under 660 KB)
+      - name: Bundle-size guard (lib FESM under 720 KB)
         run: |
-          # Cap raised 340 KB → 660 KB for the post-chat-surfaces
-          # program (plan P0–P5 + federation-symmetry extension):
-          #   3 new registries — TriggerRegistry, DashboardRegistry,
-          #   PlaybookRegistry — full RegistryBase semantics each
-          #   1 new service — PlaybookRunner (start/cancel/approve/skip)
-          #   1 new helper — TileResultCache + tileCacheKey
-          #   16 new components — workspace-layout, cmd-k-palette,
-          #   smart-cell, row-action-menu, bulk-toolbar, assist-panel,
-          #   notification-tray, inbox, lifecycle-stages,
-          #   dashboard-{tile,canvas,preview}, review-queue,
-          #   timeline-canvas, cal-workbench, playbook-runner
-          #   2 new providers — provideLayoutPolicy, provideTriggerRunner
-          #   Zod schemas for layout-render + slot validation
-          #   defineCapabilityModule federation symmetry across
-          #   triggers + dashboards + playbooks
-          # Post-ADR-034 baseline was ~313 KB; post-P5 + federation
-          # symmetry is ~628 KB (almost 2x — matches the scope).
-          # Tree-shaking holds: apps that don't import these surfaces
-          # don't pay for them (sideEffects: false). The FESM cap is
-          # the maximum surface size, not the per-consumer ship cost.
-          # 660 KB leaves ~32 KB headroom for one more capability
-          # slice before the next budget review.
+          # Cap raised 660 KB → 720 KB for the ADR-046 LayeredLayoutEngine
+          # (D1-D7 across PR1/PR1b/PR2/PR3/PR4):
+          #   D1 LayoutResolver  — reactive engine + 3 built-in inputs
+          #   D5 AgentContextProvider — per-turn XML context block +
+          #   3 built-in contributors (route / persona / layout-state)
+          #   D2 LayeredLayoutStore — precedence-aware multi-tier reads
+          #   D3 httpPersistenceStore — server-side adapter factory
+          #   D7 LayoutMigratorChain — forward-only schema migration
+          #   D4 LayoutAuditTracker — chain-hashed LAYOUT_APPLIED events
+          #   + snapshotAt time-travel + validateChain integrity check
+          #   D6 LayoutTemplateRegistry + DashboardTemplateRegistry +
+          #   approval state machine (draft → review → approved/rejected
+          #   + deprecated/revoke universals)
+          #   PR1b: chat-shell auto-injects context block into every turn
+          # Pre-ADR-046 baseline was ~632 KB; post-PR4 is ~689 KB
+          # (~57 KB delta — matches the scope of a major capability
+          # block). Tree-shaking holds: apps that don't import the new
+          # surfaces don't pay for them (sideEffects: false).
+          # 720 KB leaves ~32 KB headroom — same headroom convention as
+          # prior raises — for one more capability slice before the
+          # next budget review.
           # Earlier raises: 200 → 300 KB (F1 form/composition, F4
           # Approval, F5 Operation, F6 multi-modal); 300 → 340 KB
-          # (audit Gaps 4/1/3/2 platform-integration providers).
+          # (audit Gaps 4/1/3/2 platform-integration providers);
+          # 340 → 660 KB (post-chat-surfaces P0-P5 + federation).
           # Lower this back if a refactor materially shrinks the surface.
           size=$(wc -c < dist/agentic-ui/fesm2022/infra-tools-agentic-ui.mjs)
           echo "FESM size: $size bytes"
-          if [ "$size" -gt 675840 ]; then
-            echo "::error::Lib FESM exceeded 660 KB ($size B). Investigate before merging."
+          if [ "$size" -gt 737280 ]; then
+            echo "::error::Lib FESM exceeded 720 KB ($size B). Investigate before merging."
             exit 1
           fi
 
