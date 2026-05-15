@@ -164,6 +164,41 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
       },
     ],
   },
+  // ── ADR-046 + ADR-047 — agentic workspace, layout, and dashboard
+  //    surfaces. The agent can drive these end-to-end via tools; the
+  //    user can also self-serve via the page-level UI affordances.
+  {
+    id: 'workspace',
+    title: 'Workspace (agent-driven)',
+    prompts: [
+      { text: 'Open document preview, tag panel, and chain-of-custody in a workspace' },
+      { text: 'Show me a 60/40 split with the document on the left and annotations on the right' },
+      { text: 'Reshape the workspace to focus on the privilege log' },
+      { text: 'Reset the workspace layout' },
+    ],
+  },
+  {
+    id: 'layout-edits',
+    title: 'Layout edits (slot-level)',
+    prompts: [
+      { text: 'Add a chain-of-custody footer to my current workspace' },
+      { text: 'Drop the sidebar' },
+      { text: 'Replace the primary slot with the privilege log' },
+      { text: 'List approved layout templates' },
+      { text: 'Apply the privilege-review-v3 template' },
+    ],
+  },
+  {
+    id: 'dashboards',
+    title: 'Dashboards (compose + apply)',
+    prompts: [
+      { text: 'Build me a dashboard for production status' },
+      { text: 'Show me a matter health dashboard' },
+      { text: 'List approved dashboard templates' },
+      { text: 'Apply the matter-health-snapshot template' },
+      { text: 'Update the production dashboard to also show audit context' },
+    ],
+  },
 ];
 
 /**
