@@ -64,3 +64,10 @@ export * from './lib/layout/agent-context';
 // D7 LayoutMigratorChain — forward-only schema migration on rehydrate.
 export * from './lib/layout/layered-store';
 export * from './lib/layout/migration';
+
+// ADR-046 PR3 — LayeredLayoutEngine D4
+// LayoutAuditTracker watches LayoutResolver.active() and emits
+// chain-hashed LAYOUT_APPLIED events on every material change.
+// Provides in-memory chain inspection (snapshotAt, validateChain) +
+// pluggable external sink. Time-travel viewer reads from .chain().
+export * from './lib/layout/audit';
