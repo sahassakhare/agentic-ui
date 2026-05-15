@@ -52,43 +52,43 @@ import { WorkspaceLayoutStore } from '../../services/workspace-layout.store';
       </div>
     </section>
 
-    <!-- ADR-047 D6 — change attribution banner. Always renders when
-         there's something in the audit chain to attribute to;
-         the agent-driven dot turns blue when the agent layer is
-         currently active. -->
-    @if (attribution(); as attr) {
-      <div class="agent-banner" role="status" [class.agent]="agentDriven()">
-        <span class="dot" aria-hidden="true">●</span>
-        <div class="meta">
-          <strong>{{ attr.headline }}</strong>
-          <span class="dim">{{ attr.detail }}</span>
-        </div>
-        <!-- ADR-047 D4 — Save current resolved layout to the user
-             tier as the active persona's saved preference. -->
-        <button type="button" class="btn" [disabled]="savedTick() > 0" (click)="savePreference()">
-          {{ savedTick() > 0 ? '✓ Saved' : '📌 Save as my preference' }}
-        </button>
-        <!-- ADR-047 D5 — Reset hierarchy. Single button toggles a
-             menu of "Reset to my saved / matter / org / lib default". -->
-        <div class="reset-group">
-          <button type="button" class="btn"
-                  [class.open]="resetMenuOpen()"
-                  (click)="toggleResetMenu()"
-                  aria-haspopup="menu"
-                  [attr.aria-expanded]="resetMenuOpen()">
-            Reset ▾
-          </button>
-          @if (resetMenuOpen()) {
-            <ul class="reset-menu" role="menu">
-              <li role="menuitem"><button type="button" (click)="resetTo('agent')">Reset to my saved</button></li>
-              <li role="menuitem"><button type="button" (click)="resetTo('user-saved')">Reset to matter default</button></li>
-              <li role="menuitem"><button type="button" (click)="resetTo('matter-default')">Reset to org default</button></li>
-              <li role="menuitem"><button type="button" (click)="resetTo('all')">Reset to lib default</button></li>
-            </ul>
-          }
-        </div>
+    <!-- ADR-047 D4 + D5 + D6 — coordination banner. Always renders on
+         /workspace so the Save / Reset affordances are visible from
+         the moment the user lands. Attribution text fills in once the
+         audit tracker captures at least one event (typically within
+         the first render cycle); a fallback line shows in the rare
+         interval before. -->
+    <div class="agent-banner" role="status" [class.agent]="agentDriven()">
+      <span class="dot" aria-hidden="true">●</span>
+      <div class="meta">
+        <strong>{{ attribution()?.headline ?? 'Workspace layout' }}</strong>
+        <span class="dim">{{ attribution()?.detail ?? 'Compose with the agent, save a personal preference, or reset to any precedence layer.' }}</span>
       </div>
-    }
+      <!-- ADR-047 D4 — Save current resolved layout to the user
+           tier as the active persona's saved preference. -->
+      <button type="button" class="btn" [disabled]="savedTick() > 0" (click)="savePreference()">
+        {{ savedTick() > 0 ? '✓ Saved' : '📌 Save as my preference' }}
+      </button>
+      <!-- ADR-047 D5 — Reset hierarchy. Single button toggles a
+           menu of "Reset to my saved / matter / org / lib default". -->
+      <div class="reset-group">
+        <button type="button" class="btn"
+                [class.open]="resetMenuOpen()"
+                (click)="toggleResetMenu()"
+                aria-haspopup="menu"
+                [attr.aria-expanded]="resetMenuOpen()">
+          Reset ▾
+        </button>
+        @if (resetMenuOpen()) {
+          <ul class="reset-menu" role="menu">
+            <li role="menuitem"><button type="button" (click)="resetTo('agent')">Reset to my saved</button></li>
+            <li role="menuitem"><button type="button" (click)="resetTo('user-saved')">Reset to matter default</button></li>
+            <li role="menuitem"><button type="button" (click)="resetTo('matter-default')">Reset to org default</button></li>
+            <li role="menuitem"><button type="button" (click)="resetTo('all')">Reset to lib default</button></li>
+          </ul>
+        }
+      </div>
+    </div>
 
     <div class="canvas" [attr.data-density]="density()">
       <mvk-workspace-layout

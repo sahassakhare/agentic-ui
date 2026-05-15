@@ -1,5 +1,5 @@
 import type { EnvironmentProviders, Provider } from '@angular/core';
-import { inject, makeEnvironmentProviders } from '@angular/core';
+import { ENVIRONMENT_INITIALIZER, inject, makeEnvironmentProviders } from '@angular/core';
 import { LayoutAuditTracker } from './layout-audit-tracker';
 import {
   LAYOUT_AUDIT_ATTRIBUTION,
@@ -64,11 +64,18 @@ export function provideLayoutAudit(config: LayoutAuditConfig = {}): EnvironmentP
     providers.push({ provide: LAYOUT_AUDIT_ATTRIBUTION, useValue: attributionFactory });
   }
   if (config.eager !== false) {
-    // EnvironmentInitializer that touches `LayoutAuditTracker` so its
-    // constructor (and the watching `effect()`) runs at app boot.
+    // ENVIRONMENT_INITIALIZER token — Angular runs every multi value
+    // at app boot inside an injection context, so `inject()` works.
+    // Touches LayoutAuditTracker so its constructor + watching
+    // effect() start before any layout resolution happens. (Previous
+    // implementation used a string-token + useFactory, which silently
+    // never runs because nothing injects that string token.)
     providers.push({
-      provide: 'LayoutAuditEagerInit',
-      useFactory: () => inject(LayoutAuditTracker),
+      provide: ENVIRONMENT_INITIALIZER,
+      multi: true,
+      useValue: () => {
+        inject(LayoutAuditTracker);
+      },
     });
   }
   return makeEnvironmentProviders(providers);
