@@ -12,6 +12,7 @@ import { AGENTIC_RUN_STATE_PROVIDER } from './run-state-provider';
 import { randomId } from './message-utils';
 import { runUntilSettled } from './run-orchestrator';
 import { TOOL_FILTER } from './tool-filter';
+import { AgentContextProvider } from '../layout/agent-context/agent-context-provider';
 
 export interface AgenticChatOptions {
   readonly maxLocalTurns?: number;
@@ -71,6 +72,11 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
   const operationRegistry = inject(OperationRegistry);
   const activePersona = inject(AGENTIC_ACTIVE_PERSONA);
   const stateProvider = inject(AGENTIC_RUN_STATE_PROVIDER);
+  // ADR-046 D5 / PR1b — when provideAgentContext is wired, every chat
+  // turn gets a synthetic system message describing the live UI state
+  // (route, persona, resolved layout). Optional inject so hosts that
+  // skip provideAgentContext continue to see zero overhead.
+  const agentContext = inject(AgentContextProvider, { optional: true });
 
   const maxLocalTurns = options.maxLocalTurns ?? 10;
   const messages: WritableSignal<readonly AgenticMessage[]> = signal([]);
@@ -152,11 +158,32 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
       tools: tools.list(),
     });
 
+    // ADR-046 D5 / PR1b — prepend a synthetic system message carrying
+    // the per-turn agent-context block. Built fresh on every turn so
+    // the agent sees the LIVE route / persona / layout state, not
+    // whatever was current when the chat session was created.
+    //
+    // The synthetic message is per-run only — we DON'T push it onto the
+    // persistent `messages` signal, so the transcript UI stays clean
+    // and re-runs build a fresh context block each time.
+    const initialMessages: readonly AgenticMessage[] = (() => {
+      const block = agentContext?.compose();
+      if (!block) return messages();
+      const systemMessage: AgenticMessage = {
+        id: randomId('msg'),
+        role: 'system',
+        content: block,
+        toolCalls: [],
+        widgets: [],
+      };
+      return [systemMessage, ...messages()];
+    })();
+
     runUntilSettled({
       backend,
       threadId,
       runId,
-      initialMessages: messages(),
+      initialMessages,
       tools: filteredTools,
       widgets: widgets.list(),
       messageStream: messages,
