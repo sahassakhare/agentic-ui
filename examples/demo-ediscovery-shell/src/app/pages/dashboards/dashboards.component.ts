@@ -38,6 +38,21 @@ import { ProposedDashboardStore } from '../../services/proposed-dashboard.store'
       </div>
     </section>
 
+    <!-- ADR-047 — Try asking. Surfaces the dashboard-proposal +
+         template-apply verbs so end users discover the agent surface
+         without reading docs. -->
+    <details class="try-asking" open>
+      <summary>💡 Try asking the chat assistant</summary>
+      <p class="muted small">Click a prompt or type it into the chat rail on the right.</p>
+      <ul>
+        <li>"Build me a dashboard for production status" <em>— uses <code>proposeDashboard</code> (Preview / Commit banner)</em></li>
+        <li>"Show me a matter health dashboard" <em>— proposes another variant</em></li>
+        <li>"List approved dashboard templates" <em>— uses <code>listDashboardTemplates</code></em></li>
+        <li>"Apply the matter-health-snapshot template" <em>— uses <code>applyDashboardTemplate</code></em></li>
+        <li>"Update the production dashboard to also show audit context" <em>— re-proposes with version chain (v2 → parentVersion: v1)</em></li>
+      </ul>
+    </details>
+
     @if (proposed(); as p) {
       <div class="proposal" role="status">
         <span class="dot" aria-hidden="true">★</span>
@@ -193,6 +208,17 @@ import { ProposedDashboardStore } from '../../services/proposed-dashboard.store'
       border-radius: var(--r-md); font-size: var(--fs-xs); cursor: pointer; font-weight: 500;
     }
     .template-card .apply-btn:hover { filter: brightness(1.07); }
+    .try-asking {
+      margin: var(--s-3) 0 var(--s-4); padding: var(--s-3);
+      background: var(--c-surface-1); border: 1px solid var(--c-border);
+      border-radius: var(--r-md); font-size: var(--fs-sm);
+    }
+    .try-asking summary { cursor: pointer; user-select: none; font-weight: 500; }
+    .try-asking .muted.small { margin: var(--s-2) 0; font-size: var(--fs-xs); }
+    .try-asking ul { margin: 0; padding-left: var(--s-4); display: flex; flex-direction: column; gap: 4px; }
+    .try-asking li { font-size: var(--fs-xs); }
+    .try-asking li em { color: var(--c-text-faint); font-style: normal; }
+    .try-asking code { font-family: ui-monospace, monospace; font-size: 0.9em; background: var(--c-surface); padding: 0 4px; border-radius: var(--r-sm); }
   `,
 })
 export class DashboardsPage {

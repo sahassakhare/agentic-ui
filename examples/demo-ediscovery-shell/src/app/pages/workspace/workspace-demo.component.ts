@@ -52,6 +52,22 @@ import { WorkspaceLayoutStore } from '../../services/workspace-layout.store';
       </div>
     </section>
 
+    <!-- ADR-047 — Try asking the agent. Surfaces the new tools so
+         end users discover the slot-edit + template-apply verbs
+         without having to read the ADR. -->
+    <details class="try-asking" open>
+      <summary>💡 Try asking the chat assistant</summary>
+      <p class="muted small">Click a prompt or type it into the chat rail on the right.</p>
+      <ul>
+        <li>"Open document preview, tag panel, and chain-of-custody in a workspace" <em>— uses <code>setWorkspaceLayout</code></em></li>
+        <li>"Add a chain-of-custody footer to my current workspace" <em>— uses <code>addLayoutSlot</code> (slot-level)</em></li>
+        <li>"Drop the sidebar" <em>— uses <code>removeLayoutSlot</code></em></li>
+        <li>"Replace the primary slot with the privilege log" <em>— uses <code>replaceLayoutSlot</code></em></li>
+        <li>"List approved layout templates" <em>— uses <code>listLayoutTemplates</code></em></li>
+        <li>"Apply the privilege-review-v3 template" <em>— uses <code>applyLayoutTemplate</code></em></li>
+      </ul>
+    </details>
+
     <!-- ADR-047 D4 + D5 + D6 — coordination banner. Always renders on
          /workspace so the Save / Reset affordances are visible from
          the moment the user lands. Attribution text fills in once the
@@ -201,6 +217,17 @@ import { WorkspaceLayoutStore } from '../../services/workspace-layout.store';
     }
     .resolver-breakdown .rule-weight { margin-left: var(--s-2); color: var(--c-text-faint); font-family: ui-monospace, monospace; font-size: 0.85em; }
     .resolver-breakdown .rule-reason { margin-left: var(--s-2); }
+    .try-asking {
+      margin: var(--s-3) 0 var(--s-4); padding: var(--s-3);
+      background: var(--c-surface-1); border: 1px solid var(--c-border);
+      border-radius: var(--r-md); font-size: var(--fs-sm);
+    }
+    .try-asking summary { cursor: pointer; user-select: none; font-weight: 500; }
+    .try-asking .muted.small { margin: var(--s-2) 0; font-size: var(--fs-xs); }
+    .try-asking ul { margin: 0; padding-left: var(--s-4); display: flex; flex-direction: column; gap: 4px; }
+    .try-asking li { font-size: var(--fs-xs); }
+    .try-asking li em { color: var(--c-text-faint); font-style: normal; }
+    .try-asking code { font-family: ui-monospace, monospace; font-size: 0.9em; background: var(--c-surface); padding: 0 4px; border-radius: var(--r-sm); }
   `,
 })
 export class WorkspaceDemoPage {
