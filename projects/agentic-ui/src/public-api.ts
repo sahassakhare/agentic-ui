@@ -56,3 +56,11 @@ export * from './lib/testing';
 // has no side effects.
 export * from './lib/layout/resolver';
 export * from './lib/layout/agent-context';
+
+// ADR-046 PR2 — LayeredLayoutEngine D2 + D3 + D7
+// D2 LayeredLayoutStore — precedence-aware multi-tier reads.
+// D3 httpPersistenceStore — server-side adapter for the user / matter /
+//    org tiers (other browser-side adapters from Phase C still apply).
+// D7 LayoutMigratorChain — forward-only schema migration on rehydrate.
+export * from './lib/layout/layered-store';
+export * from './lib/layout/migration';
