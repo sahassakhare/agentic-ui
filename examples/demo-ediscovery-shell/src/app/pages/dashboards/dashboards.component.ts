@@ -109,6 +109,11 @@ import { ProposedDashboardStore } from '../../services/proposed-dashboard.store'
                 <span class="version">{{ template.version ?? 'v1' }}</span>
                 <span class="dim">· author {{ template.author.userId }}</span>
                 <span class="dim">· {{ template.approvalChain.length }} approval event(s)</span>
+                <!-- ADR-047 D4 — Apply button. Materialises the
+                     template into DashboardRegistry with source: 'user'
+                     and selects it in the picker so the canvas swaps
+                     to the new dashboard immediately. -->
+                <button type="button" class="apply-btn" (click)="applyTemplate(template.name)">✨ Apply</button>
               </footer>
             </li>
           }
@@ -180,8 +185,14 @@ import { ProposedDashboardStore } from '../../services/proposed-dashboard.store'
       padding: 1px 7px; border-radius: var(--r-sm); background: var(--c-surface-1);
       font-family: ui-monospace, monospace; font-size: 0.7rem; color: var(--c-text-2);
     }
-    .template-card footer { display: flex; flex-wrap: wrap; gap: var(--s-2); font-size: var(--fs-xs); color: var(--c-text-2); margin-top: auto; }
+    .template-card footer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-2); font-size: var(--fs-xs); color: var(--c-text-2); margin-top: auto; }
     .template-card .version { font-family: ui-monospace, monospace; color: var(--c-text-1); }
+    .template-card .apply-btn {
+      margin-left: auto; padding: 0.35rem 0.7rem;
+      background: var(--c-accent, #6366f1); color: white; border: 1px solid transparent;
+      border-radius: var(--r-md); font-size: var(--fs-xs); cursor: pointer; font-weight: 500;
+    }
+    .template-card .apply-btn:hover { filter: brightness(1.07); }
   `,
 })
 export class DashboardsPage {
@@ -236,5 +247,26 @@ export class DashboardsPage {
   protected dismiss(): void {
     this.proposalStore.dismiss();
     this.previewing.set(false);
+  }
+
+  /**
+   * ADR-047 D4 — instantiate a dashboard template. Reads the template's
+   * body, stamps `source: 'user'` so it joins user-committed entries
+   * in the picker, registers it into DashboardRegistry, and selects it.
+   * For templates with parameters, a real adopter would open a modal
+   * to collect them before instantiation; the demo ships static
+   * templates so this is one-click.
+   */
+  protected applyTemplate(name: string): void {
+    const template = this.templateRegistry.get(name);
+    if (!template || template.approvalState !== 'approved') return;
+    const def: DashboardDef = { ...template.body, source: 'user' };
+    try {
+      this.registry.register(def);
+    } catch {
+      // Replace policy handles re-applies — but defensive in case
+      // adopter customised the registry conflict policy.
+    }
+    this.selected.set(def.name);
   }
 }

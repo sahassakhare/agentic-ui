@@ -13,6 +13,11 @@ import {
   type RouteLayoutRule,
 } from './inputs';
 import {
+  SelectionLayoutInput,
+  SELECTION_LAYOUT_RULES,
+  type SelectionLayoutRule,
+} from '../selection';
+import {
   LAYOUT_INPUT,
   LAYOUT_WEIGHTS,
   type LayoutInput,
@@ -61,6 +66,16 @@ export interface LayoutResolverConfig {
    * ```
    */
   readonly agentSlots?: () => Signal<SlotMap | null>;
+
+  /**
+   * ADR-047 D7 — selection-driven rules. Fire when the current
+   * `SelectionStore.selection()` matches a rule's `kind` + count
+   * predicates. `SelectionLayoutInput` is registered when this is
+   * set. The lib's `SelectionStore` is `providedIn: 'root'`, so no
+   * factory is needed — adopters call `selectionStore.set(...)`
+   * from their click handlers.
+   */
+  readonly selectionRules?: readonly SelectionLayoutRule[];
 
   /**
    * Override the lib's default precedence weights. Partial — unspecified
@@ -132,6 +147,13 @@ export function provideLayoutResolver(config: LayoutResolverConfig = {}): Enviro
     providers.push(
       { provide: AGENT_LAYOUT_SIGNAL, useFactory: factory },
       { provide: LAYOUT_INPUT, useExisting: AgentLayoutInput, multi: true },
+    );
+  }
+
+  if (config.selectionRules) {
+    providers.push(
+      { provide: SELECTION_LAYOUT_RULES, useValue: config.selectionRules },
+      { provide: LAYOUT_INPUT, useExisting: SelectionLayoutInput, multi: true },
     );
   }
 

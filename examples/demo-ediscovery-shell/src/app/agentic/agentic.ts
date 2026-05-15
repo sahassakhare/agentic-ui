@@ -20,6 +20,15 @@ import {
 import { ApprovalSummaryDiffComponent } from './approval-summary-diff.component';
 import { proposeDashboardTool, setWorkspaceLayoutTool } from './dynamic-surface.tools';
 import {
+  addLayoutSlotTool,
+  applyDashboardTemplateTool,
+  applyLayoutTemplateTool,
+  listDashboardTemplatesTool,
+  listLayoutTemplatesTool,
+  removeLayoutSlotTool,
+  replaceLayoutSlotTool,
+} from './coordination.tools';
+import {
   isoNow,
   nextCustodianId,
   nextLegalHoldId,
@@ -91,6 +100,19 @@ export function buildTools(env: EnvironmentInjector): ToolDef[] {
     // can reshape /workspace or propose a /dashboards entry by name.
     setWorkspaceLayoutTool(env) as ToolDef,
     proposeDashboardTool(env) as ToolDef,
+    // ADR-047 D1 — slot-level edit tools. Agent can tweak ONE slot
+    // without re-emitting the whole workspace map, so user-pinned
+    // slots survive the agent's intervention.
+    addLayoutSlotTool(env) as ToolDef,
+    removeLayoutSlotTool(env) as ToolDef,
+    replaceLayoutSlotTool(env) as ToolDef,
+    // ADR-047 D2 — template-aware tools. Agent can list approved
+    // templates by tag, then apply by name. Closes the "agent doesn't
+    // know what's in the catalog" gap.
+    listLayoutTemplatesTool(env) as ToolDef,
+    applyLayoutTemplateTool(env) as ToolDef,
+    listDashboardTemplatesTool(env) as ToolDef,
+    applyDashboardTemplateTool(env) as ToolDef,
   ];
 }
 

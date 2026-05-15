@@ -79,3 +79,12 @@ export * from './lib/layout/audit';
 // wire templates with org / matter / tenant visibility for the
 // enterprise marketplace pattern.
 export * from './lib/layout/templates';
+
+// ADR-047 — Agentic-UI Coordination Layer
+// D1 slotEdits — pure helpers for slot-level layout mutations.
+// D3 extra contributors — selection / available-templates / override-
+//    stack / recent-tool-calls / matter — enriching the agent context block.
+// D7 SelectionStore + SelectionLayoutInput — selection-driven layout
+//    rules + new "selection" context fragment.
+export * from './lib/layout/selection';
+export * from './lib/layout/slot-editor';

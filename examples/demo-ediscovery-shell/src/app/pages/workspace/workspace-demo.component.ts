@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import {
+  LayeredLayoutStore,
+  LayoutAuditTracker,
   LayoutResolver,
   WorkspaceLayoutComponent,
   type SlotMap,
@@ -50,14 +52,41 @@ import { WorkspaceLayoutStore } from '../../services/workspace-layout.store';
       </div>
     </section>
 
-    @if (agentDriven()) {
-      <div class="agent-banner" role="status">
+    <!-- ADR-047 D6 — change attribution banner. Always renders when
+         there's something in the audit chain to attribute to;
+         the agent-driven dot turns blue when the agent layer is
+         currently active. -->
+    @if (attribution(); as attr) {
+      <div class="agent-banner" role="status" [class.agent]="agentDriven()">
         <span class="dot" aria-hidden="true">●</span>
-        <div>
-          <strong>Agent-driven layout active.</strong>
-          <span class="dim"> Slots emitted by the LLM via the <code>setWorkspaceLayout</code> tool. Click "Reset" to drop back to the per-persona default.</span>
+        <div class="meta">
+          <strong>{{ attr.headline }}</strong>
+          <span class="dim">{{ attr.detail }}</span>
         </div>
-        <button type="button" class="reset" (click)="resetLayout()">Reset</button>
+        <!-- ADR-047 D4 — Save current resolved layout to the user
+             tier as the active persona's saved preference. -->
+        <button type="button" class="btn" [disabled]="savedTick() > 0" (click)="savePreference()">
+          {{ savedTick() > 0 ? '✓ Saved' : '📌 Save as my preference' }}
+        </button>
+        <!-- ADR-047 D5 — Reset hierarchy. Single button toggles a
+             menu of "Reset to my saved / matter / org / lib default". -->
+        <div class="reset-group">
+          <button type="button" class="btn"
+                  [class.open]="resetMenuOpen()"
+                  (click)="toggleResetMenu()"
+                  aria-haspopup="menu"
+                  [attr.aria-expanded]="resetMenuOpen()">
+            Reset ▾
+          </button>
+          @if (resetMenuOpen()) {
+            <ul class="reset-menu" role="menu">
+              <li role="menuitem"><button type="button" (click)="resetTo('agent')">Reset to my saved</button></li>
+              <li role="menuitem"><button type="button" (click)="resetTo('user-saved')">Reset to matter default</button></li>
+              <li role="menuitem"><button type="button" (click)="resetTo('matter-default')">Reset to org default</button></li>
+              <li role="menuitem"><button type="button" (click)="resetTo('all')">Reset to lib default</button></li>
+            </ul>
+          }
+        </div>
       </div>
     }
 
@@ -126,6 +155,38 @@ import { WorkspaceLayoutStore } from '../../services/workspace-layout.store';
       border-radius: var(--r-md); font-size: var(--fs-xs); cursor: pointer;
     }
     .agent-banner .reset:hover { background: var(--c-surface-1); }
+    .agent-banner .meta { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+    .agent-banner.agent { background: var(--c-info-soft, #dbeafe); }
+    .agent-banner.agent .dot { color: var(--c-info, #0284c7); }
+    .agent-banner:not(.agent) {
+      background: var(--c-surface);
+      border-color: var(--c-border);
+      border-left-color: var(--c-success, #059669);
+    }
+    .agent-banner:not(.agent) .dot { color: var(--c-success, #059669); }
+    .agent-banner .btn {
+      padding: 0.35rem 0.8rem; background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--r-md); font-size: var(--fs-xs); cursor: pointer; color: var(--c-text-1);
+      white-space: nowrap;
+    }
+    .agent-banner .btn:hover:not(:disabled) { background: var(--c-surface-1); border-color: var(--c-accent, #6366f1); }
+    .agent-banner .btn:disabled { color: var(--c-success, #059669); border-color: var(--c-success, #059669); background: var(--c-surface); cursor: default; }
+    .agent-banner .btn.open { background: var(--c-surface-1); border-color: var(--c-accent, #6366f1); }
+    .agent-banner .reset-group { position: relative; display: inline-block; }
+    .reset-menu {
+      position: absolute; right: 0; top: calc(100% + 4px);
+      list-style: none; margin: 0; padding: 4px; min-width: 200px;
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--r-md); box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      z-index: 10;
+    }
+    .reset-menu li { margin: 0; }
+    .reset-menu button {
+      display: block; width: 100%; padding: 0.45rem 0.7rem; text-align: left;
+      background: transparent; border: 0; cursor: pointer; font-size: var(--fs-xs);
+      color: var(--c-text-1); border-radius: var(--r-sm);
+    }
+    .reset-menu button:hover { background: var(--c-surface-1); }
     .resolver-breakdown {
       margin-top: var(--s-3); font-size: var(--fs-xs); color: var(--c-text-2);
       padding: var(--s-2) var(--s-3); border: 1px dashed var(--c-border); border-radius: var(--r-md);
@@ -146,9 +207,47 @@ export class WorkspaceDemoPage {
   private readonly persona = inject(PersonaService);
   private readonly store = inject(WorkspaceLayoutStore);
   private readonly resolver = inject(LayoutResolver);
+  private readonly layered = inject(LayeredLayoutStore);
+  private readonly audit = inject(LayoutAuditTracker);
 
   /** True when the agent emitted a SlotMap via setWorkspaceLayout. */
   protected readonly agentDriven = computed(() => this.store.slots() !== null);
+
+  /**
+   * ADR-047 D5 — reset hierarchy menu open/closed state.
+   */
+  protected readonly resetMenuOpen = signal(false);
+
+  /**
+   * ADR-047 D4 — flash "✓ Saved" for ~2s after the user clicks Save.
+   * Goes via a tick counter that increments on save + decrements
+   * on a setTimeout; the button reads `savedTick() > 0` to render.
+   */
+  protected readonly savedTick = signal(0);
+
+  /**
+   * ADR-047 D6 — attribution shown on the banner. Picks the latest
+   * audit event with attribution + extracts source/user/age into a
+   * human sentence. Returns null when the chain is empty.
+   */
+  protected readonly attribution = computed(() => {
+    const chain = this.audit.chain();
+    if (chain.length === 0) return null;
+    const latest = chain[chain.length - 1];
+    const source = latest.appliedRules[0]?.source ?? 'unknown';
+    const user = latest.attribution?.['userId'] ?? 'system';
+    const ago = ageString(latest.timestamp);
+    const headlinePrefix = this.agentDriven() ? 'Agent-driven layout active.' : 'Layout active.';
+    const detailParts = [
+      `last set by ${user}`,
+      `${ago}`,
+      `via ${source} layer`,
+    ];
+    return {
+      headline: headlinePrefix,
+      detail: detailParts.join(' · '),
+    };
+  });
 
   /**
    * ADR-046 PR1 — when the resolved layout includes slots from non-route
@@ -161,6 +260,61 @@ export class WorkspaceDemoPage {
   /** Drop the agent-emitted slots → fall back to the per-persona default. */
   protected resetLayout(): void {
     this.store.clear();
+  }
+
+  /**
+   * ADR-047 D5 — toggle the reset-hierarchy menu open/closed.
+   */
+  protected toggleResetMenu(): void {
+    this.resetMenuOpen.update((v) => !v);
+  }
+
+  /**
+   * ADR-047 D5 — reset hierarchy. Each level clears the agent layer
+   * plus higher-precedence tiers, leaving the named tier (and below)
+   * intact. Argument matches the precedence target the user wants to
+   * fall back to.
+   */
+  protected resetTo(level: 'agent' | 'user-saved' | 'matter-default' | 'all'): void {
+    // Always clear the agent layer — it's volatile by definition.
+    this.store.clear();
+    const personaId = this.persona.active();
+    const key = `workspace:${personaId}`;
+    void (async () => {
+      if (level === 'user-saved' || level === 'matter-default' || level === 'all') {
+        try { await this.layered.removeFromTier('user-saved', key); } catch { /* ignore tier missing */ }
+      }
+      if (level === 'matter-default' || level === 'all') {
+        try { await this.layered.removeFromTier('matter-default', key); } catch { /* ignore */ }
+      }
+      if (level === 'all') {
+        try { await this.layered.removeFromTier('persona-default', key); } catch { /* ignore */ }
+        try { await this.layered.removeFromTier('org-default', key); } catch { /* ignore */ }
+      }
+    })();
+    this.resetMenuOpen.set(false);
+  }
+
+  /**
+   * ADR-047 D4 — snapshot the currently resolved SlotMap into the
+   * user-saved tier under a per-persona key. Subsequent boots
+   * rehydrate this through `LayeredLayoutStore` (when adopters wire
+   * a `UserSavedLayoutInput`).
+   */
+  protected savePreference(): void {
+    const slots = this.resolver.active().slots;
+    if (Object.keys(slots).length === 0) return;
+    const personaId = this.persona.active();
+    const key = `workspace:${personaId}`;
+    void this.layered.writeToTier('user-saved', key, {
+      schemaVersion: 1,
+      slots,
+    }).then(() => {
+      this.savedTick.update((v) => v + 1);
+      setTimeout(() => this.savedTick.update((v) => Math.max(0, v - 1)), 2000);
+    }).catch((err) => {
+      console.error('[workspace] savePreference failed', err);
+    });
   }
 
   /** Persona-aware density signal — drives the slot padding. */
@@ -196,4 +350,23 @@ export class WorkspaceDemoPage {
     { belowPx: 1024, collapse: [], drawer: ['footer'] },
     { belowPx: 768,  collapse: ['footer'], drawer: ['sidebar'] },
   ];
+}
+
+/**
+ * ADR-047 D6 — human-readable age string for the attribution banner.
+ * "just now" / "5 min ago" / "2 hours ago" / "3 days ago" / "older
+ * than a month".
+ */
+function ageString(timestamp: string): string {
+  const then = Date.parse(timestamp);
+  if (Number.isNaN(then)) return 'recently';
+  const diffMs = Date.now() - then;
+  if (diffMs < 60_000) return 'just now';
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} day${days === 1 ? '' : 's'} ago`;
+  return 'older than a month';
 }

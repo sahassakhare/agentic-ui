@@ -1,5 +1,6 @@
 import {
   ApplicationConfig,
+  computed,
   EnvironmentInjector,
   inject,
   provideAppInitializer,
@@ -35,12 +36,14 @@ import {
   provideToolFilter,
   provideTriggerRunner,
   memoryStore,
+  MATTER_CONTEXT_SIGNAL,
   PersistenceRegistry,
   STANDARD_LAYOUT_TIERS,
   ToolRegistry,
   type ApprovalAuditEvent,
   type CapabilityModule,
   type ChatShellMode,
+  type MatterContext,
   type OperationAuditEvent,
 } from '@infra-tools/agentic-ui';
 import { appendAudit, isoNow, nextAuditId } from '@infra-tools/demo-ediscovery-shared';
@@ -523,12 +526,25 @@ export const appConfig: ApplicationConfig = {
       activePersona: () => inject(PersonaService).active,
       agentSlots: () => inject(WorkspaceLayoutStore).slots,
     }),
-    // ADR-046 PR1 D5 — agent gets a per-turn context block describing
-    // current route, persona, and resolved layout state. The chat-shell
-    // integration that ships the block to the LLM lands in PR1b; this
-    // provider line wires the contributors so AgentContextProvider.compose()
-    // returns the assembled block as soon as a host queries it.
-    provideAgentContext(),
+    // ADR-046 PR1 D5 + ADR-047 D3 — agent context block. PR1 wired
+    // route + persona + layout-state. ADR-047 D3 enriches with
+    // selection + available-templates + override-stack (all default
+    // on) and matter (opt-in here since demo has a MatterStore).
+    // Recent tool calls are deferred — wiring a recent-calls signal
+    // is its own follow-on.
+    provideAgentContext({
+      includeMatter: true,
+    }),
+    // ADR-047 D3 — bind MATTER_CONTEXT_SIGNAL so MatterContextContributor
+    // can emit <matter id="..." phase="..." />. Computed lazily via a
+    // useFactory so injection context is honoured.
+    {
+      provide: MATTER_CONTEXT_SIGNAL,
+      useFactory: () => {
+        const store = inject(MatterStore);
+        return computed<MatterContext>(() => ({ id: store.matterId }));
+      },
+    },
     // ADR-046 PR2 D2/D3 — multi-tier layered storage. Four tiers, in
     // precedence order (user-saved beats matter-default beats persona-
     // default beats org-default). Each tier is backed by a memory
