@@ -71,3 +71,11 @@ export * from './lib/layout/migration';
 // Provides in-memory chain inspection (snapshotAt, validateChain) +
 // pluggable external sink. Time-travel viewer reads from .chain().
 export * from './lib/layout/audit';
+
+// ADR-046 PR4 — LayeredLayoutEngine D6
+// LayoutTemplateRegistry + DashboardTemplateRegistry — named, versioned,
+// approval-gated catalogs of layouts / dashboards. State machine: draft →
+// review → approved (with rejected + deprecated terminals). Adopters
+// wire templates with org / matter / tenant visibility for the
+// enterprise marketplace pattern.
+export * from './lib/layout/templates';
