@@ -28,6 +28,7 @@ import {
   removeLayoutSlotTool,
   replaceLayoutSlotTool,
 } from './coordination.tools';
+import { slotWidgets } from './slot-widgets';
 import {
   isoNow,
   nextCustodianId,
@@ -277,6 +278,12 @@ export const widgets: ComponentDef[] = [
     // misses a constraint.
     propsSchema: z.object({ schema: z.unknown() }),
   }),
+  // ── ADR-046 / ADR-047 slot widgets — placeholders for the named
+  //    components the resolver references (documentPreview, tagPanel,
+  //    chainOfCustody, bulkActions, multiDocPreview, privilegeLog).
+  //    Production hosts substitute real implementations via the same
+  //    `ComponentRegistry.register` seam.
+  ...slotWidgets,
 ];
 
 /**

@@ -5,6 +5,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import {
   BulkToolbarComponent,
   RowActionMenuComponent,
+  SelectionStore,
   SmartCellComponent,
   type BulkActionResult,
   type RowActionResult,
@@ -480,6 +481,7 @@ export class DocumentsComponent {
   protected readonly allTags = ALL_TAGS;
   private readonly store = inject(MatterStore);
   private readonly persona = inject(PersonaService);
+  private readonly selectionStore = inject(SelectionStore);
 
   protected readonly allCustodians = listCustodians(this.matterId);
   protected readonly totalDocs = computed(() => listDocuments(this.matterId).length + this.refresh() * 0);
@@ -530,14 +532,51 @@ export class DocumentsComponent {
   isSelected(id: string): boolean { return this.selected().includes(id); }
   toggleOne(id: string, on: boolean): void {
     this.selected.update((s) => (on ? [...s, id] : s.filter((x) => x !== id)));
+    this.syncSelectionToResolver();
   }
   toggleAll(on: boolean): void {
     this.selected.set(on ? this.results().map((d) => d.id) : []);
+    this.syncSelectionToResolver();
   }
-  clearSelection(): void { this.selected.set([]); }
+  clearSelection(): void {
+    this.selected.set([]);
+    this.selectionStore.clear();
+  }
 
-  openRow(id: string): void { this.openId.set(id); }
-  close(): void { this.openId.set(null); }
+  openRow(id: string): void {
+    this.openId.set(id);
+    // ADR-047 D7 — single-doc focus. Setting the global SelectionStore
+    // makes /workspace pivot to the document-focus layout (preview +
+    // tag + chain) without a chat prompt. The detail drawer below
+    // continues to surface in-place; the workspace pivot is the
+    // global-state effect.
+    this.selectionStore.set({ kind: 'document', ids: [id] });
+  }
+  close(): void {
+    this.openId.set(null);
+    // Drawer close doesn't necessarily clear selection — if checkboxes
+    // are still checked, leave the multi-select active. Only clear
+    // when nothing is checked.
+    if (this.selected().length === 0) {
+      this.selectionStore.clear();
+    } else {
+      this.syncSelectionToResolver();
+    }
+  }
+
+  /**
+   * Push the current `selected()` multi-select state into the global
+   * `SelectionStore` so `SelectionLayoutInput` fires the correct
+   * multi-doc rules (single-doc layout vs bulk-actions layout).
+   */
+  private syncSelectionToResolver(): void {
+    const ids = this.selected();
+    if (ids.length === 0) {
+      this.selectionStore.clear();
+      return;
+    }
+    this.selectionStore.set({ kind: 'document', ids });
+  }
 
   bulkTag(tag: DocumentTag): void {
     const ids = this.selected();

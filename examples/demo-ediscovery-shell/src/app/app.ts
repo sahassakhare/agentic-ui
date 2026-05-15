@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs/operators';
+import { SelectionStore } from '@infra-tools/agentic-ui';
 import { HeaderComponent } from './layout/header.component';
 import { SidebarComponent } from './layout/sidebar.component';
 import { ChatRailComponent } from './layout/chat-rail.component';
@@ -39,4 +41,17 @@ import { CommandPaletteComponent } from './ui/command-palette.component';
     }
   `,
 })
-export class App {}
+export class App {
+  // ADR-047 D7 — clear the global selection on every navigation. Each
+  // page that wants to drive selection-based layouts sets the store on
+  // row click; cross-route navigation tears it down so the resolver
+  // doesn't get stale data on the next page. Subscription lives for
+  // the app lifetime — root component never destroys.
+  private readonly selectionStore = inject(SelectionStore);
+
+  constructor() {
+    inject(Router).events
+      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .subscribe(() => this.selectionStore.clear());
+  }
+}

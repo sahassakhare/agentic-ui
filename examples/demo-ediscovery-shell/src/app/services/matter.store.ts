@@ -39,12 +39,22 @@ import { environment } from '../../environments/environment';
 
 const STORAGE_PREFIX = 'ediscovery:matter-state:';
 
+/**
+ * eDiscovery matter lifecycle phases. Drives the matter-phase
+ * precedence layer in the LayoutResolver (ADR-046 D2 weight 300) and
+ * the `<matter phase="..." />` fragment in the agent context block
+ * (ADR-047 D3). Adopters can extend with custom phases by widening
+ * the type here + adding handler logic in `setPhase`.
+ */
+export type MatterPhase = 'collection' | 'review' | 'production' | 'closed';
+
 interface PersistedState {
-  readonly version: 1;
+  readonly version: 1 | 2;
   readonly matterId: string;
   readonly custodians: readonly Custodian[];
   readonly legalHolds: readonly LegalHold[];
   readonly auditLog: readonly AuditEvent[];
+  readonly phase?: MatterPhase;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -57,6 +67,33 @@ export class MatterStore {
   /** Mirror of the shared-module audit log -- exposed as a signal
    *  so the /audit page reacts to mutations without polling. */
   readonly auditLog = signal<readonly AuditEvent[]>([]);
+
+  /**
+   * ADR-047 D3 — matter lifecycle phase. Drives `<matter phase="..." />`
+   * in the agent context block and feeds the `matter-phase` precedence
+   * layer (weight 300) once a `MatterPhaseLayoutInput` is wired. Default
+   * `'review'` for the demo's seeded matter, matching its data state.
+   */
+  readonly phase = signal<MatterPhase>('review');
+
+  /**
+   * Transition the matter to a new phase. Persists via the same path
+   * as other state mutations + appends an audit event for chain-hash
+   * defensibility. Production hosts gate this on lead-counsel role.
+   */
+  setPhase(next: MatterPhase): void {
+    const before = this.phase();
+    if (before === next) return;
+    this.phase.set(next);
+    this.audit({
+      actor: this.actor(),
+      action: 'matter.phase.changed',
+      target: { type: 'matter', id: this.matterId },
+      before: { phase: before },
+      after: { phase: next },
+    });
+    this.persist();
+  }
 
   constructor() {
     this.hydrate();
@@ -234,6 +271,7 @@ export class MatterStore {
       this.custodians.set(persisted.custodians);
       this.legalHolds.set(persisted.legalHolds);
       this.auditLog.set(persisted.auditLog);
+      if (persisted.phase) this.phase.set(persisted.phase);
       // Replay the persisted audit log into the shared module's
       // in-memory store so callers that read via listAuditEvents()
       // see the same events. Skip-rehash because chainHash is
@@ -256,7 +294,7 @@ export class MatterStore {
       const raw = localStorage.getItem(this.storageKey);
       if (!raw) return null;
       const parsed = JSON.parse(raw) as PersistedState;
-      if (parsed?.version !== 1 || parsed.matterId !== this.matterId) return null;
+      if ((parsed?.version !== 1 && parsed?.version !== 2) || parsed.matterId !== this.matterId) return null;
       return parsed;
     } catch {
       return null;
@@ -267,11 +305,12 @@ export class MatterStore {
     try {
       if (typeof localStorage === 'undefined') return;
       const snapshot: PersistedState = {
-        version: 1,
+        version: 2,
         matterId: this.matterId,
         custodians: this.custodians(),
         legalHolds: this.legalHolds(),
         auditLog: this.auditLog(),
+        phase: this.phase(),
       };
       localStorage.setItem(this.storageKey, JSON.stringify(snapshot));
     } catch {

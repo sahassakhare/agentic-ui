@@ -10,7 +10,9 @@ import {
   runInInjectionContext,
   type EnvironmentProviders,
 } from '@angular/core';
-import { provideRouter, Router } from '@angular/router';
+import { NavigationEnd, provideRouter, Router } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map } from 'rxjs/operators';
 import { loadRemoteModule } from '@angular-architects/native-federation';
 import {
   AGENTIC_ACTIVE_PERSONA,
@@ -38,6 +40,7 @@ import {
   memoryStore,
   MATTER_CONTEXT_SIGNAL,
   PersistenceRegistry,
+  RECENT_TOOL_CALLS_SIGNAL,
   STANDARD_LAYOUT_TIERS,
   ToolRegistry,
   type ApprovalAuditEvent,
@@ -45,6 +48,7 @@ import {
   type ChatShellMode,
   type MatterContext,
   type OperationAuditEvent,
+  type RecentToolCall,
 } from '@infra-tools/agentic-ui';
 import { appendAudit, isoNow, nextAuditId } from '@infra-tools/demo-ediscovery-shared';
 
@@ -477,29 +481,23 @@ export const appConfig: ApplicationConfig = {
     // user-saved inputs as their domain exposes those signals.
     provideLayoutResolver({
       routeRules: [
-        // Context-driven defaults — fire WITHOUT a chat prompt. Click
-        // into /workspace and the resolver supplies a baseline three-pane
-        // layout; the agent's setWorkspaceLayout override wins on top
-        // (weight 1000 > route's 400).
+        // /workspace — two-pane baseline. Real widget names (not kpiTile)
+        // so adopters see the slot intent. Persona layer adds footer
+        // pin for lead-counsel; selection layer (below) overrides
+        // primary+sidebar when a document is selected.
         {
           pattern: '/workspace',
-          // Route only supplies primary + sidebar — footer is left to
-          // the persona layer so the layered-precedence story is
-          // actually visible: lead-counsel gets a footer (persona pin),
-          // other personas don't. Adopters who want a universal footer
-          // would either move it back into the route rule OR add a
-          // separate org-default rule.
           slots: {
-            primary: { component: 'kpiTile', size: { default: '70%' } },
-            sidebar: { component: 'kpiTile', size: { default: '30%' } },
+            primary: { component: 'documentPreview', size: { default: '70%' } },
+            sidebar: { component: 'tagPanel', size: { default: '30%' } },
           },
           reason: 'route /workspace — two-pane baseline',
         },
         {
           pattern: '/documents/*',
           slots: {
-            primary: { component: 'kpiTile', size: { default: '70%' } },
-            sidebar: { component: 'kpiTile', size: { default: '30%' } },
+            primary: { component: 'documentPreview', size: { default: '70%' } },
+            sidebar: { component: 'tagPanel', size: { default: '30%' } },
           },
           reason: 'route /documents/:id — preview + tag panel',
         },
@@ -518,31 +516,107 @@ export const appConfig: ApplicationConfig = {
         {
           personaId: 'lead-counsel',
           slots: {
-            footer: { component: 'kpiTile', size: { default: '15%' } },
+            footer: { component: 'chainOfCustody', size: { default: '15%' } },
           },
           reason: 'persona lead-counsel — chain-of-custody pin',
         },
       ],
+      // ADR-047 D7 — selection-driven rules. Clicking a document row in
+      // /documents calls SelectionStore.set({ kind: 'document', ids:
+      // [...] }); the resolver re-evaluates and the matching rule
+      // contributes slots. Same weight as route (400) — selection
+      // rules are evaluated after routes, so they win on ties.
+      selectionRules: [
+        // Single doc focus — three-pane review canvas with real
+        // widgets. The canonical "click a doc, workspace pivots" moment.
+        {
+          kind: 'document',
+          minCount: 1,
+          maxCount: 1,
+          slots: {
+            primary: { component: 'documentPreview', size: { default: '55%' } },
+            sidebar: { component: 'tagPanel', size: { default: '25%' } },
+            footer:  { component: 'chainOfCustody', size: { default: '20%' } },
+          },
+          reason: 'selection — single document focus',
+        },
+        // Multi-doc bulk mode — preview list + bulk-action buttons.
+        // Replaces tag panel with bulkActions when 2+ docs selected.
+        {
+          kind: 'document',
+          minCount: 2,
+          slots: {
+            primary: { component: 'multiDocPreview', size: { default: '60%' } },
+            sidebar: { component: 'bulkActions', size: { default: '40%' } },
+          },
+          evictSlots: ['footer'],
+          reason: 'selection — multi-document bulk mode',
+        },
+      ],
       activePersona: () => inject(PersonaService).active,
       agentSlots: () => inject(WorkspaceLayoutStore).slots,
+      // ADR-047 D4 — bind UserSavedLayoutInput to a per-route +
+      // per-persona key. The /workspace Save button writes under
+      // `workspace:<personaId>`; the input reads back on next boot or
+      // persona switch. Other routes opt out by falling through (null).
+      userSavedKey: () => {
+        const router = inject(Router);
+        const persona = inject(PersonaService);
+        return computed(() => {
+          const url = toSignal(
+            router.events.pipe(
+              filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+              map(() => router.url),
+            ),
+            { initialValue: router.url },
+          )();
+          const route = url.split(/[?#]/)[0];
+          if (route !== '/workspace') return null;
+          return `workspace:${persona.active()}`;
+        });
+      },
     }),
     // ADR-046 PR1 D5 + ADR-047 D3 — agent context block. PR1 wired
     // route + persona + layout-state. ADR-047 D3 enriches with
     // selection + available-templates + override-stack (all default
-    // on) and matter (opt-in here since demo has a MatterStore).
-    // Recent tool calls are deferred — wiring a recent-calls signal
-    // is its own follow-on.
+    // on), matter (opt-in here), and recent tool calls (bound below
+    // via RECENT_TOOL_CALLS_SIGNAL).
     provideAgentContext({
       includeMatter: true,
+      includeRecentToolCalls: true,
     }),
+    // ADR-047 D3 — bind RECENT_TOOL_CALLS_SIGNAL to a computed over
+    // MatterStore.auditLog. Reshapes the last ~30 audit events into
+    // the contributor's expected shape so the agent sees what's just
+    // happened ("Sarah tagged DOC-7891240 as responsive 2 min ago").
+    // Contributor takes the most-recent 10 for the context block.
+    {
+      provide: RECENT_TOOL_CALLS_SIGNAL,
+      useFactory: () => {
+        const store = inject(MatterStore);
+        return computed<readonly RecentToolCall[]>(() => {
+          const events = store.auditLog();
+          return events.slice(-30).map((e) => ({
+            timestamp: e.timestamp,
+            tool: e.action,
+            outcome: 'ok' as const,
+          }));
+        });
+      },
+    },
     // ADR-047 D3 — bind MATTER_CONTEXT_SIGNAL so MatterContextContributor
-    // can emit <matter id="..." phase="..." />. Computed lazily via a
-    // useFactory so injection context is honoured.
+    // can emit <matter id="..." phase="..." />. Phase wired now that
+    // MatterStore exposes a phase signal (`collection` | `review` |
+    // `production` | `closed`) — agent sees the lifecycle stage and
+    // can recommend phase-appropriate templates / dashboards.
     {
       provide: MATTER_CONTEXT_SIGNAL,
       useFactory: () => {
         const store = inject(MatterStore);
-        return computed<MatterContext>(() => ({ id: store.matterId }));
+        return computed<MatterContext>(() => ({
+          id: store.matterId,
+          phase: store.phase(),
+        }));
       },
     },
     // ADR-046 PR2 D2/D3 — multi-tier layered storage. Four tiers, in
