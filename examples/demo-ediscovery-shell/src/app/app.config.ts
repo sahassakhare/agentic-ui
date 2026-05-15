@@ -480,12 +480,17 @@ export const appConfig: ApplicationConfig = {
         // (weight 1000 > route's 400).
         {
           pattern: '/workspace',
+          // Route only supplies primary + sidebar — footer is left to
+          // the persona layer so the layered-precedence story is
+          // actually visible: lead-counsel gets a footer (persona pin),
+          // other personas don't. Adopters who want a universal footer
+          // would either move it back into the route rule OR add a
+          // separate org-default rule.
           slots: {
-            primary: { component: 'kpiTile', size: { default: '60%' } },
-            sidebar: { component: 'kpiTile', size: { default: '25%' } },
-            footer:  { component: 'kpiTile', size: { default: '15%' } },
+            primary: { component: 'kpiTile', size: { default: '70%' } },
+            sidebar: { component: 'kpiTile', size: { default: '30%' } },
           },
-          reason: 'route /workspace — three-pane baseline',
+          reason: 'route /workspace — two-pane baseline',
         },
         {
           pattern: '/documents/*',
