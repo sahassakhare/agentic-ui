@@ -88,3 +88,8 @@ export * from './lib/layout/templates';
 //    rules + new "selection" context fragment.
 export * from './lib/layout/selection';
 export * from './lib/layout/slot-editor';
+
+// Sprint 2 follow-on (post-analysis) — matter-phase-driven layouts.
+// Lifecycle stage (collection / review / production / closed) becomes
+// a precedence layer (weight 300) above persona, below contextual.
+export * from './lib/layout/matter-phase';

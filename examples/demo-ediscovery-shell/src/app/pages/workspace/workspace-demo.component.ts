@@ -1,11 +1,15 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import {
   LayeredLayoutStore,
   LayoutAuditTracker,
   LayoutResolver,
+  LayoutTemplateRegistry,
   WorkspaceLayoutComponent,
+  type LayoutTemplate,
   type SlotMap,
   type ResponsiveCollapseRule,
+  type TemplateVisibility,
 } from '@infra-tools/agentic-ui';
 import { PersonaService } from '../../services/persona.service';
 import { WorkspaceLayoutStore } from '../../services/workspace-layout.store';
@@ -37,7 +41,7 @@ import { WorkspaceLayoutStore } from '../../services/workspace-layout.store';
 @Component({
   selector: 'app-workspace-demo',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [WorkspaceLayoutComponent],
+  imports: [WorkspaceLayoutComponent, FormsModule],
   template: `
     <section class="page-head">
       <div>
@@ -85,6 +89,12 @@ import { WorkspaceLayoutStore } from '../../services/workspace-layout.store';
       <button type="button" class="btn" [disabled]="savedTick() > 0" (click)="savePreference()">
         {{ savedTick() > 0 ? '✓ Saved' : '📌 Save as my preference' }}
       </button>
+      <!-- Sprint 2 — promote the resolved layout to a shared template.
+           Visible to all personas in the demo for discoverability;
+           production would gate by matter-lead role. -->
+      <button type="button" class="btn" (click)="openPromoteModal()">
+        🚀 Save as template…
+      </button>
       <!-- ADR-047 D5 — Reset hierarchy. Single button toggles a
            menu of "Reset to my saved / matter / org / lib default". -->
       <div class="reset-group">
@@ -127,6 +137,53 @@ import { WorkspaceLayoutStore } from '../../services/workspace-layout.store';
           }
         </ul>
       </details>
+    }
+
+    <!-- Sprint 2 — promotion modal. Lightweight; no overlay library
+         dependency. Closes on backdrop click or Esc. -->
+    @if (promoteOpen()) {
+      <div class="modal-backdrop" (click)="closePromoteModal()"></div>
+      <div class="modal" role="dialog" aria-labelledby="promote-title">
+        <header>
+          <h2 id="promote-title">🚀 Save current layout as a template</h2>
+          <button type="button" class="x" (click)="closePromoteModal()" aria-label="Close">×</button>
+        </header>
+        <p class="muted small">
+          Captures the {{ appliedRules().length }} slot(s) currently rendered + metadata.
+          Private templates skip review; tenant / matter visibility routes through approval workflow.
+        </p>
+        <label>
+          <span>Template name (slug)</span>
+          <input type="text" [(ngModel)]="promoteName" placeholder="privilege-review-2026q2" />
+        </label>
+        <label>
+          <span>Title</span>
+          <input type="text" [(ngModel)]="promoteTitle" placeholder="Privilege review (Q2 2026)" />
+        </label>
+        <label>
+          <span>Description</span>
+          <textarea rows="2" [(ngModel)]="promoteDescription" placeholder="What scenario this template is tuned for."></textarea>
+        </label>
+        <label>
+          <span>Tags (comma-separated)</span>
+          <input type="text" [(ngModel)]="promoteTagsRaw" placeholder="privilege, review, q2-2026" />
+        </label>
+        <label>
+          <span>Visibility</span>
+          <select [(ngModel)]="promoteVisibility">
+            <option value="private">private (just me — auto-approved)</option>
+            <option value="matter">matter (this matter — goes to review)</option>
+            <option value="tenant">tenant (org-wide — goes to review)</option>
+          </select>
+        </label>
+        @if (promoteError()) {
+          <p class="error">{{ promoteError() }}</p>
+        }
+        <div class="actions">
+          <button type="button" class="btn ghost" (click)="closePromoteModal()">Cancel</button>
+          <button type="button" class="btn primary" (click)="submitPromotion()">Submit</button>
+        </div>
+      </div>
     }
 
     <p class="footnote">
@@ -217,6 +274,34 @@ import { WorkspaceLayoutStore } from '../../services/workspace-layout.store';
     }
     .resolver-breakdown .rule-weight { margin-left: var(--s-2); color: var(--c-text-faint); font-family: ui-monospace, monospace; font-size: 0.85em; }
     .resolver-breakdown .rule-reason { margin-left: var(--s-2); }
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100;
+    }
+    .modal {
+      position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: min(540px, 90vw); padding: var(--s-4); z-index: 101;
+      background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-md);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: var(--s-2);
+    }
+    .modal header { display: flex; justify-content: space-between; align-items: center; }
+    .modal h2 { margin: 0; font-size: var(--fs-md); }
+    .modal .x {
+      background: transparent; border: 0; cursor: pointer; font-size: 1.4rem; color: var(--c-text-faint);
+      line-height: 1; padding: 0 var(--s-2);
+    }
+    .modal label { display: flex; flex-direction: column; gap: 4px; margin-top: var(--s-2); }
+    .modal label span { font-size: var(--fs-xs); color: var(--c-text-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+    .modal input, .modal textarea, .modal select {
+      padding: 0.45rem 0.65rem; font-size: var(--fs-sm);
+      border: 1px solid var(--c-border); border-radius: var(--r-sm); font-family: inherit;
+    }
+    .modal .actions { display: flex; justify-content: flex-end; gap: var(--s-2); margin-top: var(--s-3); }
+    .modal .btn { padding: 0.5rem 1rem; font-size: var(--fs-sm); border-radius: var(--r-md); cursor: pointer; }
+    .modal .btn.primary { background: var(--c-accent, #6366f1); color: white; border: 1px solid transparent; }
+    .modal .btn.primary:hover { filter: brightness(1.06); }
+    .modal .btn.ghost { background: transparent; border: 1px solid var(--c-border); }
+    .modal .btn.ghost:hover { background: var(--c-surface-1); }
+    .modal .error { margin: var(--s-2) 0 0; color: var(--c-danger, #dc2626); font-size: var(--fs-xs); }
     .try-asking {
       margin: var(--s-3) 0 var(--s-4); padding: var(--s-3);
       background: var(--c-surface-1); border: 1px solid var(--c-border);
@@ -236,6 +321,106 @@ export class WorkspaceDemoPage {
   private readonly resolver = inject(LayoutResolver);
   private readonly layered = inject(LayeredLayoutStore);
   private readonly audit = inject(LayoutAuditTracker);
+  private readonly layoutTemplates = inject(LayoutTemplateRegistry);
+
+  // Sprint 2 — Save-as-template modal state.
+  protected readonly promoteOpen = signal(false);
+  protected promoteName = '';
+  protected promoteTitle = '';
+  protected promoteDescription = '';
+  protected promoteTagsRaw = '';
+  protected promoteVisibility: TemplateVisibility = 'matter';
+  protected readonly promoteError = signal<string | null>(null);
+
+  protected openPromoteModal(): void {
+    const slots = this.resolver.active().slots;
+    if (Object.keys(slots).length === 0) {
+      this.promoteError.set('Nothing to save — workspace has no resolved slots.');
+      return;
+    }
+    const slug = this.suggestedSlug();
+    this.promoteName = slug;
+    this.promoteTitle = '';
+    this.promoteDescription = '';
+    this.promoteTagsRaw = '';
+    this.promoteVisibility = 'matter';
+    this.promoteError.set(null);
+    this.promoteOpen.set(true);
+  }
+
+  protected closePromoteModal(): void {
+    this.promoteOpen.set(false);
+    this.promoteError.set(null);
+  }
+
+  protected submitPromotion(): void {
+    const slots = this.resolver.active().slots;
+    if (Object.keys(slots).length === 0) {
+      this.promoteError.set('No slots to capture.');
+      return;
+    }
+    const name = this.promoteName.trim();
+    const title = this.promoteTitle.trim() || name;
+    const description = this.promoteDescription.trim() || `Saved by ${this.persona.active()} from /workspace.`;
+    if (!name) {
+      this.promoteError.set('Name is required.');
+      return;
+    }
+    if (this.layoutTemplates.get(name)) {
+      this.promoteError.set(`Template "${name}" already exists. Pick a different name.`);
+      return;
+    }
+    const tags = this.promoteTagsRaw
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+    // Private templates skip review; matter/tenant go to review state
+    // and surface in /admin/templates for a lead-counsel to approve.
+    const initialState = this.promoteVisibility === 'private' ? 'approved' : 'review';
+    const template: LayoutTemplate = {
+      name,
+      title,
+      description,
+      approvalState: initialState,
+      approvalChain: initialState === 'review'
+        ? [{
+            id: `approval-submit-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            actor: { userId: this.persona.active() },
+            action: 'submit',
+            fromState: 'draft',
+            toState: 'review',
+            comment: undefined,
+          }]
+        : [],
+      author: { userId: this.persona.active(), tenantId: 'demo' },
+      visibility: this.promoteVisibility,
+      tags,
+      version: 'v1',
+      schemaVersion: 1,
+      body: {
+        name,
+        description,
+        slots: Object.keys(slots),
+        // The body's `component` is the layout's renderer; templates
+        // emitted here use the lib's slot-map shape via `slotMap`.
+        component: WorkspaceLayoutComponent as never,
+        slotMap: slots,
+      },
+    };
+    try {
+      this.layoutTemplates.register(template);
+      this.closePromoteModal();
+    } catch (e) {
+      this.promoteError.set(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  private suggestedSlug(): string {
+    const personaSlug = this.persona.active();
+    const stamp = new Date().toISOString().slice(0, 10);
+    return `${personaSlug}-saved-${stamp}`;
+  }
 
   /** True when the agent emitted a SlotMap via setWorkspaceLayout. */
   protected readonly agentDriven = computed(() => this.store.slots() !== null);

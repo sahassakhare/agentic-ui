@@ -6,6 +6,7 @@ import { environment } from '../../environments/environment';
 import { IconComponent } from '../ui/icon.component';
 import { NotificationsStore } from '../services/notifications.store';
 import { PERSONAS, PersonaService, type Persona } from '../services/persona.service';
+import { MatterStore, type MatterPhase } from '../services/matter.store';
 
 /**
  * Top header. Three regions:
@@ -28,6 +29,30 @@ import { PERSONAS, PersonaService, type Persona } from '../services/persona.serv
           <span class="matter-name">In re Acme Corp Securities Litigation</span>
           <svg-icon name="chevron-down" [size]="14" />
         </button>
+        <!-- Sprint 2 — matter-phase switcher. Drives the
+             MatterPhaseLayoutInput at weight 300. Lead-counsel only
+             in production; the demo allows all personas for
+             discoverability. -->
+        <div class="phase-wrap">
+          <button type="button" class="phase-pill" [class.open]="phaseOpen()" (click)="togglePhase()" aria-haspopup="menu">
+            <span class="phase-label">phase</span>
+            <strong>{{ matter.phase() }}</strong>
+            <svg-icon name="chevron-down" [size]="12" />
+          </button>
+          @if (phaseOpen()) {
+            <ul class="phase-menu" role="menu">
+              @for (p of allPhases; track p) {
+                <li role="menuitem">
+                  <button type="button"
+                          [class.active]="matter.phase() === p"
+                          (click)="setPhase(p)">
+                    {{ p }}
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
       </div>
 
       <div class="center">
@@ -101,6 +126,33 @@ import { PERSONAS, PersonaService, type Persona } from '../services/persona.serv
     .matter:hover { background: var(--c-surface-3); }
     .matter-id { font-family: ui-monospace, monospace; font-size: var(--fs-xs); color: var(--c-text-mute); }
     .matter-name { font-size: var(--fs-sm); color: var(--c-text); font-weight: 500; }
+    /* Matter-phase switcher (Sprint 2). Compact pill next to the matter selector. */
+    .left { display: flex; align-items: center; gap: var(--s-2); }
+    .phase-wrap { position: relative; }
+    .phase-pill {
+      display: inline-flex; align-items: center; gap: var(--s-2);
+      padding: 0.3rem 0.65rem; background: var(--c-surface-2);
+      border: 1px solid var(--c-border); border-radius: var(--r-md);
+      cursor: pointer; font-size: var(--fs-xs);
+      transition: background var(--t-fast);
+    }
+    .phase-pill:hover, .phase-pill.open { background: var(--c-surface-3); }
+    .phase-pill .phase-label { color: var(--c-text-mute); text-transform: uppercase; letter-spacing: 0.05em; }
+    .phase-pill strong { color: var(--c-text); font-weight: 600; }
+    .phase-menu {
+      position: absolute; top: calc(100% + 4px); left: 0;
+      list-style: none; margin: 0; padding: 4px; min-width: 160px;
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--r-md); box-shadow: 0 4px 12px rgba(0,0,0,0.08); z-index: 100;
+    }
+    .phase-menu li { margin: 0; }
+    .phase-menu button {
+      display: block; width: 100%; padding: 0.4rem 0.7rem; text-align: left;
+      background: transparent; border: 0; cursor: pointer; font-size: var(--fs-xs);
+      color: var(--c-text); border-radius: var(--r-sm); text-transform: capitalize;
+    }
+    .phase-menu button:hover { background: var(--c-surface-1); }
+    .phase-menu button.active { background: var(--c-accent, #6366f1); color: white; }
 
     .center { display: flex; }
     .search {
@@ -207,6 +259,7 @@ export class HeaderComponent {
   protected readonly matterId = environment.matterId;
   protected readonly personaService = inject(PersonaService);
   protected readonly notificationsStore = inject(NotificationsStore);
+  protected readonly matter = inject(MatterStore);
   private readonly toolRegistry = inject(ToolRegistry);
   private readonly router = inject(Router);
 
@@ -214,6 +267,16 @@ export class HeaderComponent {
   protected readonly activeProfile = computed(() => this.personaService.profile(this.active()));
   protected readonly personas = PERSONAS;
   protected readonly personaOpen = signal(false);
+
+  // Sprint 2 — matter-phase switcher state.
+  protected readonly phaseOpen = signal(false);
+  protected readonly allPhases: readonly MatterPhase[] = ['collection', 'review', 'production', 'closed'];
+
+  togglePhase(): void { this.phaseOpen.update((v) => !v); }
+  setPhase(p: MatterPhase): void {
+    this.matter.setPhase(p);
+    this.phaseOpen.set(false);
+  }
 
   /**
    * Live total of *every* registered tool — recomputes when remotes

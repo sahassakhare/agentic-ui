@@ -4,6 +4,8 @@ import {
   ApprovalRegistry,
   CapabilityRegistry,
   DashboardRegistry,
+  DashboardTemplateRegistry,
+  LayoutTemplateRegistry,
   OperationRegistry,
   PlaybookRegistry,
   ToolRegistry,
@@ -149,6 +151,13 @@ export class SidebarComponent {
   private readonly operationRegistry = inject(OperationRegistry);
   private readonly dashboardRegistry = inject(DashboardRegistry);
   private readonly playbookRegistry = inject(PlaybookRegistry);
+  private readonly layoutTemplateRegistry = inject(LayoutTemplateRegistry);
+  private readonly dashboardTemplateRegistry = inject(DashboardTemplateRegistry);
+  protected readonly pendingTemplateReviewCount = computed(
+    () =>
+      this.layoutTemplateRegistry.pendingReview().length +
+      this.dashboardTemplateRegistry.pendingReview().length,
+  );
   private readonly notifications = inject(NotificationsStore);
   private readonly persona = inject(PersonaService);
 
@@ -228,5 +237,15 @@ export class SidebarComponent {
     { path: '/workspace',    label: 'Workspace',    icon: 'dashboard' },
     // ── ADR-046 PR3 D4 — layout audit chain viewer ────────────────────
     { path: '/audit/layouts', label: 'Layout audit', icon: 'audit' },
+    // ── Sprint 2 — admin template review queue ────────────────────────
+    {
+      path: '/admin/templates',
+      label: 'Template review',
+      icon: 'circle-check',
+      badge: () => {
+        const n = this.pendingTemplateReviewCount();
+        return n > 0 ? n : null;
+      },
+    },
   ];
 }

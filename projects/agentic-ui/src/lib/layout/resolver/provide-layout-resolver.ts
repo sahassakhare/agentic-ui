@@ -18,6 +18,16 @@ import {
   type SelectionLayoutRule,
 } from '../selection';
 import {
+  UserSavedLayoutInput,
+  USER_SAVED_LAYOUT_KEY,
+} from '../layered-store/user-saved-layout-input';
+import {
+  ACTIVE_MATTER_PHASE_SIGNAL,
+  MatterPhaseLayoutInput,
+  MATTER_PHASE_LAYOUT_RULES,
+  type MatterPhaseLayoutRule,
+} from '../matter-phase';
+import {
   LAYOUT_INPUT,
   LAYOUT_WEIGHTS,
   type LayoutInput,
@@ -76,6 +86,48 @@ export interface LayoutResolverConfig {
    * from their click handlers.
    */
   readonly selectionRules?: readonly SelectionLayoutRule[];
+
+  /**
+   * Adopter-supplied factory returning a signal that resolves to the
+   * **key** the user-saved tier should look up on each resolver
+   * recompute. When set, `UserSavedLayoutInput` is registered and the
+   * user-saved precedence layer becomes live (weight 800 by default).
+   *
+   * Typical wiring — per-route + per-persona key:
+   *
+   * ```ts
+   * userSavedKey: () => {
+   *   const router = inject(Router);
+   *   const persona = inject(PersonaService);
+   *   return computed(() => `${router.url}:${persona.active()}`);
+   * }
+   * ```
+   *
+   * Return `null` from the inner signal to opt out for the current
+   * route (e.g. an admin page that shouldn't be customizable).
+   */
+  readonly userSavedKey?: () => Signal<string | null>;
+
+  /**
+   * ADR-046 D2 + ADR-047 — matter-phase rules. Fire when the active
+   * `ACTIVE_MATTER_PHASE_SIGNAL` value matches a rule's `phase`
+   * field. `MatterPhaseLayoutInput` is registered when this is set
+   * AND `activeMatterPhase` is set. Weight 300 by default — above
+   * persona, below contextual layers.
+   */
+  readonly matterPhaseRules?: readonly MatterPhaseLayoutRule[];
+
+  /**
+   * Adopter-supplied factory returning the active matter-phase signal.
+   * Typically derives from a domain store (eDiscovery: `MatterStore.phase`).
+   *
+   * ```ts
+   * activeMatterPhase: () => inject(MatterStore).phase
+   * ```
+   *
+   * Return null from the inner signal to suspend phase-driven rules.
+   */
+  readonly activeMatterPhase?: () => Signal<string | null>;
 
   /**
    * Override the lib's default precedence weights. Partial — unspecified
@@ -155,6 +207,25 @@ export function provideLayoutResolver(config: LayoutResolverConfig = {}): Enviro
       { provide: SELECTION_LAYOUT_RULES, useValue: config.selectionRules },
       { provide: LAYOUT_INPUT, useExisting: SelectionLayoutInput, multi: true },
     );
+  }
+
+  if (config.userSavedKey) {
+    const keyFactory = config.userSavedKey;
+    providers.push(
+      { provide: USER_SAVED_LAYOUT_KEY, useFactory: keyFactory },
+      { provide: LAYOUT_INPUT, useExisting: UserSavedLayoutInput, multi: true },
+    );
+  }
+
+  if (config.matterPhaseRules || config.activeMatterPhase) {
+    if (config.matterPhaseRules) {
+      providers.push({ provide: MATTER_PHASE_LAYOUT_RULES, useValue: config.matterPhaseRules });
+    }
+    if (config.activeMatterPhase) {
+      const phaseFactory = config.activeMatterPhase;
+      providers.push({ provide: ACTIVE_MATTER_PHASE_SIGNAL, useFactory: phaseFactory });
+    }
+    providers.push({ provide: LAYOUT_INPUT, useExisting: MatterPhaseLayoutInput, multi: true });
   }
 
   for (const inputClass of config.extraInputs ?? []) {

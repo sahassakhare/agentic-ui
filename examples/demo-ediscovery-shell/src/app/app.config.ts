@@ -575,6 +575,36 @@ export const appConfig: ApplicationConfig = {
           return `workspace:${persona.active()}`;
         });
       },
+      // Sprint 2 — matter-phase-driven rules. Each phase contributes
+      // baseline slots at weight 300. Beats persona (200), loses to
+      // selection / route (400) so the user's active focus survives
+      // a phase change. eDiscovery taxonomy: collection / review /
+      // production / closed.
+      matterPhaseRules: [
+        {
+          phase: 'review',
+          slots: {
+            sidebar: { component: 'privilegeLog', size: { default: '30%' } },
+          },
+          reason: 'matter phase review — privilege log pinned',
+        },
+        {
+          phase: 'production',
+          slots: {
+            primary: { component: 'multiDocPreview', size: { default: '60%' } },
+            sidebar: { component: 'bulkActions', size: { default: '40%' } },
+          },
+          evictSlots: ['footer'],
+          reason: 'matter phase production — Bates-prep canvas',
+        },
+        // No rule for 'collection' or 'closed' — those phases fall
+        // through to route/persona defaults, demonstrating that
+        // matter-phase rules are opt-in per phase.
+      ],
+      activeMatterPhase: () => {
+        const store = inject(MatterStore);
+        return computed(() => store.phase());
+      },
     }),
     // ADR-046 PR1 D5 + ADR-047 D3 — agent context block. PR1 wired
     // route + persona + layout-state. ADR-047 D3 enriches with

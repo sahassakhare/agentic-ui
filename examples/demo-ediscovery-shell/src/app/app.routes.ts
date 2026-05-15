@@ -80,6 +80,13 @@ export const routes: Routes = [
     path: 'audit/layouts',
     loadComponent: () => import('./pages/audit-layouts/audit-layouts.component').then((m) => m.AuditLayoutsPage),
   },
+  // Sprint 2 — admin template review queue (in-review / rejected /
+  // drafts). Approve / Reject actions transition through the
+  // approval state machine.
+  {
+    path: 'admin/templates',
+    loadComponent: () => import('./pages/admin-templates/admin-templates.component').then((m) => m.AdminTemplatesPage),
+  },
   // ── Trimodal direct-mount surfaces (plan R3) ──────────────────────────
   // Same registry definitions the chat agent invokes — without the chat
   // shell. Proves forms/workflows are surface-independent.
