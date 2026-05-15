@@ -47,3 +47,12 @@ export * from './lib/otel';
 
 // Was @infra-tools/agentic-ui/testing
 export * from './lib/testing';
+
+// ADR-046 PR1 — LayeredLayoutEngine D1 + D5
+// `LayoutResolver` (reactive engine that composes a SlotMap from multiple
+// layered inputs) + `AgentContextProvider` (per-turn XML context block so
+// the agent reasons about live UI state, not just the user's prompt).
+// Both are opt-in via their `provideXxx` factories; importing this module
+// has no side effects.
+export * from './lib/layout/resolver';
+export * from './lib/layout/agent-context';

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import {
+  LayoutResolver,
   WorkspaceLayoutComponent,
   type SlotMap,
   type ResponsiveCollapseRule,
@@ -67,6 +68,22 @@ import { WorkspaceLayoutStore } from '../../services/workspace-layout.store';
         layoutName="ediscovery-three-pane" />
     </div>
 
+    @if (appliedRules().length > 0) {
+      <details class="resolver-breakdown">
+        <summary>Layout resolved from {{ appliedRules().length }} rule(s)</summary>
+        <ul>
+          @for (rule of appliedRules(); track rule.ruleId) {
+            <li>
+              <strong>{{ rule.slotName }}</strong>
+              <span class="rule-source">{{ rule.source }}</span>
+              <span class="rule-weight">w={{ rule.weight }}</span>
+              <span class="rule-reason">— {{ rule.reason }}</span>
+            </li>
+          }
+        </ul>
+      </details>
+    }
+
     <p class="footnote">
       <em>Default slots are bound to the <code>kpiTile</code> widget for all three slots. Production would substitute
       <code>documentPreview</code>, <code>tagPanel</code>, <code>redactionEditor</code>, etc. from the federated remotes.
@@ -109,14 +126,37 @@ import { WorkspaceLayoutStore } from '../../services/workspace-layout.store';
       border-radius: var(--r-md); font-size: var(--fs-xs); cursor: pointer;
     }
     .agent-banner .reset:hover { background: var(--c-surface-1); }
+    .resolver-breakdown {
+      margin-top: var(--s-3); font-size: var(--fs-xs); color: var(--c-text-2);
+      padding: var(--s-2) var(--s-3); border: 1px dashed var(--c-border); border-radius: var(--r-md);
+    }
+    .resolver-breakdown summary { cursor: pointer; user-select: none; }
+    .resolver-breakdown ul { margin: var(--s-2) 0 0; padding-left: var(--s-4); }
+    .resolver-breakdown li { margin: 0.15rem 0; }
+    .resolver-breakdown .rule-source {
+      display: inline-block; margin-left: var(--s-2);
+      padding: 0 var(--s-2); border-radius: var(--r-sm);
+      background: var(--c-surface-1); font-family: ui-monospace, monospace; font-size: 0.85em;
+    }
+    .resolver-breakdown .rule-weight { margin-left: var(--s-2); color: var(--c-text-faint); font-family: ui-monospace, monospace; font-size: 0.85em; }
+    .resolver-breakdown .rule-reason { margin-left: var(--s-2); }
   `,
 })
 export class WorkspaceDemoPage {
   private readonly persona = inject(PersonaService);
   private readonly store = inject(WorkspaceLayoutStore);
+  private readonly resolver = inject(LayoutResolver);
 
   /** True when the agent emitted a SlotMap via setWorkspaceLayout. */
   protected readonly agentDriven = computed(() => this.store.slots() !== null);
+
+  /**
+   * ADR-046 PR1 — when the resolved layout includes slots from non-route
+   * inputs, surface a sub-banner showing the precedence breakdown. Lets
+   * end users see exactly which layer is driving each slot ("primary
+   * from route, footer from persona pin").
+   */
+  protected readonly appliedRules = computed(() => this.resolver.active().appliedRules);
 
   /** Drop the agent-emitted slots → fall back to the per-persona default. */
   protected resetLayout(): void {
@@ -133,57 +173,19 @@ export class WorkspaceDemoPage {
   });
 
   /**
-   * Per-density slot sizes — wider primary for compact (more
-   * data-dense viewers want the workspace pane to dominate);
-   * smaller primary for comfortable (more breathing room around
-   * the sidebar + footer).
+   * Slot map read directly from `LayoutResolver.active()` — the engine
+   * merges route + persona + agent inputs by precedence weight and
+   * produces the resolved SlotMap. ADR-046 PR1 shift: the component
+   * no longer builds its own fallback; route rules (registered in
+   * app.config) provide the baseline, and the agent's
+   * `setWorkspaceLayout` override layers on top.
+   *
+   * When the resolver produces nothing (no rules fire for the current
+   * route + persona + agent state), the fallback is the lib's empty
+   * SlotMap — the workspace canvas simply renders no slots, which is
+   * the correct "no layout configured" state.
    */
-  protected readonly slots = computed<SlotMap>(() => {
-    // Agent-emitted slot map takes precedence — the setWorkspaceLayout
-    // tool writes here when the LLM picks it, and the canvas re-renders
-    // live without a navigation. Fall through to the per-persona
-    // default below if no agent slots are pending.
-    const agent = this.store.slots();
-    if (agent) return agent;
-
-    const dense = this.density() !== 'comfortable';
-    return {
-      primary: {
-        component: 'kpiTile',
-        size: { default: dense ? '65%' : '60%', min: '320px' },
-        props: {
-          value: {
-            markdown:
-              'Workspace — primary slot. Production would mount the documentPreview widget ' +
-              'here (with PDF + agent annotations layered). Persona-density signal: ' +
-              this.density() + '.',
-          },
-        },
-      },
-      sidebar: {
-        component: 'kpiTile',
-        size: { default: dense ? '20%' : '25%', min: '220px' },
-        props: {
-          value: {
-            markdown:
-              'Sidebar slot. Best-fit for a tagPanel / privilegeLog companion. The agent ' +
-              'can re-emit a different component here on the next LAYOUT_RENDER turn.',
-          },
-        },
-      },
-      footer: {
-        component: 'kpiTile',
-        size: { default: '15%', min: '160px' },
-        props: {
-          value: {
-            markdown:
-              'Footer slot — chain-of-custody summary. Collapses to a drawer on screens < 1024px ' +
-              '(see the responsive rule).',
-          },
-        },
-      },
-    };
-  });
+  protected readonly slots = computed<SlotMap>(() => this.resolver.active().slots);
 
   /**
    * Responsive collapse rule — the footer slot disappears (or

@@ -24,8 +24,10 @@ import {
   provideAgenticTelemetry,
   provideAgenticTelemetryConsole,
   provideAgenticUi,
+  provideAgentContext,
   provideAgUiBackend,
   provideLayoutPolicy,
+  provideLayoutResolver,
   provideStaticJsonMfeRegistry,
   provideTeamsContext,
   provideToolFilter,
@@ -46,6 +48,7 @@ import { registerPostChatSurfaces } from './agentic/post-chat-surfaces';
 import { PersonaService } from './services/persona.service';
 import { MatterStore } from './services/matter.store';
 import { ProposedDashboardStore } from './services/proposed-dashboard.store';
+import { WorkspaceLayoutStore } from './services/workspace-layout.store';
 
 function telemetryProvider() {
   switch (environment.telemetry) {
@@ -438,6 +441,67 @@ export const appConfig: ApplicationConfig = {
       },
       fallback: { density: () => 'comfortable', shellMode: shellModeForRoute },
     }),
+    // ADR-046 PR1 — LayoutResolver wired with three input layers
+    // (route, persona, agent). The resolver's `active()` signal is what
+    // `<mvk-workspace-layout>` should bind to; rather than each route
+    // reading WorkspaceLayoutStore directly. Existing direct readers
+    // continue to work because the store stays the agent-override
+    // signal under the hood.
+    //
+    // Adopters extend this with selection / matter-phase / alert /
+    // user-saved inputs as their domain exposes those signals.
+    provideLayoutResolver({
+      routeRules: [
+        // Context-driven defaults — fire WITHOUT a chat prompt. Click
+        // into /workspace and the resolver supplies a baseline three-pane
+        // layout; the agent's setWorkspaceLayout override wins on top
+        // (weight 1000 > route's 400).
+        {
+          pattern: '/workspace',
+          slots: {
+            primary: { component: 'kpiTile', size: { default: '60%' } },
+            sidebar: { component: 'kpiTile', size: { default: '25%' } },
+            footer:  { component: 'kpiTile', size: { default: '15%' } },
+          },
+          reason: 'route /workspace — three-pane baseline',
+        },
+        {
+          pattern: '/documents/*',
+          slots: {
+            primary: { component: 'kpiTile', size: { default: '70%' } },
+            sidebar: { component: 'kpiTile', size: { default: '30%' } },
+          },
+          reason: 'route /documents/:id — preview + tag panel',
+        },
+        {
+          pattern: '/holds',
+          slots: {
+            primary: { component: 'kpiTile', size: { default: '100%' } },
+          },
+          reason: 'route /holds — full-width canvas',
+        },
+      ],
+      personaRules: [
+        // Persona-level pin: lead-counsel always sees the chain-of-
+        // custody footer regardless of route. Lower priority than
+        // route/agent — they can override.
+        {
+          personaId: 'lead-counsel',
+          slots: {
+            footer: { component: 'kpiTile', size: { default: '15%' } },
+          },
+          reason: 'persona lead-counsel — chain-of-custody pin',
+        },
+      ],
+      activePersona: () => inject(PersonaService).active,
+      agentSlots: () => inject(WorkspaceLayoutStore).slots,
+    }),
+    // ADR-046 PR1 D5 — agent gets a per-turn context block describing
+    // current route, persona, and resolved layout state. The chat-shell
+    // integration that ships the block to the LLM lands in PR1b; this
+    // provider line wires the contributors so AgentContextProvider.compose()
+    // returns the assembled block as soon as a host queries it.
+    provideAgentContext(),
     // Post-chat surfaces P2 (ADR-045) — browser-side cron trigger
     // runner. Registered TriggerDef entries with `kind: 'cron'` fire
     // on schedule; webhook/queue specs defer to a server-side runner.
