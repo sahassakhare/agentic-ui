@@ -157,7 +157,17 @@ if (apiKey) {
           'These are UX tools — they DO NOT mutate matter state. Pick one and ' +
           'CALL the tool immediately; do not narrate before calling. After the ' +
           'tool returns, give the user one sentence telling them which route ' +
-          'to open to see the result.' +
+          'to open to see the result.\n\n' +
+          'CRITICAL — these tools are idempotent state-setters, not actions ' +
+          'with persistent side effects. The user can RESET the workspace or ' +
+          'DISMISS a proposed dashboard at any time from the host UI; you ' +
+          'have no visibility into those resets. Therefore: when the user ' +
+          'asks for a layout or a dashboard — even if you appear to have ' +
+          'already produced one earlier in this conversation — ALWAYS call ' +
+          'the tool again. Never respond with "I already did that" or ' +
+          '"it is already set". Re-applying the same slot map or proposing ' +
+          'the same dashboard is the correct behaviour, because the user ' +
+          'is the one source of truth about what is currently on screen.' +
           sharedRules,
       }),
       description:
