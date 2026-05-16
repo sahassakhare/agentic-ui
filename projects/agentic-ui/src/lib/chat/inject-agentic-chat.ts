@@ -158,32 +158,21 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
       tools: tools.list(),
     });
 
-    // ADR-046 D5 / PR1b — prepend a synthetic system message carrying
-    // the per-turn agent-context block. Built fresh on every turn so
-    // the agent sees the LIVE route / persona / layout state, not
-    // whatever was current when the chat session was created.
-    //
-    // The synthetic message is per-run only — we DON'T push it onto the
-    // persistent `messages` signal, so the transcript UI stays clean
-    // and re-runs build a fresh context block each time.
-    const initialMessages: readonly AgenticMessage[] = (() => {
-      const block = agentContext?.compose();
-      if (!block) return messages();
-      const systemMessage: AgenticMessage = {
-        id: randomId('msg'),
-        role: 'system',
-        content: block,
-        toolCalls: [],
-        widgets: [],
-      };
-      return [systemMessage, ...messages()];
-    })();
+    // ADR-046 D5 / PR1b — build the per-turn agent-context block ONCE
+    // (compose reads live signals at this moment). Passed to the
+    // orchestrator as `systemContext`, NOT prepended to messages —
+    // the orchestrator splices it into the wire-level
+    // `AgenticRunInput.messages` for the backend but keeps it out of
+    // `messageStream`, so the rendered transcript stays clean and
+    // re-runs don't stack copies of the context in the UI.
+    const systemContext = agentContext?.compose() ?? '';
 
     runUntilSettled({
       backend,
       threadId,
       runId,
-      initialMessages,
+      initialMessages: messages(),
+      systemContext,
       tools: filteredTools,
       widgets: widgets.list(),
       messageStream: messages,

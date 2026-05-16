@@ -68,6 +68,16 @@ export interface RunOrchestratorOptions {
    * the wire), preserving v1.2 behaviour.
    */
   readonly stateProvider?: () => Readonly<Record<string, unknown>>;
+  /**
+   * ADR-046 D5 / PR1b — system-context block (XML or plain text)
+   * inserted as a `role: 'system'` message ahead of `initialMessages`
+   * in the `AgenticRunInput.messages` sent to the backend. **Never**
+   * pushed into `messageStream` so the rendered transcript stays
+   * clean. Built by `AgentContextProvider.compose()` in
+   * `injectAgenticChat`; backends see it on the wire, the user does
+   * not. Empty string is treated as absent (no system message added).
+   */
+  readonly systemContext?: string;
 }
 
 interface PendingToolCall {
@@ -96,6 +106,25 @@ export async function runUntilSettled(opts: RunOrchestratorOptions): Promise<voi
   let messages = opts.initialMessages;
   let turnsRemaining = opts.maxLocalTurns;
 
+  // ADR-046 D5 / PR1b — build a per-run synthetic system-context
+  // message from `opts.systemContext`. This message lives ONLY in
+  // the `AgenticRunInput.messages` sent to the backend; it never
+  // touches `messages` (the orchestrator's tracking var) and
+  // therefore never reaches `messageStream`. Result: the agent
+  // sees the context block, the rendered transcript does not.
+  const systemContextMessage: AgenticMessage | null =
+    opts.systemContext && opts.systemContext.length > 0
+      ? {
+          id: randomId('sys'),
+          role: 'system',
+          content: opts.systemContext,
+          toolCalls: [],
+          widgets: [],
+        }
+      : null;
+  const wireMessages = (): readonly AgenticMessage[] =>
+    systemContextMessage ? [systemContextMessage, ...messages] : messages;
+
   try {
     // Resolve the optional reasoning-state provider once per run. The
     // host's provider may close over signals (persona, matter,
@@ -106,7 +135,7 @@ export async function runUntilSettled(opts: RunOrchestratorOptions): Promise<voi
     let runInput: AgenticRunInput = {
       threadId: opts.threadId,
       runId: opts.runId,
-      messages,
+      messages: wireMessages(),
       tools: opts.tools,
       widgets: opts.widgets,
       signal: opts.signal,
@@ -214,7 +243,7 @@ export async function runUntilSettled(opts: RunOrchestratorOptions): Promise<voi
       runInput = {
         threadId: opts.threadId,
         runId: opts.runId,
-        messages,
+        messages: wireMessages(),
         tools: opts.tools,
         widgets: opts.widgets,
         signal: opts.signal,
