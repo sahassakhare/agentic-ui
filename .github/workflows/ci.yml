@@ -127,8 +127,14 @@ jobs:
           npm ci --no-audit --fund=false
           npx tsc -p tsconfig.json
 
-      - name: Bundle-size guard (lib FESM under 720 KB)
+      - name: Bundle-size guard (lib FESM under 768 KB)
         run: |
+          # Cap raised 720 KB → 768 KB for the post-ADR-046/047 follow-on
+          # sprints — UserSavedLayoutInput, MatterPhaseLayoutInput, and
+          # AlertLayoutInput each added a lib-side seam to close the
+          # canonical 10-step agentic-UI demo flow (see ADR-046 §1 +
+          # docs/analysis/2026-05-16-ediscovery-use-case-gaps.md).
+          # Pre-bump baseline ~736 KB; post-bump leaves ~30 KB headroom.
           # Cap raised 660 KB → 720 KB for the ADR-046 LayeredLayoutEngine
           # (D1-D7 across PR1/PR1b/PR2/PR3/PR4):
           #   D1 LayoutResolver  — reactive engine + 3 built-in inputs
@@ -157,8 +163,8 @@ jobs:
           # Lower this back if a refactor materially shrinks the surface.
           size=$(wc -c < dist/agentic-ui/fesm2022/infra-tools-agentic-ui.mjs)
           echo "FESM size: $size bytes"
-          if [ "$size" -gt 737280 ]; then
-            echo "::error::Lib FESM exceeded 720 KB ($size B). Investigate before merging."
+          if [ "$size" -gt 786432 ]; then
+            echo "::error::Lib FESM exceeded 768 KB ($size B). Investigate before merging."
             exit 1
           fi
 

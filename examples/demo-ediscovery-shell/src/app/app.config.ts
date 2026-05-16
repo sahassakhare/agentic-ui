@@ -43,6 +43,7 @@ import {
   RECENT_TOOL_CALLS_SIGNAL,
   STANDARD_LAYOUT_TIERS,
   ToolRegistry,
+  type ActiveAlert,
   type ApprovalAuditEvent,
   type CapabilityModule,
   type ChatShellMode,
@@ -62,6 +63,7 @@ import { PersonaService } from './services/persona.service';
 import { MatterStore } from './services/matter.store';
 import { ProposedDashboardStore } from './services/proposed-dashboard.store';
 import { WorkspaceLayoutStore } from './services/workspace-layout.store';
+import { NotificationsStore } from './services/notifications.store';
 
 function telemetryProvider() {
   switch (environment.telemetry) {
@@ -574,6 +576,42 @@ export const appConfig: ApplicationConfig = {
           if (route !== '/workspace') return null;
           return `workspace:${persona.active()}`;
         });
+      },
+      // Sprint 3 — alert-driven rules. Time-sensitive notifications
+      // (deadlines, policy violations) pivot the canvas to highlight
+      // the issue. Weight 400 — same as route/selection, so an alert
+      // can override a phase or persona baseline but not the user's
+      // active focus (route/selection still win on insertion order).
+      alertRules: [
+        {
+          kind: 'deadline-approaching',
+          minSeverity: 'warning',
+          slots: {
+            primary: { component: 'privilegeLog', size: { default: '70%' } },
+            sidebar: { component: 'bulkActions', size: { default: '30%' } },
+          },
+          reason: 'alert — deadline approaching, surface privilege log + bulk actions',
+        },
+      ],
+      activeAlerts: () => {
+        const notif = inject(NotificationsStore);
+        return computed<readonly ActiveAlert[]>(() =>
+          notif
+            .notifications()
+            .filter((n) => !n.read && (n.draft.severity === 'warning' || n.draft.severity === 'error'))
+            .filter((n) => n.origin === 'trigger:dailyAckSweep' || n.origin === 'trigger:productionReady')
+            .map((n) => ({
+              id: n.id,
+              // Reshape the demo's origin → ActiveAlert kind. Production
+              // hosts would have a richer mapping or emit ActiveAlerts
+              // directly from their alert source.
+              kind: n.origin === 'trigger:dailyAckSweep' ? 'deadline-approaching' : 'production-ready',
+              // TrayNotification uses 'error'; AlertLayoutInput's
+              // ActiveAlert uses 'critical' for parity with OTel naming.
+              severity: n.draft.severity === 'error' ? 'critical' : 'warning',
+              metadata: { origin: n.origin, title: n.draft.title },
+            })),
+        );
       },
       // Sprint 2 — matter-phase-driven rules. Each phase contributes
       // baseline slots at weight 300. Beats persona (200), loses to

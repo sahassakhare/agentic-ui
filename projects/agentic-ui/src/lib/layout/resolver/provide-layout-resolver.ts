@@ -28,6 +28,13 @@ import {
   type MatterPhaseLayoutRule,
 } from '../matter-phase';
 import {
+  ACTIVE_ALERTS_SIGNAL,
+  ALERT_LAYOUT_RULES,
+  AlertLayoutInput,
+  type ActiveAlert,
+  type AlertLayoutRule,
+} from '../alert';
+import {
   LAYOUT_INPUT,
   LAYOUT_WEIGHTS,
   type LayoutInput,
@@ -130,6 +137,21 @@ export interface LayoutResolverConfig {
   readonly activeMatterPhase?: () => Signal<string | null>;
 
   /**
+   * ADR-046 D2 + ADR-047 — alert-driven rules. Fire when any
+   * active alert (from `activeAlerts` signal) matches a rule's
+   * `kind` and meets its `minSeverity`. Source weight 400.
+   */
+  readonly alertRules?: readonly AlertLayoutRule[];
+
+  /**
+   * Adopter-supplied factory returning a signal listing currently-
+   * active alerts. Typically a `computed()` over the host's
+   * trigger-runner / notifications / SLA-monitor that reshapes to
+   * the lib's `ActiveAlert` contract.
+   */
+  readonly activeAlerts?: () => Signal<readonly ActiveAlert[]>;
+
+  /**
    * Override the lib's default precedence weights. Partial — unspecified
    * keys fall back to `DEFAULT_LAYOUT_WEIGHTS`.
    */
@@ -226,6 +248,17 @@ export function provideLayoutResolver(config: LayoutResolverConfig = {}): Enviro
       providers.push({ provide: ACTIVE_MATTER_PHASE_SIGNAL, useFactory: phaseFactory });
     }
     providers.push({ provide: LAYOUT_INPUT, useExisting: MatterPhaseLayoutInput, multi: true });
+  }
+
+  if (config.alertRules || config.activeAlerts) {
+    if (config.alertRules) {
+      providers.push({ provide: ALERT_LAYOUT_RULES, useValue: config.alertRules });
+    }
+    if (config.activeAlerts) {
+      const alertsFactory = config.activeAlerts;
+      providers.push({ provide: ACTIVE_ALERTS_SIGNAL, useFactory: alertsFactory });
+    }
+    providers.push({ provide: LAYOUT_INPUT, useExisting: AlertLayoutInput, multi: true });
   }
 
   for (const inputClass of config.extraInputs ?? []) {

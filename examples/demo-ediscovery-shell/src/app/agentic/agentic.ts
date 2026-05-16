@@ -30,6 +30,11 @@ import {
 } from './coordination.tools';
 import { slotWidgets } from './slot-widgets';
 import {
+  bulkTagDocumentsTool,
+  generatePrivilegeLogTool,
+  tagDocumentTool,
+} from './review.tools';
+import {
   isoNow,
   nextCustodianId,
   nextLegalHoldId,
@@ -114,6 +119,12 @@ export function buildTools(env: EnvironmentInjector): ToolDef[] {
     applyLayoutTemplateTool(env) as ToolDef,
     listDashboardTemplatesTool(env) as ToolDef,
     applyDashboardTemplateTool(env) as ToolDef,
+    // Slice A — real review tools backing the rebuilt slot widgets.
+    // tagDocument / bulkTagDocuments / generatePrivilegeLog all
+    // mutate persisted state through MatterStore + chain-hash audit.
+    tagDocumentTool(env) as ToolDef,
+    bulkTagDocumentsTool(env) as ToolDef,
+    generatePrivilegeLogTool(env) as ToolDef,
   ];
 }
 

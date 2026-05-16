@@ -1,14 +1,20 @@
 import { Injectable, signal } from '@angular/core';
 import {
   appendAudit,
+  getDocument,
   isoNow,
   listAuditEvents,
   listCustodians,
+  listDocuments,
   listLegalHolds,
   nextAuditId,
+  updateDocument,
   type AuditEvent,
   type Custodian,
+  type Document,
+  type DocumentTag,
   type LegalHold,
+  type PrivilegeReason,
 } from '@infra-tools/demo-ediscovery-shared';
 import { environment } from '../../environments/environment';
 
@@ -67,6 +73,14 @@ export class MatterStore {
   /** Mirror of the shared-module audit log -- exposed as a signal
    *  so the /audit page reacts to mutations without polling. */
   readonly auditLog = signal<readonly AuditEvent[]>([]);
+
+  /**
+   * Slice A reactivity gate — increment whenever any document is
+   * tagged / untagged / privilege-marked. Widgets that need to
+   * re-read `listDocuments` / `getDocument` watch this signal so the
+   * underlying mock-data mutation surfaces in their `computed()`.
+   */
+  readonly documentMutation = signal(0);
 
   /**
    * ADR-047 D3 — matter lifecycle phase. Drives `<matter phase="..." />`
@@ -231,6 +245,98 @@ export class MatterStore {
   clearPersisted(): void {
     try { localStorage.removeItem(this.storageKey); } catch { /* private mode / quota */ }
     this.seedFromFixture();
+  }
+
+  // ── Documents (Slice A) ─────────────────────────────────────────────────
+
+  /**
+   * Add a tag to a document. Mutates the shared-module store, appends
+   * an audit event, increments the document-mutation counter so
+   * widgets re-read. No-op when the doc already carries the tag.
+   *
+   * `actor` defaults to the active persona (caller may override for
+   * agent-dispatched calls). Returns the updated doc or undefined.
+   */
+  tagDocument(id: string, tag: DocumentTag, actor?: string): Document | undefined {
+    const doc = getDocument(id);
+    if (!doc) return undefined;
+    if (doc.tags.includes(tag)) return doc;
+    const next = [...doc.tags, tag] as readonly DocumentTag[];
+    const updated = updateDocument(id, { tags: next });
+    this.audit({
+      actor: actor ?? this.actor(),
+      action: 'document.tag.added',
+      target: { type: 'document', id },
+      before: { tags: [...doc.tags] },
+      after: { tags: next },
+    });
+    this.documentMutation.update((v) => v + 1);
+    return updated;
+  }
+
+  /**
+   * Remove a tag. Same semantics as `tagDocument` in reverse.
+   */
+  untagDocument(id: string, tag: DocumentTag, actor?: string): Document | undefined {
+    const doc = getDocument(id);
+    if (!doc) return undefined;
+    if (!doc.tags.includes(tag)) return doc;
+    const next = doc.tags.filter((t) => t !== tag) as readonly DocumentTag[];
+    const updated = updateDocument(id, { tags: next });
+    this.audit({
+      actor: actor ?? this.actor(),
+      action: 'document.tag.removed',
+      target: { type: 'document', id },
+      before: { tags: [...doc.tags] },
+      after: { tags: next },
+    });
+    this.documentMutation.update((v) => v + 1);
+    return updated;
+  }
+
+  /**
+   * Bulk-tag a set of documents. Emits one audit event per document
+   * touched (skips no-ops). Returns the count actually modified.
+   */
+  bulkTagDocuments(ids: readonly string[], tag: DocumentTag, actor?: string): number {
+    let modified = 0;
+    for (const id of ids) {
+      const before = getDocument(id);
+      const after = this.tagDocument(id, tag, actor);
+      if (after && before && !before.tags.includes(tag)) modified += 1;
+    }
+    return modified;
+  }
+
+  /**
+   * Set the privilege reason on a document — drives the privilege-log
+   * widget. Pairs naturally with `tagDocument(id, 'privileged')`;
+   * adopters can do them together or separately depending on workflow.
+   */
+  setDocumentPrivilegeReason(id: string, reason: PrivilegeReason | null, actor?: string): Document | undefined {
+    const doc = getDocument(id);
+    if (!doc) return undefined;
+    if (doc.privilegeReason === reason) return doc;
+    const updated = updateDocument(id, { privilegeReason: reason ?? undefined });
+    this.audit({
+      actor: actor ?? this.actor(),
+      action: 'document.privilege.reason',
+      target: { type: 'document', id },
+      before: { privilegeReason: doc.privilegeReason ?? null },
+      after: { privilegeReason: reason },
+    });
+    this.documentMutation.update((v) => v + 1);
+    return updated;
+  }
+
+  /**
+   * Convenience — list all documents in this matter. Wraps the
+   * shared-module function so callers don't have to import it +
+   * pass matterId; also lets widgets re-evaluate on every mutation
+   * by reading `documentMutation` alongside.
+   */
+  documents(): readonly Document[] {
+    return listDocuments(this.matterId);
   }
 
   // ── Internals ───────────────────────────────────────────────────────────

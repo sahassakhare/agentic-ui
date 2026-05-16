@@ -93,3 +93,9 @@ export * from './lib/layout/slot-editor';
 // Lifecycle stage (collection / review / production / closed) becomes
 // a precedence layer (weight 300) above persona, below contextual.
 export * from './lib/layout/matter-phase';
+
+// Sprint 3 follow-on — alert-driven layouts. Time-sensitive
+// notifications (deadlines, policy violations, SLA breaches) emit
+// `ActiveAlert`s the resolver consumes as a precedence layer (weight
+// 400 — same as route/selection, beats persona/matter-phase).
+export * from './lib/layout/alert';
