@@ -199,6 +199,21 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
       { text: 'Update the production dashboard to also show audit context' },
     ],
   },
+  // Slice A — real document review prompts. These go through the
+  // `tagDocument` / `bulkTagDocuments` / `generatePrivilegeLog` tools
+  // and produce real persisted state changes with chain-hashed audit.
+  {
+    id: 'document-review',
+    title: 'Document review (Slice A)',
+    prompts: [
+      { text: 'Tag DOC-7891240 as privileged with work-product basis' },
+      { text: 'Tag DOC-7891245 as responsive' },
+      { text: 'Bulk-tag DOC-7891240, DOC-7891245, DOC-7891252 as responsive' },
+      { text: 'Mark DOC-7891236 as attorney-client privileged' },
+      { text: 'Generate the privilege log for this matter' },
+      { text: "Show me what's in the privilege log right now" },
+    ],
+  },
 ];
 
 /**
@@ -247,15 +262,38 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
           <svg-icon name="users" [size]="13" />
           <span>Speaking as <strong>{{ persona() }}</strong> · {{ persona() === 'lead-counsel' ? 'full access' : 'scoped tools' }}</span>
         </div>
-        <div class="hints" [class.expanded]="hintsExpanded()">
-          <button type="button" class="hint-toggle" (click)="toggleHints()"
-                  [attr.aria-expanded]="hintsExpanded()">
-            <span class="hint-title">Try asking</span>
-            <span class="hint-meta">{{ totalPromptCount() }} prompts</span>
-            <svg-icon name="chevron-down" [size]="14" class="hint-chevron"
-                      [class.rotated]="hintsExpanded()" />
+        <!-- Tabbed switcher — clears the visual congestion between
+             the chat composer and the prompt catalog. Only one pane
+             is visible at a time; tab badge surfaces the prompt count. -->
+        <div class="tab-bar" role="tablist">
+          <button type="button" role="tab" class="tab"
+                  [class.active]="activeTab() === 'chat'"
+                  [attr.aria-selected]="activeTab() === 'chat'"
+                  (click)="setTab('chat')">
+            <svg-icon name="message" [size]="14" />
+            <span>Chat</span>
           </button>
-          @if (hintsExpanded()) {
+          <button type="button" role="tab" class="tab"
+                  [class.active]="activeTab() === 'suggestions'"
+                  [attr.aria-selected]="activeTab() === 'suggestions'"
+                  (click)="setTab('suggestions')">
+            <svg-icon name="spark" [size]="14" />
+            <span>Try asking</span>
+            <span class="tab-badge">{{ totalPromptCount() }}</span>
+          </button>
+        </div>
+        <!-- Chat pane: keep the shell mounted but hide its container
+             when on the Suggestions tab so the transcript + composer
+             state survive tab switches (no re-mount, no chat reset). -->
+        <div class="chat-host" [class.hidden]="activeTab() !== 'chat'">
+          <mvk-chat-shell #chatShell [showToolCalls]="verbosity()" />
+        </div>
+        @if (activeTab() === 'suggestions') {
+          <div class="hints-pane">
+            <p class="hints-intro">
+              Click a prompt to send it to the coordinator. Prompts route through the
+              tool surface — every action is audit-chained.
+            </p>
             <div class="hint-groups">
               @for (group of promptGroups(); track group.id) {
                 <section class="hint-group">
@@ -267,7 +305,7 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
                               [class.just-sent]="lastSent() === p.text"
                               [disabled]="p.requiresAttachment"
                               [attr.title]="p.requiresAttachment ? 'Drag a PDF onto the chat first, then click' : (lastSent() === p.text ? 'Just sent — wait for the agent to finish' : 'Send this prompt')"
-                              (click)="runPrompt(p.text)">
+                              (click)="runPromptAndSwitchToChat(p.text)">
                         @if (p.capability) {
                           <span class="cap-badge cap-{{p.capability}}"
                                 [attr.title]="capabilityTitle(p.capability)">{{ capabilityLabel(p.capability) }}</span>
@@ -280,9 +318,8 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
                 </section>
               }
             </div>
-          }
-        </div>
-        <div class="chat-host"><mvk-chat-shell #chatShell [showToolCalls]="verbosity()" /></div>
+          </div>
+        }
       }
     </aside>
   `,
@@ -355,6 +392,50 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
     }
     .persona-strip strong { color: var(--c-text); text-transform: capitalize; }
 
+    /* Tab bar — replaces the inline collapsible hints; tabs sit
+       between persona-strip and the active pane. Visual weight is
+       balanced so neither tab dominates. */
+    .tab-bar {
+      display: flex; gap: 2px;
+      padding: 0 var(--s-3);
+      border-bottom: 1px solid var(--c-divider);
+      background: var(--c-surface-1);
+      flex-shrink: 0;
+    }
+    .tab {
+      flex: 1; padding: 0.5rem var(--s-3);
+      background: transparent; border: 0; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
+      font-size: var(--fs-xs); color: var(--c-text-mute);
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
+    }
+    .tab:hover { color: var(--c-text); background: var(--c-surface-2); }
+    .tab.active {
+      color: var(--c-brand-strong); border-bottom-color: var(--c-brand);
+      font-weight: 600;
+    }
+    .tab .tab-badge {
+      padding: 1px 7px; border-radius: var(--r-pill);
+      background: var(--c-surface-2); color: var(--c-text-mute);
+      font-size: 0.65rem; font-variant-numeric: tabular-nums;
+    }
+    .tab.active .tab-badge { background: var(--c-brand-tint); color: var(--c-brand-strong); }
+    /* Hides chat pane when on suggestions tab without unmounting it. */
+    .chat-host.hidden { display: none; }
+    .hints-pane {
+      flex: 1; min-height: 0; overflow-y: auto;
+      padding: var(--s-3) var(--s-4) var(--s-4);
+      background: var(--c-surface-0);
+    }
+    .hints-intro {
+      margin: 0 0 var(--s-3); padding: var(--s-2) var(--s-3);
+      background: var(--c-surface-1); border-left: 3px solid var(--c-brand);
+      border-radius: var(--r-sm);
+      font-size: 0.72rem; color: var(--c-text-2); line-height: 1.4;
+    }
+
+    /* Legacy hints styles kept so any other reference doesn't break. */
     .hints {
       padding: var(--s-2) var(--s-4) var(--s-2);
       border-bottom: 1px solid var(--c-divider);
@@ -491,11 +572,23 @@ export class ChatRailComponent {
   protected readonly totalPromptCount = computed(() =>
     this.promptGroups().reduce((sum, g) => sum + g.prompts.length, 0),
   );
-  /** Default-expanded so new operators immediately see what they
-   *  can ask. The user can collapse via the chevron toggle and the
-   *  state persists for the rest of the session. */
+  /** Default-expanded — kept for back-compat; tabs replaced the inline
+   *  collapse in the new layout but other code paths may still query. */
   protected readonly hintsExpanded = signal(true);
   toggleHints(): void { this.hintsExpanded.update((v) => !v); }
+
+  /** Right-rail tab — 'chat' shows the chat shell, 'suggestions'
+   *  shows the prompt catalog. The chat-shell DOM stays mounted (just
+   *  hidden) so the transcript and composer state survive tab swaps. */
+  protected readonly activeTab = signal<'chat' | 'suggestions'>('chat');
+  setTab(t: 'chat' | 'suggestions'): void { this.activeTab.set(t); }
+
+  /** Click a suggestion → fire the prompt + auto-switch back to chat
+   *  so the user sees the response. Keeps the discovery flow short. */
+  runPromptAndSwitchToChat(text: string): void {
+    this.runPrompt(text);
+    this.setTab('chat');
+  }
 
   protected capabilityLabel(c: Capability): string { return CAPABILITY_LABEL[c]; }
   protected capabilityTitle(c: Capability): string { return CAPABILITY_TITLE[c]; }
