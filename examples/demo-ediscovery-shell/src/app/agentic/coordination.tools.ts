@@ -1,4 +1,5 @@
 import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   agenticTool,
   DashboardRegistry,
@@ -13,18 +14,54 @@ import {
 import { z } from 'zod';
 import { WorkspaceLayoutStore } from '../services/workspace-layout.store';
 
+/**
+ * Shared helper — if the user isn't on /workspace, navigate them
+ * there so the slot-edit takes visible effect immediately. Without
+ * this, slot-edit tools silently mutate the store; the user sees
+ * nothing change because they're on /documents, /holds, etc.
+ */
+function navigateToWorkspaceIfNeeded(env: EnvironmentInjector): void {
+  const router = env.get(Router);
+  if (!router.url.startsWith('/workspace')) {
+    void router.navigateByUrl('/workspace');
+  }
+}
+
 // ── ADR-047 D1 — slot-level edit tools ────────────────────────────────────
 
-const slotSizeSchema = z.object({
-  default: z.string().describe("CSS size — '60%', '320px', etc."),
-  min: z.string().optional(),
-  max: z.string().optional(),
-});
+/**
+ * Forgiving `size` schema — same pattern as dynamic-surface.tools.ts.
+ * Accepts the canonical object form, a string shorthand, or a number
+ * (interpreted as percent). Normalised inside the handler.
+ */
+const slotSizeInputSchema = z.union([
+  z.object({
+    default: z.string().describe("CSS size — '60%', '320px', etc."),
+    min: z.string().optional(),
+    max: z.string().optional(),
+  }),
+  z.string(),
+  z.number(),
+]).describe(
+  "Slot size. Accepted shapes — all normalised to { default: '<css>' }: " +
+  "object { default: '60%', min?, max? } | string '60%' | number 60 (percent).",
+);
+
+function normaliseSize(s: unknown): { default: string; min?: string; max?: string } | undefined {
+  if (s === null || s === undefined) return undefined;
+  if (typeof s === 'string') return { default: s };
+  if (typeof s === 'number') return { default: `${s}%` };
+  if (typeof s === 'object') {
+    const obj = s as { default?: string; min?: string; max?: string };
+    if (typeof obj.default === 'string') return obj as { default: string; min?: string; max?: string };
+  }
+  return undefined;
+}
 
 const addSlotSchema = z.object({
   slot: z.string().describe("Slot name — 'primary' | 'sidebar' | 'footer' | …"),
-  component: z.string().describe('ComponentRegistry name — kpiTile, documentPreview, etc.'),
-  size: slotSizeSchema.optional(),
+  component: z.string().describe('ComponentRegistry name — documentPreview, tagPanel, chainOfCustody, bulkActions, multiDocPreview, privilegeLog, kpiTile.'),
+  size: slotSizeInputSchema.optional(),
   props: z.unknown().optional(),
 });
 
@@ -46,15 +83,17 @@ export function addLayoutSlotTool(env: EnvironmentInjector) {
         // is empty, seed from the resolved layout so we preserve
         // route/persona contributions when adding.
         const base: SlotMap = store.slots() ?? resolver.active().slots;
-        const def: SlotDef = { component, ...(size ? { size } : {}), ...(props !== undefined ? { props } : {}) };
+        const normSize = normaliseSize(size);
+        const def: SlotDef = { component, ...(normSize ? { size: normSize } : {}), ...(props !== undefined ? { props } : {}) };
         const next = slotEdits.add(base, slot, def);
         store.set(next);
+        navigateToWorkspaceIfNeeded(env);
         return {
           ok: true,
           slot,
           component,
           totalSlots: Object.keys(next).length,
-          message: `Added "${slot}" → ${component}. Workspace now has ${Object.keys(next).length} slot(s).`,
+          message: `Added "${slot}" → ${component}. Showing /workspace; ${Object.keys(next).length} slot(s).`,
         };
       });
     },
@@ -81,11 +120,12 @@ export function removeLayoutSlotTool(env: EnvironmentInjector) {
         const base: SlotMap = store.slots() ?? resolver.active().slots;
         const next = slotEdits.remove(base, slot);
         store.set(next);
+        navigateToWorkspaceIfNeeded(env);
         return {
           ok: true,
           slot,
           totalSlots: Object.keys(next).length,
-          message: `Removed "${slot}". Workspace now has ${Object.keys(next).length} slot(s).`,
+          message: `Removed "${slot}". Showing /workspace; ${Object.keys(next).length} slot(s).`,
         };
       });
     },
@@ -108,15 +148,17 @@ export function replaceLayoutSlotTool(env: EnvironmentInjector) {
         const store = env.get(WorkspaceLayoutStore);
         const resolver = env.get(LayoutResolver);
         const base: SlotMap = store.slots() ?? resolver.active().slots;
-        const def: SlotDef = { component, ...(size ? { size } : {}), ...(props !== undefined ? { props } : {}) };
+        const normSize = normaliseSize(size);
+        const def: SlotDef = { component, ...(normSize ? { size: normSize } : {}), ...(props !== undefined ? { props } : {}) };
         const next = slotEdits.replace(base, slot, def);
         store.set(next);
+        navigateToWorkspaceIfNeeded(env);
         return {
           ok: true,
           slot,
           component,
           totalSlots: Object.keys(next).length,
-          message: `Replaced "${slot}" with ${component}. Workspace now has ${Object.keys(next).length} slot(s).`,
+          message: `Replaced "${slot}" with ${component}. Showing /workspace; ${Object.keys(next).length} slot(s).`,
         };
       });
     },
@@ -196,6 +238,7 @@ export function applyLayoutTemplateTool(env: EnvironmentInjector) {
         const slotMap = (template.body.slotMap as SlotMap | undefined) ?? null;
         if (slotMap) {
           env.get(WorkspaceLayoutStore).set(slotMap);
+          navigateToWorkspaceIfNeeded(env);
         }
         return {
           ok: true,
@@ -205,7 +248,7 @@ export function applyLayoutTemplateTool(env: EnvironmentInjector) {
           message:
             `Applied template "${template.title}" (${name}). ` +
             (slotMap
-              ? `Workspace updated with ${Object.keys(slotMap).length} slot(s).`
+              ? `Showing /workspace with ${Object.keys(slotMap).length} slot(s).`
               : `Template registered; no inline slotMap to apply.`),
         };
       });

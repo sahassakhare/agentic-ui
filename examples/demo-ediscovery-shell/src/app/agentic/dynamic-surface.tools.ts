@@ -1,4 +1,5 @@
 import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   agenticTool,
   type DashboardDef,
@@ -12,16 +13,47 @@ import { WorkspaceLayoutStore } from '../services/workspace-layout.store';
 // ── setWorkspaceLayout ─────────────────────────────────────────────────────
 
 const slotPropsSchema = z.unknown().optional();
-const slotSizeSchema = z.object({
-  default: z.string().describe("CSS size — '60%', '320px', etc."),
-  min: z.string().optional(),
-  max: z.string().optional(),
-});
+
+/**
+ * Forgiving `size` schema — LLMs reliably get "60/40 split" wrong by
+ * emitting `size: 60` or `size: '60%'` instead of the canonical
+ * `{ default: '60%' }` object. We accept all three shapes and
+ * normalise inside the handler. The canonical lib type is still the
+ * object form; this is purely a tool-surface convenience.
+ */
+const slotSizeInputSchema = z.union([
+  // Canonical object form.
+  z.object({
+    default: z.string().describe("CSS size — '60%', '320px', etc."),
+    min: z.string().optional(),
+    max: z.string().optional(),
+  }),
+  // String shorthand — interpreted as `{ default: '<string>' }`.
+  z.string(),
+  // Number shorthand — interpreted as `{ default: '<n>%' }`.
+  z.number(),
+]).describe(
+  "Slot size. Three accepted shapes — all normalised to { default: '<css>' }: " +
+  "(a) object: { default: '60%', min?: '320px', max?: '70%' }, " +
+  "(b) string shorthand: '60%' or '320px', " +
+  "(c) number shorthand: 60 — interpreted as percent.",
+);
+
+function normaliseSize(s: unknown): { default: string; min?: string; max?: string } | undefined {
+  if (s === null || s === undefined) return undefined;
+  if (typeof s === 'string') return { default: s };
+  if (typeof s === 'number') return { default: `${s}%` };
+  if (typeof s === 'object') {
+    const obj = s as { default?: string; min?: string; max?: string };
+    if (typeof obj.default === 'string') return obj as { default: string; min?: string; max?: string };
+  }
+  return undefined;
+}
 
 const slotSchema = z.object({
-  component: z.string().describe('ComponentRegistry name — kpiTile, documentPreview, etc.'),
+  component: z.string().describe('ComponentRegistry name — documentPreview, tagPanel, chainOfCustody, bulkActions, multiDocPreview, privilegeLog, kpiTile.'),
   props: slotPropsSchema,
-  size: slotSizeSchema.optional(),
+  size: slotSizeInputSchema.optional(),
   pinned: z.boolean().optional(),
   open: z.enum(['inline', 'modal', 'drawer', 'overlay']).optional(),
 });
@@ -30,7 +62,10 @@ const setWorkspaceLayoutSchema = z.object({
   slots: z.record(z.string(), slotSchema).describe(
     'Slot-name → SlotDef map. Each slot mounts the named ComponentRegistry ' +
     "component via *ngComponentOutlet. Use 'primary', 'sidebar', 'footer' " +
-    "as default slot names; the layout component fills them left-to-right.",
+    "as default slot names; the layout component fills them left-to-right. " +
+    "EXAMPLE for 60/40 split: " +
+    `{ primary: { component: 'documentPreview', size: '60%' }, ` +
+    `sidebar: { component: 'tagPanel', size: '40%' } }.`,
   ),
 });
 
@@ -42,17 +77,43 @@ export function setWorkspaceLayoutTool(env: EnvironmentInjector) {
       'the user asks to "open document preview + tag panel + privilege log in a workspace", ' +
       'or "show me a 60/40 split with the document on the left and annotations on the right". ' +
       'The slot map is signal-backed: /workspace re-renders live the moment this returns. ' +
-      'Persona-scoped + persisted to localStorage so refreshing the page keeps the layout.',
+      'Persona-scoped + persisted to localStorage so refreshing the page keeps the layout.\n\n' +
+      'SLOT SIZE: pass either a string ("60%"), a number (60 — treated as %), or an object ' +
+      '({ default: "60%", min: "320px" }). All three are accepted; do not return a bare number ' +
+      'unless you mean percent. ' +
+      'EXAMPLE for "60/40 split with doc on left + annotations on right": ' +
+      `{ slots: { primary: { component: "documentPreview", size: "60%" }, ` +
+      `sidebar: { component: "tagPanel", size: "40%" } } }.`,
     schema: setWorkspaceLayoutSchema,
     handler: async ({ slots }) => {
       return runInInjectionContext(env, () => {
+        // Normalise size on every slot before writing — handler accepts
+        // the shorthand forms from the schema and emits canonical
+        // { default, min?, max? } objects for the lib.
+        const normalised: SlotMap = Object.fromEntries(
+          Object.entries(slots).map(([name, def]) => {
+            const size = normaliseSize((def as { size?: unknown }).size);
+            const cleaned = { ...def } as Record<string, unknown>;
+            if (size) cleaned['size'] = size;
+            else delete cleaned['size'];
+            return [name, cleaned];
+          }),
+        ) as unknown as SlotMap;
         const store = env.get(WorkspaceLayoutStore);
-        store.set(slots as SlotMap);
+        store.set(normalised);
+        // Auto-navigate to /workspace so the user SEES the layout change.
+        // Without this, the agent's reshape is silently effective only
+        // when the user is already viewing /workspace; on any other
+        // route the SlotMap change is invisible until they navigate.
+        const router = env.get(Router);
+        if (!router.url.startsWith('/workspace')) {
+          void router.navigateByUrl('/workspace');
+        }
         return {
           ok: true,
-          slotsApplied: Object.keys(slots),
+          slotsApplied: Object.keys(normalised),
           route: '/workspace',
-          message: `Applied workspace layout with ${Object.keys(slots).length} slot(s). Open /workspace to see it.`,
+          message: `Applied workspace layout with ${Object.keys(normalised).length} slot(s). Now showing /workspace.`,
         };
       });
     },
