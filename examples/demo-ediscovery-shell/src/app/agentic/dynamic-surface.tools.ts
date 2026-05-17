@@ -102,12 +102,15 @@ export function setWorkspaceLayoutTool(env: EnvironmentInjector) {
         const store = env.get(WorkspaceLayoutStore);
         store.set(normalised);
         // Auto-navigate to /workspace so the user SEES the layout change.
-        // Without this, the agent's reshape is silently effective only
-        // when the user is already viewing /workspace; on any other
-        // route the SlotMap change is invisible until they navigate.
+        // Defer via setTimeout so the navigation doesn't fire INSIDE the
+        // chat orchestrator's current turn cycle — synchronous router
+        // changes mid-turn can wedge the chat-shell's change-detection
+        // (observed: chat composer + Try-asking became unresponsive
+        // after the nav, recovered only on reload). Tick boundary
+        // lets the tool result land first, then the route changes.
         const router = env.get(Router);
         if (!router.url.startsWith('/workspace')) {
-          void router.navigateByUrl('/workspace');
+          setTimeout(() => { void router.navigateByUrl('/workspace'); }, 0);
         }
         return {
           ok: true,

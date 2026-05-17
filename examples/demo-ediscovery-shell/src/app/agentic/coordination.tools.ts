@@ -19,12 +19,16 @@ import { WorkspaceLayoutStore } from '../services/workspace-layout.store';
  * there so the slot-edit takes visible effect immediately. Without
  * this, slot-edit tools silently mutate the store; the user sees
  * nothing change because they're on /documents, /holds, etc.
+ *
+ * Deferred via setTimeout so the navigation fires AFTER the chat
+ * orchestrator's current turn cycle finishes — a synchronous router
+ * change mid-turn was observed to wedge the chat-shell's change-
+ * detection (composer + Try-asking went unresponsive until reload).
  */
 function navigateToWorkspaceIfNeeded(env: EnvironmentInjector): void {
   const router = env.get(Router);
-  if (!router.url.startsWith('/workspace')) {
-    void router.navigateByUrl('/workspace');
-  }
+  if (router.url.startsWith('/workspace')) return;
+  setTimeout(() => { void router.navigateByUrl('/workspace'); }, 0);
 }
 
 // ── ADR-047 D1 — slot-level edit tools ────────────────────────────────────
