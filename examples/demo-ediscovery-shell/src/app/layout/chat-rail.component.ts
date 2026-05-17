@@ -271,7 +271,21 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
           <svg-icon name="users" [size]="13" />
           <span>Speaking as <strong>{{ persona() }}</strong> · {{ persona() === 'lead-counsel' ? 'full access' : 'scoped tools' }}</span>
         </div>
-        <!-- Chat shell — always mounted; takes the whole rail body. -->
+        <!-- Prominent Try-asking button below persona-strip — always
+             visible so prompt discovery is obvious. Toggles the same
+             overlay as the ⚡ icon in the header. -->
+        <button type="button" class="try-asking-toggle"
+                [class.active]="showHints()"
+                (click)="toggleHintsOverlay()"
+                [attr.aria-expanded]="showHints()">
+          <svg-icon name="spark" [size]="14" />
+          <span class="ta-label">Try asking the agent</span>
+          <span class="ta-badge">{{ totalPromptCount() }} prompts</span>
+          <svg-icon name="chevron-right" [size]="14" class="ta-chevron" />
+        </button>
+        <!-- Chat shell — always mounted; takes the whole rail body
+             below the Try-asking button. Transcript state is
+             preserved across overlay open/close. -->
         <div class="chat-host">
           <mvk-chat-shell #chatShell [showToolCalls]="verbosity()" />
         </div>
@@ -401,6 +415,42 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
     }
     .persona-strip strong { color: var(--c-text); text-transform: capitalize; }
 
+    /* Prominent Try-asking toggle below persona-strip. Same
+       visual weight as the matter selector in the header so users
+       can't miss it. Two triggers (this button + the ⚡ icon in
+       the header) both flip the showHints signal. */
+    .try-asking-toggle {
+      display: flex; align-items: center; gap: var(--s-2);
+      padding: 0.55rem var(--s-4);
+      background: var(--c-surface-1);
+      border: 0; border-bottom: 1px solid var(--c-divider);
+      border-left: 3px solid var(--c-brand);
+      cursor: pointer; width: 100%; text-align: left;
+      font-family: inherit; color: var(--c-text);
+      transition: background var(--t-fast), border-left-color var(--t-fast);
+      flex-shrink: 0;
+    }
+    .try-asking-toggle:hover { background: var(--c-surface-2); }
+    .try-asking-toggle.active {
+      background: var(--c-brand-tint);
+      border-left-color: var(--c-brand-strong);
+    }
+    .try-asking-toggle .ta-label {
+      flex: 1; font-size: var(--fs-sm); font-weight: 500;
+    }
+    .try-asking-toggle .ta-badge {
+      padding: 1px 7px; border-radius: var(--r-pill);
+      background: var(--c-surface); color: var(--c-text-mute);
+      font-size: 0.65rem; font-variant-numeric: tabular-nums;
+    }
+    .try-asking-toggle.active .ta-badge {
+      background: var(--c-brand); color: white;
+    }
+    .try-asking-toggle .ta-chevron {
+      color: var(--c-text-mute);
+      transition: transform var(--t-fast);
+    }
+    .try-asking-toggle.active .ta-chevron { transform: rotate(90deg); }
     /* Hints overlay — slides over the chat-shell when toggled from
        the header ⚡ icon. Positioned absolute inside .rail (which
        has position:relative) so it doesn't compete with chat for
