@@ -334,6 +334,13 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
       width: var(--chat-w);
       flex-shrink: 0;
       min-height: 0;
+      /* Stack above the main canvas — the agent overlay (post-b572ac8)
+         renders mvk-workspace-layout inside <main> and some lib slot
+         components can grow tall enough to be clipped behind a sibling
+         that doesn't claim its own stacking context. Explicit z-index
+         keeps the tab-bar reliably clickable. */
+      position: relative;
+      z-index: 10;
       transition: width var(--t-med);
     }
     :host(.collapsed) { width: 56px; }
@@ -342,6 +349,9 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
       background: var(--c-surface-0);
       border-left: 1px solid var(--c-border);
       display: flex; flex-direction: column;
+      /* Prevent any descendant overflow from spilling out of the rail
+         and covering the chat composer or tab bar. */
+      overflow: hidden;
     }
     .reopen {
       flex: 1; background: transparent; border: 0; cursor: pointer;
@@ -394,13 +404,17 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
 
     /* Tab bar — replaces the inline collapsible hints; tabs sit
        between persona-strip and the active pane. Visual weight is
-       balanced so neither tab dominates. */
+       balanced so neither tab dominates. Sticky + position-relative
+       + explicit z-index so the tabs are always visible + clickable
+       no matter how tall the chat transcript or hints-pane gets. */
     .tab-bar {
       display: flex; gap: 2px;
       padding: 0 var(--s-3);
       border-bottom: 1px solid var(--c-divider);
       background: var(--c-surface-1);
       flex-shrink: 0;
+      position: relative;
+      z-index: 5;
     }
     .tab {
       flex: 1; padding: 0.5rem var(--s-3);
