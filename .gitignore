@@ -1,0 +1,86 @@
+# Compiled output (rooted + nested)
+/dist
+dist/
+/tmp
+tmp/
+/out-tsc
+/bazel-out
+
+# Node (rooted + nested)
+/node_modules
+node_modules/
+npm-debug.log
+yarn-error.log
+.npm/
+*.tsbuildinfo
+
+# IDE
+/.idea
+/.project
+/.classpath
+/.c9/
+*.launch
+.settings/
+*.sublime-workspace
+/.vscode/*
+!/.vscode/extensions.json
+!/.vscode/launch.json
+!/.vscode/tasks.json
+/.history/*
+
+# Angular cache
+/.angular/cache
+
+# Misc
+.sass-cache/
+/connect.lock
+/coverage
+/libpeerconnection.log
+testem.log
+/typings
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.env.local
+.env.*.local
+
+# Tool-output (not committed; Claude session state lives elsewhere)
+.claude/
+/.claude/local
+PLAN.md
+
+# Python helper scripts (kept local for regenerating decks etc., not
+# part of the public artefact). Whole-tree match — add specific
+# unignore rules below if a future .py becomes legitimately public.
+*.py
+
+# Intermediate video captures from scripts/capture-readme-animation.mjs.
+# We commit the .gif (which the README embeds) but not the .webm Playwright
+# produces — it's a regenerable intermediate, ~700 KB per capture.
+docs/assets/*.webm
+# Exception: docs/assets/videos/ holds the canonical post-chat-surfaces
+# tour videos (~100-200 KB each, 9 total). These ARE committed because
+# they're embedded inline in docs/cookbook/post-chat-surfaces-tour.md
+# via <video> tags that GitHub renders natively.
+!docs/assets/videos/**
+
+# Office lock files (created when a file is open in Word/PowerPoint/Excel).
+~$*
+
+# Generated API docs (built by `npm run docs:api`; published, not tracked)
+/docs/api/
+
+# Compodoc output + the build-time-synced includes folder.
+# `docs/compodoc-includes/summary.json` IS tracked; the .md files copied
+# next to it at build time are not.
+/docs/compodoc/
+/docs/compodoc-includes/*.md
+
+# Playwright artefacts — JUnit XML lands in e2e/results/ for CI consumers.
+/test-results/
+/playwright-report/
+/e2e/results/

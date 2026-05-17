@@ -1,0 +1,134 @@
+[
+  {
+    "title": "Quickstart",
+    "file": "quickstart.md"
+  },
+  {
+    "title": "Sample prompts",
+    "file": "sample-prompts.md"
+  },
+  {
+    "title": "Production deployment",
+    "file": "production-deployment.md"
+  },
+  {
+    "title": "Federation at scale",
+    "file": "federation-at-scale.md"
+  },
+  {
+    "title": "Integrate into an existing Angular app",
+    "file": "integrate-into-existing-angular-app.md"
+  },
+  {
+    "title": "Schematics reference",
+    "file": "schematics.md"
+  },
+  {
+    "title": "Multi-agent orchestration",
+    "file": "multi-agent-orchestration.md"
+  },
+  {
+    "title": "Extended registries — feature tour",
+    "file": "extended-registries-feature-tour.md"
+  },
+  {
+    "title": "Federate an MFE",
+    "file": "federate-an-mfe.md"
+  },
+  {
+    "title": "Expose tools as MCP server",
+    "file": "mcp-server.md"
+  },
+  {
+    "title": "Embed the shell as a Teams Tab",
+    "file": "teams-tab-embed.md"
+  },
+  {
+    "title": "Teams chat-native — Bot Framework + Adaptive Cards",
+    "file": "teams-bot-adaptive-cards.md"
+  },
+  {
+    "title": "Microsoft Copilot Studio — Connector wiring",
+    "file": "copilot-studio-connector.md"
+  },
+  {
+    "title": "GitHub Copilot Extension — wire your catalog tools",
+    "file": "github-copilot-extension.md"
+  },
+  {
+    "title": "Agent-directed workspace layouts (ADR-043)",
+    "file": "agent-directed-workspace-layouts.md"
+  },
+  {
+    "title": "⌘K / Ctrl+K command palette",
+    "file": "cmd-k-palette.md"
+  },
+  {
+    "title": "Agent-computed table cells (mvk-smart-cell)",
+    "file": "smart-cell.md"
+  },
+  {
+    "title": "Per-row context menus (mvk-row-action-menu)",
+    "file": "row-action-menu.md"
+  },
+  {
+    "title": "Selection-aware bulk toolbar (mvk-bulk-toolbar)",
+    "file": "bulk-toolbar.md"
+  },
+  {
+    "title": "Cursor-pattern assist panel (mvk-assist-panel)",
+    "file": "assist-panel.md"
+  },
+  {
+    "title": "Proactive triggers + Inbox (ADR-045)",
+    "file": "proactive-triggers-and-inbox.md"
+  },
+  {
+    "title": "Multi-stage lifecycle widget (mvk-lifecycle-stages)",
+    "file": "lifecycle-stages.md"
+  },
+  {
+    "title": "User-built dashboards (ADR-044)",
+    "file": "dashboards.md"
+  },
+  {
+    "title": "Conversational dashboard composition (P3.B)",
+    "file": "conversational-dashboards.md"
+  },
+  {
+    "title": "Live + drillable dashboards (P3.C)",
+    "file": "live-dashboards.md"
+  },
+  {
+    "title": "Multi-reviewer review queue (Workflow E)",
+    "file": "review-queue.md"
+  },
+  {
+    "title": "Investigation timeline canvas (Workflow D)",
+    "file": "timeline-canvas.md"
+  },
+  {
+    "title": "Continuous Active Learning workbench (Workflow C)",
+    "file": "cal-workbench.md"
+  },
+  {
+    "title": "Playbooks — versioned tool-call sequences (P5)",
+    "file": "playbooks.md"
+  },
+  {
+    "title": "Post-chat surfaces — guided tour (live demo + videos)",
+    "file": "post-chat-surfaces-tour.md"
+  },
+  {
+    "title": "Domain MFEs as standalone apps + capability providers",
+    "file": "domain-mfe-standalone-and-federated.md"
+  },
+  {
+    "title": "Swap the backend",
+    "file": "swap-backend.md"
+  },
+  {
+    "title": "Observability",
+    "file": "observability.md"
+  }
+]

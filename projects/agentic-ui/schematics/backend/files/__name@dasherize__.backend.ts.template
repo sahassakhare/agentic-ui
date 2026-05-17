@@ -1,0 +1,97 @@
+import type { EnvironmentProviders } from '@angular/core';
+import {
+  provideAgenticBackend,
+  type AgenticBackend,
+  type AgenticEvent,
+  type AgenticRunInput,
+  type BackendCapabilities,
+} from '@infra-tools/agentic-ui';
+
+/**
+ * Configuration for {@link <%= classify(name) %>}.
+ *
+ * Replace these with whatever your backend needs (URL, auth token, model
+ * name, etc.). The provider factory below threads this object into the
+ * adapter's constructor.
+ */
+export interface <%= classify(name) %>Config {
+  // TODO: declare your backend configuration here
+  readonly url?: string;
+}
+
+/**
+ * Self-reported capabilities the chat shell uses for feature-detection.
+ *  - `streaming`     — does the backend stream tokens? (text deltas)
+ *  - `clientTools`   — does it support function/tool calling?
+ *  - `generativeUi`  — can it ask the host to render a component by name?
+ *  - `uiActions`     — does it emit `ui-action` events (A2UI-style)?
+ *
+ * Set each flag to whatever your protocol genuinely supports. The shell
+ * hides features that report `false` (e.g. the tools sidebar disappears
+ * when `clientTools` is `false`).
+ */
+const CAPABILITIES: BackendCapabilities = {
+  streaming: true,
+  clientTools: true,
+  generativeUi: false,
+  uiActions: false,
+};
+
+/**
+ * `<%= classify(name) %>` — custom `AgenticBackend` adapter.
+ *
+ * Implement this when you have a protocol or LLM gateway not covered by
+ * the built-in AG-UI / Hashbrown / A2UI adapters. The contract is small:
+ * accept `AgenticRunInput`, yield `AgenticEvent`s.
+ *
+ * Lifecycle invariants the chat shell expects:
+ *  1. Yield `run-started` first.
+ *  2. Yield `run-finished` (or `run-error`) last.
+ *  3. Pair every `text-delta` with a matching `text-end` for the same `messageId`.
+ *  4. Pair every `tool-call-start` with `tool-call-end` for the same `toolCallId`.
+ *  5. Honour `input.signal` to cancel in-flight upstream calls.
+ *
+ * Register in `app.config.ts`:
+ * ```ts
+ * provideAgenticUi(),
+ * provide<%= classify(name) %>({ url: 'https://...' }),
+ * ```
+ *
+ * @see ../../../../docs/cookbook/swap-backend.md
+ */
+export class <%= classify(name) %> implements AgenticBackend {
+  readonly id = '<%= dasherize(name) %>';
+  readonly capabilities = CAPABILITIES;
+
+  constructor(private readonly config: <%= classify(name) %>Config) {}
+
+  /**
+   * Translate `input` into a stream of `AgenticEvent`s for the chat shell.
+   * @param input  Thread/run identifiers, message history, available
+   *               tools/widgets snapshot.
+   * @returns      Async iterable of events the shell renders verbatim.
+   */
+  async *run(input: AgenticRunInput): AsyncIterable<AgenticEvent> {
+    yield { type: 'run-started', threadId: input.threadId, runId: input.runId };
+    // TODO: bridge your protocol/events here.
+    yield { type: 'run-finished', runId: input.runId };
+  }
+}
+
+/**
+ * Provider factory wiring the adapter for runtime selection by
+ * `BackendRegistry`. Use as a sibling of `provideAgenticUi(...)`:
+ *
+ * ```ts
+ * provideAgenticUi(),
+ * provide<%= classify(name) %>({ url: '...' }),
+ * ```
+ */
+export function provide<%= classify(name) %>(config: <%= classify(name) %>Config): EnvironmentProviders {
+  return provideAgenticBackend({
+    id: '<%= dasherize(name) %>',
+    label: '<%= classify(name) %>',
+    capabilities: CAPABILITIES,
+    factory: () => new <%= classify(name) %>(config),
+  });
+}

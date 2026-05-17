@@ -1,0 +1,43 @@
+{
+  "name": "@infra-tools/mvk",
+  "version": "0.1.0",
+  "description": "Command-line client for the Maverick agentic platform — catalog ops, tenant lifecycle, audit verification, usage aggregates. M6 v1.",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
+  "bugs": {
+    "url": "https://github.com/sahassakhare/agentic-ui/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sahassakhare/agentic-ui",
+    "directory": "platform/mvk-cli"
+  },
+  "type": "module",
+  "bin": {
+    "mvk": "./bin/mvk.js"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "~5.9.0",
+    "vitest": "^4.1.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

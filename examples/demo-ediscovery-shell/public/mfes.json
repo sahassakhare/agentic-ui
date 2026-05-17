@@ -1,0 +1,22 @@
+{
+  "remotes": [
+    {
+      "remoteName": "demo-ediscovery-review",
+      "version": "1.0.0",
+      "remoteEntry": "http://localhost:4302/remoteEntry.json",
+      "env": "dev"
+    },
+    {
+      "remoteName": "demo-ediscovery-production",
+      "version": "1.0.0",
+      "remoteEntry": "http://localhost:4303/remoteEntry.json",
+      "env": "dev"
+    },
+    {
+      "remoteName": "demo-ediscovery-search",
+      "version": "1.0.0",
+      "remoteEntry": "http://localhost:4304/remoteEntry.json",
+      "env": "dev"
+    }
+  ]
+}

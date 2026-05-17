@@ -1,0 +1,64 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "outDir": "./dist/out-tsc",
+    "strict": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "experimentalDecorators": true,
+    "moduleResolution": "bundler",
+    "importHelpers": true,
+    "target": "ES2022",
+    "module": "ES2022",
+    "useDefineForClassFields": false,
+    "lib": [
+      "ES2022",
+      "dom"
+    ],
+    "paths": {
+      "@infra-tools/agentic-ui": [
+        "./dist/agentic-ui"
+      ],
+      "@infra-tools/demo-ediscovery-shared": [
+        "./examples/demo-ediscovery-shared/dist/index"
+      ],
+    }
+  },
+  "angularCompilerOptions": {
+    "enableI18nLegacyMessageIdFormat": false,
+    "strictInjectionParameters": true,
+    "strictInputAccessModifiers": true,
+    "typeCheckHostBindings": true,
+    "strictTemplates": true
+  },
+  "references": [
+    {
+      "path": "./projects/agentic-ui/tsconfig.lib.json"
+    },
+    {
+      "path": "./projects/agentic-ui/tsconfig.spec.json"
+    },
+    {
+      "path": "./examples/demo-monolith/tsconfig.app.json"
+    },
+    {
+      "path": "./examples/demo-monolith/tsconfig.spec.json"
+    },
+    {
+      "path": "./examples/demo-shell/tsconfig.app.json"
+    },
+    {
+      "path": "./examples/demo-shell/tsconfig.spec.json"
+    },
+    {
+      "path": "./examples/demo-remote-bookings/tsconfig.app.json"
+    },
+    {
+      "path": "./examples/demo-remote-bookings/tsconfig.spec.json"
+    }
+  ]
+}

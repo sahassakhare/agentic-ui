@@ -1,0 +1,9 @@
+{
+  "remoteName": "<%= remoteName %>",
+  "version": "<%= version %>",
+  "exposes": {
+    "tools": [],
+    "components": [],
+    "prompts": []
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@infra-tools/demo-ediscovery-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "eDiscovery agent server. Hosts the matter-coordinator + domain specialists. Multi-tenant per-matter ThreadStateStore (in-memory for the demo; Redis adapter sketched in the production-deployment cookbook).",
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --enable-source-maps dist/server.js",
+    "dev": "tsx watch src/server.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^1.50.1",
+    "@hono/node-server": "^1.13.0",
+    "@infra-tools/agentic-ui-server": "file:../../projects/agentic-ui-server",
+    "@infra-tools/demo-ediscovery-shared": "file:../demo-ediscovery-shared",
+    "dotenv": "^17.4.2",
+    "hono": "^4.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "~5.9.0"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "MaverickAgenticUiDashboard",
+  "title": "Generate a DashboardDef (ADR-044)",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "$default": { "$source": "argv", "index": 0 },
+      "x-prompt": "Dashboard id (e.g., matterHealth)?"
+    },
+    "project": { "type": "string", "$default": { "$source": "projectName" } },
+    "path": { "type": "string", "default": "app/agentic/dashboards" },
+    "title": { "type": "string", "default": "My dashboard" },
+    "description": { "type": "string", "default": "Dashboard description." },
+    "layout": { "type": "string", "default": "two-col", "description": "LayoutRegistry name used to slot the tiles." }
+  },
+  "required": ["name"]
+}

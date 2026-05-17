@@ -1,0 +1,56 @@
+import type { PlaybookDef } from '@infra-tools/agentic-ui';
+
+/**
+ * `<%= camelize(name) %>Playbook` — `PlaybookRegistry` registration.
+ *
+ * A playbook is a named, versioned, persona-scoped sequence of tool
+ * calls. The `PlaybookRunner` service fires steps in order through
+ * the same `ToolRegistry.handler` path the chat shell uses, so every
+ * step chain-hashes with `origin: 'playbook'` for audit replay.
+ *
+ * Step properties:
+ * - `requiresApproval: true` halts the run with an Approve / Skip
+ *   gate before invoking — use for irreversible operations.
+ * - `continueOnError: true` keeps the run going past a failed step
+ *   (overall ends 'failed' regardless).
+ *
+ * Register at boot:
+ * ```ts
+ * inject(PlaybookRegistry).register(<%= camelize(name) %>Playbook);
+ * ```
+ *
+ * Fire from a route:
+ * ```ts
+ * const handle = inject(PlaybookRunner).start(<%= camelize(name) %>Playbook);
+ * effect(() => console.log(handle.state()));
+ * ```
+ */
+export const <%= camelize(name) %>Playbook: PlaybookDef = {
+  name: '<%= camelize(name) %>',
+  title: '<%= title %>',
+  description: '<%= description %>',
+  version: 'v1',
+  steps: [
+    // Example step — replace with real tool invocations.
+    // {
+    //   id: 'scope',
+    //   title: 'Define scope',
+    //   tool: 'defineCollectionScope',
+    //   args: { matterId: 'M-1' },
+    // },
+    // {
+    //   id: 'review',
+    //   title: 'First-pass review',
+    //   tool: 'startCalRound',
+    //   args: { matterId: 'M-1', round: 1 },
+    //   requiresApproval: true,    // halt with approve/skip gate
+    // },
+    // {
+    //   id: 'snapshot',
+    //   title: 'Snapshot model',
+    //   tool: 'persistModelSnapshot',
+    //   args: { matterId: 'M-1' },
+    //   continueOnError: true,     // failure here doesn't abort the run
+    // },
+  ],
+};

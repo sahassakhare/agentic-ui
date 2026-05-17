@@ -1,0 +1,49 @@
+import { defineCapabilityModule } from '@infra-tools/agentic-ui';
+
+/**
+ * Capability module exposed by the "<%= remoteName %>" MFE remote.
+ *
+ * Authored once; pushed into the host's registries on load via
+ * `loadRemoteCapabilities()` (Native Federation) or
+ * `loadRemoteCapabilitiesMF()` (webpack Module Federation).
+ *
+ * @remarks
+ * The host imports this file dynamically (`import('./Capability')`) at
+ * boot. When `defineCapabilityModule({...})` runs, the listed `tools` and
+ * `components` are added to the host's `ToolRegistry` /
+ * `ComponentRegistry` with `source: 'remote:<%= remoteName %>'` —
+ * which makes per-remote teardown a single call:
+ * `removeBySource('remote:<%= remoteName %>')`.
+ *
+ * Add tools and components below — they'll be available to the host's
+ * chat shell as soon as this module is loaded.
+ *
+ * @example
+ * ```ts
+ * import { bookFlightTool } from './tools/book-flight.tool';
+ * import { flightCardWidget } from './widgets/flight-card.widget';
+ *
+ * export const capability = defineCapabilityModule({
+ *   remoteName: '<%= remoteName %>',
+ *   version: '<%= version %>',
+ *   tools: [bookFlightTool],
+ *   components: [flightCardWidget],
+ * });
+ * ```
+ *
+ * @see https://github.com/sahassakhare/agentic-ui/blob/main/docs/cookbook/federate-an-mfe.md
+ */
+export const capability = defineCapabilityModule({
+  remoteName: '<%= remoteName %>',
+  version: '<%= version %>',
+  tools: [
+    // Import your tools here:
+    // import { bookFlightTool } from './tools/book-flight.tool';
+    // bookFlightTool,
+  ],
+  components: [
+    // Import your widgets here:
+    // import { flightCardWidget } from './widgets/flight-card.widget';
+    // flightCardWidget,
+  ],
+});

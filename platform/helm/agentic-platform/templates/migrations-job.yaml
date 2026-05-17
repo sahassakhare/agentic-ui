@@ -1,0 +1,57 @@
+{{- if .Values.migrations.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-catalog-migrate-{{ .Release.Revision }}
+  labels:
+    {{- include "agentic-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: catalog-migrate
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  ttlSecondsAfterFinished: {{ .Values.migrations.ttlSecondsAfterFinished }}
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "agentic-platform.componentLabels" (dict "Chart" .Chart "Release" .Release "component" "catalog-migrate") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "agentic-platform.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "agentic-platform.image" (dict "Values" .Values "repo" .Values.catalogServer.image.repository "tag" .Values.catalogServer.image.tag) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          command:
+            - /nodejs/bin/node
+            - node_modules/node-pg-migrate/bin/node-pg-migrate.js
+            - --migrations-dir
+            - src/db/migrations
+            - -j
+            - sql
+            - up
+          env:
+            {{- if and .Values.database.external.enabled .Values.database.external.connectionString }}
+            - name: DATABASE_URL
+              value: {{ .Values.database.external.connectionString | quote }}
+            {{- else if .Values.database.external.enabled }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-catalog-db" .Release.Name) .Values.database.external.existingSecret }}
+                  key: {{ .Values.database.external.existingSecretKey }}
+            - name: DATABASE_URL
+              value: {{ include "agentic-platform.databaseUrl" . | quote }}
+            {{- else }}
+            - name: DATABASE_URL
+              value: {{ include "agentic-platform.databaseUrl" . | quote }}
+            {{- end }}
+{{- end }}

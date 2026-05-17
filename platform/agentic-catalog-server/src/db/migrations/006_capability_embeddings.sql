@@ -1,0 +1,32 @@
+-- Up Migration
+-- Slice SEM-A — semantic capability search via pgvector. ADR-038.
+--
+-- This migration is intentionally a NO-OP on the default migration
+-- path. pgvector requires (a) the extension to be bundled with the
+-- Postgres binary AND (b) privileged CREATE EXTENSION rights, both
+-- of which vary by deployment. Putting the schema setup here
+-- previously broke deploys on Render's free-plan Postgres (no
+-- pgvector pre-installed) — the preDeployCommand aborted, blocking
+-- every app deploy in the same blueprint.
+--
+-- ── HOW TO ENABLE SEMANTIC SEARCH ────────────────────────────────
+-- 1. Confirm pgvector is available. Render: paid tiers ship it;
+--    self-hosted: use `pgvector/pgvector:pg16` Docker image; managed
+--    Postgres: check provider docs.
+-- 2. Run as a privileged DB user (one-time):
+--      CREATE EXTENSION vector;
+--      ALTER TABLE capabilities
+--        ADD COLUMN embedding vector(1536);  -- match EMBEDDING_DIM
+--      CREATE INDEX capabilities_embedding_idx
+--        ON capabilities USING hnsw (embedding vector_cosine_ops)
+--        WITH (m = 16, ef_construction = 64);
+-- 3. Set EMBEDDING_PROVIDER + EMBEDDING_API_KEY on the catalog
+--    server's env.
+-- 4. Run `npm run backfill:embeddings` to populate existing rows.
+--
+-- The catalog code path that touches the embedding column is gated
+-- on `EMBEDDING_PROVIDER` (default `noop`) — null/missing column is
+-- always a safe state. /capabilities/search returns 422 "not
+-- configured" until the steps above are run.
+
+SELECT 1;  -- explicit no-op; node-pg-migrate records this migration as applied.

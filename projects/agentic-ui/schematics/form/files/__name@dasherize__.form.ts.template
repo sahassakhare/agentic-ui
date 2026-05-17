@@ -1,0 +1,44 @@
+import { agenticForm } from '@infra-tools/agentic-ui';
+import { z } from 'zod';
+
+/**
+ * `<%= camelize(name) %>` — schema-driven form the agent can fill,
+ * validate, and submit on the user's behalf.
+ *
+ * Forms are how you give the agent a *structured input surface* without
+ * a one-off tool. The agent reads `fieldsSchema` to know what fields
+ * exist, the chat shell renders them via `<mvk-form-renderer>`, and
+ * `submit` runs once the user (or agent) confirms.
+ *
+ * - `name`         — id used by tool returns to ask for this form.
+ * - `description`  — human-readable summary.
+ * - `fieldsSchema` — Zod object describing each field's type and
+ *                    validation. Drives both the rendered form and the
+ *                    type-safe `values` argument to `submit`.
+ * - `ui`           — per-field rendering hints (order, widget, options,
+ *                    placeholder, etc.). Optional but recommended for
+ *                    polished UX.
+ * - `submit`       — your handler. Already typed against `fieldsSchema`.
+ *
+ * Register in your provider config:
+ * ```ts
+ * provideAgenticUi({ forms: [<%= camelize(name) %>Form] })
+ * ```
+ */
+export const <%= camelize(name) %>Form = agenticForm({
+  name: '<%= camelize(name) %>',
+  description: '<%= description %>',
+  fieldsSchema: z.object({
+    // TODO: define form fields
+    // example: from: z.string(),
+  }),
+  ui: {
+    // Per-field UI hints (order, widget, options, placeholder)
+    // example: from: { order: 1, placeholder: 'LAX' },
+  },
+  submit: async (values) => {
+    // `values` is typed from `fieldsSchema` above.
+    // TODO: handle submission (POST to your backend, navigate, etc.)
+    void values;
+  },
+});

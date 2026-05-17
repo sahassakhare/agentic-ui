@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "MaverickAgenticUiMfeCapability",
+  "title": "Generate an MFE CapabilityModule",
+  "type": "object",
+  "properties": {
+    "remoteName": {
+      "type": "string",
+      "$default": { "$source": "argv", "index": 0 },
+      "x-prompt": "What is the remote name (e.g., 'bookings')?"
+    },
+    "project": { "type": "string", "$default": { "$source": "projectName" } },
+    "path": { "type": "string", "default": "app/capability" },
+    "version": { "type": "string", "default": "1.0.0" },
+    "federation": { "type": "string", "enum": ["native", "module-federation"], "default": "native" }
+  },
+  "required": ["remoteName"]
+}

@@ -1,0 +1,29 @@
+import { agenticWidget } from '@infra-tools/agentic-ui';
+import { z } from 'zod';
+import { <%= classify(name) %>Component } from './<%= dasherize(name) %>.component';
+
+/**
+ * `<%= camelize(name) %>` — generative-UI widget registration.
+ *
+ * Pairs an Angular standalone component with a Zod schema describing its
+ * `@Input()` props. The chat shell looks up the widget by `name` whenever a
+ * tool result includes `components: [{ name: '<%= camelize(name) %>', props }]`,
+ * validates `props` against `propsSchema`, then renders
+ * `<%= classify(name) %>Component` via `*ngComponentOutlet`.
+ *
+ * Tighten `propsSchema` to mirror the component's actual inputs — e.g.
+ * `z.object({ bookingId: z.string(), from: z.string(), ... })` — so any
+ * tool-handler mistake fails loudly during development.
+ *
+ * Register in your provider config:
+ * ```ts
+ * provideAgenticUi({ widgets: [<%= camelize(name) %>Widget] })
+ * ```
+ */
+export const <%= camelize(name) %>Widget = agenticWidget({
+  name: '<%= camelize(name) %>',
+  component: <%= classify(name) %>Component,
+  propsSchema: z.object({
+    data: z.unknown(),
+  }),
+});

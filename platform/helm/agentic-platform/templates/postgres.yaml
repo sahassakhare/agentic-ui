@@ -1,0 +1,89 @@
+{{- if .Values.database.bundled.enabled }}
+{{- if .Values.database.external.enabled }}
+{{- fail "database.bundled.enabled and database.external.enabled are mutually exclusive" }}
+{{- end }}
+---
+# Bundled Postgres — single-pod StatefulSet. NOT for production.
+# Operators should set database.external.enabled=true and point at a
+# managed Postgres for any production deployment.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-postgres
+  labels:
+    {{- include "agentic-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+  selector:
+    {{- include "agentic-platform.componentLabels" (dict "Chart" .Chart "Release" .Release "component" "postgres") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}-postgres
+  labels:
+    {{- include "agentic-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  serviceName: {{ .Release.Name }}-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "agentic-platform.componentLabels" (dict "Chart" .Chart "Release" .Release "component" "postgres") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "agentic-platform.componentLabels" (dict "Chart" .Chart "Release" .Release "component" "postgres") | nindent 8 }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70    # `postgres` user inside postgres:alpine
+        fsGroup: 70
+      containers:
+        - name: postgres
+          image: "{{ .Values.database.bundled.image.repository }}:{{ .Values.database.bundled.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.database.bundled.auth.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.database.bundled.auth.username | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.database.bundled.auth.password | quote }}
+            # Tell PG to write to a sub-dir of the mount so it can
+            # tolerate the lost+found dir on some PV provisioners.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ .Values.database.bundled.auth.username }}", "-d", "{{ .Values.database.bundled.auth.database }}"]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ .Values.database.bundled.auth.username }}", "-d", "{{ .Values.database.bundled.auth.database }}"]
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.database.bundled.resources | nindent 12 }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.database.bundled.storage.storageClassName }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.database.bundled.storage.size }}
+{{- end }}

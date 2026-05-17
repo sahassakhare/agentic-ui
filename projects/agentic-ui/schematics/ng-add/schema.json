@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "MaverickAgenticUiNgAdd",
+  "title": "Add @infra-tools/agentic-ui",
+  "type": "object",
+  "properties": {
+    "project": {
+      "type": "string",
+      "description": "Target Angular project name. Defaults to the workspace's defaultProject.",
+      "$default": { "$source": "projectName" }
+    },
+    "backend": {
+      "type": "string",
+      "description": "Which backend adapter to wire by default.",
+      "enum": ["ag-ui", "hashbrown", "a2ui"],
+      "default": "ag-ui"
+    },
+    "agentUrl": {
+      "type": "string",
+      "description": "URL of the agent server SSE endpoint.",
+      "default": "http://localhost:4111/agents/echo/run"
+    },
+    "telemetry": {
+      "type": "string",
+      "description": "Telemetry sink to provide.",
+      "enum": ["none", "console", "otel"],
+      "default": "none"
+    },
+    "skipInstall": {
+      "type": "boolean",
+      "description": "Skip running npm install at the end.",
+      "default": false
+    }
+  },
+  "required": []
+}

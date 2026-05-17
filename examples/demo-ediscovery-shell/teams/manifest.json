@@ -1,0 +1,65 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "0.1.0",
+  "id": "REPLACE-WITH-YOUR-GUID-AT-PUBLISH-TIME",
+  "packageName": "com.maverick.demo-ediscovery",
+  "developer": {
+    "name": "Maverick",
+    "websiteUrl": "https://github.com/sahassakhare/agentic-ui",
+    "privacyUrl": "https://github.com/sahassakhare/agentic-ui/blob/main/docs/PRIVACY.md",
+    "termsOfUseUrl": "https://github.com/sahassakhare/agentic-ui/blob/main/LICENSE"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "name": {
+    "short": "eDiscovery (Maverick)",
+    "full": "Maverick eDiscovery — agentic UI demo"
+  },
+  "description": {
+    "short": "Agentic eDiscovery workbench embedded in Teams.",
+    "full": "Embed the Maverick agentic-ui eDiscovery demo as a Teams Tab. Demonstrates Path 1a of the Teams + Copilot integration plan: the Angular shell renders unchanged inside a Teams Tab, picks up the active tenant + user from microsoftTeams.app.getContext(), and hands every action through the catalog server's audit chain."
+  },
+  "accentColor": "#1E3A5F",
+  "configurableTabs": [
+    {
+      "configurationUrl": "https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com/teams/config",
+      "canUpdateConfiguration": true,
+      "scopes": ["team", "groupchat"],
+      "context": ["channelTab", "privateChatTab"]
+    }
+  ],
+  "staticTabs": [
+    {
+      "entityId": "matter-dashboard",
+      "name": "Matter dashboard",
+      "contentUrl": "https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com/?teams=1",
+      "websiteUrl": "https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com/",
+      "scopes": ["personal"]
+    },
+    {
+      "entityId": "custodian-intake",
+      "name": "Custodian intake",
+      "contentUrl": "https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com/intake/custodian?teams=1",
+      "websiteUrl": "https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com/intake/custodian",
+      "scopes": ["personal"]
+    },
+    {
+      "entityId": "legal-holds",
+      "name": "Legal holds",
+      "contentUrl": "https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com/holds?teams=1",
+      "websiteUrl": "https://REPLACE-WITH-YOUR-RENDER-URL.onrender.com/holds",
+      "scopes": ["personal"]
+    }
+  ],
+  "permissions": ["identity"],
+  "validDomains": [
+    "REPLACE-WITH-YOUR-RENDER-URL.onrender.com"
+  ],
+  "webApplicationInfo": {
+    "id": "REPLACE-WITH-AAD-APP-ID",
+    "resource": "api://REPLACE-WITH-YOUR-RENDER-URL.onrender.com/REPLACE-WITH-AAD-APP-ID"
+  }
+}

@@ -1,0 +1,93 @@
+# Render Blueprint — agentic platform demo deployment.
+#
+# Brings up the catalog server (T2) + read-only ops console + a
+# managed Postgres on Render in one click. Tenant-id picker login
+# (no JWT) — the catalog runs with AUTH_MODE=disabled.
+#
+# ⚠️  DEMO / TRUSTED-NETWORK ONLY. Anyone who reaches the deployed
+#     URLs has full read+write across every tenant. See
+#     docs/adr/0022-auth-disabled-mode.md before sharing the URL.
+#
+# How to deploy:
+#   1. Push this branch to your fork / a public GitHub repo.
+#   2. In Render, click "New +" → "Blueprint" → connect the repo.
+#   3. When Render asks for the Blueprint file path, enter
+#      `platform/render.yaml`. (The repo root has a different
+#      blueprint for the eDiscovery demo.)
+#   4. Render reads this file and provisions the four services
+#      (Postgres + 2 web services). First boot takes ~5 minutes
+#      while the images build.
+#   5. Open the ops-console URL Render shows, type any tenant id
+#      (e.g. `demo`), and you're in.
+#
+# Production deployment shape: keep AUTH_MODE=oidc and wire your
+# real IdP (Auth0 / Clerk / WorkOS / Keycloak / Okta) into
+# OIDC_ISSUER + OIDC_AUDIENCE. The Helm chart at
+# platform/helm/agentic-platform/ is the recommended path; this
+# blueprint exists for demo convenience.
+
+databases:
+  - name: agentic-catalog-db
+    plan: free       # bump to `starter` for staging, `standard` for prod
+    databaseName: catalog
+    user: catalog
+    postgresMajorVersion: 16
+
+services:
+
+  # ── Catalog server (T2) ──────────────────────────────────────────
+  - type: web
+    name: agentic-catalog-server
+    runtime: docker
+    plan: starter    # free tier sleeps; the catalog needs warm boot
+    rootDir: platform/agentic-catalog-server
+    dockerfilePath: ./Dockerfile.render
+    healthCheckPath: /healthz
+    autoDeploy: true
+    region: oregon
+    # 1. node-pg-migrate brings the schema up to date (idempotent —
+    #    already-applied migrations are skipped).
+    # 2. seed-ediscovery populates the demo tenant with 46
+    #    capabilities + 3 federated MFE remotes + 4 role mappings.
+    #    Idempotent — re-running skips already-present rows. See
+    #    ADR-025 for the seeding strategy.
+    # Failures in either step abort the deploy.
+    preDeployCommand: >-
+      node node_modules/node-pg-migrate/bin/node-pg-migrate.js
+      --migrations-dir src/db/migrations -j sql up &&
+      node --enable-source-maps dist/scripts/seed-ediscovery.js
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: HOST
+        value: "0.0.0.0"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: agentic-catalog-db
+          property: connectionString
+      - key: AUTH_MODE
+        value: disabled
+      - key: LOG_LEVEL
+        value: info
+      - key: LOG_FORMAT
+        value: json
+
+  # ── Ops console (read-only viewer) ───────────────────────────────
+  - type: web
+    name: agentic-ops-console
+    runtime: docker
+    plan: starter
+    rootDir: .
+    dockerfilePath: ./platform/agentic-ops-console/Dockerfile.render
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    region: oregon
+    envVars:
+      - key: CATALOG_BACKEND
+        # Render injects the bare service name; the nginx config
+        # template appends the internal domain.
+        fromService:
+          type: web
+          name: agentic-catalog-server
+          property: hostport

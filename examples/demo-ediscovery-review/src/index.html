@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>demo-ediscovery-review</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script>
+    // Native Federation's dev runtime sets `ngDevMode` when it loads a
+    // remote bundle through the host. When this remote runs *standalone*
+    // (visiting :4302 directly), no host is in the picture, so we set
+    // the dev-mode sentinel ourselves to keep `signal()` calls in our
+    // App component from throwing `ReferenceError: ngDevMode is not
+    // defined` during bootstrap.
+    globalThis.ngDevMode = true;
+  </script>
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html>

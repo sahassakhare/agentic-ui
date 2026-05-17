@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/compodoc/compodoc/master/src/compodoc-options.json",
+  "name": "@infra-tools/agentic-ui",
+  "tsconfig": "projects/agentic-ui/tsconfig.lib.json",
+  "output": "docs/compodoc",
+  "theme": "material",
+  "includes": "docs/compodoc-includes",
+  "includesName": "Guides",
+  "disableCoverage": false,
+  "disablePrivate": true,
+  "disableInternal": true,
+  "hideGenerator": true,
+  "exportFormat": "html"
+}

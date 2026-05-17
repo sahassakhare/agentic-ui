@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "MaverickAgenticUiPlaybook",
+  "title": "Generate a PlaybookDef (post-chat-surfaces P5)",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "$default": { "$source": "argv", "index": 0 },
+      "x-prompt": "Playbook id (e.g., initialPrivilegePass)?"
+    },
+    "project": { "type": "string", "$default": { "$source": "projectName" } },
+    "path": { "type": "string", "default": "app/agentic/playbooks" },
+    "title": { "type": "string", "default": "My playbook" },
+    "description": { "type": "string", "default": "Playbook description." }
+  },
+  "required": ["name"]
+}

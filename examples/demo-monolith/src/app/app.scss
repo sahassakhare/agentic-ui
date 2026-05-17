@@ -1,0 +1,44 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #111827;
+  background: #f9fafb;
+}
+
+header {
+  padding: 1.5rem 2rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: white;
+
+  h1 {
+    margin: 0 0 0.25rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.9rem;
+  }
+}
+
+main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  padding: 1rem;
+
+  mvk-chat-shell {
+    flex: 1;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.6rem;
+    overflow: hidden;
+    max-width: 860px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}

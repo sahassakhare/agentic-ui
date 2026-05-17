@@ -1,0 +1,30 @@
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChatShellComponent } from '@infra-tools/agentic-ui';
+
+/**
+ * `<%= classify(name) %>Component` — host wrapper for the agentic chat
+ * shell. Add it to a route, a side panel, or a feature-flagged region of
+ * your existing app:
+ *
+ * ```ts
+ * // app.routes.ts
+ * { path: 'assistant', loadComponent: () =>
+ *     import('./chat/<%= dasherize(name) %>.component')
+ *       .then(m => m.<%= classify(name) %>Component) }
+ * ```
+ *
+ * The shell talks to whichever backend you registered via
+ * `provideAgUiBackend({ url })` (or sibling providers for Hashbrown / A2UI).
+ * Tools and widgets registered through `provideAgenticUi({ tools, widgets })`
+ * — or contributed by federated MFE remotes — show up automatically.
+ *
+ * @see https://github.com/sahassakhare/agentic-ui/blob/main/docs/cookbook/integrate-into-existing-angular-app.md
+ */
+@Component({
+  selector: '<%= prefix %>-<%= dasherize(name) %>',
+  imports: [ChatShellComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `<mvk-chat-shell />`,
+  styles: `:host { display: flex; flex: 1; min-height: 0; }`,
+})
+export class <%= classify(name) %>Component {}

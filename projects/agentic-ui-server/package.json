@@ -1,0 +1,43 @@
+{
+  "name": "@infra-tools/agentic-ui-server",
+  "version": "1.2.0",
+  "description": "Server-side helpers for @infra-tools/agentic-ui — generic Agent interface, AG-UI SSE route handler, in-memory thread store.",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
+  "bugs": {
+    "url": "https://github.com/sahassakhare/agentic-ui/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sahassakhare/agentic-ui",
+    "directory": "projects/agentic-ui-server"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/**"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch"
+  },
+  "dependencies": {
+    "@ag-ui/core": "0.0.52",
+    "@ag-ui/encoder": "0.0.52"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "~5.9.0"
+  }
+}

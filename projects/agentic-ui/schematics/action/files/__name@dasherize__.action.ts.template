@@ -1,0 +1,38 @@
+import { agenticAction } from '@infra-tools/agentic-ui';
+import { z } from 'zod';
+
+/**
+ * `<%= camelize(name) %>` — agentic action (NgRx-style command).
+ *
+ * Actions are how the agent talks to your application's command surface
+ * — navigate to a route, dispatch into a store, mutate a service —
+ * without having a tool that returns data. They're particularly useful
+ * with the A2UI backend, whose `ui-action` event class lets the model
+ * tell the host "do X", not "compute Y".
+ *
+ * - `type` is the action id the agent emits.
+ * - `payloadSchema` validates the payload before `effect` runs.
+ * - `effect` is your handler — wire it to whatever your app already uses
+ *   (NgRx `Store.dispatch(...)`, `Router.navigate(...)`, a service call,
+ *   etc.). Idempotent effects are easier to reason about.
+ *
+ * Register in your provider config:
+ * ```ts
+ * provideAgenticUi({ actions: [<%= camelize(name) %>Action] })
+ * ```
+ *
+ * @see https://github.com/sahassakhare/agentic-ui/blob/main/docs/cookbook/swap-backend.md
+ */
+export const <%= camelize(name) %>Action = agenticAction({
+  type: '<%= camelize(name) %>',
+  description: '<%= description %>',
+  payloadSchema: z.object({
+    // TODO: define payload shape
+  }),
+  effect: async (payload, ctx) => {
+    // `payload` is typed from the schema above.
+    // `ctx` carries the AbortSignal — honour it for long-running work.
+    // TODO: implement (dispatch into NgRx, navigate, mutate store, etc.)
+    void payload; void ctx;
+  },
+});

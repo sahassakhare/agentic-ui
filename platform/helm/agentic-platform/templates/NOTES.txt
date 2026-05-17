@@ -1,0 +1,48 @@
+Thanks for installing {{ .Chart.Name }} {{ .Chart.Version }}.
+
+Catalog server:
+{{- if .Values.catalogServer.ingress.enabled }}
+  https://{{ .Values.catalogServer.ingress.host }}
+{{- else }}
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-catalog-server {{ .Values.catalogServer.service.port }}:{{ .Values.catalogServer.service.port }}
+  → http://localhost:{{ .Values.catalogServer.service.port }}/healthz
+  → http://localhost:{{ .Values.catalogServer.service.port }}/v1/openapi.json
+{{- end }}
+
+{{- if .Values.opsConsole.enabled }}
+
+Ops console:
+{{- if .Values.opsConsole.ingress.enabled }}
+  https://{{ .Values.opsConsole.ingress.host }}
+{{- else }}
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-ops-console {{ .Values.opsConsole.service.port }}:{{ .Values.opsConsole.service.port }}
+  → http://localhost:{{ .Values.opsConsole.service.port }}/login
+{{- end }}
+{{- end }}
+
+Next steps:
+
+1. Mint a JWT signed by your IdP ({{ .Values.oidc.issuer | default "<set oidc.issuer first>" }})
+   with claim `tenant_id` set and (optionally) `roles: ["platform-admin"]`
+   for cross-tenant ops.
+2. Paste the JWT into the ops console login screen.
+3. Onboard a tenant:
+     curl -X POST http://catalog-server/v1/tenants \
+       -H "Authorization: Bearer <jwt>" \
+       -H "Content-Type: application/json" \
+       -d '{"id":"acme","displayName":"Acme Corp"}'
+
+For production hardening (TLS, external Postgres, BYPASSRLS role,
+audit-retention sweeper) see platform/helm/agentic-platform/README.md.
+
+{{- if .Values.database.bundled.enabled }}
+
+⚠️  Bundled Postgres is single-pod and NOT production-grade. Set
+    database.external.enabled=true and point at managed Postgres
+    before going live.
+{{- end }}
+{{- if not .Values.oidc.issuer }}
+
+❌ oidc.issuer is empty — the catalog will reject every request.
+   Re-install with --set oidc.issuer=https://your-idp/
+{{- end }}

@@ -1,0 +1,38 @@
+import type { TriggerDef } from '@infra-tools/agentic-ui';
+
+/**
+ * `<%= camelize(name) %>` — trigger registration for the `TriggerRegistry`.
+ *
+ * Per [ADR-045](../adr/0045-trigger-registry.md), triggers fire tools /
+ * actions / notifications on a schedule, a webhook, or a queue event.
+ * The runtime tier ships a browser-side cron runner; webhook + queue
+ * targets are deferred to the server-side runner (ADR-045 D6 / future
+ * ADR-046).
+ *
+ * **What this registers but does not yet do.** Registering the trigger
+ * makes it visible in the catalog / ops console. The runner only fires
+ * it when `provideTriggerRunner({...})` is wired in the host's
+ * `app.config.ts` AND the trigger's `runAs` persona has access to its
+ * target.
+ *
+ * Register in your provider config:
+ * ```ts
+ * const triggers = inject(TriggerRegistry);
+ * triggers.register(<%= camelize(name) %>Trigger);
+ * ```
+ */
+export const <%= camelize(name) %>Trigger: TriggerDef = {
+  name: '<%= camelize(name) %>',
+  description: '<%= description %>',
+  kind: '<%= kind %>',
+  spec: <% if (kind === 'cron') { %>{ kind: 'cron', expression: '<%= spec %>' }<% } else if (kind === 'webhook') { %>{ kind: 'webhook', path: '<%= spec %>' }<% } else { %>{ kind: 'queue', topic: '<%= spec %>' }<% } %>,
+  target: <% if (targetKind === 'tool') { %>{ kind: 'tool', tool: '<%= target %>', args: {} }<% } else if (targetKind === 'action') { %>{ kind: 'action', action: '<%= target %>' }<% } else { %>{
+    kind: 'notification',
+    compose: (ctx) => ({
+      title: 'Notification from <%= camelize(name) %>',
+      body: `Fired by ${ctx.firedBy} at ${ctx.firedAt}`,
+      severity: 'info',
+    }),
+  }<% } %>,
+  runAs: <%= runAsLiteral %>,
+};

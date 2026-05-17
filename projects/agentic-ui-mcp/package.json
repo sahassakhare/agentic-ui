@@ -1,0 +1,61 @@
+{
+  "name": "@infra-tools/agentic-ui-mcp",
+  "version": "1.2.0",
+  "description": "Expose @infra-tools/agentic-ui ToolDefs as a Model Context Protocol (MCP) server — Claude Desktop / Cursor / Zed / Continue / Windsurf can call your tools directly.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sahassakhare/agentic-ui",
+    "directory": "projects/agentic-ui-mcp"
+  },
+  "bugs": "https://github.com/sahassakhare/agentic-ui/issues",
+  "homepage": "https://github.com/sahassakhare/agentic-ui/tree/main/projects/agentic-ui-mcp",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "agentic-ui",
+    "claude-desktop",
+    "cursor",
+    "tools"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/**",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "peerDependencies": {
+    "@infra-tools/agentic-ui": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@infra-tools/agentic-ui": "file:../../dist/agentic-ui",
+    "@types/node": "^22.10.0",
+    "typescript": "~5.9.0",
+    "vitest": "^4.0.8",
+    "zod": "^3.23.8"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

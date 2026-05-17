@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "MaverickAgenticUiTool",
+  "title": "Generate an agentic tool",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Tool name (camelCase recommended).",
+      "$default": { "$source": "argv", "index": 0 },
+      "x-prompt": "What name should the tool have?"
+    },
+    "project": {
+      "type": "string",
+      "description": "Target Angular project name.",
+      "$default": { "$source": "projectName" }
+    },
+    "path": {
+      "type": "string",
+      "description": "Folder relative to sourceRoot. Defaults to app/agentic/tools.",
+      "default": "app/agentic/tools"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description shown to the LLM.",
+      "default": "Tool description."
+    },
+    "executeIn": {
+      "type": "string",
+      "enum": ["host", "remote"],
+      "default": "host",
+      "description": "Where the handler runs."
+    }
+  },
+  "required": ["name"]
+}

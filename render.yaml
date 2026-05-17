@@ -1,0 +1,257 @@
+# Render Blueprint — eDiscovery flagship (one-click full-stack deploy).
+#
+# Provisions five services in one Render project:
+#   1. ediscovery-agent-server     — Hono + Mastra coordinator (Docker)
+#   2. ediscovery-shell            — Angular host shell (static)
+#   3. ediscovery-review           — Angular MFE remote (static)
+#   4. ediscovery-production       — Angular MFE remote (static)
+#   5. ediscovery-search           — Angular MFE remote (static)
+#
+# How it works:
+#   - Push this repo to GitHub (or GitLab / Bitbucket).
+#   - In Render, click "New +" → "Blueprint" → select the repo.
+#   - Render reads this file, creates the five services, and starts builds.
+#   - First build will fail on the agent server because the Gemini key
+#     isn't set yet — see post-deploy step #1 below.
+#
+# Cross-service env vars (`fromService`) auto-resolve at deploy time so the
+# shell's build can template the correct prod URLs into mfes.json and the
+# /api/* redirect, without you copy-pasting hostnames between dashboards.
+#
+# ── Post-deploy steps ─────────────────────────────────────────────────────
+#   1. Set the Gemini key on the agent server: in Render, open the
+#      `ediscovery-agent-server` service → Environment tab → set
+#      GOOGLE_GENERATIVE_AI_API_KEY to your key. Click "Save Changes",
+#      Render redeploys.
+#   2. Set CORS lockdown on the agent server: same Environment tab,
+#      set CORS_ORIGINS to the shell's URL (e.g.
+#      https://ediscovery-shell.onrender.com — Render shows it in the
+#      shell service's overview). Defaults to `*` if you skip this.
+#   3. Visit the shell's URL. Expect: "Capabilities loaded · 3 remotes",
+#      17+ tools registered, chat replies streaming.
+
+services:
+  # ── 1. Agent server (Hono + Mastra, Node.js, Docker) ─────────────────────
+  - type: web
+    name: ediscovery-agent-server
+    runtime: docker
+    rootDir: .
+    dockerfilePath: examples/demo-ediscovery-server/Dockerfile
+    dockerContext: .
+    plan: starter           # 512 MB / 0.5 CPU; bump to standard for prod load
+    region: oregon
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000          # Render's web service default
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      # CORS_ORIGINS defaults to `*` — set explicitly via dashboard to lock
+      # to the shell's origin once it's deployed. `sync: false` so Render
+      # doesn't sync this from the file (it stays manual).
+      - key: CORS_ORIGINS
+        sync: false
+      # Gemini key: never lands in the repo. Set in dashboard.
+      - key: GOOGLE_GENERATIVE_AI_API_KEY
+        sync: false
+      # Optional bearer-token allow-list for /agents/* endpoints.
+      - key: AGENT_AUTH_TOKENS
+        sync: false
+
+  # ── 2. Shell host (static Angular SPA) ───────────────────────────────────
+  - type: web
+    name: ediscovery-shell
+    runtime: static
+    rootDir: .
+    autoDeploy: true
+    # Build chain — runs on Render's build runner with the workspace cloned
+    # at /opt/render/project/src. Steps:
+    #   1. Compose prod URLs from the cross-service hostnames Render
+    #      injected via `fromService` env vars.
+    #   2. Install workspace deps + build agentic-ui + ediscovery-shared.
+    #   3. ng build (production configuration).
+    #   4. envsubst → mfes.json with the live remote URLs.
+    #   5. Generate _redirects so /api/* proxies to the agent server.
+    buildCommand: |
+      # set -euo pipefail makes silent failures loud — without it Render
+      # marks the build "succeeded" if the last command (printf to
+      # _redirects) exits 0 even when npm ci / build:lib / ng build
+      # failed upstream. Diagnosed 2026-05-13: a build was succeeding in
+      # 1m31s and serving a stub bundle instead of the real shell.
+      set -euo pipefail
+      echo "[render] node=$(node --version) npm=$(npm --version) git=$(git rev-parse --short HEAD)"
+      # Render's fromService.property: host returns just the bare service
+      # name (e.g. "ediscovery-review"), NOT the full FQDN. Append the
+      # `.onrender.com` suffix to compose absolute URLs.
+      export MFE_REVIEW_URL=https://${MFE_REVIEW_HOST}.onrender.com
+      export MFE_PRODUCTION_URL=https://${MFE_PRODUCTION_HOST}.onrender.com
+      export MFE_SEARCH_URL=https://${MFE_SEARCH_HOST}.onrender.com
+      npm ci
+      npm run build:lib
+      npm run build:ediscovery-shared
+      npx ng build demo-ediscovery-shell --configuration production
+      # Angular 17+ esbuild builder outputs to dist/<project>/browser/ —
+      # so mfes.json must land there, not in the parent.
+      envsubst < examples/demo-ediscovery-shell/public/mfes.template.json \
+        > dist/demo-ediscovery-shell/browser/mfes.json
+      # Native Federation reads federation.manifest.json at boot (in
+      # main.ts: initFederation('federation.manifest.json')). It's a
+      # different file from mfes.json (which is the app-level MFE
+      # registry). The committed copy in public/ has localhost URLs for
+      # local dev — overwrite at build time with the prod URLs so
+      # federation actually loads the remotes from the right hosts.
+      cat > dist/demo-ediscovery-shell/browser/federation.manifest.json <<EOF
+      {
+        "demo-ediscovery-review":     "$MFE_REVIEW_URL/remoteEntry.json",
+        "demo-ediscovery-production": "$MFE_PRODUCTION_URL/remoteEntry.json",
+        "demo-ediscovery-search":     "$MFE_SEARCH_URL/remoteEntry.json"
+      }
+      EOF
+      # SPA fallback only — the agent-server URL is hardcoded into the
+      # shell's environment.prod.ts (the chat shell calls it directly,
+      # cross-origin, with CORS allowlisted server-side). Render static
+      # sites can't proxy POSTs with bodies to external origins via
+      # _redirects — it returns 200 with empty body silently.
+      printf '/*  /index.html  200\n' \
+        > dist/demo-ediscovery-shell/browser/_redirects
+    staticPublishPath: dist/demo-ediscovery-shell/browser
+    # SPA fallback — every non-file path serves index.html so client-side
+    # routing (Angular Router) takes over. _redirects file alone is NOT
+    # honored by Render's static-site service; this routes block is the
+    # canonical mechanism. Diagnosed 2026-05-13: /inbox + /dashboards +
+    # /playbooks were all 404'ing despite a correct _redirects file.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # fromService.property: host returns the bare service name (NOT the
+      # FQDN). The build command above appends `.onrender.com` to form a
+      # full URL — that assumption holds for any default-Render-hostname
+      # deployment in this same Render project. The agent-server URL is
+      # NOT injected here — it's hardcoded in environment.prod.ts because
+      # Render static sites can't proxy POSTs to external origins.
+      - key: MFE_REVIEW_HOST
+        fromService:
+          type: web
+          name: ediscovery-review
+          property: host
+      - key: MFE_PRODUCTION_HOST
+        fromService:
+          type: web
+          name: ediscovery-production
+          property: host
+      - key: MFE_SEARCH_HOST
+        fromService:
+          type: web
+          name: ediscovery-search
+          property: host
+    headers:
+      - path: /index.html
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+      - path: /mfes.json
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+      - path: /federation.manifest.json
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+
+  # ── 3. Review remote (static Angular MFE) ────────────────────────────────
+  - type: web
+    name: ediscovery-review
+    runtime: static
+    rootDir: .
+    autoDeploy: true
+    buildCommand: |
+      set -euo pipefail
+      echo "[render] node=$(node --version) git=$(git rev-parse --short HEAD)"
+      npm ci
+      npm run build:lib
+      npm run build:ediscovery-shared
+      npx ng build demo-ediscovery-review --configuration production
+    staticPublishPath: dist/demo-ediscovery-review/browser
+    # CORS for cross-origin federation loads. Without these headers, the
+    # browser blocks the shell's `fetch(remoteEntry.json)` and the dynamic
+    # import of remote chunks — and the tool registry stays empty.
+    headers:
+      - path: /remoteEntry.json
+        name: Access-Control-Allow-Origin
+        value: '*'
+      - path: /*.js
+        name: Access-Control-Allow-Origin
+        value: '*'
+      - path: /*.css
+        name: Access-Control-Allow-Origin
+        value: '*'
+      - path: /remoteEntry.json
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+
+  # ── 4. Production remote (static Angular MFE) ────────────────────────────
+  - type: web
+    name: ediscovery-production
+    runtime: static
+    rootDir: .
+    autoDeploy: true
+    buildCommand: |
+      set -euo pipefail
+      echo "[render] node=$(node --version) git=$(git rev-parse --short HEAD)"
+      npm ci
+      npm run build:lib
+      npm run build:ediscovery-shared
+      npx ng build demo-ediscovery-production --configuration production
+    staticPublishPath: dist/demo-ediscovery-production/browser
+    headers:
+      - path: /remoteEntry.json
+        name: Access-Control-Allow-Origin
+        value: '*'
+      - path: /*.js
+        name: Access-Control-Allow-Origin
+        value: '*'
+      - path: /*.css
+        name: Access-Control-Allow-Origin
+        value: '*'
+      - path: /remoteEntry.json
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+
+  # ── 5. Search remote (static Angular MFE) ────────────────────────────────
+  - type: web
+    name: ediscovery-search
+    runtime: static
+    rootDir: .
+    autoDeploy: true
+    buildCommand: |
+      set -euo pipefail
+      echo "[render] node=$(node --version) git=$(git rev-parse --short HEAD)"
+      npm ci
+      npm run build:lib
+      npm run build:ediscovery-shared
+      npx ng build demo-ediscovery-search --configuration production
+    staticPublishPath: dist/demo-ediscovery-search/browser
+    headers:
+      - path: /remoteEntry.json
+        name: Access-Control-Allow-Origin
+        value: '*'
+      - path: /*.js
+        name: Access-Control-Allow-Origin
+        value: '*'
+      - path: /*.css
+        name: Access-Control-Allow-Origin
+        value: '*'
+      - path: /remoteEntry.json
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate

@@ -1,0 +1,96 @@
+/* Ops console — minimal, monochrome, ops-focused. No design system. */
+:root {
+  --bg: #0e1116;
+  --bg-elev: #181c22;
+  --bg-elev-2: #21262d;
+  --fg: #e6edf3;
+  --fg-muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-fg: #ffffff;
+  --good: #3fb950;
+  --warn: #d29922;
+  --bad: #f85149;
+  --border: #30363d;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+th, td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  font-weight: 600;
+  color: var(--fg-muted);
+  background: var(--bg-elev);
+  position: sticky;
+  top: 0;
+}
+
+.mono { font-family: var(--mono); font-size: 12.5px; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.badge.good { color: var(--good); border-color: var(--good); }
+.badge.warn { color: var(--warn); border-color: var(--warn); }
+.badge.bad  { color: var(--bad);  border-color: var(--bad);  }
+
+.btn {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--fg);
+  cursor: pointer;
+  font: inherit;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn.primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+.btn.primary:hover { color: var(--accent-fg); opacity: 0.9; }
+
+.empty {
+  color: var(--fg-muted);
+  text-align: center;
+  padding: 32px;
+  font-style: italic;
+}
+
+.error {
+  color: var(--bad);
+  background: rgba(248, 81, 73, 0.08);
+  border: 1px solid var(--bad);
+  border-radius: 6px;
+  padding: 12px;
+  margin: 16px 0;
+}

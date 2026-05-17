@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "MaverickAgenticUiAgentServer",
+  "title": "Generate a Hono-based AG-UI agent server",
+  "type": "object",
+  "properties": {
+    "name": { "type": "string", "default": "agent-server", "$default": { "$source": "argv", "index": 0 } },
+    "directory": { "type": "string", "description": "Folder to create the server in.", "default": "projects" },
+    "port": { "type": "number", "default": 4111 }
+  },
+  "required": []
+}

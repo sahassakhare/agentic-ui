@@ -1,0 +1,5 @@
+{
+  "demo-remote-bookings": "http://localhost:4201/remoteEntry.json",
+  "demo-remote-loyalty":  "http://localhost:4203/remoteEntry.json",
+  "demo-remote-support":  "http://localhost:4205/remoteEntry.json"
+}

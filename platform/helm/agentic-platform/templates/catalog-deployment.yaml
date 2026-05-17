@@ -1,0 +1,95 @@
+{{- if .Values.catalogServer.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-catalog-server
+  labels:
+    {{- include "agentic-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: catalog-server
+spec:
+  replicas: {{ .Values.catalogServer.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "agentic-platform.componentLabels" (dict "Chart" .Chart "Release" .Release "component" "catalog-server") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "agentic-platform.componentLabels" (dict "Chart" .Chart "Release" .Release "component" "catalog-server") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "agentic-platform.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: catalog-server
+          image: {{ include "agentic-platform.image" (dict "Values" .Values "repo" .Values.catalogServer.image.repository "tag" .Values.catalogServer.image.tag) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "8080"
+            - name: HOST
+              value: "0.0.0.0"
+            - name: LOG_LEVEL
+              value: {{ .Values.catalogServer.config.logLevel | quote }}
+            - name: LOG_FORMAT
+              value: {{ .Values.catalogServer.config.logFormat | quote }}
+            - name: DATABASE_POOL_MAX
+              value: {{ .Values.catalogServer.config.poolMax | quote }}
+            - name: DATABASE_STATEMENT_TIMEOUT_MS
+              value: {{ .Values.catalogServer.config.statementTimeoutMs | quote }}
+            - name: SHUTDOWN_GRACE_MS
+              value: {{ .Values.catalogServer.config.shutdownGraceMs | quote }}
+            - name: OIDC_ISSUER
+              value: {{ required "oidc.issuer is required (set via --set oidc.issuer=...)" .Values.oidc.issuer | quote }}
+            - name: OIDC_AUDIENCE
+              value: {{ .Values.oidc.audience | quote }}
+            {{- if .Values.oidc.jwksUri }}
+            - name: OIDC_JWKS_URI
+              value: {{ .Values.oidc.jwksUri | quote }}
+            {{- end }}
+            - name: OIDC_TENANT_CLAIM
+              value: {{ .Values.catalogServer.config.tenantClaim | quote }}
+            - name: OIDC_ROLES_CLAIM
+              value: {{ .Values.catalogServer.config.rolesClaim | quote }}
+            {{- if .Values.catalogServer.config.protectedPersonas }}
+            - name: CATALOG_PROTECTED_PERSONAS
+              value: {{ .Values.catalogServer.config.protectedPersonas | quote }}
+            {{- end }}
+            {{/* Database wiring — three valid shapes:
+                  1. external.connectionString set                → use directly
+                  2. external + existingSecret                    → pull password from secret
+                  3. external + password                          → secret created above
+                  4. bundled                                       → derive from bundled creds */}}
+            {{- if and .Values.database.external.enabled .Values.database.external.connectionString }}
+            - name: DATABASE_URL
+              value: {{ .Values.database.external.connectionString | quote }}
+            {{- else if .Values.database.external.enabled }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-catalog-db" .Release.Name) .Values.database.external.existingSecret }}
+                  key: {{ .Values.database.external.existingSecretKey }}
+            - name: DATABASE_URL
+              value: {{ include "agentic-platform.databaseUrl" . | quote }}
+            {{- else }}
+            - name: DATABASE_URL
+              value: {{ include "agentic-platform.databaseUrl" . | quote }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.catalogServer.probes.liveness.path }}
+              port: http
+            periodSeconds: {{ .Values.catalogServer.probes.liveness.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.catalogServer.probes.readiness.path }}
+              port: http
+            periodSeconds: {{ .Values.catalogServer.probes.readiness.periodSeconds }}
+          resources:
+            {{- toYaml .Values.catalogServer.resources | nindent 12 }}
+{{- end }}

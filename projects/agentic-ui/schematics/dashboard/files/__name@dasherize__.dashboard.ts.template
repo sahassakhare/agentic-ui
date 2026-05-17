@@ -1,0 +1,68 @@
+import type { DashboardDef } from '@infra-tools/agentic-ui';
+
+/**
+ * `<%= camelize(name) %>Dashboard` — `DashboardRegistry` registration.
+ *
+ * Per [ADR-044](../adr/0044-dashboard-registry.md), every tile is one
+ * of three: a tool invocation (re-fired on refresh, chain-hashed), a
+ * data-source query (re-queried on refresh, no audit entry), or
+ * static props. Adding a new tile kind = registering a new widget in
+ * `ComponentRegistry`. No bespoke tile component zoo.
+ *
+ * Persona scope filters tiles automatically — unauthorised tiles
+ * render as "no-access" stubs, not 403s, not silent omissions.
+ *
+ * Register at boot:
+ * ```ts
+ * inject(DashboardRegistry).register(<%= camelize(name) %>Dashboard);
+ * ```
+ *
+ * Render on a route:
+ * ```html
+ * <mvk-dashboard-canvas [dashboard]="dashboards.get('<%= camelize(name) %>')" />
+ * ```
+ */
+export const <%= camelize(name) %>Dashboard: DashboardDef = {
+  name: '<%= camelize(name) %>',
+  title: '<%= title %>',
+  description: '<%= description %>',
+  layout: '<%= layout %>',
+  tiles: [
+    // Example tool tile — re-invokes the tool on refresh.
+    // {
+    //   id: 'open-holds',
+    //   slot: 'primary',
+    //   title: 'Open holds',
+    //   component: 'countTile',
+    //   invocation: { kind: 'tool', tool: 'countOpenHolds', args: { matterId: 'M-1' } },
+    //   refreshOn: 'event',
+    //   drilldown: { route: '/holds?status=open' },
+    //   explainable: true,
+    // },
+    //
+    // Example data tile — re-queries a DataSourceRegistry source.
+    // {
+    //   id: 'recent-emails',
+    //   slot: 'sidebar',
+    //   title: 'Recent emails',
+    //   component: 'docList',
+    //   invocation: { kind: 'data', source: 'emails', query: { matterId: 'M-1', limit: 10 } },
+    //   refreshOn: 'interval',
+    //   cacheTtlMs: 30_000,
+    // },
+    //
+    // Example static tile — headers, blurbs, non-data context.
+    // {
+    //   id: 'intro',
+    //   slot: 'header',
+    //   title: 'About this dashboard',
+    //   component: 'markdownBlock',
+    //   invocation: { kind: 'static', props: { markdown: '...' } },
+    // },
+  ],
+  // filters: [
+  //   { id: 'matter', argKey: 'matterId', value: 'M-1', label: 'Matter' },
+  // ],
+  // schedule: 'hourly-dashboard-refresh',
+  version: 'v1',
+};

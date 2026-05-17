@@ -1,0 +1,30 @@
+flowchart TB
+    classDef app fill:#dbeafe,stroke:#1e40af,stroke-width:1px,color:#1e3a8a
+    classDef lib fill:#fef3c7,stroke:#a16207,stroke-width:1px,color:#854d0e
+    classDef adapter fill:#dcfce7,stroke:#166534,stroke-width:1px,color:#14532d
+    classDef remote fill:#fce7f3,stroke:#9d174d,stroke-width:1px,color:#831843
+
+    APP["YOUR APP<br/>mvk-chat-shell<br/>write once · never rewrite"]:::app
+
+    subgraph LIB["@infra-tools/agentic-ui (this library)"]
+        L1["Chat shell · widget container · form renderer"]:::lib
+        L2["15 registries — Tool · Component · Action · Form · Approval · Operation · …"]:::lib
+        L3["Orchestration loop · runUntilSettled · abort signals"]:::lib
+    end
+
+    subgraph PROTO["Pluggable backend adapters · swap by config"]
+        AG["AG-UI<br/>(SSE)"]:::adapter
+        HB["Hashbrown<br/>(NDJSON)"]:::adapter
+        A2["A2UI<br/>(ui-action)"]:::adapter
+        BYO["Bring-your-own<br/>protocol"]:::adapter
+    end
+
+    subgraph MFE["Federated MFE remotes · contribute at runtime"]
+        R1["bookings<br/>bookFlight · flightCard"]:::remote
+        R2["loyalty<br/>addPoints · pointsCard"]:::remote
+        R3["tickets<br/>…"]:::remote
+    end
+
+    APP -->|one consistent interface| LIB
+    LIB -->|AgenticBackend.run| PROTO
+    LIB -.->|loadRemoteCapabilities| MFE

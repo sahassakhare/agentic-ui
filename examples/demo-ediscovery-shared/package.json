@@ -1,0 +1,24 @@
+{
+  "name": "@infra-tools/demo-ediscovery-shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Framework-agnostic eDiscovery domain models + mock data. Imported by demo-ediscovery-server, demo-ediscovery-shell, and (later) demo-ediscovery-mcp — single source of truth for entity types and the in-memory data layer.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist/**"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "~5.9.0"
+  }
+}

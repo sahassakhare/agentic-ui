@@ -1,0 +1,43 @@
+{
+  "name": "@infra-tools/agentic-ui-copilot-skill",
+  "version": "1.2.0",
+  "description": "GitHub Copilot Extensions adapter for the @infra-tools/agentic-ui platform. Wraps the Copilot skill webhook protocol: verifies the GitHub signed request, parses incoming messages, exposes a typed handler seam, and streams OpenAI-shaped SSE chunks back. Servers wire their own LLM behind the handler -- the skill never embeds a model.",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
+  "bugs": {
+    "url": "https://github.com/sahassakhare/agentic-ui/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sahassakhare/agentic-ui",
+    "directory": "projects/agentic-ui-copilot-skill"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/**",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "watch": "tsc -p tsconfig.json --watch",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "~5.9.0",
+    "vitest": "^4.1.5"
+  }
+}

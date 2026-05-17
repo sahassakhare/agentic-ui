@@ -1,0 +1,51 @@
+# syntax=docker/dockerfile:1.7
+#
+# Render-specific catalog server image.
+#
+# Identical build stage to the production Dockerfile, but the final
+# stage uses node:22-bookworm-slim instead of distroless. Reason:
+# Render's preDeployCommand wraps the command in `/bin/sh -c`, which
+# doesn't exist in distroless. The slim image still ships a non-root
+# user and trims dev tooling; ~150 MB final.
+#
+# For Helm / docker-compose / production deployments use the
+# stricter distroless `Dockerfile` (this directory's default).
+
+FROM node:22-bookworm-slim AS builder
+
+WORKDIR /app
+
+COPY package.json package-lock.json* ./
+RUN npm install --no-audit --fund=false
+
+COPY tsconfig.json ./
+COPY src ./src
+
+RUN npm run build
+RUN npm prune --omit=dev
+
+# ──────────────────────────────────────────────────────────────────────
+FROM node:22-bookworm-slim
+
+WORKDIR /app
+
+# Drop root.
+RUN useradd --uid 10001 --create-home --shell /bin/false catalog
+USER catalog
+
+COPY --chown=catalog:catalog --from=builder /app/dist ./dist
+COPY --chown=catalog:catalog --from=builder /app/node_modules ./node_modules
+COPY --chown=catalog:catalog --from=builder /app/package.json ./package.json
+COPY --chown=catalog:catalog --from=builder /app/src/db/migrations ./src/db/migrations
+
+ENV NODE_ENV=production \
+    PORT=8080 \
+    LOG_LEVEL=info \
+    LOG_FORMAT=json
+
+EXPOSE 8080
+
+# Note: the entrypoint is plain `node`, NOT a shell — but the slim
+# image still has /bin/sh available for Render's preDeployCommand
+# wrapper.
+CMD ["node", "--enable-source-maps", "dist/server.js"]
