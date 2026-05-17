@@ -1,5 +1,4 @@
 import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
-import { Router } from '@angular/router';
 import {
   agenticTool,
   type DashboardDef,
@@ -101,22 +100,17 @@ export function setWorkspaceLayoutTool(env: EnvironmentInjector) {
         ) as unknown as SlotMap;
         const store = env.get(WorkspaceLayoutStore);
         store.set(normalised);
-        // Auto-navigate to /workspace so the user SEES the layout change.
-        // Defer via setTimeout so the navigation doesn't fire INSIDE the
-        // chat orchestrator's current turn cycle — synchronous router
-        // changes mid-turn can wedge the chat-shell's change-detection
-        // (observed: chat composer + Try-asking became unresponsive
-        // after the nav, recovered only on reload). Tick boundary
-        // lets the tool result land first, then the route changes.
-        const router = env.get(Router);
-        if (!router.url.startsWith('/workspace')) {
-          setTimeout(() => { void router.navigateByUrl('/workspace'); }, 0);
-        }
+        // No auto-nav. The app-root component (`app.ts`) detects
+        // `WorkspaceLayoutStore.slots()` non-empty and replaces the
+        // routed content with `<mvk-workspace-layout>` in place — so
+        // the agent's reshape is visible on whichever route the user
+        // happens to be on. Reset banner clears the agent layer +
+        // returns to the routed page.
         return {
           ok: true,
           slotsApplied: Object.keys(normalised),
           route: '/workspace',
-          message: `Applied workspace layout with ${Object.keys(normalised).length} slot(s). Now showing /workspace.`,
+          message: `Applied workspace layout with ${Object.keys(normalised).length} slot(s) — visible across the app. Click "Reset" on the banner to return to the routed page.`,
         };
       });
     },

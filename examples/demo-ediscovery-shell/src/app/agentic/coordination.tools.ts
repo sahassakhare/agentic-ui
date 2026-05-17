@@ -1,5 +1,4 @@
 import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
-import { Router } from '@angular/router';
 import {
   agenticTool,
   DashboardRegistry,
@@ -14,22 +13,11 @@ import {
 import { z } from 'zod';
 import { WorkspaceLayoutStore } from '../services/workspace-layout.store';
 
-/**
- * Shared helper — if the user isn't on /workspace, navigate them
- * there so the slot-edit takes visible effect immediately. Without
- * this, slot-edit tools silently mutate the store; the user sees
- * nothing change because they're on /documents, /holds, etc.
- *
- * Deferred via setTimeout so the navigation fires AFTER the chat
- * orchestrator's current turn cycle finishes — a synchronous router
- * change mid-turn was observed to wedge the chat-shell's change-
- * detection (composer + Try-asking went unresponsive until reload).
- */
-function navigateToWorkspaceIfNeeded(env: EnvironmentInjector): void {
-  const router = env.get(Router);
-  if (router.url.startsWith('/workspace')) return;
-  setTimeout(() => { void router.navigateByUrl('/workspace'); }, 0);
-}
+// No router navigation here — the app-root component (app.ts)
+// detects WorkspaceLayoutStore.slots() non-empty and renders the
+// resolved <mvk-workspace-layout> IN PLACE of the routed content
+// on whichever route the user is on. The agent's reshape is visible
+// across the app without a forced navigation.
 
 // ── ADR-047 D1 — slot-level edit tools ────────────────────────────────────
 
@@ -91,13 +79,12 @@ export function addLayoutSlotTool(env: EnvironmentInjector) {
         const def: SlotDef = { component, ...(normSize ? { size: normSize } : {}), ...(props !== undefined ? { props } : {}) };
         const next = slotEdits.add(base, slot, def);
         store.set(next);
-        navigateToWorkspaceIfNeeded(env);
         return {
           ok: true,
           slot,
           component,
           totalSlots: Object.keys(next).length,
-          message: `Added "${slot}" → ${component}. Showing /workspace; ${Object.keys(next).length} slot(s).`,
+          message: `Added "${slot}" → ${component}. Workspace now has ${Object.keys(next).length} slot(s).`,
         };
       });
     },
@@ -124,12 +111,11 @@ export function removeLayoutSlotTool(env: EnvironmentInjector) {
         const base: SlotMap = store.slots() ?? resolver.active().slots;
         const next = slotEdits.remove(base, slot);
         store.set(next);
-        navigateToWorkspaceIfNeeded(env);
         return {
           ok: true,
           slot,
           totalSlots: Object.keys(next).length,
-          message: `Removed "${slot}". Showing /workspace; ${Object.keys(next).length} slot(s).`,
+          message: `Removed "${slot}". Workspace now has ${Object.keys(next).length} slot(s).`,
         };
       });
     },
@@ -156,13 +142,12 @@ export function replaceLayoutSlotTool(env: EnvironmentInjector) {
         const def: SlotDef = { component, ...(normSize ? { size: normSize } : {}), ...(props !== undefined ? { props } : {}) };
         const next = slotEdits.replace(base, slot, def);
         store.set(next);
-        navigateToWorkspaceIfNeeded(env);
         return {
           ok: true,
           slot,
           component,
           totalSlots: Object.keys(next).length,
-          message: `Replaced "${slot}" with ${component}. Showing /workspace; ${Object.keys(next).length} slot(s).`,
+          message: `Replaced "${slot}" with ${component}. Workspace now has ${Object.keys(next).length} slot(s).`,
         };
       });
     },
@@ -242,7 +227,6 @@ export function applyLayoutTemplateTool(env: EnvironmentInjector) {
         const slotMap = (template.body.slotMap as SlotMap | undefined) ?? null;
         if (slotMap) {
           env.get(WorkspaceLayoutStore).set(slotMap);
-          navigateToWorkspaceIfNeeded(env);
         }
         return {
           ok: true,
@@ -252,7 +236,7 @@ export function applyLayoutTemplateTool(env: EnvironmentInjector) {
           message:
             `Applied template "${template.title}" (${name}). ` +
             (slotMap
-              ? `Showing /workspace with ${Object.keys(slotMap).length} slot(s).`
+              ? `Workspace now has ${Object.keys(slotMap).length} slot(s) — visible wherever you are.`
               : `Template registered; no inline slotMap to apply.`),
         };
       });
