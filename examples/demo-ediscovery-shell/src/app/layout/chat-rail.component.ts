@@ -262,9 +262,10 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
           <svg-icon name="users" [size]="13" />
           <span>Speaking as <strong>{{ persona() }}</strong> · {{ persona() === 'lead-counsel' ? 'full access' : 'scoped tools' }}</span>
         </div>
-        <!-- Tabbed switcher — clears the visual congestion between
-             the chat composer and the prompt catalog. Only one pane
-             is visible at a time; tab badge surfaces the prompt count. -->
+        <!-- Tabbed switcher — both panes always mounted; [hidden]
+             attribute toggles which one is visible. More reliable
+             than @if because the toggle is pure DOM, not template
+             instantiation; no risk of stale CD swallowing the click. -->
         <div class="tab-bar" role="tablist">
           <button type="button" role="tab" class="tab"
                   [class.active]="activeTab() === 'chat'"
@@ -282,44 +283,43 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
             <span class="tab-badge">{{ totalPromptCount() }}</span>
           </button>
         </div>
-        <!-- Chat pane: keep the shell mounted but hide its container
-             when on the Suggestions tab so the transcript + composer
-             state survive tab switches (no re-mount, no chat reset). -->
-        <div class="chat-host" [class.hidden]="activeTab() !== 'chat'">
+        <!-- Chat pane: always mounted; hidden when not the active tab.
+             Transcript + composer state survives tab swaps. -->
+        <div class="chat-host" [hidden]="activeTab() !== 'chat'">
           <mvk-chat-shell #chatShell [showToolCalls]="verbosity()" />
         </div>
-        @if (activeTab() === 'suggestions') {
-          <div class="hints-pane">
-            <p class="hints-intro">
-              Click a prompt to send it to the coordinator. Prompts route through the
-              tool surface — every action is audit-chained.
-            </p>
-            <div class="hint-groups">
-              @for (group of promptGroups(); track group.id) {
-                <section class="hint-group">
-                  <h4>{{ group.title }}</h4>
-                  <div class="hint-items">
-                    @for (p of group.prompts; track p.text) {
-                      <button type="button" class="hint-item"
-                              [class.disabled]="p.requiresAttachment"
-                              [class.just-sent]="lastSent() === p.text"
-                              [disabled]="p.requiresAttachment"
-                              [attr.title]="p.requiresAttachment ? 'Drag a PDF onto the chat first, then click' : (lastSent() === p.text ? 'Just sent — wait for the agent to finish' : 'Send this prompt')"
-                              (click)="runPromptAndSwitchToChat(p.text)">
-                        @if (p.capability) {
-                          <span class="cap-badge cap-{{p.capability}}"
-                                [attr.title]="capabilityTitle(p.capability)">{{ capabilityLabel(p.capability) }}</span>
-                        }
-                        <span class="hint-text">{{ p.text }}</span>
-                        @if (p.requiresAttachment) { <span class="attach-icon" aria-hidden="true">📎</span> }
-                      </button>
-                    }
-                  </div>
-                </section>
-              }
-            </div>
+        <!-- Suggestions pane: also always mounted (same reasoning).
+             [hidden] toggles visibility based on activeTab signal. -->
+        <div class="hints-pane" [hidden]="activeTab() !== 'suggestions'">
+          <p class="hints-intro">
+            Click a prompt to send it to the coordinator. Prompts route through the
+            tool surface — every action is audit-chained.
+          </p>
+          <div class="hint-groups">
+            @for (group of promptGroups(); track group.id) {
+              <section class="hint-group">
+                <h4>{{ group.title }}</h4>
+                <div class="hint-items">
+                  @for (p of group.prompts; track p.text) {
+                    <button type="button" class="hint-item"
+                            [class.disabled]="p.requiresAttachment"
+                            [class.just-sent]="lastSent() === p.text"
+                            [disabled]="p.requiresAttachment"
+                            [attr.title]="p.requiresAttachment ? 'Drag a PDF onto the chat first, then click' : (lastSent() === p.text ? 'Just sent — wait for the agent to finish' : 'Send this prompt')"
+                            (click)="runPromptAndSwitchToChat(p.text)">
+                      @if (p.capability) {
+                        <span class="cap-badge cap-{{p.capability}}"
+                              [attr.title]="capabilityTitle(p.capability)">{{ capabilityLabel(p.capability) }}</span>
+                      }
+                      <span class="hint-text">{{ p.text }}</span>
+                      @if (p.requiresAttachment) { <span class="attach-icon" aria-hidden="true">📎</span> }
+                    </button>
+                  }
+                </div>
+              </section>
+            }
           </div>
-        }
+        </div>
       }
     </aside>
   `,
@@ -349,9 +349,9 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
       background: var(--c-surface-0);
       border-left: 1px solid var(--c-border);
       display: flex; flex-direction: column;
-      /* Prevent any descendant overflow from spilling out of the rail
-         and covering the chat composer or tab bar. */
-      overflow: hidden;
+      /* No overflow:hidden here — that masked the tab-bar at certain
+         widths. Overflow is owned by the active pane (chat-host /
+         hints-pane) instead. */
     }
     .reopen {
       flex: 1; background: transparent; border: 0; cursor: pointer;
@@ -435,8 +435,11 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
       font-size: 0.65rem; font-variant-numeric: tabular-nums;
     }
     .tab.active .tab-badge { background: var(--c-brand-tint); color: var(--c-brand-strong); }
-    /* Hides chat pane when on suggestions tab without unmounting it. */
-    .chat-host.hidden { display: none; }
+    /* Native [hidden] attribute toggles which pane is visible. Both
+       panes have display:flex (in chat-host's case) or are flex
+       children — those override the user-agent display:none for
+       [hidden], so we force the override back with !important here. */
+    .chat-host[hidden], .hints-pane[hidden] { display: none !important; }
     .hints-pane {
       flex: 1; min-height: 0; overflow-y: auto;
       padding: var(--s-3) var(--s-4) var(--s-4);
