@@ -1,5 +1,11 @@
 import type { EnvironmentProviders, Provider } from '@angular/core';
-import { ENVIRONMENT_INITIALIZER, inject, makeEnvironmentProviders } from '@angular/core';
+import {
+  ENVIRONMENT_INITIALIZER,
+  EnvironmentInjector,
+  inject,
+  makeEnvironmentProviders,
+  runInInjectionContext,
+} from '@angular/core';
 import { LayoutAuditTracker } from './layout-audit-tracker';
 import {
   LAYOUT_AUDIT_ATTRIBUTION,
@@ -61,7 +67,19 @@ export function provideLayoutAudit(config: LayoutAuditConfig = {}): EnvironmentP
   }
   if (config.attribution) {
     const attributionFactory = config.attribution;
-    providers.push({ provide: LAYOUT_AUDIT_ATTRIBUTION, useValue: attributionFactory });
+    // Wrap the user's function so it always runs in an injection
+    // context. The audit tracker calls LAYOUT_AUDIT_ATTRIBUTION from
+    // inside its watching effect(), which is NOT an injection context
+    // — calling inject() in the user's factory there throws NG0203.
+    // Capture the EnvironmentInjector at DI time + use it to scope
+    // each call. Adopters can freely inject inside their factory.
+    providers.push({
+      provide: LAYOUT_AUDIT_ATTRIBUTION,
+      useFactory: () => {
+        const env = inject(EnvironmentInjector);
+        return () => runInInjectionContext(env, attributionFactory);
+      },
+    });
   }
   if (config.eager !== false) {
     // ENVIRONMENT_INITIALIZER token — Angular runs every multi value

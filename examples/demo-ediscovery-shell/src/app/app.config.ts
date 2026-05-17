@@ -564,14 +564,19 @@ export const appConfig: ApplicationConfig = {
       userSavedKey: () => {
         const router = inject(Router);
         const persona = inject(PersonaService);
+        // toSignal() must run OUTSIDE the computed (Angular NG0602:
+        // calling toSignal inside a reactive context creates a fresh
+        // subscription on every recompute). Extract the URL signal
+        // once at factory time + read it inside the computed.
+        const urlSignal = toSignal(
+          router.events.pipe(
+            filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+            map(() => router.url),
+          ),
+          { initialValue: router.url },
+        );
         return computed(() => {
-          const url = toSignal(
-            router.events.pipe(
-              filter((e): e is NavigationEnd => e instanceof NavigationEnd),
-              map(() => router.url),
-            ),
-            { initialValue: router.url },
-          )();
+          const url = urlSignal();
           const route = url.split(/[?#]/)[0];
           if (route !== '/workspace') return null;
           return `workspace:${persona.active()}`;
