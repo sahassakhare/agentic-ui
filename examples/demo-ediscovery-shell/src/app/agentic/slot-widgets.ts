@@ -656,6 +656,117 @@ class PrivilegeLogWidget {
   });
 }
 
+// ── annotationPanel ───────────────────────────────────────────────────────
+
+/**
+ * Reviewer annotations on the currently-selected document. Shows
+ * highlights, comments, and redaction tags as a timeline. Adopters
+ * with a real PDF viewer route annotation creation through here +
+ * persist via a tool call.
+ *
+ * Widget exists primarily so prompts like *"show 60/40 split with
+ * document on left and annotations on right"* — where the agent
+ * picks `annotationPanel` from the slot-name vocabulary — resolve
+ * to a real component instead of the lib's "Unknown component"
+ * placeholder.
+ */
+@Component({
+  selector: 'app-annotation-panel',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    @if (doc(); as d) {
+      <article class="widget">
+        <header>
+          <span class="kind">✍️ Annotations</span>
+          <span class="count">{{ d.id }}</span>
+        </header>
+        @if (annotations().length > 0) {
+          <ol class="annotations">
+            @for (a of annotations(); track a.id) {
+              <li class="ann ann-{{ a.kind }}">
+                <header>
+                  <span class="ann-kind">{{ a.kind }}</span>
+                  <span class="ann-page">p.{{ a.page }}</span>
+                  <span class="ann-author">{{ a.author }}</span>
+                </header>
+                <p class="ann-body">{{ a.body }}</p>
+                <time>{{ a.at }}</time>
+              </li>
+            }
+          </ol>
+        } @else {
+          <p class="empty">No annotations on this document yet.</p>
+        }
+        <footer>
+          <button type="button" class="btn">+ Highlight</button>
+          <button type="button" class="btn">+ Comment</button>
+          <button type="button" class="btn warn">+ Redaction</button>
+        </footer>
+      </article>
+    } @else {
+      <article class="widget empty">
+        <p>No document selected. Pick a row from the queue to view annotations.</p>
+      </article>
+    }
+  `,
+  styles: `
+    :host { display: block; height: 100%; }
+    .widget { height: 100%; display: flex; flex-direction: column; gap: var(--s-2); overflow: hidden; }
+    .widget.empty { align-items: center; justify-content: center; color: var(--c-text-faint); font-style: italic; }
+    header { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s-2); }
+    .kind { font-size: var(--fs-xs); color: var(--c-text-2); text-transform: uppercase; letter-spacing: 0.05em; }
+    .count { font-family: ui-monospace, monospace; font-size: 0.7rem; color: var(--c-text-faint); }
+    .annotations { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s-2); flex: 1; overflow: auto; }
+    .ann { padding: var(--s-2); background: var(--c-surface-1); border-radius: var(--r-sm); border-left: 3px solid var(--c-border); }
+    .ann-highlight  { border-left-color: var(--c-warning, #f59e0b); }
+    .ann-comment    { border-left-color: var(--c-info, #0284c7); }
+    .ann-redaction  { border-left-color: #be185d; }
+    .ann header { font-size: 0.7rem; color: var(--c-text-faint); }
+    .ann-kind { font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    .ann-page { font-family: ui-monospace, monospace; }
+    .ann-author { margin-left: auto; }
+    .ann-body { margin: 4px 0 2px; font-size: var(--fs-xs); color: var(--c-text-1); }
+    time { font-size: 0.65rem; color: var(--c-text-faint); }
+    footer { display: flex; gap: var(--s-2); flex-shrink: 0; }
+    .btn {
+      flex: 1; padding: 0.4rem 0.6rem; font-size: var(--fs-xs); cursor: pointer;
+      background: var(--c-surface); border: 1px solid var(--c-border); border-radius: var(--r-md);
+    }
+    .btn:hover { background: var(--c-surface-1); border-color: var(--c-accent, #6366f1); }
+    .btn.warn { color: #be185d; border-color: #be185d; }
+    .empty { color: var(--c-text-faint); font-style: italic; font-size: var(--fs-xs); margin: 0; padding: var(--s-2); }
+  `,
+})
+class AnnotationPanelWidget {
+  private readonly selection = inject(SelectionStore);
+  private readonly matter = inject(MatterStore);
+
+  protected readonly doc = computed<Document | null>(() => {
+    this.matter.documentMutation();
+    const sel = this.selection.selection();
+    if (!sel || sel.kind !== 'document' || sel.ids.length !== 1) return null;
+    return getDocument(sel.ids[0]) ?? null;
+  });
+
+  /**
+   * Stub annotations seeded deterministically per-doc. Production
+   * wires through MatterStore.annotations(docId) backed by a real
+   * persistence + chain-hash audit layer.
+   */
+  protected readonly annotations = computed<readonly { id: string; kind: 'highlight' | 'comment' | 'redaction'; page: number; author: string; body: string; at: string }[]>(() => {
+    const d = this.doc();
+    if (!d) return [];
+    const seed = (d.id.charCodeAt(d.id.length - 1) || 1) % 3;
+    if (seed === 0) return [];
+    const all = [
+      { id: `${d.id}-a1`, kind: 'highlight' as const, page: 1, author: 'Sarah Chen',    body: 'Key passage — possible privilege.',                                                       at: '2026-05-12T14:22:01Z' },
+      { id: `${d.id}-a2`, kind: 'comment' as const,   page: 1, author: 'Marcus Webb',   body: 'Consider work-product basis here; check email thread re: Project Phoenix.',              at: '2026-05-13T09:10:55Z' },
+      { id: `${d.id}-a3`, kind: 'redaction' as const, page: 2, author: 'Eleanor Vance', body: 'PII — full SSN appears in paragraph 3. Redact before production.',                       at: '2026-05-13T11:47:18Z' },
+    ];
+    return all.slice(0, seed + 1);
+  });
+}
+
 // ── Widget defs ───────────────────────────────────────────────────────────
 
 const propSchema = z.object({ value: z.unknown() }).optional();
@@ -667,4 +778,5 @@ export const slotWidgets: readonly ComponentDef[] = [
   agenticWidget({ name: 'bulkActions',      component: BulkActionsWidget,     propsSchema: propSchema }),
   agenticWidget({ name: 'multiDocPreview',  component: MultiDocPreviewWidget, propsSchema: propSchema }),
   agenticWidget({ name: 'privilegeLog',     component: PrivilegeLogWidget,    propsSchema: propSchema }),
+  agenticWidget({ name: 'annotationPanel',  component: AnnotationPanelWidget, propsSchema: propSchema }),
 ];

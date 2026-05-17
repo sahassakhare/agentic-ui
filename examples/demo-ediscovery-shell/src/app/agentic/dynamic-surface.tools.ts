@@ -50,7 +50,22 @@ function normaliseSize(s: unknown): { default: string; min?: string; max?: strin
 }
 
 const slotSchema = z.object({
-  component: z.string().describe('ComponentRegistry name — documentPreview, tagPanel, chainOfCustody, bulkActions, multiDocPreview, privilegeLog, kpiTile.'),
+  component: z.enum([
+    'documentPreview',
+    'tagPanel',
+    'annotationPanel',
+    'chainOfCustody',
+    'bulkActions',
+    'multiDocPreview',
+    'privilegeLog',
+    'kpiTile',
+  ]).describe(
+    "ComponentRegistry name. MUST be one of: documentPreview | tagPanel | " +
+    "annotationPanel | chainOfCustody | bulkActions | multiDocPreview | " +
+    "privilegeLog | kpiTile. Do NOT invent new names — the registry only " +
+    "knows these. Use annotationPanel when the user says 'annotations', " +
+    "'comments', 'notes', or 'highlights'.",
+  ),
   props: slotPropsSchema,
   size: slotSizeInputSchema.optional(),
   pinned: z.boolean().optional(),

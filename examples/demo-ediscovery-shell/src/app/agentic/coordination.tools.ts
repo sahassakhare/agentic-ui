@@ -52,7 +52,22 @@ function normaliseSize(s: unknown): { default: string; min?: string; max?: strin
 
 const addSlotSchema = z.object({
   slot: z.string().describe("Slot name — 'primary' | 'sidebar' | 'footer' | …"),
-  component: z.string().describe('ComponentRegistry name — documentPreview, tagPanel, chainOfCustody, bulkActions, multiDocPreview, privilegeLog, kpiTile.'),
+  component: z.enum([
+    'documentPreview',
+    'tagPanel',
+    'annotationPanel',
+    'chainOfCustody',
+    'bulkActions',
+    'multiDocPreview',
+    'privilegeLog',
+    'kpiTile',
+  ]).describe(
+    "ComponentRegistry name. MUST be one of: documentPreview | tagPanel | " +
+    "annotationPanel | chainOfCustody | bulkActions | multiDocPreview | " +
+    "privilegeLog | kpiTile. Do NOT invent new names; the demo only " +
+    "registers these. annotationPanel covers annotations / comments / " +
+    "notes / highlights.",
+  ),
   size: slotSizeInputSchema.optional(),
   props: z.unknown().optional(),
 });
