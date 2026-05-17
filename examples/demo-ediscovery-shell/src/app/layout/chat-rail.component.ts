@@ -283,17 +283,23 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
           <span class="ta-badge">{{ totalPromptCount() }} prompts</span>
           <svg-icon name="chevron-right" [size]="14" class="ta-chevron" />
         </button>
-        <!-- Chat shell — always mounted; takes the whole rail body
-             below the Try-asking button. Transcript state is
-             preserved across overlay open/close. -->
-        <div class="chat-host">
-          <mvk-chat-shell #chatShell [showToolCalls]="verbosity()" />
-        </div>
-        <!-- Hints overlay — slides over the chat-shell when toggled
-             via the ⚡ icon in the header. Positioned absolute inside
-             .rail so it doesn't compete with the chat for vertical
-             space, and the chat-shell never re-mounts. -->
-        <div class="hints-overlay" [class.open]="showHints()">
+        <!-- Chat-area wrapper — provides the positioning container
+             for the slide-in overlay so it ONLY covers chat, NOT
+             the header / persona-strip / try-asking toggle above.
+             Without this wrapper the overlay was at rail-scope and
+             blocked every click on those surfaces once open, leaving
+             only the overlay's own × button as a way to close. -->
+        <div class="chat-area">
+          <!-- Chat shell — always mounted. Transcript preserved
+               across overlay open/close. -->
+          <div class="chat-host">
+            <mvk-chat-shell #chatShell [showToolCalls]="verbosity()" />
+          </div>
+          <!-- Hints overlay — slides over the chat-shell area only.
+               Header + try-asking toggle stay clickable so users can
+               always toggle the overlay back off via the same
+               trigger. -->
+          <div class="hints-overlay" [class.open]="showHints()">
           <header class="hints-overlay-head">
             <strong>💡 Try asking</strong>
             <span class="dim">{{ totalPromptCount() }} prompts</span>
@@ -330,6 +336,7 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
               </section>
             }
           </div>
+          </div>
         </div>
       }
     </aside>
@@ -360,9 +367,14 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
       background: var(--c-surface-0);
       border-left: 1px solid var(--c-border);
       display: flex; flex-direction: column;
-      /* Containing block for .hints-overlay (position: absolute inset:0).
-         Overflow hidden so the slide-in animation is clipped to the
-         rail bounds rather than spilling over the main canvas. */
+    }
+    /* Wraps chat-host + hints-overlay so the overlay's position:absolute
+       anchors to THIS box, not the whole rail. Effect: overlay covers
+       only the chat area; header / persona-strip / try-asking-toggle
+       stay reachable and clickable when the overlay is open. */
+    .chat-area {
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column;
       position: relative;
       overflow: hidden;
     }
