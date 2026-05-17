@@ -248,6 +248,15 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
             <span class="caps" [attr.title]="capsTitle()">
               <svg-icon name="bolt" [size]="13" /> {{ toolCount() }}
             </span>
+            <!-- Try-asking toggle. Same icon-btn pattern as cycleVerbosity
+                 + collapse below — guaranteed to be clickable. Toggles
+                 the hints-pane overlay on top of the chat-shell. -->
+            <button type="button" class="icon-btn" [class.active]="showHints()"
+                    (click)="toggleHintsOverlay()"
+                    [attr.title]="showHints() ? 'Hide prompts' : 'Show prompts (' + totalPromptCount() + ')'"
+                    aria-label="Toggle prompts">
+              <svg-icon name="spark" [size]="14" />
+            </button>
             <button type="button" class="icon-btn" (click)="cycleVerbosity()"
                     [attr.title]="'Tool-call detail: ' + verbosity() + ' (click to cycle)'"
                     aria-label="Cycle tool-call detail">
@@ -262,38 +271,26 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
           <svg-icon name="users" [size]="13" />
           <span>Speaking as <strong>{{ persona() }}</strong> · {{ persona() === 'lead-counsel' ? 'full access' : 'scoped tools' }}</span>
         </div>
-        <!-- Tabbed switcher — both panes always mounted; [hidden]
-             attribute toggles which one is visible. More reliable
-             than @if because the toggle is pure DOM, not template
-             instantiation; no risk of stale CD swallowing the click. -->
-        <div class="tab-bar" role="tablist">
-          <button type="button" role="tab" class="tab"
-                  [class.active]="activeTab() === 'chat'"
-                  [attr.aria-selected]="activeTab() === 'chat'"
-                  (click)="setTab('chat')">
-            <svg-icon name="message" [size]="14" />
-            <span>Chat</span>
-          </button>
-          <button type="button" role="tab" class="tab"
-                  [class.active]="activeTab() === 'suggestions'"
-                  [attr.aria-selected]="activeTab() === 'suggestions'"
-                  (click)="setTab('suggestions')">
-            <svg-icon name="spark" [size]="14" />
-            <span>Try asking</span>
-            <span class="tab-badge">{{ totalPromptCount() }}</span>
-          </button>
-        </div>
-        <!-- Chat pane: always mounted; hidden when not the active tab.
-             Transcript + composer state survives tab swaps. -->
-        <div class="chat-host" [hidden]="activeTab() !== 'chat'">
+        <!-- Chat shell — always mounted; takes the whole rail body. -->
+        <div class="chat-host">
           <mvk-chat-shell #chatShell [showToolCalls]="verbosity()" />
         </div>
-        <!-- Suggestions pane: also always mounted (same reasoning).
-             [hidden] toggles visibility based on activeTab signal. -->
-        <div class="hints-pane" [hidden]="activeTab() !== 'suggestions'">
+        <!-- Hints overlay — slides over the chat-shell when toggled
+             via the ⚡ icon in the header. Positioned absolute inside
+             .rail so it doesn't compete with the chat for vertical
+             space, and the chat-shell never re-mounts. -->
+        <div class="hints-overlay" [class.open]="showHints()">
+          <header class="hints-overlay-head">
+            <strong>💡 Try asking</strong>
+            <span class="dim">{{ totalPromptCount() }} prompts</span>
+            <button type="button" class="icon-btn close"
+                    (click)="toggleHintsOverlay()" aria-label="Close prompts">
+              <svg-icon name="close" [size]="14" />
+            </button>
+          </header>
           <p class="hints-intro">
-            Click a prompt to send it to the coordinator. Prompts route through the
-            tool surface — every action is audit-chained.
+            Click a prompt to send it to the coordinator. Every prompt routes through
+            a tool — actions are audit-chained.
           </p>
           <div class="hint-groups">
             @for (group of promptGroups(); track group.id) {
@@ -306,7 +303,7 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
                             [class.just-sent]="lastSent() === p.text"
                             [disabled]="p.requiresAttachment"
                             [attr.title]="p.requiresAttachment ? 'Drag a PDF onto the chat first, then click' : (lastSent() === p.text ? 'Just sent — wait for the agent to finish' : 'Send this prompt')"
-                            (click)="runPromptAndSwitchToChat(p.text)">
+                            (click)="runPromptFromOverlay(p.text)">
                       @if (p.capability) {
                         <span class="cap-badge cap-{{p.capability}}"
                               [attr.title]="capabilityTitle(p.capability)">{{ capabilityLabel(p.capability) }}</span>
@@ -349,9 +346,11 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
       background: var(--c-surface-0);
       border-left: 1px solid var(--c-border);
       display: flex; flex-direction: column;
-      /* No overflow:hidden here — that masked the tab-bar at certain
-         widths. Overflow is owned by the active pane (chat-host /
-         hints-pane) instead. */
+      /* Containing block for .hints-overlay (position: absolute inset:0).
+         Overflow hidden so the slide-in animation is clipped to the
+         rail bounds rather than spilling over the main canvas. */
+      position: relative;
+      overflow: hidden;
     }
     .reopen {
       flex: 1; background: transparent; border: 0; cursor: pointer;
@@ -402,48 +401,44 @@ const PROMPT_GROUPS: readonly PromptGroup[] = [
     }
     .persona-strip strong { color: var(--c-text); text-transform: capitalize; }
 
-    /* Tab bar — replaces the inline collapsible hints; tabs sit
-       between persona-strip and the active pane. Visual weight is
-       balanced so neither tab dominates. Sticky + position-relative
-       + explicit z-index so the tabs are always visible + clickable
-       no matter how tall the chat transcript or hints-pane gets. */
-    .tab-bar {
-      display: flex; gap: 2px;
-      padding: 0 var(--s-3);
+    /* Hints overlay — slides over the chat-shell when toggled from
+       the header ⚡ icon. Positioned absolute inside .rail (which
+       has position:relative) so it doesn't compete with chat for
+       vertical space; chat stays mounted underneath. */
+    .icon-btn.active {
+      background: var(--c-brand-tint); color: var(--c-brand-strong);
+      border-color: var(--c-brand);
+    }
+    .hints-overlay {
+      position: absolute; inset: 0;
+      background: var(--c-surface-0);
+      transform: translateX(100%);
+      transition: transform 180ms ease-out;
+      display: flex; flex-direction: column;
+      z-index: 15;
+      pointer-events: none;
+    }
+    .hints-overlay.open {
+      transform: translateX(0);
+      pointer-events: auto;
+      box-shadow: -4px 0 14px rgba(0,0,0,0.06);
+    }
+    .hints-overlay-head {
+      display: flex; align-items: center; gap: var(--s-2);
+      padding: var(--s-3) var(--s-4);
       border-bottom: 1px solid var(--c-divider);
       background: var(--c-surface-1);
-      flex-shrink: 0;
-      position: relative;
-      z-index: 5;
     }
-    .tab {
-      flex: 1; padding: 0.5rem var(--s-3);
-      background: transparent; border: 0; cursor: pointer;
-      display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
-      font-size: var(--fs-xs); color: var(--c-text-mute);
-      border-bottom: 2px solid transparent; margin-bottom: -1px;
-      transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
-    }
-    .tab:hover { color: var(--c-text); background: var(--c-surface-2); }
-    .tab.active {
-      color: var(--c-brand-strong); border-bottom-color: var(--c-brand);
-      font-weight: 600;
-    }
-    .tab .tab-badge {
-      padding: 1px 7px; border-radius: var(--r-pill);
-      background: var(--c-surface-2); color: var(--c-text-mute);
-      font-size: 0.65rem; font-variant-numeric: tabular-nums;
-    }
-    .tab.active .tab-badge { background: var(--c-brand-tint); color: var(--c-brand-strong); }
-    /* Native [hidden] attribute toggles which pane is visible. Both
-       panes have display:flex (in chat-host's case) or are flex
-       children — those override the user-agent display:none for
-       [hidden], so we force the override back with !important here. */
-    .chat-host[hidden], .hints-pane[hidden] { display: none !important; }
-    .hints-pane {
+    .hints-overlay-head strong { font-size: var(--fs-sm); }
+    .hints-overlay-head .dim { color: var(--c-text-mute); font-size: var(--fs-xs); }
+    .hints-overlay-head .close { margin-left: auto; }
+    /* Overlay body — the .hints-intro + .hint-groups + .hint-item
+       rules below already exist; we just need to give the body a
+       scrollable region so long prompt catalogs work in the rail. */
+    .hints-overlay > .hints-intro { margin: var(--s-3) var(--s-4) 0; }
+    .hints-overlay > .hint-groups {
       flex: 1; min-height: 0; overflow-y: auto;
       padding: var(--s-3) var(--s-4) var(--s-4);
-      background: var(--c-surface-0);
     }
     .hints-intro {
       margin: 0 0 var(--s-3); padding: var(--s-2) var(--s-3);
@@ -594,17 +589,21 @@ export class ChatRailComponent {
   protected readonly hintsExpanded = signal(true);
   toggleHints(): void { this.hintsExpanded.update((v) => !v); }
 
-  /** Right-rail tab — 'chat' shows the chat shell, 'suggestions'
-   *  shows the prompt catalog. The chat-shell DOM stays mounted (just
-   *  hidden) so the transcript and composer state survive tab swaps. */
-  protected readonly activeTab = signal<'chat' | 'suggestions'>('chat');
-  setTab(t: 'chat' | 'suggestions'): void { this.activeTab.set(t); }
+  /**
+   * Hints overlay open/closed. Toggled by the ⚡ icon in the rail
+   * header. When open, the prompts pane slides over the chat-shell;
+   * chat stays mounted underneath so the transcript is preserved.
+   * Closed by default — the chat composer gets the full rail height
+   * unless the user explicitly asks to see prompts.
+   */
+  protected readonly showHints = signal(false);
+  toggleHintsOverlay(): void { this.showHints.update((v) => !v); }
 
-  /** Click a suggestion → fire the prompt + auto-switch back to chat
-   *  so the user sees the response. Keeps the discovery flow short. */
-  runPromptAndSwitchToChat(text: string): void {
+  /** Click a prompt in the overlay → fire it AND close the overlay
+   *  so the user immediately sees the agent's reply. */
+  runPromptFromOverlay(text: string): void {
     this.runPrompt(text);
-    this.setTab('chat');
+    this.showHints.set(false);
   }
 
   protected capabilityLabel(c: Capability): string { return CAPABILITY_LABEL[c]; }
