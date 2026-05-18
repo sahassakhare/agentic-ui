@@ -53,8 +53,8 @@ function normaliseSize(s: unknown): { default: string; min?: string; max?: strin
 const addSlotSchema = z.object({
   slot: z.string().describe("Slot name — 'primary' | 'sidebar' | 'footer' | …"),
   component: z.enum([
-    'documentPreview',
-    'tagPanel',
+    'documentPreviewSlot',
+    'tagPanelSlot',
     'annotationPanel',
     'chainOfCustody',
     'bulkActions',
@@ -62,11 +62,13 @@ const addSlotSchema = z.object({
     'privilegeLog',
     'kpiTile',
   ]).describe(
-    "ComponentRegistry name. MUST be one of: documentPreview | tagPanel | " +
+    "ComponentRegistry name. MUST be one of: documentPreviewSlot | tagPanelSlot | " +
     "annotationPanel | chainOfCustody | bulkActions | multiDocPreview | " +
     "privilegeLog | kpiTile. Do NOT invent new names; the demo only " +
-    "registers these. annotationPanel covers annotations / comments / " +
-    "notes / highlights.",
+    "registers these. Use documentPreviewSlot for the workspace document " +
+    "panel (documentPreview without the Slot suffix is a tool-result widget " +
+    "that requires inputs unavailable at layout-set time). annotationPanel " +
+    "covers annotations / comments / notes / highlights.",
   ),
   size: slotSizeInputSchema.optional(),
   props: z.unknown().optional(),

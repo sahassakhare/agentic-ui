@@ -771,12 +771,20 @@ class AnnotationPanelWidget {
 
 const propSchema = z.object({ value: z.unknown() }).optional();
 
+// NOTE: workspace-slot widgets use a `…Slot` suffix on the registration
+// name. The federated `demo-ediscovery-review` remote registers its own
+// `documentPreview` / `tagPanel` widgets that are tool-result renderers
+// (requiring 8+ document fields as inputs). Sharing the name caused the
+// remote's input-driven version to overwrite the host's store-driven
+// slot widget here, and NG0950 ("required input not set") then crashed
+// the entire render pass — including sibling components like the chat
+// rail. Distinct names per role keeps both flows working.
 export const slotWidgets: readonly ComponentDef[] = [
-  agenticWidget({ name: 'documentPreview',  component: DocumentPreviewWidget, propsSchema: propSchema }),
-  agenticWidget({ name: 'tagPanel',         component: TagPanelWidget,        propsSchema: propSchema }),
-  agenticWidget({ name: 'chainOfCustody',   component: ChainOfCustodyWidget,  propsSchema: propSchema }),
-  agenticWidget({ name: 'bulkActions',      component: BulkActionsWidget,     propsSchema: propSchema }),
-  agenticWidget({ name: 'multiDocPreview',  component: MultiDocPreviewWidget, propsSchema: propSchema }),
-  agenticWidget({ name: 'privilegeLog',     component: PrivilegeLogWidget,    propsSchema: propSchema }),
-  agenticWidget({ name: 'annotationPanel',  component: AnnotationPanelWidget, propsSchema: propSchema }),
+  agenticWidget({ name: 'documentPreviewSlot', component: DocumentPreviewWidget, propsSchema: propSchema }),
+  agenticWidget({ name: 'tagPanelSlot',        component: TagPanelWidget,        propsSchema: propSchema }),
+  agenticWidget({ name: 'chainOfCustody',      component: ChainOfCustodyWidget,  propsSchema: propSchema }),
+  agenticWidget({ name: 'bulkActions',         component: BulkActionsWidget,     propsSchema: propSchema }),
+  agenticWidget({ name: 'multiDocPreview',     component: MultiDocPreviewWidget, propsSchema: propSchema }),
+  agenticWidget({ name: 'privilegeLog',        component: PrivilegeLogWidget,    propsSchema: propSchema }),
+  agenticWidget({ name: 'annotationPanel',     component: AnnotationPanelWidget, propsSchema: propSchema }),
 ];
