@@ -490,16 +490,16 @@ export const appConfig: ApplicationConfig = {
         {
           pattern: '/workspace',
           slots: {
-            primary: { component: 'documentPreview', size: { default: '70%' } },
-            sidebar: { component: 'tagPanel', size: { default: '30%' } },
+            primary: { component: 'documentPreviewSlot', size: { default: '70%' } },
+            sidebar: { component: 'tagPanelSlot', size: { default: '30%' } },
           },
           reason: 'route /workspace — two-pane baseline',
         },
         {
           pattern: '/documents/*',
           slots: {
-            primary: { component: 'documentPreview', size: { default: '70%' } },
-            sidebar: { component: 'tagPanel', size: { default: '30%' } },
+            primary: { component: 'documentPreviewSlot', size: { default: '70%' } },
+            sidebar: { component: 'tagPanelSlot', size: { default: '30%' } },
           },
           reason: 'route /documents/:id — preview + tag panel',
         },
@@ -536,8 +536,8 @@ export const appConfig: ApplicationConfig = {
           minCount: 1,
           maxCount: 1,
           slots: {
-            primary: { component: 'documentPreview', size: { default: '55%' } },
-            sidebar: { component: 'tagPanel', size: { default: '25%' } },
+            primary: { component: 'documentPreviewSlot', size: { default: '55%' } },
+            sidebar: { component: 'tagPanelSlot', size: { default: '25%' } },
             footer:  { component: 'chainOfCustody', size: { default: '20%' } },
           },
           reason: 'selection — single document focus',

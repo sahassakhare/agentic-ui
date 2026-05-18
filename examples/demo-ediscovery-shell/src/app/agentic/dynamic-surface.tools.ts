@@ -51,8 +51,8 @@ function normaliseSize(s: unknown): { default: string; min?: string; max?: strin
 
 const slotSchema = z.object({
   component: z.enum([
-    'documentPreview',
-    'tagPanel',
+    'documentPreviewSlot',
+    'tagPanelSlot',
     'annotationPanel',
     'chainOfCustody',
     'bulkActions',
@@ -60,11 +60,14 @@ const slotSchema = z.object({
     'privilegeLog',
     'kpiTile',
   ]).describe(
-    "ComponentRegistry name. MUST be one of: documentPreview | tagPanel | " +
+    "ComponentRegistry name. MUST be one of: documentPreviewSlot | tagPanelSlot | " +
     "annotationPanel | chainOfCustody | bulkActions | multiDocPreview | " +
     "privilegeLog | kpiTile. Do NOT invent new names — the registry only " +
-    "knows these. Use annotationPanel when the user says 'annotations', " +
-    "'comments', 'notes', or 'highlights'.",
+    "knows these. Use documentPreviewSlot for the workspace document panel " +
+    "(documentPreview without the Slot suffix is a tool-result widget and " +
+    "MUST NOT be used as a slot — it requires document inputs that are " +
+    "unavailable at layout-set time). Use annotationPanel when the user " +
+    "says 'annotations', 'comments', 'notes', or 'highlights'.",
   ),
   props: slotPropsSchema,
   size: slotSizeInputSchema.optional(),
@@ -78,8 +81,8 @@ const setWorkspaceLayoutSchema = z.object({
     "component via *ngComponentOutlet. Use 'primary', 'sidebar', 'footer' " +
     "as default slot names; the layout component fills them left-to-right. " +
     "EXAMPLE for 60/40 split: " +
-    `{ primary: { component: 'documentPreview', size: '60%' }, ` +
-    `sidebar: { component: 'tagPanel', size: '40%' } }.`,
+    `{ primary: { component: 'documentPreviewSlot', size: '60%' }, ` +
+    `sidebar: { component: 'annotationPanel', size: '40%' } }.`,
   ),
 });
 
@@ -96,8 +99,8 @@ export function setWorkspaceLayoutTool(env: EnvironmentInjector) {
       '({ default: "60%", min: "320px" }). All three are accepted; do not return a bare number ' +
       'unless you mean percent. ' +
       'EXAMPLE for "60/40 split with doc on left + annotations on right": ' +
-      `{ slots: { primary: { component: "documentPreview", size: "60%" }, ` +
-      `sidebar: { component: "tagPanel", size: "40%" } } }.`,
+      `{ slots: { primary: { component: "documentPreviewSlot", size: "60%" }, ` +
+      `sidebar: { component: "annotationPanel", size: "40%" } } }.`,
     schema: setWorkspaceLayoutSchema,
     handler: async ({ slots }) => {
       return runInInjectionContext(env, () => {
