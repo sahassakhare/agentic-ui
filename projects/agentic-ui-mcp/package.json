@@ -1,6 +1,6 @@
 {
   "name": "@infra-tools/agentic-ui-mcp",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Expose @infra-tools/agentic-ui ToolDefs as a Model Context Protocol (MCP) server — Claude Desktop / Cursor / Zed / Continue / Windsurf can call your tools directly.",
   "license": "Apache-2.0",
   "repository": {
