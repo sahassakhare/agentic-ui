@@ -46,10 +46,18 @@ export class WorkspaceLayoutStore {
   private readonly _slots = signal<SlotMap | null>(null);
   readonly slots = this._slots.asReadonly();
 
-  /** Set the workspace slot map. Persists via the registered adapter. */
+  /**
+   * Set the workspace slot map. Persists via the registered adapter.
+   *
+   * Migration: rewrites legacy `documentPreview` / `tagPanel` component
+   * names to the post-rename `…Slot` variants. Covers callers (the
+   * agent's tool handler, an external SlotMap event) that might still
+   * have the old names baked into their state.
+   */
   set(slots: SlotMap): void {
-    this._slots.set(slots);
-    void this.adapter?.write(this.keyFor(this.persona.active()), slots).catch(() => {
+    const migrated = migrateSlotNames(slots);
+    this._slots.set(migrated);
+    void this.adapter?.write(this.keyFor(this.persona.active()), migrated).catch(() => {
       /* swallow — store still has the in-memory signal value */
     });
   }
@@ -69,6 +77,12 @@ export class WorkspaceLayoutStore {
    * are async (Promise-based) so we fire-and-forget into the
    * signal — Angular's `effect()` runs synchronously and we set
    * the value once the read resolves.
+   *
+   * Migration: persisted slot maps from before the 2026-05-18 widget
+   * rename may carry the old `documentPreview` / `tagPanel` component
+   * names. Those collide with the federated review remote's tool-result
+   * widgets (which require 8+ inputs) and crash the slot with NG0950.
+   * Rewrite to the `…Slot` names so existing users aren't broken.
    */
   private readonly _hydrate = effect(() => {
     const personaId = this.persona.active();
@@ -77,7 +91,40 @@ export class WorkspaceLayoutStore {
       return;
     }
     void this.adapter.read(this.keyFor(personaId))
-      .then((value) => this._slots.set((value as SlotMap | undefined) ?? null))
+      .then((value) => {
+        const raw = value as SlotMap | undefined;
+        if (!raw) { this._slots.set(null); return; }
+        const migrated = migrateSlotNames(raw);
+        this._slots.set(migrated);
+        // Persist the migration so subsequent reads don't re-do the work.
+        if (migrated !== raw) {
+          void this.adapter?.write(this.keyFor(personaId), migrated).catch(() => { /* noop */ });
+        }
+      })
       .catch(() => this._slots.set(null));
   });
+}
+
+/**
+ * Pre-rename → post-rename component-name map. Returns the original
+ * slot map (same reference) when no migration is needed so the caller
+ * can detect a no-op cheaply.
+ */
+function migrateSlotNames(slots: SlotMap): SlotMap {
+  const RENAME: Record<string, string> = {
+    documentPreview: 'documentPreviewSlot',
+    tagPanel:        'tagPanelSlot',
+  };
+  let changed = false;
+  const next: Record<string, unknown> = {};
+  for (const [slotName, def] of Object.entries(slots)) {
+    const d = def as { component?: string } & Record<string, unknown>;
+    if (d.component && RENAME[d.component]) {
+      next[slotName] = { ...d, component: RENAME[d.component] };
+      changed = true;
+    } else {
+      next[slotName] = d;
+    }
+  }
+  return (changed ? next : slots) as SlotMap;
 }
