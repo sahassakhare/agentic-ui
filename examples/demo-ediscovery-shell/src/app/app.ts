@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs/operators';
 import {
@@ -18,16 +18,19 @@ import { WorkspaceLayoutStore } from './services/workspace-layout.store';
  *  - Main: header + (router content OR agent-driven layout overlay)
  *  - Right rail: collapsible matter coordinator chat
  *
- * When the agent has emitted a SlotMap via setWorkspaceLayout (or
- * any slot-edit tool), the main viewport renders the resolved
- * `<mvk-workspace-layout>` IN PLACE of the routed content — no
- * matter which route the user is on. A dismiss banner sits above
- * the canvas with a Reset that clears the agent layer and returns
- * to the routed page.
+ * Agent overlay scope: when the agent has emitted a SlotMap via
+ * setWorkspaceLayout (or a slot-edit tool), the main viewport renders
+ * the resolved `<mvk-workspace-layout>` in place of the routed content
+ * ONLY on `/workspace`. Other routes (Dashboards, Documents, Holds,
+ * Audit, …) render their normal page content; side-menu navigation
+ * stays predictable. The agent state persists across navigation, so
+ * returning to `/workspace` shows the overlay again. Reset on the
+ * banner clears the agent layer.
  *
- * This is the "the layout takes effect across the app, not just
- * on /workspace" wiring: enterprise reviewers expect the agent's
- * reshape to be visible wherever they are.
+ * Earlier iteration: the overlay covered every route. Reviewers found
+ * that confusing — every side-menu click showed the same canvas. Route-
+ * scoping `/workspace` is the agreed compromise (matches the slash-
+ * route name + the agent's tool description that says "/workspace").
  */
 @Component({
   selector: 'app-root',
@@ -113,15 +116,26 @@ export class App {
   private readonly selectionStore = inject(SelectionStore);
   private readonly workspaceLayoutStore = inject(WorkspaceLayoutStore);
   private readonly resolver = inject(LayoutResolver);
+  private readonly router = inject(Router);
 
   /**
-   * True when the agent has emitted at least one slot via
-   * setWorkspaceLayout / addLayoutSlot / replaceLayoutSlot /
-   * applyLayoutTemplate. Drives the overlay-vs-router-outlet switch.
+   * Current route, kept as a signal so the overlay-active computed can
+   * gate on it. Seeded from the router's initial URL (NavigationEnd
+   * doesn't fire for the boot navigation if the URL is `/`).
+   */
+  private readonly currentUrl = signal<string>(this.router.url);
+
+  /**
+   * True when the agent has emitted a SlotMap AND the user is on
+   * /workspace. Other routes (Dashboards, Documents, Audit, …) keep
+   * rendering their normal page content even when the agent layer is
+   * non-empty — clicking back to /workspace surfaces the overlay
+   * again. Reset clears the agent layer.
    */
   protected readonly agentOverlayActive = computed(() => {
     const slots = this.workspaceLayoutStore.slots();
-    return slots !== null && Object.keys(slots).length > 0;
+    if (slots === null || Object.keys(slots).length === 0) return false;
+    return this.currentUrl().split('?')[0].startsWith('/workspace');
   });
 
   /**
@@ -136,8 +150,11 @@ export class App {
   }
 
   constructor() {
-    inject(Router).events
+    this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe(() => this.selectionStore.clear());
+      .subscribe((e) => {
+        this.selectionStore.clear();
+        this.currentUrl.set(e.urlAfterRedirects);
+      });
   }
 }

@@ -1,4 +1,5 @@
 import { EnvironmentInjector, runInInjectionContext } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   agenticTool,
   DashboardRegistry,
@@ -13,11 +14,20 @@ import {
 import { z } from 'zod';
 import { WorkspaceLayoutStore } from '../services/workspace-layout.store';
 
-// No router navigation here — the app-root component (app.ts)
-// detects WorkspaceLayoutStore.slots() non-empty and renders the
-// resolved <mvk-workspace-layout> IN PLACE of the routed content
-// on whichever route the user is on. The agent's reshape is visible
-// across the app without a forced navigation.
+/**
+ * Auto-navigate to /workspace when the agent triggers a layout change
+ * from elsewhere. The agent overlay is /workspace-scoped (see app.ts)
+ * so the user needs to be there to see the reshape. Deferred to the
+ * next tick — calling navigateByUrl synchronously inside a tool
+ * handler wedged mid-CD chat shell rendering (regressed in d23eefc).
+ * No-op when the user is already on /workspace.
+ */
+function navToWorkspaceIfNeeded(env: EnvironmentInjector): void {
+  const router = env.get(Router);
+  if (!router.url.split('?')[0].startsWith('/workspace')) {
+    setTimeout(() => { void router.navigateByUrl('/workspace'); }, 0);
+  }
+}
 
 // ── ADR-047 D1 — slot-level edit tools ────────────────────────────────────
 
@@ -96,6 +106,7 @@ export function addLayoutSlotTool(env: EnvironmentInjector) {
         const def: SlotDef = { component, ...(normSize ? { size: normSize } : {}), ...(props !== undefined ? { props } : {}) };
         const next = slotEdits.add(base, slot, def);
         store.set(next);
+        navToWorkspaceIfNeeded(env);
         return {
           ok: true,
           slot,
@@ -128,6 +139,7 @@ export function removeLayoutSlotTool(env: EnvironmentInjector) {
         const base: SlotMap = store.slots() ?? resolver.active().slots;
         const next = slotEdits.remove(base, slot);
         store.set(next);
+        navToWorkspaceIfNeeded(env);
         return {
           ok: true,
           slot,
@@ -159,6 +171,7 @@ export function replaceLayoutSlotTool(env: EnvironmentInjector) {
         const def: SlotDef = { component, ...(normSize ? { size: normSize } : {}), ...(props !== undefined ? { props } : {}) };
         const next = slotEdits.replace(base, slot, def);
         store.set(next);
+        navToWorkspaceIfNeeded(env);
         return {
           ok: true,
           slot,
@@ -244,6 +257,7 @@ export function applyLayoutTemplateTool(env: EnvironmentInjector) {
         const slotMap = (template.body.slotMap as SlotMap | undefined) ?? null;
         if (slotMap) {
           env.get(WorkspaceLayoutStore).set(slotMap);
+          navToWorkspaceIfNeeded(env);
         }
         return {
           ok: true,
@@ -253,7 +267,7 @@ export function applyLayoutTemplateTool(env: EnvironmentInjector) {
           message:
             `Applied template "${template.title}" (${name}). ` +
             (slotMap
-              ? `Workspace now has ${Object.keys(slotMap).length} slot(s) — visible wherever you are.`
+              ? `Workspace now has ${Object.keys(slotMap).length} slot(s) on /workspace.`
               : `Template registered; no inline slotMap to apply.`),
         };
       });
