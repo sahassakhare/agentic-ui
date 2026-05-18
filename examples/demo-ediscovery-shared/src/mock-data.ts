@@ -147,6 +147,7 @@ export function searchDocuments(
   opts?: {
     readonly custodianIds?: readonly string[];
     readonly tags?: readonly string[];
+    readonly excludeTags?: readonly string[];
     readonly limit?: number;
   },
 ): readonly Document[] {
@@ -154,11 +155,13 @@ export function searchDocuments(
   const limit = opts?.limit ?? 25;
   const custodianFilter = opts?.custodianIds?.length ? new Set(opts.custodianIds) : null;
   const tagFilter = opts?.tags?.length ? new Set(opts.tags) : null;
+  const excludeFilter = opts?.excludeTags?.length ? new Set(opts.excludeTags) : null;
 
   return store.documents
     .filter((d) => d.matterId === matterId)
     .filter((d) => !custodianFilter || custodianFilter.has(d.custodianId))
     .filter((d) => !tagFilter || d.tags.some((t) => tagFilter.has(t)))
+    .filter((d) => !excludeFilter || !d.tags.some((t) => excludeFilter.has(t)))
     .filter((d) => {
       if (!q) return true;
       return (

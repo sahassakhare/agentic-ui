@@ -11,17 +11,30 @@ import { MATTER_ID } from '../matter-context';
 export const searchDocumentsTool = agenticTool({
   name: 'searchDocuments',
   description:
-    'Search documents in the active matter by free-text query, custodians, or tags. ' +
-    'Returns up to 25 matching documents with content snippets and renders a results list. ' +
-    'Use this before tagging or privilege-marking when the user gives names or topics rather than document ids.',
+    'Search documents in the active matter by free-text query, custodians, ' +
+    'or tags — with optional tag exclusion. Returns up to 25 matching ' +
+    'documents with content snippets and renders a results list. Use this ' +
+    'before tagging or privilege-marking when the user gives names or ' +
+    'topics rather than document ids.\n\n' +
+    'Combine `tags` + `excludeTags` for the canonical "responsive but not ' +
+    'privileged" pattern: tags=["responsive"], excludeTags=["privileged"].',
   schema: z.object({
     query: z.string().describe('Free-text query against content + filename + author. Pass "" to match all docs.'),
     custodianIds: z.array(z.string()).optional().describe('Restrict to these custodians (e.g. ["CUST-001"])'),
-    tags: z.array(z.string()).optional().describe('Restrict to documents carrying any of these tags'),
+    tags: z.array(z.string()).optional().describe(
+      'Restrict to documents carrying ANY of these tags (include set). ' +
+      'E.g. ["responsive"] keeps only docs tagged responsive.',
+    ),
+    excludeTags: z.array(z.string()).optional().describe(
+      'Drop documents carrying ANY of these tags (exclude set). ' +
+      'E.g. ["privileged"] drops docs marked privileged. ' +
+      'Use together with `tags` for the production-set pattern ' +
+      '"responsive AND NOT privileged": tags=["responsive"], excludeTags=["privileged"].',
+    ),
     limit: z.number().int().min(1).max(50).optional().describe('Max results to return (default 25)'),
   }),
-  handler: async ({ query, custodianIds, tags, limit }) => {
-    const results = searchDocuments(MATTER_ID, query, { custodianIds, tags, limit });
+  handler: async ({ query, custodianIds, tags, excludeTags, limit }) => {
+    const results = searchDocuments(MATTER_ID, query, { custodianIds, tags, excludeTags, limit });
     return {
       query,
       count: results.length,
