@@ -50,6 +50,7 @@ on:
           - agentic-ui-mcp
           - agentic-ui-copilot-skill
           - agentic-ui-teams-bot
+          - agentic-ui-m365-agents
           - agentic-ui-copilot-studio-connector
           - agentic-ui-server-stores
           - agentic-ui-server-registrar
@@ -106,6 +107,7 @@ jobs:
               agentic-ui-copilot-studio-connector-v*)  pkgs="agentic-ui-copilot-studio-connector" ;;
               agentic-ui-copilot-skill-v*)             pkgs="agentic-ui-copilot-skill" ;;
               agentic-ui-teams-bot-v*)                 pkgs="agentic-ui-teams-bot" ;;
+              agentic-ui-m365-agents-v*)               pkgs="agentic-ui-m365-agents" ;;
               agentic-ui-server-stores-v*)             pkgs="agentic-ui-server-stores" ;;
               agentic-ui-server-registrar-v*)          pkgs="agentic-ui-server-registrar" ;;
               agentic-ui-opa-authorizer-v*)            pkgs="agentic-ui-opa-authorizer" ;;
@@ -120,7 +122,7 @@ jobs:
             esac
           else
             case "${{ inputs.package }}" in
-              all) pkgs="agentic-ui agentic-ui-server agentic-ui-mcp agentic-ui-copilot-skill agentic-ui-teams-bot agentic-ui-copilot-studio-connector agentic-ui-server-stores agentic-ui-server-registrar agentic-ui-opa-authorizer" ;;
+              all) pkgs="agentic-ui agentic-ui-server agentic-ui-mcp agentic-ui-copilot-skill agentic-ui-teams-bot agentic-ui-m365-agents agentic-ui-copilot-studio-connector agentic-ui-server-stores agentic-ui-server-registrar agentic-ui-opa-authorizer" ;;
               *)   pkgs="${{ inputs.package }}" ;;
             esac
           fi
@@ -146,6 +148,8 @@ jobs:
           npm --prefix projects/agentic-ui-mcp                      run build
           npm --prefix projects/agentic-ui-copilot-skill            run build
           npm --prefix projects/agentic-ui-teams-bot                run build
+          npm --prefix projects/agentic-ui-m365-agents              install --no-audit --fund=false
+          npm --prefix projects/agentic-ui-m365-agents              run build
           npm --prefix projects/agentic-ui-copilot-studio-connector run build
           npm --prefix projects/agentic-ui-server-stores            run build
           npm --prefix projects/agentic-ui-server-registrar         run build
@@ -252,6 +256,26 @@ jobs:
             npm publish
           fi
 
+      - name: Publish @infra-tools/agentic-ui-m365-agents
+        working-directory: projects/agentic-ui-m365-agents
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PKGS: ${{ steps.target.outputs.pkgs }}
+        run: |
+          set -e
+          if ! [[ " $PKGS " == *" agentic-ui-m365-agents "* ]]; then
+            echo "::notice::@infra-tools/agentic-ui-m365-agents not in target list — skipping"; exit 0
+          fi
+          version=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-m365-agents@$version" version > /dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-m365-agents@$version already on npm — skipping"; exit 0
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --dry-run
+          else
+            npm publish
+          fi
+
       - name: Publish @infra-tools/agentic-ui-copilot-studio-connector
         working-directory: projects/agentic-ui-copilot-studio-connector
         env:
@@ -348,7 +372,7 @@ jobs:
             echo
             echo "| Package | Version |"
             echo "|---|---|"
-            for p in agentic-ui agentic-ui-server agentic-ui-mcp agentic-ui-copilot-skill agentic-ui-teams-bot agentic-ui-copilot-studio-connector agentic-ui-server-stores agentic-ui-server-registrar agentic-ui-opa-authorizer; do
+            for p in agentic-ui agentic-ui-server agentic-ui-mcp agentic-ui-copilot-skill agentic-ui-teams-bot agentic-ui-m365-agents agentic-ui-copilot-studio-connector agentic-ui-server-stores agentic-ui-server-registrar agentic-ui-opa-authorizer; do
               # agentic-ui's manifest is in dist/ after build; the others are
               # at projects/<name>/package.json (no build-time rewrite).
               if [ "$p" = "agentic-ui" ] && [ -f dist/agentic-ui/package.json ]; then
