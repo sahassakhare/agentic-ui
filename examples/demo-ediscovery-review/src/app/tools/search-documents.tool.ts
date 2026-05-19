@@ -46,8 +46,13 @@ export const searchDocumentsTool = agenticTool({
         tags: d.tags,
         privilegeReason: d.privilegeReason,
       })),
-      // Render the first three matches as preview cards; the LLM summarises the rest in text.
-      components: results.slice(0, 3).map((d) => ({
+      // Render every match as a preview card. The tool's `limit` param
+      // (default 25, hard-capped at 50 by the Zod schema) already bounds
+      // the result set, so total cards are predictable. Earlier we sliced
+      // at 3 and relied on the agent's NL summary to "list the rest" — the
+      // count and the rendered cards disagreed (e.g. agent says "I found
+      // 4" while only 3 cards appeared), which broke trust in the UI.
+      components: results.map((d) => ({
         name: 'documentPreview',
         props: {
           documentId: d.id,

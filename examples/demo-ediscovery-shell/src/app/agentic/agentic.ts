@@ -706,8 +706,14 @@ function listCustodiansTool(env: EnvironmentInjector) {
         return {
           count: list.length,
           custodians: list.map((c) => ({ id: c.id, name: c.name, department: c.department, hasLegalHold: c.hasLegalHold })),
-          // Render the first three as cards; the LLM summarises the rest in text.
-          components: list.slice(0, 3).map((c) => ({
+          // Render every custodian as a card so the rendered list matches
+          // the `count` field. Earlier we slice(0,3)d and relied on the
+          // agent's natural-language summary to list the rest, but the
+          // model rarely enumerates them, so users saw "Found 5" with
+          // only 3 cards. The mock matter ships ~5 custodians; production
+          // hosts that anticipate larger lists should swap to a single
+          // panel widget that internally paginates.
+          components: list.map((c) => ({
             name: 'custodianCard',
             props: {
               custodianId: c.id, name: c.name, email: c.email, department: c.department,
@@ -755,8 +761,10 @@ function listLegalHoldsTool(env: EnvironmentInjector) {
             issuedAt: h.issuedAt, acknowledgedAt: h.acknowledgedAt ?? null,
             releasedAt: h.releasedAt ?? null, verdict: verdict(h),
           })),
-          // Render up to 3 hold cards inline; the LLM summarises the rest.
-          components: list.slice(0, 3).map((h) => ({
+          // Render every hold as a card so the rendered list matches the
+          // `count` field. See the matching note in listCustodians for
+          // why we removed the slice cap.
+          components: list.map((h) => ({
             name: 'legalHoldCard',
             props: {
               holdId: h.id, scope: h.scope, custodianCount: h.custodianIds.length,
