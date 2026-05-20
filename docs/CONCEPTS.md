@@ -7,6 +7,7 @@
 
 ## Table of contents
 
+- [How registration and consumption work](#how-registration-and-consumption-work) — the flow that ties every primitive together
 - [Layer 1 — Core primitives](#layer-1--core-primitives) (Chat shell · Registry · Tool · Widget · Backend · Agent server · ServerAgent)
 - [Layer 2 — Capability primitives](#layer-2--capability-primitives) (Form · Workflow · Approval · Operation · Multi-modal · DataSource)
 - [Layer 3 — Federation primitives](#layer-3--federation-primitives) (CapabilityModule · MFE remote · Host · `defineCapabilityModule` · `removeBySource` · Source tag)
@@ -16,6 +17,203 @@
 - [Layer 7 — Wire primitives](#layer-7--wire-primitives) (`AgenticEvent` · `AgenticMessage` · `MessageContent` · `ToolDef` · `ComponentDef` · `BackendCapabilities`)
 - [Decision matrix — "When to use what"](#decision-matrix--when-to-use-what)
 - [Glossary](#glossary) (alphabetical lookup)
+
+---
+
+## How registration and consumption work
+
+The mental model is a **registration → storage → consumption** triangle. The primitives in Layer 1+ are the *what*; this section is the *how they connect*.
+
+### Three roles, every entry plays them
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  1. Author    │ Use a DSL factory: agenticTool({…}),                │
+│               │ agenticWidget({…}), agenticForm({…}), etc.          │
+│               │ Each produces a typed `Def` object (ToolDef,        │
+│               │ ComponentDef, FormDef, …). In memory only — not     │
+│               │ visible to anything yet.                            │
+└──────────────────────────────────────────────────────────────────────┘
+                            ↓
+┌──────────────────────────────────────────────────────────────────────┐
+│  2. Register  │ Pass the Def to provideAgenticUi({tools: […],       │
+│               │ widgets: […], forms: […], approvals: […]}) at boot, │
+│               │ OR call registry.register(def) imperatively, OR     │
+│               │ contribute via a federated CapabilityModule (the    │
+│               │ remote calls register for you).                     │
+│               │                                                     │
+│               │ At this moment the Def lands in exactly one         │
+│               │ registry — the typed catalog for its kind.          │
+└──────────────────────────────────────────────────────────────────────┘
+                            ↓
+┌──────────────────────────────────────────────────────────────────────┐
+│  3. Consume   │ A runtime surface reads the registry — usually via  │
+│               │ the registry's signal. Chat shell reads             │
+│               │ ToolRegistry.signal() to advertise tools to the     │
+│               │ LLM; widget container reads ComponentRegistry to    │
+│               │ resolve widget names from agent events; form        │
+│               │ renderer reads FormRegistry; etc.                   │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+The same triangle applies to every primitive. Once you internalize it, the 18 registries stop being scary — they're 18 identical catalogs holding different `Def` types.
+
+### Who registers what
+
+Each DSL factory produces a typed `Def` that lands in exactly one registry.
+
+| You author | DSL factory | Produces | Lands in registry |
+|---|---|---|---|
+| A tool | `agenticTool({…})` | `ToolDef` | `ToolRegistry` |
+| A widget / component | `agenticWidget({…})` | `ComponentDef` | `ComponentRegistry` |
+| A form | `agenticForm({…})` | `FormDef` | `FormRegistry` |
+| A workflow | `agenticWorkflow({…})` | `WorkflowDef` | (passed inline to the workflow renderer; no global registry) |
+| An approval policy | `agenticApproval({…})` | `ApprovalPolicy` | `ApprovalRegistry` |
+| A data source | `agenticDataSource({…})` | `DataSourceDef` | `DataSourceRegistry` |
+| An action | `agenticAction({…})` | `ActionDef` | `ActionRegistry` |
+| An intent | `agenticIntent({…})` | `IntentDef` | `IntentRegistry` |
+| A trigger | `agenticTrigger({…})` | `TriggerDef` | `TriggerRegistry` |
+| A dashboard | `agenticDashboard({…})` | `DashboardDef` | `DashboardRegistry` |
+| A playbook | `agenticPlaybook({…})` | `PlaybookDef` | `PlaybookRegistry` |
+| A capability bundle | `defineCapabilityModule({tools, widgets, forms, …})` | `CapabilityModule` (a *bundle*) | `CapabilityRegistry` AND fans out into every inner registry on `apply()` |
+
+**Capability is the meta-primitive.** It's a bundle that registers **other** kinds of entries when applied. Federation uses it because remote MFEs need to declare and tear down many entries together. A capability that contains five tools + three widgets + one form lands those nine entries in three registries (ToolRegistry, ComponentRegistry, FormRegistry) plus one entry in CapabilityRegistry (the descriptor). All nine inner entries get tagged with the same `source: 'remote:<name>'`, so a single `removeBySource(…)` tears them all down symmetrically.
+
+### Who consumes what
+
+What the app — your `<mvk-chat-shell>`, your widgets, your orchestrator — actually reads at runtime:
+
+| Consumer | Reads from |
+|---|---|
+| `<mvk-chat-shell>` | `ToolRegistry` (advertises to LLM) + `ComponentRegistry` (renders widgets the agent emits) + `CapabilityRegistry` (the matter-coordinator summary in the rail) |
+| Orchestrator (`runUntilSettled`) | `ToolRegistry` (dispatches client-side tool calls) + active `AgenticBackend` (streams events) |
+| `<mvk-widget-container>` | `ComponentRegistry` (resolves widget names from agent events) + `DataSourceRegistry` (validates widget data-source deps before mount) |
+| `<mvk-form-renderer>` | `FormRegistry` (resolves form names) + `ValidationRegistry` (validates submitted input) |
+| `<mvk-workflow-renderer>` | (no global registry — workflow defs are passed inline) |
+| `<mvk-approval-card>` | `ApprovalRegistry` (reads the pending approval; dispatches approve/reject) |
+| `<mvk-operation-progress>` | `OperationRegistry` (reads the live `OperationState` signal) |
+| `<mvk-cmd-k-palette>` | `IntentRegistry` (matches the user's text) + `ActionRegistry` (executes the chosen action) |
+| `<mvk-smart-cell>` · `<mvk-row-action-menu>` · `<mvk-bulk-toolbar>` · `<mvk-assist-panel>` | `ActionRegistry` (dispatch) + `IntentRegistry` (NL → action routing) |
+| `<mvk-notification-tray>` + `<mvk-inbox>` | `TriggerRegistry` (proactive notifications + the matching tool calls) |
+| `<mvk-dashboard-canvas>` + `<mvk-dashboard-tile>` + `<mvk-dashboard-preview>` | `DashboardRegistry` (the composition) + `ToolRegistry` (each tile's invocation) + `DataSourceRegistry` (live-data tiles) |
+| `<mvk-playbook-runner>` | `PlaybookRegistry` (steps) + `ToolRegistry` (per-step tool dispatches) + `ApprovalRegistry` (per-step approve gates) |
+| `<mvk-workspace-layout>` | `LayoutRegistry` (slot defs) + `ComponentRegistry` (slot widgets) + (optional) `LayoutResolver` for the 11-source precedence engine |
+| `<mvk-review-queue>` · `<mvk-timeline-canvas>` · `<mvk-cal-workbench>` | `ToolRegistry` (state-mutating actions) + `ComponentRegistry` (row widgets) |
+| MCP server (`createMcpServer`) | (no Angular DI on the server side — takes `ToolDef[]` directly as a constructor argument) |
+| Teams bot / M365 Agents / Copilot Skill / Copilot Studio Connector | (server-side middleware — your `Handler` callback dispatches against your own tool catalog; the lib's registries don't reach the Node server-side unless you explicitly inject them) |
+
+### Three concrete flows (the diagrams)
+
+**Flow 1 — Tool registration + consumption** (the simplest case):
+
+```
+                  YOU                            LIB                           RUNTIME
+┌──────────────────────────────────┐   ┌────────────────────────┐   ┌────────────────────────────┐
+│ agenticTool({                    │   │                        │   │  <mvk-chat-shell>          │
+│   name: 'bookFlight',            │──▶│      ToolDef           │   │    .tools()                │
+│   description: '…',              │   │     (in memory)        │   │   .signal()                │
+│   schema: z.object({…}),         │   │                        │   │       ↓                    │
+│   handler: async () => {…},      │   └───────────┬────────────┘   │  - Sends list to LLM       │
+│ })                               │               │                │  - LLM picks 'bookFlight'  │
+└──────────────────────────────────┘               │                │  - Orchestrator calls      │
+                                                   ▼                │     the handler            │
+┌──────────────────────────────────┐   ┌────────────────────────┐   │  - Handler returns         │
+│ provideAgenticUi({               │──▶│   ToolRegistry         │──▶│     {components: [...]}    │
+│   tools: [bookFlightTool, …],    │   │   .register(def)       │   │  - Widget mounts (Flow 2)  │
+│   widgets: [...]                 │   │                        │   │                            │
+│ })                               │   └────────────────────────┘   └────────────────────────────┘
+└──────────────────────────────────┘
+```
+
+**Flow 2 — Widget registration + consumption** (the LLM picks the visual):
+
+```
+                  YOU                            LIB                           RUNTIME
+┌──────────────────────────────────┐   ┌────────────────────────┐   ┌────────────────────────────┐
+│ @Component({...}) class …        │   │                        │   │  Tool returns              │
+│ agenticWidget({                  │──▶│      ComponentDef      │   │  {components: [{           │
+│   name: 'flightCard',            │   │      (in memory)       │   │    name: 'flightCard',     │
+│   component: FlightCardComponent,│   │                        │   │    props: {…} }]}          │
+│   propsSchema: z.object({…})     │   └───────────┬────────────┘   │            ↓               │
+│ })                               │               │                │  <mvk-chat-shell> emits a  │
+└──────────────────────────────────┘               │                │   widget-render event      │
+                                                   ▼                │            ↓               │
+┌──────────────────────────────────┐   ┌────────────────────────┐   │  ComponentRegistry         │
+│ provideAgenticUi({               │──▶│  ComponentRegistry     │──▶│  .get('flightCard')        │
+│   widgets: [flightCardWidget,…], │   │  .register(def)        │   │            ↓               │
+│ })                               │   │                        │   │  *ngComponentOutlet mounts │
+└──────────────────────────────────┘   └────────────────────────┘   │  <app-flight-card>         │
+                                                                    └────────────────────────────┘
+```
+
+**Flow 3 — Capability bundle (federation)** — multiple primitives registered together:
+
+```
+              REMOTE TEAM                          NATIVE FEDERATION                     HOST
+┌──────────────────────────────────┐   ┌────────────────────────────────┐   ┌──────────────────────────┐
+│ // remote/src/Capability.ts      │   │  remoteEntry.js (bundled)      │   │  loadRemoteCapabilities  │
+│                                  │   │                                │   │  ({remote, loader})      │
+│ defineCapabilityModule({         │──▶│   CapabilityModule             │──▶│           ↓              │
+│   source: 'remote:bookings',     │   │   { source: …, version: …,     │   │  capability.apply({      │
+│   version: '1.0.0',              │   │     tools: [bookFlightTool],   │   │    tools: ToolRegistry,  │
+│   tools: [bookFlightTool],       │   │     widgets: [flightCardW…], } │   │    components: …,        │
+│   widgets: [flightCardWidget],   │   │                                │   │    capabilities: …       │
+│   forms: [intakeForm],           │   │   .apply(hostRegistries)       │   │  })                      │
+│ })                               │   │   .dispose()                   │   │           ↓              │
+│                                  │   │                                │   │   ToolRegistry +         │
+│ export default capability;       │   │                                │   │   ComponentRegistry +    │
+└──────────────────────────────────┘   └────────────────────────────────┘   │   FormRegistry +         │
+                                                                            │   ... grow with the      │
+                                                                            │   remote's contributions │
+                                                                            │   (all tagged source:    │
+                                                                            │   'remote:bookings')     │
+                                                                            └──────────────────────────┘
+
+  Unload — host calls loadedRemote.dispose() → removeBySource('remote:bookings') runs across
+  every registry; entries vanish; the LLM no longer sees the remote's tools; symmetric teardown.
+```
+
+### Putting it together — the boot-time data flow
+
+```
+                ┌─────────────────────────────────────────────────────────┐
+                │           app.config.ts (boot time)                      │
+                │  provideAgenticUi({                                      │
+                │    tools:     [bookFlightTool, ...],                     │
+                │    widgets:   [flightCardWidget, ...],                   │
+                │    forms:     [custodianIntakeForm, ...],                │
+                │    approvals: [releaseHoldApproval, ...],                │
+                │    dataSources: [userDirectoryDataSource, ...],          │
+                │  })                                                      │
+                └─────────────────────────────┬────────────────────────────┘
+                                              │ Angular DI fan-out at boot
+       ┌────────────┬───────────┬────────────┼───────────┬───────────┬──────────────┐
+       ▼            ▼           ▼            ▼           ▼           ▼              ▼
+   Tool       Component      Form       Approval   Operation    DataSource  ... 12 more
+   Registry   Registry      Registry    Registry   Registry     Registry       registries
+       │            │           │            │           │           │              │
+       │            │           │            │           │           │              │
+       │ also fed   │ also from │ also from  │ also from │ from      │ from app +   │
+       │ by:        │ remotes,  │ remotes    │ remotes   │ longRunning│ remotes      │
+       │ remotes,   │ ng g      │            │           │ tools     │              │
+       │ ng g tool  │ widget    │            │           │           │              │
+       ▼            ▼           ▼            ▼           ▼           ▼              ▼
+              Consumer signals (read uniformly):  registry.signal()
+                                       │
+                                       ▼
+       ┌──────────────────────────────────────────────────────────────────────┐
+       │ Runtime consumers (above table): chat shell, widget container,       │
+       │ form renderer, approval card, operation progress, dashboard canvas,  │
+       │ playbook runner, command palette, smart cells, notification tray,    │
+       │ inbox, lifecycle stages, review queue, timeline canvas, …            │
+       └──────────────────────────────────────────────────────────────────────┘
+```
+
+**Three big takeaways from this picture:**
+
+1. **Registration is multi-source.** Host wires entries via `provideAgenticUi`; the scaffolding generators (`ng g tool`, `ng g widget`) generate files that register into the same flow; federated remotes register via `loadRemoteCapabilities` post-boot. Every source funnels into the same registry; the source is tagged so teardown is clean.
+2. **Consumption is via signals.** The lib's runtime UI is built on `signal()` / `computed()`. A consumer that reads `toolRegistry.signal()` re-renders automatically when the list changes — register a new tool from a federated remote, the chat shell sees it next render, no manual refresh.
+3. **The 18 registries are 18 identical catalogs.** Same `register / list / get / signal / removeBySource / setScopePolicy` API across all of them. Adding a 19th for your own domain concept is ~30 LOC of base-class extension.
 
 ---
 
