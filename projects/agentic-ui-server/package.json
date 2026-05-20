@@ -1,6 +1,6 @@
 {
   "name": "@infra-tools/agentic-ui-server",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Server-side helpers for @infra-tools/agentic-ui — generic Agent interface, AG-UI SSE route handler, in-memory thread store.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
