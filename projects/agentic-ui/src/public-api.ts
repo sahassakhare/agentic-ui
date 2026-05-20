@@ -45,7 +45,21 @@ export * from './lib/mfe-module-federation';
 // Was @infra-tools/agentic-ui/otel
 export * from './lib/otel';
 
-// Was @infra-tools/agentic-ui/testing
+// ────────────────────────────────────────────────────────────────────
+// Test utilities (do not ship in production bundles).
+//
+// ADR-005 forbids secondary entry points (federation singleton
+// sharing requires a single primary entry), so the testing helpers
+// are surfaced through the main entry. `sideEffects: false` + tree-
+// shaking means they don't land in adopter bundles unless imported
+// — but importing them from the same package gives IDE auto-import
+// suggestions that can mislead. Each exported symbol carries an
+// `@test-utility` JSDoc tag so adopters see the warning on hover.
+//
+// L6.2 follow-up: when ADR-005 is revisited (post-federation
+// rework), move these to `@infra-tools/agentic-ui/testing` and
+// drop the JSDoc warning convention.
+// ────────────────────────────────────────────────────────────────────
 export * from './lib/testing';
 
 // ADR-046 PR1 — LayeredLayoutEngine D1 + D5
