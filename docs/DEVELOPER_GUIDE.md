@@ -1567,3 +1567,465 @@ For the **complete primitive taxonomy** (every named concept, every decision mat
 For the **library's full capability inventory**, see [README → Library capability inventory](../README.md#library-capability-inventory).
 
 For the **enterprise eDiscovery flagship** that exercises every load-bearing seam, see [`examples/demo-ediscovery-shell/`](../examples/demo-ediscovery-shell/) and [`USER_GUIDE.md`](./USER_GUIDE.md).
+
+---
+
+# Use cases & solutions
+
+A scannable map of "I need X — does the library do X?" answers, with the wire-up and the workaround when there isn't one.
+
+> **Legend**
+> · ✅ **Full support** — ships as a first-class primitive; documented; tested
+> · ⚠️ **Partial / opt-in** — primitive exists but adopter wires significant glue, OR demo-grade only
+> · ❌ **Adopter-provided** — not in the lib; pattern documented in the workaround column
+
+## Quick reference matrix
+
+### Core flow
+
+| # | Use case | Status | Solution | Reference |
+|---|---|---|---|---|
+| 1 | Render a chat UI | ✅ | `<mvk-chat-shell>` | step 2 |
+| 2 | Stream LLM tokens | ✅ | `AgUiBackend` + your `ServerAgent` yields `text-delta` events | step 6 |
+| 3 | Define LLM-callable tool | ✅ | `agenticTool({…})` + `provideAgenticUi({tools:[…]})` | step 4 |
+| 4 | Render component the LLM picks | ✅ | `agenticWidget({…})` + tool returns `components: [{name, props}]` | step 5 |
+| 5 | Abort an in-flight turn | ✅ | `ref.stop()` + `ctx.signal` in handler | [`cookbook/quickstart.md`](./cookbook/quickstart.md) |
+| 6 | Retry a failed tool call | ❌ | Adopter wraps the handler with retry logic; no built-in retry primitive | — |
+| 7 | Validate tool args server-side | ⚠️ | Zod schema crosses the wire (post L1, ADR-048); your server SHOULD re-parse via the same Zod or against the JSON-Schema | step 7 |
+| 8 | Replay a previous turn | ⚠️ | `ThreadStateStore` persists messages; you call `run()` again with the same `messages[]` | step 18 |
+
+### UX surfaces
+
+| # | Use case | Status | Solution | Reference |
+|---|---|---|---|---|
+| 9 | Structured form intake | ✅ | `agenticForm({…})` (F1) | step 8 |
+| 10 | Multi-step wizard | ✅ | `agenticWorkflow({steps, onComplete})` (F3) | [`cookbook/interactive-workflows.md`](./cookbook/interactive-workflows.md) |
+| 11 | Human-in-the-loop approval | ✅ | `agenticApproval({toolName, required, signoffMessage})` (F4) | step 9 |
+| 12 | Long-running operation with progress | ✅ | `agenticTool({longRunning: true, …})` + `ctx.startOperation/reportProgress/completeOperation` (F5) | step 10 |
+| 13 | Multi-modal input (image / file paste) | ⚠️ | Composer affordances ship; backend must advertise `multiModal: true`; agent translates `MessageContent[]` to LLM API | step 11 |
+| 14 | Voice input / output (STT / TTS) | ❌ | Not in lib. Add a separate STT/TTS layer in front of the composer / behind the agent | — |
+| 15 | Live data in widgets (without LLM round-trip) | ✅ | `DataSourceRegistry` + `dataSources: ['users']` on widget def (F2) | [`cookbook/widgets-with-live-data.md`](./cookbook/widgets-with-live-data.md) |
+| 16 | User-built dashboards (tile compositions) | ✅ | `DashboardRegistry` + `<mvk-dashboard-canvas>` (P3) | [`cookbook/dashboards.md`](./cookbook/dashboards.md) |
+| 17 | Persona-shaped slot layouts | ✅ | `LayoutRegistry` + `<mvk-workspace-layout>` (P0) | [`cookbook/agent-directed-workspace-layouts.md`](./cookbook/agent-directed-workspace-layouts.md) |
+| 18 | ⌘K command palette | ✅ | `<mvk-cmd-k-palette>` reads `IntentRegistry` + `ActionRegistry` (P1) | [`cookbook/cmd-k-palette.md`](./cookbook/cmd-k-palette.md) |
+| 19 | Per-row smart cells / context menus | ✅ | `<mvk-smart-cell>` / `<mvk-row-action-menu>` (P1) | [`cookbook/cmd-k-palette.md`](./cookbook/cmd-k-palette.md) |
+| 20 | Proactive notification tray + inbox | ✅ | `TriggerRegistry` + `<mvk-notification-tray>` + `<mvk-inbox>` (P2) | [`cookbook/proactive-triggers-and-inbox.md`](./cookbook/proactive-triggers-and-inbox.md) |
+| 21 | Versioned tool-call sequences | ✅ | `PlaybookRegistry` + `<mvk-playbook-runner>` (P5) | [`cookbook/playbooks.md`](./cookbook/playbooks.md) |
+| 22 | Citations / source attribution in LLM replies | ❌ | Not first-class. Pattern: tool returns `components: [{name: 'citationCard', props: {sources}}]`; build the widget | — |
+| 23 | Streaming structured output (JSON-shaped tool args) | ⚠️ | `tool-call-args` events deliver deltas; lib waits for `tool-call-end` to parse. No streaming partial-JSON primitive | — |
+
+### Federation & scale
+
+| # | Use case | Status | Solution | Reference |
+|---|---|---|---|---|
+| 24 | Multiple teams contribute tools / widgets | ✅ | `defineCapabilityModule({…})` + `loadRemoteCapabilities({…})` | step 12 |
+| 25 | Per-turn tool budget (100+ tools) | ⚠️ | `provideToolFilter(keywordToolFilter({maxTools, floor}))`; embedding-based filter is adopter-implemented | [`cookbook/federation-at-scale.md`](./cookbook/federation-at-scale.md) |
+| 26 | Prefetch capability manifests | ⚠️ | `prefetchCapabilities` ships a manifest-only registration path; idle-time prefetch is adopter-wired | [`cookbook/federation-at-scale.md`](./cookbook/federation-at-scale.md) |
+| 27 | Hot-load / unload a remote at runtime | ✅ | `loadRemoteCapabilities(…)` + `loadedRemote.dispose()` (symmetric `removeBySource`) | step 12 |
+| 28 | Pin remote to a host version | ✅ | `requiredHostVersion: '^1.2.0'` on `defineCapabilityModule` (ADR-014) | [`adr/0014`](./adr/0014-host-version-compatibility.md) |
+| 29 | Per-tool versioning | ❌ | `CapabilityModule.version` is bundle-level; per-tool versions need adopter convention (name suffixes, separate remotes) | — |
+| 30 | A/B test tool variants | ❌ | Adopter uses `setScopePolicy` to filter by experiment cohort | — |
+| 31 | Embedding-based tool selection (semantic, not keyword) | ❌ | Only `keywordToolFilter` ships. Adopter implements similarity scoring in a custom filter | — |
+
+### Identity & governance
+
+| # | Use case | Status | Solution | Reference |
+|---|---|---|---|---|
+| 32 | Persona-based tool filtering (LLM can't see hidden tools) | ✅ | `setScopePolicy` + `AGENTIC_ACTIVE_PERSONA` | step 13 |
+| 33 | Audit trail of tool calls + approvals + operations | ⚠️ | Events emitted via `AgenticTelemetrySink`; adopter forwards to durable audit storage. Demo's chain is in-memory + FNV-1a | step 14 |
+| 34 | Tamper-evident audit chain (HMAC-keyed) | ❌ | Demo uses FNV-1a — not legal-grade. Adopter swaps to HMAC-SHA256 with a server-held key | — |
+| 35 | RBAC via OPA policies | ✅ | `@infra-tools/agentic-ui-opa-authorizer` ships the registry-side authorizer | [`adr/0040`](./adr/0040-opa-policy-integration.md) |
+| 36 | Multi-tenancy (per-tenant tool catalog) | ⚠️ | `provideAgenticPlatform({tenantId, capabilityAuthorizer})` filters per-tenant from the catalog. Lib doesn't ship server-level isolation | step 15 |
+| 37 | Central capability catalog | ✅ | `provideAgenticPlatform({capabilityRegistrar, capabilityAuthorizer})` + `@infra-tools/agentic-catalog-server` | step 15 |
+| 38 | Boot-time audit-chain integrity check | ❌ | Adopter wires `assert verifyAuditChain(matterId).broken.length === 0` in app boot | — |
+
+### External surfaces
+
+| # | Use case | Status | Solution | Reference |
+|---|---|---|---|---|
+| 39 | Expose tools to Claude Desktop / Cursor / Zed | ✅ | `@infra-tools/agentic-ui-mcp` → `createMcpServer({tools: […]})` | step 16 |
+| 40 | Teams chat bot | ✅ | `@infra-tools/agentic-ui-teams-bot` → `createTeamsBotMiddleware({…})` | step 17 |
+| 41 | M365 Copilot / Direct Line / sovereign cloud channels | ✅ | `@infra-tools/agentic-ui-m365-agents` → `createM365AgentMiddleware({…})` | step 17 |
+| 42 | GitHub Copilot Chat extension | ✅ | `@infra-tools/agentic-ui-copilot-skill` | step 17 |
+| 43 | M365 Copilot Studio (Power Platform action) | ✅ | `@infra-tools/agentic-ui-copilot-studio-connector` | step 17 |
+| 44 | Slack / Discord / WhatsApp adapter | ❌ | Same pattern as Teams: write a middleware that calls your `Handler`; lib doesn't ship the adapter | — |
+| 45 | Email-based agent | ❌ | Not shipped. Adopter writes a Postfix / Mailgun ingress that calls `Handler({text, identity})` | — |
+
+### Production operations
+
+| # | Use case | Status | Solution | Reference |
+|---|---|---|---|---|
+| 46 | OpenTelemetry tracing | ✅ | `provideAgenticTelemetry({kind: 'otel', providers: {tracer, meter}})` — 17 event names emitted automatically | step 14 |
+| 47 | Persisted thread state across restarts | ✅ | `redisThreadStateStore(…)` / `postgresThreadStateStore(…)` from `@infra-tools/agentic-ui-server-stores` | step 18 |
+| 48 | Multi-pod chat (SSE failover via pub/sub) | ⚠️ | Postgres LISTEN/NOTIFY pattern wired in the Helm chart (ADR-029); Redis equivalent is adopter-wired | [`adr/0029`](./adr/0029-postgres-listen-notify-multipod-sse.md) |
+| 49 | Rate limiting / circuit breaking | ❌ | Adopter wires `hono-rate-limiter` (or framework equivalent) in front of `/agents/*` routes | step 18 |
+| 50 | Cost guardrails (per-tool quotas) | ⚠️ | Wrap `setScopePolicy` to enforce per-user quotas. No first-class quota primitive | step 19 |
+| 51 | Per-tenant usage / cost tracking | ⚠️ | `provideAgenticPlatform({usageMetering})` batches usage events to `/v1/catalogs/{tenant}/usage`; cost attribution is adopter-side | step 15 |
+| 52 | LLM provider failover | ❌ | Adopter implements in `ServerAgent.run` (try/catch + fallback provider). No primitive in the lib | — |
+| 53 | Deployment artifacts (Helm / Compose / Render) | ✅ | `platform/helm/agentic-platform/` + `platform/docker-compose.yml` + `platform/render.yaml` | step 18 |
+| 54 | Secret scanning at commit time | ✅ | `.githooks/pre-commit` matches 6 common signatures | — |
+| 55 | Per-turn token budget enforcement | ❌ | Adopter implements in `ServerAgent.run` — token-count `input.messages` before forwarding to LLM | step 19 |
+| 56 | Boot-time / idle / hover capability prefetch | ⚠️ | `prefetchCapabilities` exists; adopter decides the trigger | [`cookbook/federation-at-scale.md`](./cookbook/federation-at-scale.md) |
+
+### Advanced / not-yet-shipped
+
+| # | Use case | Status | Solution | Reference |
+|---|---|---|---|---|
+| 57 | Eval framework — test agent behaviour against scenarios | ❌ | `runConformance` tests BACKENDS (lifecycle correctness), not AGENT REASONING. Adopter wires a vitest-style scenario harness | — |
+| 58 | Code interpreter / sandboxed exec tool | ❌ | Not in lib. Adopter writes a `runCode` tool against a sandboxed runtime (deno-deploy / firecracker / e2b) | — |
+| 59 | Streaming JSON / partial parsing | ⚠️ | `tool-call-args` events deliver deltas; lib waits for `tool-call-end` to parse. Streaming partial requires a custom event consumer | — |
+| 60 | Citations / source links widget | ❌ | No first-class widget. Build a `citationCard` widget with `propsSchema: z.object({sources: z.array(…)})`; return from tools | — |
+| 61 | Memory / context-window compaction | ❌ | `ThreadStateStore` persists everything. Compaction (summarize old messages) is adopter-implemented in `ServerAgent.run` | — |
+| 62 | Agent-as-a-Service (HTTP wrap of your agent) | ✅ | `agUiRouteHandler({agent})` IS this | step 6 |
+| 63 | Tool documentation generation (OpenAPI export) | ❌ | Tools carry Zod → JSON-Schema; emit OpenAPI is adopter glue (`zod-to-json-schema` already in lib deps) | — |
+
+---
+
+## Per-bucket details (the "if not, what to do" recipes)
+
+The table is for lookup. This section unpacks the harder ones with code.
+
+### Core flow
+
+**#6 — Retry a failed tool call.** No primitive ships. Wrap your handler:
+
+```ts
+import { agenticTool } from '@infra-tools/agentic-ui';
+import { z } from 'zod';
+
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try { return await fn(); }
+    catch (err) {
+      lastErr = err;
+      await new Promise((r) => setTimeout(r, 2 ** i * 250));
+    }
+  }
+  throw lastErr;
+}
+
+export const bookFlightTool = agenticTool({
+  name: 'bookFlight',
+  description: '…',
+  schema: z.object({ /* … */ }),
+  handler: async (args, ctx) => withRetry(() => callFlightAPI(args, ctx)),
+});
+```
+
+**#7 — Server-side arg validation.** The Zod schema crosses the wire as JSON-Schema (post-L1 / ADR-048). In your `ServerAgent`, validate every tool-call's args against the JSON-Schema before invoking your handler. Don't trust the client to have validated.
+
+### UX surfaces
+
+**#14 — Voice I/O.** Not in scope. Two integration paths:
+
+- **Browser STT** — `webkitSpeechRecognition` → push transcribed text into `chatRef.sendMessage(text)`. No lib change needed.
+- **Server STT/TTS** — wrap your agent server: incoming audio → Whisper → existing `ServerAgent.run` → text response → ElevenLabs → audio out. Same agent loop.
+
+**#22 — Citations.** Pattern (the widget is yours; the wire is the lib's):
+
+```ts
+// Server-side tool result includes sources alongside the answer
+return {
+  text: 'According to the 10-K filing, revenue grew 23% YoY.',
+  components: [
+    {
+      name: 'citationCard',
+      props: {
+        sources: [
+          { docId: 'DOC-7891240', page: 14, quote: 'Total revenue: $4.2B (+23%)' },
+        ],
+      },
+    },
+  ],
+};
+```
+
+Build `citationCard` once with `agenticWidget({…})` (step 5). Tools that should cite include `components: [...]` in their return.
+
+**#23 — Streaming structured output.** The library buffers `tool-call-args` deltas until `tool-call-end` then parses. If you need partial-JSON rendering (e.g., a list streaming row-by-row), implement at the widget level — listen for the in-flight tool-call's signals and render incrementally.
+
+### Federation & scale
+
+**#25 — Per-turn tool budget at 100+ tools.** Wire `keywordToolFilter`:
+
+```ts
+import { provideToolFilter, keywordToolFilter } from '@infra-tools/agentic-ui';
+
+providers: [
+  provideToolFilter(keywordToolFilter({
+    maxTools: 12,                       // hard cap per turn
+    floor: ['help', 'whoami', 'list*'], // always include these
+  })),
+],
+```
+
+Filter runs before tools cross the wire. For **embedding-based selection**, implement a custom filter:
+
+```ts
+import { provideToolFilter } from '@infra-tools/agentic-ui';
+
+providers: [
+  provideToolFilter(async (ctx) => {
+    const prompt = ctx.messages[ctx.messages.length - 1]?.content ?? '';
+    return ctx.tools
+      .map((t) => ({ t, score: await embedSimilarity(prompt, t.description) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 12)
+      .map(({ t }) => t);
+  }),
+],
+```
+
+**#29 — Per-tool versioning.** Two adopter patterns:
+
+- **Name suffix**: `bookFlightV2`. The LLM sees two tools; the description disambiguates.
+- **Separate remotes**: ship `bookings-remote@v1` and `bookings-remote@v2` simultaneously; use `setScopePolicy` to pick which version's tools surface per request.
+
+**#30 — A/B testing tool variants.** Cohort-based scope policy:
+
+```ts
+const policy = (entry: ToolDef) => {
+  if (entry.name === 'bookFlight') return cohort() === 'A';
+  if (entry.name === 'bookFlightV2') return cohort() === 'B';
+  return true;
+};
+toolRegistry.setScopePolicy(policy);
+```
+
+### Identity & governance
+
+**#33 — Audit trail forwarding.** The lib emits structured events via the telemetry sink. Wire a custom sink that POSTs to your audit store:
+
+```ts
+import type { AgenticTelemetrySink, TelemetrySpan } from '@infra-tools/agentic-ui';
+
+class AuditingTelemetrySink implements AgenticTelemetrySink {
+  emit(name, attrs) {
+    if (name.startsWith('agentic.tool_call.') || name === 'agentic.approval.transition') {
+      fetch('/audit', { method: 'POST', body: JSON.stringify({ name, attrs, ts: Date.now() }) });
+    }
+  }
+  startSpan(name, attrs): TelemetrySpan {
+    // wrap in a span that POSTs on end() for hot-path durations
+    return { end: () => {}, recordError: () => {}, setAttribute: () => {} };
+  }
+  counter(): void {}
+  histogram(): void {}
+}
+
+providers: [
+  { provide: AGENTIC_TELEMETRY_SINK, useClass: AuditingTelemetrySink },
+],
+```
+
+**#34 — HMAC audit chain.** The eDiscovery demo uses FNV-1a — fine for a demo, **not legal-grade**. Swap to HMAC-SHA256:
+
+```ts
+import { createHmac } from 'node:crypto';
+
+function chainHash(prevHash: string, payload: string): string {
+  const key = process.env.AUDIT_HMAC_KEY!;   // server-held; never exposed to client
+  return createHmac('sha256', key).update(prevHash + payload).digest('hex');
+}
+```
+
+Replace the demo's `fnv1a` call site with `chainHash`. Verification: same key, replay events, compare.
+
+**#38 — Boot-time chain verification.** In your app's `provideAppInitializer`:
+
+```ts
+provideAppInitializer(async () => {
+  const result = await fetch('/api/audit/verify').then((r) => r.json());
+  if (result.broken.length > 0) {
+    console.error('Audit chain broken:', result.broken);
+    throw new Error('Audit integrity check failed at boot — refusing to start');
+  }
+}),
+```
+
+### External surfaces
+
+**#44 — Slack / Discord / WhatsApp.** Pattern is the same as Teams:
+
+```ts
+// projects/my-slack-agent/src/server.ts (sketch)
+import { App } from '@slack/bolt';
+import { runAgentTurn } from './agent-loop';  // same agent loop as the in-app chat
+
+const slack = new App({
+  token: process.env.SLACK_BOT_TOKEN,
+  signingSecret: process.env.SLACK_SIGNING_SECRET,
+});
+
+slack.message(async ({ message, say }) => {
+  const reply = await runAgentTurn({
+    userId: message.user,
+    text: message.text,
+    channelId: 'slack',
+  });
+  await say(reply.text);
+});
+```
+
+Same `runAgentTurn`. Same tool catalog. Same audit chain. The lib's job is to make this trivial; the adapter package isn't strictly needed.
+
+**#45 — Email.** SMTP ingress → parse the message body → call `runAgentTurn`; reply via SMTP send. Same pattern.
+
+### Production operations
+
+**#49 — Rate limiting.** Hono ships no built-in. Use `hono-rate-limiter`:
+
+```ts
+import { rateLimiter } from 'hono-rate-limiter';
+
+app.use(
+  '/agents/*',
+  rateLimiter({
+    windowMs: 60_000,
+    limit: 30,
+    keyGenerator: (c) => c.req.header('x-user-id') ?? 'anon',
+    handler: (c) => c.json({ error: 'rate_limited' }, 429),
+  }),
+);
+```
+
+**#50 — Cost guardrails (per-tool quotas).** Scope-policy wrapper:
+
+```ts
+@Injectable({ providedIn: 'root' })
+export class ToolQuotaService {
+  private readonly counts = new Map<string, number>();
+  private readonly limit = 100;
+
+  constructor(tools: ToolRegistry) {
+    tools.setScopePolicy((entry) => (this.counts.get(entry.name) ?? 0) < this.limit);
+  }
+  record(toolName: string): void {
+    this.counts.set(toolName, (this.counts.get(toolName) ?? 0) + 1);
+  }
+}
+```
+
+Call `record(toolName)` from your tool wrapper before each invocation.
+
+**#52 — LLM provider failover.** In `ServerAgent.run`:
+
+```ts
+async *run(input) {
+  try {
+    yield* this.geminiTurn(input);
+  } catch (err) {
+    if (isQuotaError(err)) {
+      console.warn('Gemini quota exhausted; falling back to OpenAI');
+      yield* this.openAiTurn(input);
+    } else {
+      throw err;
+    }
+  }
+}
+```
+
+**#55 — Per-turn token budget.** Pre-flight check in `ServerAgent.run`:
+
+```ts
+async *run(input) {
+  const tokens = countTokens(input.messages);
+  if (tokens > 100_000) {
+    yield {
+      type: 'run-error', runId: input.runId,
+      error: { code: 'token_budget_exceeded', message: `${tokens} > 100k` },
+    };
+    return;
+  }
+  // … rest of the agent loop …
+}
+```
+
+### Advanced / not-yet-shipped
+
+**#57 — Eval framework.** Pattern (not in lib):
+
+```ts
+// projects/my-agent-server/test/eval.spec.ts
+import { runScenario } from './eval-harness';
+
+describe('GeminiAgent scenarios', () => {
+  it('books a flight given clear instructions', async () => {
+    const result = await runScenario({
+      agent: new GeminiAgent(),
+      messages: [{ role: 'user', content: 'Book LAX to JFK on 2026-06-15' }],
+      tools: [bookFlightTool],
+      assertions: {
+        toolCalled: 'bookFlight',
+        args: { from: 'LAX', to: 'JFK', date: '2026-06-15' },
+      },
+    });
+    expect(result.toolCalled).toBe('bookFlight');
+  });
+});
+```
+
+The harness is ~50 LOC — collects events from `agent.run`, checks the assertion. **`runConformance` from the lib tests the wire contract, not the agent's reasoning quality.** Eval is a separate concern.
+
+**#58 — Code interpreter.** Wire a sandboxed runtime as a tool:
+
+```ts
+import { Sandbox } from 'e2b';
+
+export const runCodeTool = agenticTool({
+  name: 'runCode',
+  description: 'Run Python in a sandboxed environment',
+  schema: z.object({ code: z.string() }),
+  executeIn: 'server',     // never run untrusted code in the user's browser
+  handler: async (args) => {
+    const sandbox = await Sandbox.create();
+    try {
+      const result = await sandbox.runCode(args.code);
+      return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
+    } finally {
+      await sandbox.close();
+    }
+  },
+});
+```
+
+The lib doesn't ship a sandboxed runtime — pick e2b / firecracker / deno-deploy / docker-exec based on your security model.
+
+**#61 — Memory / context-window compaction.** Wrap your `ServerAgent`:
+
+```ts
+async *run(input) {
+  let messages = input.messages;
+  const totalTokens = countTokens(messages);
+  if (totalTokens > 50_000) {
+    const summary = await summarize(messages.slice(0, -10));  // compact all but last 10
+    messages = [
+      { role: 'system', content: `Prior conversation summary: ${summary}` },
+      ...messages.slice(-10),
+    ];
+  }
+  yield* this.llmTurn({ ...input, messages });
+}
+```
+
+---
+
+## When the library doesn't ship the answer
+
+A summary recipe for the ❌ rows above:
+
+| What's missing | Where to extend |
+|---|---|
+| New tool capability | `agenticTool({…})` — always your starting point |
+| New widget kind | `agenticWidget({…})` + the Angular component class |
+| Custom backend protocol | Implement `AgenticBackend` interface; `runConformance` validates it |
+| Custom telemetry routing | Implement `AgenticTelemetrySink` interface; `{ provide: AGENTIC_TELEMETRY_SINK, useClass }` |
+| Custom data source | `agenticDataSource({…})` + `DataSourceRegistry.register` |
+| Custom validation rules | `validators.register(yourValidator)` in `ValidationRegistry` |
+| Custom persistence | `persistence.register(yourAdapter)` in `PersistenceRegistry` (or override the `localStorage` slot for a Dexie / IndexedDB swap) |
+| Custom scope policy | `registry.setScopePolicy(predicate)` |
+| Custom external surface (Slack / email / etc.) | Sibling-package pattern: Connect-style middleware that wraps `runAgentTurn` |
+| Custom registry (new domain concept) | Extend `RegistryBase<TDef>`; ~30 LOC |
+
+The library's job is to ship the **seam**. Where it doesn't ship a default, the seam is documented above.
