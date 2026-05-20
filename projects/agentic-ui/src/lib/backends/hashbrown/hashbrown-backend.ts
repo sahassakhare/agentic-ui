@@ -1,11 +1,16 @@
-import type { EnvironmentProviders } from '@angular/core';
+import { EnvironmentProviders, inject, makeEnvironmentProviders, provideEnvironmentInitializer } from '@angular/core';
 import {
-  provideAgenticBackend,
+  AGENTIC_TELEMETRY_SINK,
+  BackendRegistry,
   type AgenticBackend,
   type AgenticEvent,
   type AgenticRunInput,
+  type AgenticTelemetrySink,
   type BackendCapabilities,
+  type BackendDef,
 } from '../../internal';
+import { parseAgenticEventStrict } from '../_shared/canonical-events';
+import { serializeToolsForWire } from '../_shared/canonical-messages';
 
 export interface HashbrownBackendConfig {
   /** URL of the Hashbrown server endpoint (returns NDJSON or SSE). */
@@ -24,20 +29,34 @@ export const HASHBROWN_CAPABILITIES: BackendCapabilities = {
 };
 
 /**
- * Backend adapter for Hashbrown UI servers. Hashbrown is a model-agnostic LLM
- * abstraction (LiveLoveApp) supporting OpenAI and Google variants — see
- * `flights42`'s `hashbrown/server-{openai,google}.ts` for reference servers.
+ * Backend adapter for Hashbrown UI servers. Hashbrown is a
+ * model-agnostic LLM abstraction (LiveLoveApp) supporting OpenAI and
+ * Google variants — see `flights42`'s `hashbrown/server-{openai,
+ * google}.ts` for reference servers.
  *
- * The wire protocol is server-defined; this adapter assumes NDJSON event
- * lines compatible with the {@link AgenticEvent} union (the canonical form).
- * Servers that emit a different shape can either translate at the edge or
- * use this adapter as a base class with overridden `mapServerEvent`.
+ * The wire protocol is server-defined; this adapter posts the lib's
+ * `AgenticMessage[]` shape directly (the same shape AG-UI consumes),
+ * with `tools[]` carrying the full JSON-Schema parameters derived
+ * from each ToolDef's Zod schema, and `state` threaded per ADR-013.
+ *
+ * Slice L1 of `docs/plans/library-hardening-plan.md` brings this
+ * adapter to parity with AG-UI:
+ *   - Tools posted with full schemas (was: `{name, description}` only)
+ *   - `state` field threaded (was: not posted; lost persona/route ctx)
+ *   - Inbound NDJSON lines validated against `agenticEventSchema`
+ *     (was: `as unknown as AgenticEvent` cast — could corrupt run
+ *     state on a malformed wire payload)
+ *   - Malformed events emit `agentic.run.malformed_event` telemetry
+ *     instead of silently dropping
  */
 export class HashbrownBackend implements AgenticBackend {
   readonly id = 'hashbrown';
   readonly capabilities = HASHBROWN_CAPABILITIES;
 
-  constructor(private readonly config: HashbrownBackendConfig) {}
+  constructor(
+    private readonly config: HashbrownBackendConfig,
+    private readonly telemetry: AgenticTelemetrySink,
+  ) {}
 
   async *run(input: AgenticRunInput): AsyncIterable<AgenticEvent> {
     yield { type: 'run-started', threadId: input.threadId, runId: input.runId };
@@ -56,7 +75,11 @@ export class HashbrownBackend implements AgenticBackend {
           threadId: input.threadId,
           runId: input.runId,
           messages: input.messages,
-          tools: input.tools.map((t) => ({ name: t.name, description: t.description })),
+          tools: serializeToolsForWire(input.tools),
+          // ADR-013 — host's per-turn reasoning context (persona,
+          // matter, active route). Default `{}` matches v1.2 wire when
+          // no AGENTIC_RUN_STATE_PROVIDER is registered.
+          state: input.state ?? {},
           model: this.config.model ?? 'openai',
         }),
       });
@@ -75,7 +98,12 @@ export class HashbrownBackend implements AgenticBackend {
           const line = buffer.slice(0, idx).trim();
           buffer = buffer.slice(idx + 1);
           if (!line) continue;
-          const ev = parseLine(line);
+          const ev = parseAgenticEventStrict(line, {
+            telemetry: this.telemetry,
+            threadId: input.threadId,
+            runId: input.runId,
+            backendId: this.id,
+          });
           if (ev) yield ev;
         }
       }
@@ -91,21 +119,20 @@ export class HashbrownBackend implements AgenticBackend {
   }
 }
 
-function parseLine(line: string): AgenticEvent | null {
-  try {
-    const obj = JSON.parse(line) as Record<string, unknown>;
-    if (typeof obj['type'] !== 'string') return null;
-    return obj as unknown as AgenticEvent;
-  } catch {
-    return null;
-  }
-}
-
 export function provideHashbrownBackend(config: HashbrownBackendConfig): EnvironmentProviders {
-  return provideAgenticBackend({
-    id: 'hashbrown',
-    label: 'Hashbrown',
-    capabilities: HASHBROWN_CAPABILITIES,
-    factory: () => new HashbrownBackend(config),
-  });
+  return makeEnvironmentProviders([
+    provideEnvironmentInitializer(() => {
+      const telemetry = inject(AGENTIC_TELEMETRY_SINK);
+      const registry = inject(BackendRegistry);
+      const def: BackendDef = {
+        name: 'hashbrown',
+        id: 'hashbrown',
+        label: 'Hashbrown',
+        capabilities: HASHBROWN_CAPABILITIES,
+        factory: () => new HashbrownBackend(config, telemetry),
+      };
+      registry.register(def);
+      registry.setActive('hashbrown');
+    }),
+  ]);
 }

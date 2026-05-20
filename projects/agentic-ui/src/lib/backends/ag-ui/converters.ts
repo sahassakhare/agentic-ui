@@ -1,34 +1,28 @@
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import type { Message, Tool } from '@ag-ui/client';
-import type { AgenticMessage, MessageContent, ToolDef } from '../../internal';
+import type { AgenticMessage, ToolDef } from '../../internal';
+import { flattenContentToString } from '../_shared/canonical-messages';
 
 /**
- * Coerce an `AgenticMessage.content` (string | MessageContent[]) into a
- * single text string for backends that don't yet consume multi-modal
- * parts (Capability F6 graceful degradation).
- *
- * Text parts are concatenated verbatim; images / files surface as
- * `[image: alt]` / `[file: name]` markers so the LLM at least sees that
- * non-text content was attached. The AG-UI adapter treats this as the
- * v1 fallback; an upcoming slice extends the wire shape to pass parts
- * through natively when the AG-UI server advertises support.
+ * AG-UI converters. AG-UI uses `@ag-ui/client`'s `Message` and
+ * `Tool` runtime types (similar to OpenAI chat completions but with
+ * camelCase + a flat `Tool` shape), so the adapter owns its own
+ * conversion. Multi-modal flattening is shared with the other
+ * backends via `flattenContentToString`.
  */
-function flattenContent(content: AgenticMessage['content']): string {
-  if (typeof content === 'string') return content;
-  const out: string[] = [];
-  for (const p of content as readonly MessageContent[]) {
-    if (p.kind === 'text') out.push(p.text);
-    else if (p.kind === 'image') out.push(`[image${p.alt ? `: ${p.alt}` : ''} (${p.mimeType})]`);
-    else out.push(`[file: ${p.filename}${p.sizeBytes ? ` · ${p.sizeBytes}B` : ''}]`);
-  }
-  return out.join('\n');
-}
+
+/**
+ * @internal — kept for any pre-L1 callers that referenced the
+ * helper. `flattenContentToString` from the shared layer is the
+ * public name going forward.
+ */
+export const flattenContent = flattenContentToString;
 
 /** Convert library `AgenticMessage`s to AG-UI's `Message[]` shape. */
 export function convertMessagesToAgUi(messages: readonly AgenticMessage[]): Message[] {
   const out: Message[] = [];
   for (const m of messages) {
-    const text = flattenContent(m.content);
+    const text = flattenContentToString(m.content);
     if (m.role === 'user') {
       out.push({ id: m.id, role: 'user', content: text });
     } else if (m.role === 'assistant') {
@@ -44,7 +38,7 @@ export function convertMessagesToAgUi(messages: readonly AgenticMessage[]): Mess
             }))
           : undefined,
       });
-      // Tool messages for any results we already have client-side
+      // Tool messages for any results we already have client-side.
       for (const tc of m.toolCalls) {
         if (tc.result !== undefined) {
           out.push({
