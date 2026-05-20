@@ -1,6 +1,6 @@
 import { NgComponentOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { ComponentRegistry, DataSourceRegistry, type AgenticWidgetInstance } from '../internal';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input } from '@angular/core';
+import { AGENTIC_TELEMETRY_SINK, ComponentRegistry, DataSourceRegistry, type AgenticWidgetInstance } from '../internal';
 
 interface ResolvedWidget {
   readonly component: ReturnType<ComponentRegistry['get']> extends infer T
@@ -49,6 +49,7 @@ export class WidgetContainerComponent {
   readonly widget = input.required<AgenticWidgetInstance>();
   private readonly registry = inject(ComponentRegistry);
   private readonly dataSources = inject(DataSourceRegistry);
+  private readonly telemetry = inject(AGENTIC_TELEMETRY_SINK);
 
   protected readonly resolved = computed<ResolvedWidget | null>(() => {
     const w = this.widget();
@@ -74,5 +75,32 @@ export class WidgetContainerComponent {
       }
     }
     return null;
+  });
+
+  /**
+   * Emit `agentic.widget.render` whenever the widget input flips identity
+   * AND resolves to a mountable component. Driven by `effect()` watching
+   * both signals so a transient unresolved → resolved transition (data
+   * source registered late) also produces a render event.
+   *
+   * Suppression: parse failures (the propsSchema rejects the agent's
+   * payload) still mount — the input is forwarded as-is to the
+   * component. Telemetry attribute `agentic.widget.props_parse` records
+   * whether validation succeeded so adopters can quantify how often the
+   * agent emits malformed widget props.
+   */
+  private lastEmittedFor: AgenticWidgetInstance | null = null;
+  private readonly _emitRender = effect(() => {
+    const w = this.widget();
+    const r = this.resolved();
+    if (!r || this.lastEmittedFor === w) return;
+    this.lastEmittedFor = w;
+    const def = this.registry.get(w.name);
+    const parse = def?.propsSchema.safeParse(w.props);
+    this.telemetry.emit('agentic.widget.render', {
+      'agentic.widget.name': w.name,
+      'agentic.widget.source': def?.source ?? 'host',
+      'agentic.widget.props_parse': parse?.success ? 'ok' : 'fallthrough',
+    });
   });
 }

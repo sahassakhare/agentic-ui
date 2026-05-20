@@ -108,12 +108,10 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
       ? backends.list().find((b) => b.id === options.backendId)
       : backends.active();
     const supportsMultiModal = def?.capabilities.multiModal === true;
+    let multimodalFallback = false;
     if (Array.isArray(resolvedContent) && !supportsMultiModal) {
       const fallback = textOnlyFallback(resolvedContent);
-      telemetry.emit('agentic.run.start', {
-        'agentic.multimodal.fallback': true,
-        'agentic.backend.id': def?.id ?? '(none)',
-      });
+      multimodalFallback = true;
       // eslint-disable-next-line no-console
       console.warn(
         `[agentic-ui] Backend ${JSON.stringify(def?.id ?? '(none)')} does not advertise ` +
@@ -146,6 +144,19 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
     lastError.set(undefined);
 
     const runId = randomId('run');
+
+    // Fire `agentic.run.start` on EVERY run, not just the multimodal-
+    // fallback branch (where the only previous emit lived). Adopters
+    // wiring `provideAgenticTelemetry` expect the lifecycle pair
+    // start/end on every turn so dashboards can compute duration.
+    telemetry.emit('agentic.run.start', {
+      'agentic.thread.id': threadId,
+      'agentic.run.id': runId,
+      'agentic.backend.id': def.id,
+      'agentic.tools.available': tools.list().length,
+      ...(multimodalFallback ? { 'agentic.multimodal.fallback': true } : {}),
+    });
+    const runStartedAt = Date.now();
 
     // Run the configured tool filter so the backend (and the LLM behind
     // it) only sees a relevant subset. Default is the identity filter,
@@ -185,10 +196,33 @@ export function injectAgenticChat(options: AgenticChatOptions = {}): AgenticChat
       operationRegistry,
       stateProvider,
     })
+      .then(() => {
+        // Success path — the orchestrator settled cleanly. `outcome:
+        // 'aborted'` overrides 'ok' when the signal fired mid-run so
+        // dashboards can tell the two apart without inspecting attrs.
+        telemetry.emit('agentic.run.end', {
+          'agentic.thread.id': threadId,
+          'agentic.run.id': runId,
+          'agentic.backend.id': def.id,
+          'agentic.run.outcome': abortController?.signal.aborted ? 'aborted' : 'ok',
+          'agentic.run.duration_ms': Date.now() - runStartedAt,
+        });
+      })
       .catch((err) => {
-        if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        const aborted = err instanceof DOMException && err.name === 'AbortError';
+        if (!aborted) {
           lastError.set(err instanceof Error ? err : new Error(String(err)));
         }
+        telemetry.emit('agentic.run.end', {
+          'agentic.thread.id': threadId,
+          'agentic.run.id': runId,
+          'agentic.backend.id': def.id,
+          'agentic.run.outcome': aborted ? 'aborted' : 'error',
+          'agentic.run.duration_ms': Date.now() - runStartedAt,
+          ...(aborted ? {} : {
+            'agentic.error.message': err instanceof Error ? err.message : String(err),
+          }),
+        });
       })
       .finally(() => {
         isLoading.set(false);
