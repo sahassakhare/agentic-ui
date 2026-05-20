@@ -2,14 +2,18 @@ import { EnvironmentProviders, inject, InjectionToken, makeEnvironmentProviders,
 import {
   ActionRegistry,
   AGENTIC_LOGGER,
+  AGENTIC_TELEMETRY_SINK,
   BackendRegistry,
   ValidationRegistry,
   type AgenticBackend,
   type AgenticEvent,
   type AgenticRunInput,
+  type AgenticTelemetrySink,
   type BackendCapabilities,
   type BackendDef,
 } from '../../internal';
+import { parseAgenticEventStrict } from '../_shared/canonical-events';
+import { serializeToolsForWire } from '../_shared/canonical-messages';
 
 export interface A2uiBackendConfig {
   readonly url: string;
@@ -20,16 +24,34 @@ export interface A2uiBackendConfig {
 
 /**
  * Dispatcher invoked when the A2UI agent emits a `ui-action` event.
- * Apps wire their own (route changes, store mutations, form fills, etc.).
+ * Receives the action plus the in-flight `threadId` + `runId` so the
+ * effect's audit attribution is correct. Apps wire their own
+ * dispatcher (route changes, store mutations, form fills, …) or rely
+ * on the {@link UI_ACTION_DISPATCHER} default that routes to
+ * `ActionRegistry`.
+ *
+ * The `threadId` / `runId` arguments were added in slice L1
+ * (`docs/plans/library-hardening-plan.md`) — before that the default
+ * dispatcher hardcoded empty strings, breaking audit attribution.
  */
 export interface UiActionDispatcher {
-  dispatch(action: { actionId: string; op: string; payload: unknown }): void | Promise<void>;
+  dispatch(action: {
+    actionId: string;
+    op: string;
+    payload: unknown;
+    threadId: string;
+    runId: string;
+    signal: AbortSignal;
+  }): void | Promise<void>;
 }
 
 /**
- * Default dispatcher routes `ui-action` events to the matching `ActionDef` in
- * `ActionRegistry`, validating the payload via `ValidationRegistry`. Apps that
- * want custom routing can override the token.
+ * Default dispatcher routes `ui-action` events to the matching
+ * `ActionDef` in `ActionRegistry`, validating the payload via
+ * `ValidationRegistry`. The `threadId` / `runId` / `signal` flow
+ * through to the action's effect so audit attribution is correct.
+ *
+ * Apps that want custom routing override this token.
  */
 export const UI_ACTION_DISPATCHER = new InjectionToken<UiActionDispatcher>('UI_ACTION_DISPATCHER', {
   providedIn: 'root',
@@ -38,7 +60,7 @@ export const UI_ACTION_DISPATCHER = new InjectionToken<UiActionDispatcher>('UI_A
     const validators = inject(ValidationRegistry);
     const logger = inject(AGENTIC_LOGGER);
     return {
-      dispatch: async ({ actionId, op, payload }) => {
+      dispatch: async ({ actionId, op, payload, threadId, runId, signal }) => {
         const def = actions.byType(op);
         if (!def) {
           logger.warn(`[a2ui] No ActionDef registered for op; dropping.`, { op, actionId });
@@ -50,10 +72,10 @@ export const UI_ACTION_DISPATCHER = new InjectionToken<UiActionDispatcher>('UI_A
           return;
         }
         await def.effect(result.data, {
-          threadId: '',  // populated by adapter when run() bridges through, see PLAN.md §6.5
-          runId: '',
+          threadId,
+          runId,
           actionId,
-          signal: new AbortController().signal,
+          signal,
         });
       },
     };
@@ -68,12 +90,26 @@ export const A2UI_CAPABILITIES: BackendCapabilities = {
 };
 
 /**
- * A2UI backend adapter (M3 stub). The distinguishing feature vs AG-UI is the
- * `ui-action` event class — agents can issue UI ops (route, store, form)
- * dispatched through the configured `UiActionDispatcher`.
+ * A2UI backend adapter. The distinguishing feature vs AG-UI is the
+ * `ui-action` event class — the agent can issue UI ops (route, store,
+ * form) dispatched through the configured `UiActionDispatcher`.
  *
- * NOTE: A2UI is the least-settled protocol; this adapter pins a specVersion.
- * See PLAN.md §11 R1 for the spec-churn handling plan.
+ * Slice L1 of `docs/plans/library-hardening-plan.md` brings the
+ * adapter to parity with AG-UI:
+ *   - Tools posted with full JSON-Schema parameters (was: `{name,
+ *     description}` only — the LLM had no argument schema)
+ *   - `state` field threaded per ADR-013 (was: not posted — host
+ *     reasoning context lost)
+ *   - Inbound NDJSON lines validated against `agenticEventSchema`
+ *     (was: `as unknown as AgenticEvent` cast — could corrupt run
+ *     state on malformed payloads)
+ *   - `ui-action` dispatcher receives the live threadId / runId
+ *     (was: hardcoded empty strings — audit attribution broken)
+ *   - Malformed events emit `agentic.run.malformed_event` telemetry
+ *
+ * The A2UI spec itself is the least-settled protocol in the lib —
+ * the adapter pins a `specVersion` so adopters track upstream
+ * changes deliberately rather than auto-upgrading.
  */
 export class A2uiBackend implements AgenticBackend {
   readonly id = 'a2ui';
@@ -82,6 +118,7 @@ export class A2uiBackend implements AgenticBackend {
   constructor(
     private readonly config: A2uiBackendConfig,
     private readonly dispatcher: UiActionDispatcher,
+    private readonly telemetry: AgenticTelemetrySink,
   ) {}
 
   async *run(input: AgenticRunInput): AsyncIterable<AgenticEvent> {
@@ -101,7 +138,11 @@ export class A2uiBackend implements AgenticBackend {
           threadId: input.threadId,
           runId: input.runId,
           messages: input.messages,
-          tools: input.tools.map((t) => ({ name: t.name, description: t.description })),
+          tools: serializeToolsForWire(input.tools),
+          // ADR-013 — host's per-turn reasoning context. Default `{}`
+          // matches v1.2 wire when no AGENTIC_RUN_STATE_PROVIDER is
+          // registered.
+          state: input.state ?? {},
           specVersion: this.config.specVersion ?? '0.x',
         }),
       });
@@ -120,11 +161,23 @@ export class A2uiBackend implements AgenticBackend {
           const line = buffer.slice(0, idx).trim();
           buffer = buffer.slice(idx + 1);
           if (!line) continue;
-          const ev = parseEvent(line);
+          const ev = parseAgenticEventStrict(line, {
+            telemetry: this.telemetry,
+            threadId: input.threadId,
+            runId: input.runId,
+            backendId: this.id,
+          });
           if (!ev) continue;
           yield ev;
           if (ev.type === 'ui-action') {
-            await this.dispatcher.dispatch({ actionId: ev.actionId, op: ev.op, payload: ev.payload });
+            await this.dispatcher.dispatch({
+              actionId: ev.actionId,
+              op: ev.op,
+              payload: ev.payload,
+              threadId: input.threadId,
+              runId: input.runId,
+              signal: input.signal,
+            });
           }
         }
       }
@@ -140,27 +193,18 @@ export class A2uiBackend implements AgenticBackend {
   }
 }
 
-function parseEvent(line: string): AgenticEvent | null {
-  try {
-    const obj = JSON.parse(line) as Record<string, unknown>;
-    if (typeof obj['type'] === 'string') return obj as unknown as AgenticEvent;
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 export function provideA2uiBackend(config: A2uiBackendConfig): EnvironmentProviders {
   return makeEnvironmentProviders([
     provideEnvironmentInitializer(() => {
       const registry = inject(BackendRegistry);
       const dispatcher = inject(UI_ACTION_DISPATCHER);
+      const telemetry = inject(AGENTIC_TELEMETRY_SINK);
       const def: BackendDef = {
         name: 'a2ui',
         id: 'a2ui',
         label: 'A2UI',
         capabilities: A2UI_CAPABILITIES,
-        factory: () => new A2uiBackend(config, dispatcher),
+        factory: () => new A2uiBackend(config, dispatcher, telemetry),
       };
       registry.register(def);
       registry.setActive('a2ui');
