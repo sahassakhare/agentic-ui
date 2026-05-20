@@ -732,7 +732,8 @@ Open <http://localhost:4201>, <http://localhost:4203>, and <http://localhost:420
 |----------|----------|
 | [API reference](https://sahassakhare.github.io/agentic-ui/) | Full TypeDoc-generated reference; rebuilt on every push to `main` and on every `v*` tag. Locally: `npm run docs:api`. |
 | Compodoc site | Angular-aware docs site (components, services, modules, routes) with the cookbook embedded as an additional-pages section. Build: `npm run docs:compodoc`. Live-reload: `npm run docs:compodoc:serve`. Output: `docs/compodoc/`. |
-| [User Guide](./docs/USER_GUIDE.md) | 7-step walkthrough from clean clone to a working federated demo, plus a troubleshooting matrix keyed to specific error messages. |
+| [Developer Guide](./docs/DEVELOPER_GUIDE.md) | **Step-by-step journey** from `ng add` to production: 19 sequenced steps (install → providers → tools → widgets → backend → server → real LLM → forms / approvals / LRO / multi-modal / federation / persona scope / telemetry / catalog / MCP / Teams + Copilot / deployment / observability). Each step has a clear "skip if…" so opt-in features stay opt-in. Common pitfalls + fixes table at the end. **Start here if you're building your own agentic UI.** |
+| [User Guide](./docs/USER_GUIDE.md) | 7-step walkthrough from clean clone to a working federated *demo* (run the included apps). |
 | [Quickstart](./docs/cookbook/quickstart.md) | Provider wiring in five minutes. |
 | [Sample prompts](./docs/cookbook/sample-prompts.md) | Canonical prompts for every demo and every library feature — paste into the chat, or use as a manual regression suite. |
 | [Production deployment](./docs/cookbook/production-deployment.md) | The `ThreadStateStore` abstraction (Redis / Postgres adapters), rate-limiting, secrets, K8s liveness probes — what changes between localhost and a multi-pod deploy. |
