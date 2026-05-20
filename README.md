@@ -7,7 +7,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 
 > **A reusable Angular 21 library for building user interfaces an LLM can drive.**
-> One chat shell, one set of registries, one orchestration loop — works against AG-UI, Hashbrown, or A2UI without rewriting application code.
+> One chat shell, one set of registries, one orchestration loop — works against AG-UI, Hashbrown, or A2UI without rewriting application code.[¹](#backend-support-matrix)
 
 ![eDiscovery flagship — chat panel typing the prompt, the agent routing to the collection specialist, the addCustodian tool firing, and an app-custodian-card widget rendering live (animated)](docs/assets/agentic-ui-in-action.gif)
 
@@ -183,7 +183,7 @@ Twenty-seven distinct scenarios the library covers, ranked roughly by adoption o
 | 2 | **Tool calling with state mutation** — typed args, abort signals | `ToolRegistry` · `tool-call-*` events | Foundational |
 | 3 | **Federating MFE remotes** — remotes contribute tools/widgets at runtime | `defineCapabilityModule` · `loadRemoteCapabilities` | Architects |
 | 4 | **Per-persona entitlement** — LLM can't see tools the user isn't entitled to | `RegistryBase.setScopePolicy(predicate)` | Architects + execs |
-| 5 | **Backend swap (AG-UI ↔ Hashbrown ↔ A2UI)** — one shell, three protocols | `AgenticBackend` interface | Architects |
+| 5 | **Backend swap (AG-UI ↔ Hashbrown ↔ A2UI)** — one shell, three protocols (all three client adapters conformant per [ADR-048](./docs/adr/0048-backend-adapter-parity-contract.md); reference server in `examples/demo-server` is AG-UI-only) | `AgenticBackend` interface | Architects |
 | 6 | **Multi-agent orchestration** — sticky routing across specialists | `OrchestratorAgent` · `ThreadStateStore` | Architects |
 | 7 | **Per-turn tool budget at scale** — keyword-filtered tool list per prompt | `provideToolFilter(keywordToolFilter({maxTools, floor}))` | Architects |
 | 8 | **MCP — same tools power Claude Desktop / Cursor** | `@infra-tools/agentic-ui-mcp` | Execs + architects |
@@ -225,7 +225,7 @@ Twenty-seven distinct scenarios the library covers, ranked roughly by adoption o
 
 ## Features
 
-- **Pluggable agent backends.** A single `AgenticBackend` interface; ship adapters for AG-UI (`@ag-ui/client` HttpAgent + SSE), Hashbrown (NDJSON), and A2UI (`ui-action` event class routed through `ActionRegistry`).
+- **Pluggable agent backends.** A single `AgenticBackend` interface; ship adapters for AG-UI (`@ag-ui/client` HttpAgent + SSE), Hashbrown (NDJSON), and A2UI (`ui-action` event class routed through `ActionRegistry`). All three pass the `runConformance` harness per [ADR-048](./docs/adr/0048-backend-adapter-parity-contract.md) (tool schemas posted with full JSON-Schema, `state` threaded per [ADR-013](./docs/adr/0013-run-state-provider.md), inbound events Zod-validated, ui-action dispatcher carries live thread/run ids). See the [Backend support matrix](#backend-support-matrix) for what's tested end-to-end vs adopter-supplied.
 - **Layered registry system.** Eighteen registries grouped into Core, Extended, and Seam tiers, all sharing one `Registry<TDef>` shape — uniform `register / list / signal / removeBySource` semantics across tools, components, capabilities, backends, MFE remotes, actions, intents, forms, data sources, validation, persistence, layout, schema transformation, plus the dynamic-UI additions (approval, operation) and the post-chat-surfaces additions (trigger, dashboard, playbook).
 - **Generative UI.** Tool results carrying a `components: [{ name, props }]` field cause the chat shell to render registered Angular components by name through `*ngComponentOutlet`, with Zod-validated props.
 - **MFE federation.** `defineCapabilityModule` packages a remote's tools and widgets; `loadRemoteCapabilities` (Native Federation) and `loadRemoteCapabilitiesMF` (webpack Module Federation) push them into the host's runtime registries. Remote discovery happens through a pluggable `MfeRegistrySource` (static JSON or Spring Boot reference adapters; bring-your-own for Consul, Etcd, etc.).
@@ -234,6 +234,30 @@ Twenty-seven distinct scenarios the library covers, ranked roughly by adoption o
 - **Observability.** `AgenticTelemetrySink` emit points are baked into the orchestrator and registries from M1; the optional OpenTelemetry-backed sink ships with W3C trace context propagation across SSE.
 - **Federation-safe single primary entry.** All public API exports through one entry point so Native Federation can share the runtime as a singleton across host and remote (see [ADR-005](./docs/adr/0005-single-primary-entry.md)). Tree-shaking is preserved by `"sideEffects": false`.
 - **Platform integration in one provider.** `provideAgenticPlatform({...})` wires every catalog adapter through a single shared `catalogUrl` / `tenantId` / `getToken` config: IAM persona resolver, federated MFE registry source, **capability registrar** (auto-POST every registered tool/widget at boot — closes the catalog-drift gap from [ADR-025](./docs/adr/0025-ediscovery-demo-seed.md)), **capability authorizer** (catalog `lifecycle: 'disabled'` toggles hide entries from `ToolRegistry` / `ComponentRegistry` reads — closes the "ops console disable button is decorative" gap), and **usage metering** (every tool call / widget render / federation load posts to `/v1/catalogs/{tenant}/usage`). All four are opt-in per-feature switches; `false` or omission skips. Apps without `provideAgenticPlatform` see zero behaviour change. See [ADRs 031](./docs/adr/0031-provide-agentic-platform.md) / [032](./docs/adr/0032-catalog-capability-registrar.md) / [033](./docs/adr/0033-catalog-capability-authorizer.md) / [034](./docs/adr/0034-catalog-usage-metering.md) and the [2026-05-10 platform audit](./docs/audit/2026-05-10-platform-audit.md).
+
+## Backend support matrix
+
+The library ships three protocol adapters. All three are **client-conformant** (pass `runConformance` per [ADR-048](./docs/adr/0048-backend-adapter-parity-contract.md)); operational maturity varies. Read this before picking which adapter to wire.
+
+| | AG-UI | Hashbrown | A2UI |
+|---|---|---|---|
+| **Client adapter** (this lib) | ✓ production | ✓ production (since v1.2.2) | ✓ production (since v1.2.2) |
+| Tools posted with full JSON-Schema | ✓ | ✓ | ✓ |
+| `state` threaded ([ADR-013](./docs/adr/0013-run-state-provider.md)) | ✓ | ✓ | ✓ |
+| Inbound events Zod-validated | ✓ | ✓ | ✓ |
+| `ui-action` dispatcher attribution | n/a | n/a | ✓ |
+| Sibling spec coverage | 3 spec files, 298 LOC | 2 spec files (adapter + shared) | 2 spec files (adapter + shared) |
+| Conformance harness | passes | passes | passes |
+| **End-to-end story** | | | |
+| Reference server in `examples/` | ✓ [`demo-server`](./examples/demo-server) + [`demo-ediscovery-server`](./examples/demo-ediscovery-server) | adopter-supplied (see [`flights42`](https://github.com/liveloveapp/hashbrown) for a reference) | adopter-supplied (A2UI spec 0.x) |
+| Demos exercising the adapter | 16 demos (AG-UI is the default) | none in this repo | none in this repo |
+| Real-LLM e2e tests | ✓ Gemini via [Playwright](./e2e/README.md) | none | none |
+| Deployed reference | ✓ [ediscovery-shell.onrender.com](https://ediscovery-shell.onrender.com) | none | none |
+| Upstream spec stability | `@ag-ui/client` v0.0.52 (pinned) | server-defined wire (adopter contract) | spec 0.x (unsettled) |
+
+**What this means in practice.** Wire-protocol fidelity is the same across all three; build and ship against any of them. AG-UI is the recommended default because the repo ships the full stack (host adapter + server + LLM-driven e2e tests + deployed demo). Hashbrown and A2UI are correct client adapters waiting for an adopter to bring the server. If you do, please open an issue / PR with a reference server so the next adopter doesn't repeat the work.
+
+¹ Footnote from the headline pitch: *"works against AG-UI, Hashbrown, or A2UI without rewriting application code"* — the **application** (registries, widgets, tools, chat shell) is genuinely backend-agnostic. Hashbrown + A2UI need an adopter-supplied **server**.
 
 ## Library capability inventory
 
@@ -744,6 +768,9 @@ Open <http://localhost:4201>, <http://localhost:4203>, and <http://localhost:420
 | [ADR-002](./docs/adr/0002-layered-registry-system.md) | Layered registry system. |
 | [ADR-003](./docs/adr/0003-pluggable-mfe-registry-source.md) | Pluggable MFE registry source. |
 | [ADR-005](./docs/adr/0005-single-primary-entry.md) | Single primary entry (no ng-packagr secondary entries). |
+| [ADR-048 — Backend-adapter parity contract](./docs/adr/0048-backend-adapter-parity-contract.md) | Codifies the four required behaviours (tool schemas posted with full JSON-Schema, `state` threaded, events Zod-validated, ui-action dispatcher attribution) that AG-UI / Hashbrown / A2UI all conform to. Enforced by the `runConformance` harness. **Status: Accepted (shipped v1.2.2).** |
+| [Library hardening plan](./docs/plans/library-hardening-plan.md) | Six slices (L1 backend parity, L2 observability, L3 Zod event boundary, L4 orchestrator failure-mode coverage, L5 conformance teeth, L6 sibling-package smoke e2e). **Status: all six shipped in v1.2.2.** |
+| [agentic-core split RFC](./docs/plans/agentic-core-split-plan.md) | Pending RFC for a `@infra-tools/agentic-core` package extracting types + schemas + backend adapters into a slimmer surface. Six decisions flagged; **no implementation until approved.** |
 | [CHANGELOG](./projects/agentic-ui/CHANGELOG.md) | Release notes. |
 
 ## Development
