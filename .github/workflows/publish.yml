@@ -17,6 +17,7 @@ name: publish
 #           agentic-ui-mcp-v0.1.0                          → @infra-tools/agentic-ui-mcp
 #           agentic-ui-copilot-skill-v0.1.0                → @infra-tools/agentic-ui-copilot-skill
 #           agentic-ui-teams-bot-v0.1.0                    → @infra-tools/agentic-ui-teams-bot
+#           agentic-ui-m365-agents-v0.1.0                  → @infra-tools/agentic-ui-m365-agents
 #           agentic-ui-copilot-studio-connector-v0.1.0     → @infra-tools/agentic-ui-copilot-studio-connector
 #         The workflow detects the prefix and publishes only that package.
 #         (`v1.1.0` without a prefix also works — defaults to agentic-ui.)
@@ -129,6 +130,31 @@ jobs:
           echo "Publishing: $pkgs"
           echo "pkgs=$pkgs" >> "$GITHUB_OUTPUT"
 
+      # Fail fast with a clear, actionable message if the npm credentials
+      # aren't usable. Without this, `npm publish` exits with a generic
+      # ENEEDAUTH / EUNAUTHORIZED ~4 s later and the workflow's failure
+      # looks ambiguous. Skipped on dry-run and when NPM_TOKEN is empty —
+      # the empty-token path is valid IF npm Trusted Publishing has been
+      # configured for every @infra-tools/* package (the OIDC token
+      # request the publish step makes covers it).
+      - name: Verify npm credentials (when NPM_TOKEN is set)
+        if: env.DRY_RUN != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::notice::NPM_TOKEN secret is empty — assuming npm Trusted Publishing is configured for every @infra-tools/* package. If publish fails with ENEEDAUTH, either set NPM_TOKEN or finish enrolling Trusted Publishing for the failing package(s)."
+            exit 0
+          fi
+          if ! who=$(npm whoami 2>&1); then
+            echo "::error::npm whoami failed — NPM_TOKEN is invalid, expired, or revoked."
+            echo "::error::Regenerate at npmjs.com → Access Tokens → Generate New Token (Automation), grant publish access to the @infra-tools scope, and update the NPM_TOKEN repository secret."
+            echo "npm whoami output:"
+            echo "$who"
+            exit 1
+          fi
+          echo "Authenticated to npm as: $who"
+
       - name: Build all libraries (dependency order)
         run: |
           # Always build everything — small enough that conditional builds
@@ -155,212 +181,105 @@ jobs:
           npm --prefix projects/agentic-ui-server-registrar         run build
           npm --prefix projects/agentic-ui-opa-authorizer           run build
 
-      - name: Publish @infra-tools/agentic-ui
-        working-directory: dist/agentic-ui
+      # Single loop replaces 10 near-identical publish steps. Each package
+      # is attempted independently — one failure doesn't cascade-skip the
+      # remaining nine (the old structure exited the job on the first
+      # failed step, so a transient error on `agentic-ui` blocked all
+      # siblings even though they were ready to ship).
+      #
+      # Exit code: non-zero if ANY targeted package failed to publish, so
+      # the workflow's red/green badge still reflects truth. The summary
+      # table on the run page lists exactly which ones failed.
+      - name: Publish targeted packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PKGS: ${{ steps.target.outputs.pkgs }}
         run: |
-          set -e
-          # Whole-word match — `agentic-ui` won't match `agentic-ui-server`.
-          if ! [[ " $PKGS " == *" agentic-ui "* ]]; then
-            echo "::notice::@infra-tools/agentic-ui not in target list — skipping"; exit 0
-          fi
-          version=$(node -p "require('./package.json').version")
-          if npm view "@infra-tools/agentic-ui@$version" version > /dev/null 2>&1; then
-            echo "::notice::@infra-tools/agentic-ui@$version already on npm — skipping"; exit 0
-          fi
-          if [ "$DRY_RUN" = "true" ]; then
-            npm publish --dry-run
-          else
-            npm publish
-          fi
+          set -u
+          declare -A DIRS=(
+            ["agentic-ui"]="dist/agentic-ui"
+            ["agentic-ui-server"]="projects/agentic-ui-server"
+            ["agentic-ui-mcp"]="projects/agentic-ui-mcp"
+            ["agentic-ui-copilot-skill"]="projects/agentic-ui-copilot-skill"
+            ["agentic-ui-teams-bot"]="projects/agentic-ui-teams-bot"
+            ["agentic-ui-m365-agents"]="projects/agentic-ui-m365-agents"
+            ["agentic-ui-copilot-studio-connector"]="projects/agentic-ui-copilot-studio-connector"
+            ["agentic-ui-server-stores"]="projects/agentic-ui-server-stores"
+            ["agentic-ui-server-registrar"]="projects/agentic-ui-server-registrar"
+            ["agentic-ui-opa-authorizer"]="projects/agentic-ui-opa-authorizer"
+          )
 
-      - name: Publish @infra-tools/agentic-ui-server
-        working-directory: projects/agentic-ui-server
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PKGS: ${{ steps.target.outputs.pkgs }}
-        run: |
-          set -e
-          if ! [[ " $PKGS " == *" agentic-ui-server "* ]]; then
-            echo "::notice::@infra-tools/agentic-ui-server not in target list — skipping"; exit 0
-          fi
-          version=$(node -p "require('./package.json').version")
-          if npm view "@infra-tools/agentic-ui-server@$version" version > /dev/null 2>&1; then
-            echo "::notice::@infra-tools/agentic-ui-server@$version already on npm — skipping"; exit 0
-          fi
-          if [ "$DRY_RUN" = "true" ]; then
-            npm publish --dry-run
-          else
-            npm publish
-          fi
+          PUBLISHED=()
+          SKIPPED=()
+          FAILED=()
 
-      - name: Publish @infra-tools/agentic-ui-mcp
-        working-directory: projects/agentic-ui-mcp
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PKGS: ${{ steps.target.outputs.pkgs }}
-        run: |
-          set -e
-          if ! [[ " $PKGS " == *" agentic-ui-mcp "* ]]; then
-            echo "::notice::@infra-tools/agentic-ui-mcp not in target list — skipping"; exit 0
-          fi
-          version=$(node -p "require('./package.json').version")
-          if npm view "@infra-tools/agentic-ui-mcp@$version" version > /dev/null 2>&1; then
-            echo "::notice::@infra-tools/agentic-ui-mcp@$version already on npm — skipping"; exit 0
-          fi
-          if [ "$DRY_RUN" = "true" ]; then
-            npm publish --dry-run
-          else
-            npm publish
-          fi
+          for pkg in $PKGS; do
+            dir="${DIRS[$pkg]:-}"
+            full="@infra-tools/$pkg"
+            echo "::group::$full"
+            if [ -z "$dir" ]; then
+              echo "::error::Unknown package: $pkg (no directory mapping)"
+              FAILED+=("$pkg (unknown)")
+              echo "::endgroup::"
+              continue
+            fi
+            if [ ! -f "$dir/package.json" ]; then
+              echo "::error::$dir/package.json not found — build step output missing for $full"
+              FAILED+=("$full (no build output)")
+              echo "::endgroup::"
+              continue
+            fi
+            version=$(node -p "require('./$dir/package.json').version")
+            # `npm view <pkg>@<version> version` exits 0 with the version
+            # printed when it exists on npm, exits 1 (E404) when either
+            # the package or the version is missing. The `&& [ -n "$out" ]`
+            # belt-and-suspenders guards against npm changing the exit
+            # convention — we only skip on a positive confirmation that
+            # this exact version is already published.
+            if out=$(npm view "$full@$version" version 2>/dev/null) && [ -n "$out" ]; then
+              echo "::notice::$full@$version already on npm — skipping"
+              SKIPPED+=("$full@$version")
+              echo "::endgroup::"
+              continue
+            fi
+            if [ "$DRY_RUN" = "true" ]; then
+              if (cd "$dir" && npm publish --dry-run); then
+                PUBLISHED+=("$full@$version (dry-run)")
+              else
+                echo "::error::Dry-run publish failed for $full@$version"
+                FAILED+=("$full@$version")
+              fi
+            else
+              if (cd "$dir" && npm publish); then
+                PUBLISHED+=("$full@$version")
+              else
+                echo "::error::Publish failed for $full@$version"
+                FAILED+=("$full@$version")
+              fi
+            fi
+            echo "::endgroup::"
+          done
 
-      - name: Publish @infra-tools/agentic-ui-copilot-skill
-        working-directory: projects/agentic-ui-copilot-skill
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PKGS: ${{ steps.target.outputs.pkgs }}
-        run: |
-          set -e
-          if ! [[ " $PKGS " == *" agentic-ui-copilot-skill "* ]]; then
-            echo "::notice::@infra-tools/agentic-ui-copilot-skill not in target list — skipping"; exit 0
-          fi
-          version=$(node -p "require('./package.json').version")
-          if npm view "@infra-tools/agentic-ui-copilot-skill@$version" version > /dev/null 2>&1; then
-            echo "::notice::@infra-tools/agentic-ui-copilot-skill@$version already on npm — skipping"; exit 0
-          fi
-          if [ "$DRY_RUN" = "true" ]; then
-            npm publish --dry-run
-          else
-            npm publish
-          fi
+          {
+            echo "### Per-package publish results"
+            echo ""
+            echo "| Status | Count | Packages |"
+            echo "|---|---|---|"
+            echo "| Published | ${#PUBLISHED[@]} | ${PUBLISHED[*]:-_none_} |"
+            echo "| Skipped (already on npm) | ${#SKIPPED[@]} | ${SKIPPED[*]:-_none_} |"
+            echo "| Failed | ${#FAILED[@]} | ${FAILED[*]:-_none_} |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Publish @infra-tools/agentic-ui-teams-bot
-        working-directory: projects/agentic-ui-teams-bot
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PKGS: ${{ steps.target.outputs.pkgs }}
-        run: |
-          set -e
-          if ! [[ " $PKGS " == *" agentic-ui-teams-bot "* ]]; then
-            echo "::notice::@infra-tools/agentic-ui-teams-bot not in target list — skipping"; exit 0
-          fi
-          version=$(node -p "require('./package.json').version")
-          if npm view "@infra-tools/agentic-ui-teams-bot@$version" version > /dev/null 2>&1; then
-            echo "::notice::@infra-tools/agentic-ui-teams-bot@$version already on npm — skipping"; exit 0
-          fi
-          if [ "$DRY_RUN" = "true" ]; then
-            npm publish --dry-run
-          else
-            npm publish
-          fi
-
-      - name: Publish @infra-tools/agentic-ui-m365-agents
-        working-directory: projects/agentic-ui-m365-agents
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PKGS: ${{ steps.target.outputs.pkgs }}
-        run: |
-          set -e
-          if ! [[ " $PKGS " == *" agentic-ui-m365-agents "* ]]; then
-            echo "::notice::@infra-tools/agentic-ui-m365-agents not in target list — skipping"; exit 0
-          fi
-          version=$(node -p "require('./package.json').version")
-          if npm view "@infra-tools/agentic-ui-m365-agents@$version" version > /dev/null 2>&1; then
-            echo "::notice::@infra-tools/agentic-ui-m365-agents@$version already on npm — skipping"; exit 0
-          fi
-          if [ "$DRY_RUN" = "true" ]; then
-            npm publish --dry-run
-          else
-            npm publish
-          fi
-
-      - name: Publish @infra-tools/agentic-ui-copilot-studio-connector
-        working-directory: projects/agentic-ui-copilot-studio-connector
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PKGS: ${{ steps.target.outputs.pkgs }}
-        run: |
-          set -e
-          if ! [[ " $PKGS " == *" agentic-ui-copilot-studio-connector "* ]]; then
-            echo "::notice::@infra-tools/agentic-ui-copilot-studio-connector not in target list — skipping"; exit 0
-          fi
-          version=$(node -p "require('./package.json').version")
-          if npm view "@infra-tools/agentic-ui-copilot-studio-connector@$version" version > /dev/null 2>&1; then
-            echo "::notice::@infra-tools/agentic-ui-copilot-studio-connector@$version already on npm — skipping"; exit 0
-          fi
-          if [ "$DRY_RUN" = "true" ]; then
-            npm publish --dry-run
-          else
-            npm publish
-          fi
-
-      - name: Publish @infra-tools/agentic-ui-server-stores
-        working-directory: projects/agentic-ui-server-stores
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PKGS: ${{ steps.target.outputs.pkgs }}
-        run: |
-          set -e
-          if ! [[ " $PKGS " == *" agentic-ui-server-stores "* ]]; then
-            echo "::notice::@infra-tools/agentic-ui-server-stores not in target list — skipping"; exit 0
-          fi
-          version=$(node -p "require('./package.json').version")
-          if npm view "@infra-tools/agentic-ui-server-stores@$version" version > /dev/null 2>&1; then
-            echo "::notice::@infra-tools/agentic-ui-server-stores@$version already on npm — skipping"; exit 0
-          fi
-          if [ "$DRY_RUN" = "true" ]; then
-            npm publish --dry-run
-          else
-            npm publish
-          fi
-
-      - name: Publish @infra-tools/agentic-ui-server-registrar
-        working-directory: projects/agentic-ui-server-registrar
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PKGS: ${{ steps.target.outputs.pkgs }}
-        run: |
-          set -e
-          if ! [[ " $PKGS " == *" agentic-ui-server-registrar "* ]]; then
-            echo "::notice::@infra-tools/agentic-ui-server-registrar not in target list — skipping"; exit 0
-          fi
-          version=$(node -p "require('./package.json').version")
-          if npm view "@infra-tools/agentic-ui-server-registrar@$version" version > /dev/null 2>&1; then
-            echo "::notice::@infra-tools/agentic-ui-server-registrar@$version already on npm — skipping"; exit 0
-          fi
-          if [ "$DRY_RUN" = "true" ]; then
-            npm publish --dry-run
-          else
-            npm publish
-          fi
-
-      - name: Publish @infra-tools/agentic-ui-opa-authorizer
-        working-directory: projects/agentic-ui-opa-authorizer
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          PKGS: ${{ steps.target.outputs.pkgs }}
-        run: |
-          set -e
-          if ! [[ " $PKGS " == *" agentic-ui-opa-authorizer "* ]]; then
-            echo "::notice::@infra-tools/agentic-ui-opa-authorizer not in target list — skipping"; exit 0
-          fi
-          version=$(node -p "require('./package.json').version")
-          if npm view "@infra-tools/agentic-ui-opa-authorizer@$version" version > /dev/null 2>&1; then
-            echo "::notice::@infra-tools/agentic-ui-opa-authorizer@$version already on npm — skipping"; exit 0
-          fi
-          if [ "$DRY_RUN" = "true" ]; then
-            npm publish --dry-run
-          else
-            npm publish
+          if [ ${#FAILED[@]} -gt 0 ]; then
+            echo "::error::${#FAILED[@]} package(s) failed to publish: ${FAILED[*]}"
+            exit 1
           fi
 
       - name: Summary
         if: always()
         run: |
           {
-            echo "### Publish summary"
+            echo "### Publish run context"
             echo
             echo "| Field | Value |"
             echo "|---|---|"
