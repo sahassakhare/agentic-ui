@@ -1,6 +1,7 @@
 import type { WritableSignal } from '@angular/core';
 import type { AgenticBackend, AgenticRunInput } from '../types/agentic-backend';
 import type { AgenticEvent } from '../types/agentic-event';
+import { agenticEventSchema } from '../types/agentic-event-schema';
 import type { AgenticMessage, AgenticToolCall, AgenticWidgetInstance } from '../types/agentic-message';
 import type {
   Approval,
@@ -151,13 +152,32 @@ export async function runUntilSettled(opts: RunOrchestratorOptions): Promise<voi
       let runFinished = false;
       let runError: { code: string; message: string } | undefined;
 
-      for await (const ev of opts.backend.run(runInput)) {
+      for await (const rawEv of opts.backend.run(runInput)) {
         opts.signal.throwIfAborted();
-        // ADR-043 D3 — agent-directed workspace layouts. Validate the
-        // payload at the orchestrator boundary so a malformed event
-        // never reaches `<mvk-workspace-layout>`; on parse failure,
-        // drop the event with a console.warn (same fail-soft contract
-        // as the existing widget-render path).
+        // L3 — validate every event against `agenticEventSchema` so a
+        // malformed wire payload (Hashbrown / A2UI cast their JSON
+        // without a guard until L1 lands) is telemetry'd + dropped
+        // instead of corrupting run state. AG-UI events flow through
+        // the same gate for symmetry.
+        const parseResult = agenticEventSchema.safeParse(rawEv);
+        if (!parseResult.success) {
+          opts.telemetry.emit('agentic.run.malformed_event', {
+            'agentic.thread.id': opts.threadId,
+            'agentic.run.id': opts.runId,
+            'agentic.event.type':
+              typeof (rawEv as { type?: unknown })?.type === 'string'
+                ? (rawEv as { type: string }).type
+                : '(missing)',
+            'agentic.event.parse_errors': parseResult.error.issues
+              .slice(0, 3)
+              .map((i) => `${i.path.join('.')}:${i.code}`)
+              .join('|'),
+          });
+          // eslint-disable-next-line no-console
+          console.warn('[agentic-ui] Dropped malformed backend event:', parseResult.error.issues);
+          continue;
+        }
+        const ev = parseResult.data as AgenticEvent;
         if (ev.type === 'layout-render' && opts.layoutStream) {
           const candidate = {
             layoutName: ev.layoutName,

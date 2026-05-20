@@ -33,7 +33,12 @@ export type TelemetryEventName =
   | 'agentic.platform.opa.decision'
   | 'agentic.platform.opa.decision_failed'
   | 'agentic.trigger.fire'
-  | 'agentic.trigger.error';
+  | 'agentic.trigger.error'
+  // L3 — orchestrator-boundary validation. Emitted when a backend
+  // yields an event whose shape doesn't match `agenticEventSchema`;
+  // the orchestrator drops the event and continues so a malformed
+  // wire payload can't crash the run.
+  | 'agentic.run.malformed_event';
 
 export interface AgenticTelemetrySink {
   startSpan(name: TelemetryEventName, attributes?: Readonly<Record<string, unknown>>): TelemetrySpan;
