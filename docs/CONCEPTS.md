@@ -8,6 +8,7 @@
 ## Table of contents
 
 - [How registration and consumption work](#how-registration-and-consumption-work) — the flow that ties every primitive together
+- [Where is the agent? (and what does it "see")](#where-is-the-agent-and-what-does-it-see) — the relationship between Registry · Tool · Capability · Agent
 - [Layer 1 — Core primitives](#layer-1--core-primitives) (Chat shell · Registry · Tool · Widget · Backend · Agent server · ServerAgent)
 - [Layer 2 — Capability primitives](#layer-2--capability-primitives) (Form · Workflow · Approval · Operation · Multi-modal · DataSource)
 - [Layer 3 — Federation primitives](#layer-3--federation-primitives) (CapabilityModule · MFE remote · Host · `defineCapabilityModule` · `removeBySource` · Source tag)
@@ -214,6 +215,177 @@ What the app — your `<mvk-chat-shell>`, your widgets, your orchestrator — ac
 1. **Registration is multi-source.** Host wires entries via `provideAgenticUi`; the scaffolding generators (`ng g tool`, `ng g widget`) generate files that register into the same flow; federated remotes register via `loadRemoteCapabilities` post-boot. Every source funnels into the same registry; the source is tagged so teardown is clean.
 2. **Consumption is via signals.** The lib's runtime UI is built on `signal()` / `computed()`. A consumer that reads `toolRegistry.signal()` re-renders automatically when the list changes — register a new tool from a federated remote, the chat shell sees it next render, no manual refresh.
 3. **The 18 registries are 18 identical catalogs.** Same `register / list / get / signal / removeBySource / setScopePolicy` API across all of them. Adding a 19th for your own domain concept is ~30 LOC of base-class extension.
+
+---
+
+## Where is the agent? (and what does it "see")
+
+The previous section explains client-side registration. People reading it then ask the right follow-up: **where does the agent fit?** The answer surprises some adopters:
+
+> **There is no `AgentRegistry`. The agent doesn't live in the lib's client-side world. It lives server-side, in a different process, often a different language. The lib never registers an agent. It registers a *backend* — the wire adapter that picks which server route to hit.**
+
+That's the relationship in one sentence. The rest of this section unpacks it.
+
+### The client/server boundary — what crosses, what doesn't
+
+```
+   CLIENT (browser, Angular app)                                  SERVER (Node, Bun, Deno, …)
+┌──────────────────────────────────────┐                       ┌─────────────────────────────────┐
+│  app.config.ts                       │                       │                                 │
+│   provideAgenticUi({                 │                       │  Hono / Express / Fastify       │
+│     tools:     [bookFlightTool,…],   │                       │   POST /agents/<name>/run       │
+│     widgets:   [flightCardWidget,…], │                       │                                 │
+│     forms:     [intakeForm,…],       │                       │  agUiRouteHandler({             │
+│     approvals: [releaseHold,…],      │                       │    agent: new GeminiAgent()     │
+│   })                                 │                       │  })                             │
+│                                      │                       │           │                     │
+│   ↓ DI fan-out                       │                       │           ▼                     │
+│                                      │                       │  class GeminiAgent              │
+│   ┌──────────────────┐               │                       │    implements ServerAgent {     │
+│   │  ToolRegistry    │ ─────────┐    │                       │    async *run(input) {          │
+│   │  ComponentReg.   │          │    │                       │       ↓ this is where           │
+│   │  FormReg.        │          │    │                       │       ↓ the LLM is called       │
+│   │  ApprovalReg.    │          │    │                       │       ↓ events stream back      │
+│   │  … 14 more …     │          │    │                       │    }                            │
+│   └──────────────────┘          │    │                       │  }                              │
+│                                 │    │                       │                                 │
+│   ┌──────────────────┐          │    │                       │                                 │
+│   │  BackendRegistry │ ─────────┼─── │   AgenticRunInput     │                                 │
+│   │  (AG-UI active)  │          │    │    {                  │                                 │
+│   └──────────────────┘          │    │      threadId, runId, │                                 │
+│                                 │    │      messages,        │                                 │
+│   <mvk-chat-shell>              │    │      tools,    ◀──────┘     <-- tools serialized        │
+│                                 │    │      state,           │         from CLIENT'S registry  │
+│                                 │    │      signal,          │         (per-turn, not stored   │
+│                                 │    │    }                  │          on the server)         │
+│                                 │    │ ────────────────────▶ │                                 │
+│                                 │    │                       │                                 │
+│                                 │    │   AsyncIterable<      │                                 │
+│                                 │    │     AgenticEvent>     │                                 │
+│                                 │    │ ◀──────────────────── │                                 │
+│                                 ▼    │                       │                                 │
+│                       (chat renders text-deltas,             │                                 │
+│                        tool-call events, widgets)            │                                 │
+└──────────────────────────────────────┘                       └─────────────────────────────────┘
+```
+
+The wire is `AgenticRunInput` → server, `AsyncIterable<AgenticEvent>` ← server. **Tools and widgets are serialized fresh on every turn from the client's registry.** The server never *owns* them; it borrows the list per request.
+
+### What the agent receives on every turn
+
+This is the agent's complete input shape:
+
+```ts
+interface AgenticRunInput {
+  threadId: string;             // conversation id (persistent across turns)
+  runId: string;                // unique per-turn
+  messages: AgenticMessage[];   // full conversation history incl. prior tool results
+  tools: ToolDef[];             // serialized from client's ToolRegistry — filtered
+                                // by persona scope (step 13) before crossing the wire
+  state?: Record<string, unknown>;  // ADR-013 reasoning context (persona, route, matter)
+  signal: AbortSignal;          // user clicked stop / connection dropped
+  systemContext?: string;       // optional XML context block (from AgentContextProvider)
+}
+```
+
+So:
+
+- **The agent doesn't have a tool registry**. It receives a tool list on every request.
+- **Persona scoping happens on the client**, before the request crosses the wire. The agent literally cannot see hidden tools.
+- **Conversation memory is in `messages`**, not in the agent's process. If you want sticky thread state, the lib's `ThreadStateStore` lives next to the agent server (`@infra-tools/agentic-ui-server-stores` → Redis or Postgres).
+- **The agent yields events**. It doesn't *return* a value. The chat shell consumes the stream and renders text/tool calls/widgets as they arrive.
+
+### Why no `AgentRegistry`?
+
+Because:
+
+1. **Cross-process.** The agent runs on a different host, sometimes in a different language. Client-side DI can't reach it. The lib registers the *adapter* (which protocol + URL to hit), not the agent itself.
+2. **Multiple agents = multiple routes.** A single server can host many `ServerAgent` implementations under different paths (`/agents/gemini/run`, `/agents/echo/run`, `/agents/orchestrator/run`, …). The CLIENT picks by setting the backend URL.
+3. **Different lifecycle.** Tools and widgets are app-level — they live as long as the Angular app. Agents are request-level — every `run()` call is a one-shot conversation turn.
+
+The closest client-side equivalent is `BackendRegistry` — that's where each protocol adapter is registered, and `setActive(id)` picks which agent the chat talks to. Switching servers is a `setActive` call:
+
+```ts
+import { BackendRegistry } from '@infra-tools/agentic-ui';
+
+// app.config.ts — register multiple backends pointing at different agents
+providers: [
+  provideAgUiBackend({ id: 'gemini',       url: '/agents/gemini/run' }),
+  provideAgUiBackend({ id: 'orchestrator', url: '/agents/orchestrator/run' }),
+  provideAgUiBackend({ id: 'echo',         url: '/agents/echo/run' }),
+],
+
+// at runtime — let an admin pick the agent
+constructor(private backends: BackendRegistry) {}
+useOrchestrator() { this.backends.setActive('orchestrator'); }
+```
+
+### Multi-agent orchestration
+
+When you have multiple agents (specialists per domain), there are two architectural patterns:
+
+**Pattern A — Client-side router (rarely used).** The client picks which agent based on the user's prompt and hits the matching route. Simple; pushes routing logic into the UI.
+
+**Pattern B — Server-side orchestrator (the demos use this).** One `ServerAgent` named `OrchestratorAgent` classifies the prompt and forwards to a specialist. The CLIENT only knows about one URL:
+
+```
+   POST /agents/orchestrator/run
+         │
+         ▼
+   OrchestratorAgent.run(input)
+         │ classifies "this is about flights"
+         ▼
+   BookingsAgent.run(input)   ←── same input, different agent
+         │
+         ▼ yields tool-call events for bookFlight
+         │ (the orchestrator pipes them back to the client)
+         │
+   Client sees: { type: 'tool-call-start', name: 'bookFlight' }
+```
+
+The orchestrator can call other `ServerAgent` instances directly (same process) OR forward via HTTP to a different microservice. The chat shell on the client doesn't care — it sees ONE stream. Sticky routing per `threadId` keeps subsequent turns going to the same specialist; see [`cookbook/multi-agent-orchestration.md`](./cookbook/multi-agent-orchestration.md).
+
+### The relationship at a glance
+
+Five concepts, one table:
+
+| Concept | Where it lives | What it stores / does | Who reads it |
+|---|---|---|---|
+| **Tool** (`ToolDef`) | Client — `ToolRegistry` | A typed handler + Zod schema | Serialized into `input.tools` on every turn; the **LLM** picks one; the orchestrator runs the handler client-side (`executeIn: 'host'`) or server-side (`executeIn: 'server'`) |
+| **Widget** (`ComponentDef`) | Client — `ComponentRegistry` | An Angular component + propsSchema | Chat shell mounts when the agent emits `widget-render` or a tool returns `components: [...]` |
+| **Capability** (`CapabilityModule`) | Client — federated bundle exported from an MFE remote | A *bundle* of tools + widgets + forms + … | Host calls `loadRemoteCapabilities(...)`; the bundle's `apply()` registers each entry into its matching registry; `removeBySource(...)` reaps on unload |
+| **Registry** (`RegistryBase<TDef>`) | Client — DI-backed | A typed catalog of one kind of `Def` | App surfaces (chat shell, widget container, form renderer, palette, …) read via `signal()` |
+| **Agent** (`ServerAgent`) | **Server** — your Hono/Express/Fastify service | Implements `run(input): AsyncIterable<AgenticEvent>` — calls the LLM, translates the response | The chat shell on the client hits the configured backend URL; the route's `agUiRouteHandler` invokes the matching `ServerAgent.run()` |
+| **Backend** (`AgenticBackend`) | Client — `BackendRegistry` | A wire adapter (AG-UI / Hashbrown / A2UI) + a URL | Chat shell consumes via the active backend; `setActive(id)` swaps adapters |
+
+**Reading the table:**
+
+- The first four concepts are client-side. They register, store, get consumed by the same browser process.
+- **Agent** is the only server-side concept. It receives the client's data on every request; never has its own registry; never persists tools.
+- **Backend** is the client's pointer to the agent. Same protocol, multiple URLs = multiple agents.
+
+### "What do I add to the agent?"
+
+You don't *add* anything to the agent in the same way you register a tool in `ToolRegistry`. Instead:
+
+1. **On the client**: register tools / widgets / forms / approvals via `provideAgenticUi(...)`. They land in registries; every turn, the chat shell serializes the registered tools into `input.tools`.
+2. **On the server**: implement `ServerAgent.run(input)`. The agent receives `input.tools` per request — it walks the list, sends it to the LLM in whatever shape the LLM expects (OpenAI / Gemini / Anthropic / …), then translates the LLM's tool-call responses back into `AgenticEvent`s.
+3. **Done.** No agent-side registration step. The agent doesn't need to know which tools exist at boot — it learns per request from the wire.
+
+This decoupling is the point. Adding a new tool is a one-line change in the client's `app.config.ts`; the agent picks it up on the next turn with no redeploy. Adding a new agent is a new HTTP route on the server + a new `provideAgUiBackend({ id, url })` on the client; the registries don't change at all.
+
+### Where the lib helps on the server side
+
+The lib ships a server-side companion package — `@infra-tools/agentic-ui-server` — with:
+
+- `ServerAgent` interface (the contract above)
+- `agUiRouteHandler({ agent, ... })` — a Hono-compatible route handler that wraps your agent + handles SSE, abort, and event serialization
+- `ThreadStateStore` interface + adapters (in-memory by default; Redis / Postgres via `@infra-tools/agentic-ui-server-stores`)
+- `AgenticTelemetrySink` (shared with the client) for tracing turns end-to-end
+
+It does NOT ship:
+- An LLM. You bring your own (Gemini, OpenAI, Anthropic, Mastra, LangGraph, …).
+- An `AgentRegistry`. There isn't one; you mount agents on routes by hand.
 
 ---
 
