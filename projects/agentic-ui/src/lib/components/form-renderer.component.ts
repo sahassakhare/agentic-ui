@@ -326,6 +326,15 @@ export class FormRendererComponent {
       // because slot keys mean different things across different forms.
       if (name !== this.prevFormName) {
         this.store.clear();
+        // Seed composition slots from `initialValues` so section widgets
+        // mount with the agent-/host-supplied values already present.
+        // Done here (after clear, before sections render) so it can't be
+        // clobbered by the reset and section widgets see it on construct.
+        if (def?.composition) {
+          for (const [slot, value] of Object.entries(this.initialValues())) {
+            if (value !== undefined) this.store.write(slot, value);
+          }
+        }
         this.pendingPrompts.set(new Set());
         this.keepOverrides.set(new Set());
         this.slotInjectors.clear();

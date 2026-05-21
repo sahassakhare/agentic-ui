@@ -39,7 +39,11 @@ import { normaliseDepartment } from '../../agentic/intake-constants';
     </section>
 
     <section class="form-host">
-      <mvk-form-renderer formName="custodianIntakeForm" [context]="ctx()" />
+      <mvk-form-renderer formName="custodianIntakeForm" [context]="ctx()" [initialValues]="initialValues()" />
+
+      <div class="form-actions">
+        <a routerLink="/custodians" class="cancel-btn">Cancel</a>
+      </div>
     </section>
 
     <p class="hint">
@@ -61,6 +65,22 @@ import { normaliseDepartment } from '../../agentic/intake-constants';
       border-radius: 0.625rem;
       padding: 1.5rem;
     }
+    .form-actions {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--c-border);
+      display: flex;
+      justify-content: flex-end;
+    }
+    .cancel-btn {
+      display: inline-flex; align-items: center;
+      padding: 0.5rem 0.875rem;
+      background: transparent; color: var(--c-text);
+      border: 1px solid var(--c-border); border-radius: 0.375rem;
+      font-size: 0.875rem; font-weight: 600; text-decoration: none;
+      cursor: pointer; transition: background 120ms ease;
+    }
+    .cancel-btn:hover { background: var(--c-surface-2, var(--c-surface)); }
     .hint {
       margin-top: 1rem;
       font-size: 0.8125rem;
@@ -94,9 +114,29 @@ export class CustodianIntakePage {
    * 'finance', 'Finance', or 'Finance team', the form's strict
    * `if: 'department === "Finance"'` predicate still fires.
    */
+  /** Normalised department from `?department=…` (e.g. "Finance"). */
+  protected readonly department = computed(() =>
+    normaliseDepartment(this.params()?.get('department') ?? ''),
+  );
+
   protected readonly ctx = computed(() => ({
-    matterType: this.params()?.get('matterType') ?? 'securities',
+    // `matter.type` (nested) — the composition predicates read this shape
+    // (`matter.type === "securities"`); must match the chat-card path.
+    matter: { type: this.params()?.get('matterType') ?? 'securities' },
     persona: this.persona.active(),
-    department: normaliseDepartment(this.params()?.get('department') ?? ''),
+    department: this.department(),
   }));
+
+  /**
+   * Pre-fills the Identity section's Department field from the URL so the
+   * dropdown lands on the department the user mentioned ("…for a Finance
+   * custodian"). Keyed by the composition slot (`intake-identity-fields`);
+   * the renderer seeds the CompositionStore from this on mount.
+   */
+  protected readonly initialValues = computed(() => {
+    const dept = this.department();
+    return dept
+      ? { 'intake-identity-fields': { name: '', email: '', department: dept } }
+      : {};
+  });
 }

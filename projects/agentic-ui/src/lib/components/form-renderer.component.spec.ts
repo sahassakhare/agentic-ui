@@ -380,6 +380,35 @@ describe('FormRendererComponent — AC-F1-2 (preservation + drop/keep prompt)', 
       conditional: { signoff: 'eleanor@x.com' },
     });
   });
+
+  it('seeds composition slots from initialValues so widgets mount pre-filled', () => {
+    const components = TestBed.inject(ComponentRegistry);
+    const forms = TestBed.inject(FormRegistry);
+    components.register(
+      agenticWidget({ name: 'identity', component: TestStoreWidgetComponent, propsSchema: z.object({}) }),
+    );
+    forms.register(
+      agenticForm({
+        name: 'seededForm',
+        description: 'seeded form',
+        composition: [{ widget: 'identity' }],
+        submit: () => undefined,
+      }) as FormDef,
+    );
+
+    const fixture = TestBed.createComponent(FormRendererComponent);
+    fixture.componentRef.setInput('formName', 'seededForm');
+    // String value so the test widget's String(value) reflection is legible.
+    fixture.componentRef.setInput('initialValues', { identity: 'Finance' });
+    fixture.detectChanges();
+
+    // The store carries the seeded value (survives the mount-time clear)…
+    const store = fixture.debugElement.injector.get(CompositionStore);
+    expect(store.read('identity')).toBe('Finance');
+    // …and the mounted widget reads it rather than rendering empty.
+    const widget = fixture.nativeElement.querySelector('[data-testid="store-widget"]') as HTMLElement;
+    expect(widget.getAttribute('data-value')).toBe('Finance');
+  });
 });
 
 describe('FormRendererComponent — F2 mount-time data-source validation', () => {
