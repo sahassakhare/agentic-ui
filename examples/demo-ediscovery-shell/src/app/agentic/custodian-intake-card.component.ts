@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { FormRendererComponent } from '@infra-tools/agentic-ui';
 import { PersonaService } from '../services/persona.service';
+import { normaliseDepartment } from './intake-constants';
 
 /**
  * Generative-UI wrapper for the F1 composable custodian-intake form.
@@ -33,7 +34,7 @@ import { PersonaService } from '../services/persona.service';
         <strong>Onboard custodian</strong>
         <span class="muted">{{ matterType() }} · {{ livePersona() }}</span>
       </header>
-      <mvk-form-renderer formName="custodianIntakeForm" [context]="ctx()" />
+      <mvk-form-renderer formName="custodianIntakeForm" [context]="ctx()" [initialValues]="initialValues()" />
     </article>
   `,
   styles: `
@@ -63,9 +64,25 @@ export class CustodianIntakeCardComponent {
   /** Live persona signal — drives the form context on every render. */
   protected readonly livePersona = this.personaService.active;
 
+  /** Department the agent extracted, mapped onto the canonical list so
+   *  the predicate (`department === "Finance"`) and the dropdown agree. */
+  protected readonly normalizedDepartment = computed(() => normaliseDepartment(this.department()));
+
   protected readonly ctx = computed(() => ({
     matter: { type: this.matterType() },
     persona: this.livePersona(),
-    department: this.department(),
+    department: this.normalizedDepartment(),
   }));
+
+  /**
+   * Pre-fills the Identity section's Department field with the department
+   * the agent mentioned, so the dropdown lands pre-selected instead of
+   * empty. Keyed by the composition slot (`intake-identity-fields`).
+   */
+  protected readonly initialValues = computed(() => {
+    const dept = this.normalizedDepartment();
+    return dept
+      ? { 'intake-identity-fields': { name: '', email: '', department: dept } }
+      : {};
+  });
 }
