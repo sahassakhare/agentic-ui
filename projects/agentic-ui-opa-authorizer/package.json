@@ -1,6 +1,6 @@
 {
   "name": "@infra-tools/agentic-ui-opa-authorizer",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Optional runtime plugin that gates ToolRegistry / ComponentRegistry reads via OPA decisions (Open Policy Agent). Slice OPA-B / ADR-040. Stays outside the core lib per ADR-010 D4.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
