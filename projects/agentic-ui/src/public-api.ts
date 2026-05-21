@@ -23,6 +23,12 @@ export * from './lib/chat';
 export * from './lib/iam';
 export * from './lib/mcp';
 
+// MCP-UI inbound rendering — render MCP-UI UIResources in sandboxed
+// iframes + dispatch their postMessage actions through the host's
+// registries. Opt-in via `provideMcpUi(...)`. Phase 1 of
+// docs/plans/mcp-ui-webmcp-support-plan.md. See ADR-049.
+export * from './lib/mcp-ui';
+
 // Single config point for the Maverick agentic platform — closes
 // Gap 4 from the 2026-05-10 platform audit. Wires the catalog
 // integrations (IAM persona resolver, MFE registry; future:

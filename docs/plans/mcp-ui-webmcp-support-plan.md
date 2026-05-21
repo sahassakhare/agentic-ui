@@ -1,7 +1,8 @@
 # MCP-UI + WebMCP support — RFC + plan
 
 > **Date prepared**: 2026-05-21
-> **Status**: Draft RFC — **do not implement**. Awaiting approval to proceed (or reject), plus decisions on six items at the end.
+> **Revised**: 2026-05-21 — folded in a codebase-grounded analysis that mapped the actual seams. Key correction: MCP-UI *emit* already ships (`MCP_UI_HTML_MIME` in the MCP package); inbound MCP tool import already ships (`mcpToolBridge`). The real gaps are **MCP-UI inbound rendering** and **WebMCP expose** (`navigator.modelContext`). Implementation of Phase 1 (MCP-UI inbound renderer) is **in progress** as of this revision.
+> **Status**: Phase 1 approved + implementing. Phases 2–3 (WebMCP + remote-dom) remain plan-only.
 > **Predecessor**: [ADR-006](../adr/0006-mcp-server-side-adapter.md) added `@infra-tools/agentic-ui-mcp` (lib-as-MCP-server — expose this lib's tools to Claude Desktop / Cursor / Zed). [ADR-048](../adr/0048-backend-adapter-parity-contract.md) codified the backend parity contract that AG-UI / Hashbrown / A2UI all conform to. This plan extends both.
 > **Audience**: maintainers + anyone evaluating whether MCP-UI / WebMCP belong in the same lib.
 
@@ -61,7 +62,48 @@ If the upstream spec disagrees with this plan, we revise before writing code.
 
 ---
 
-## Four implementation directions
+## Capability map (corrected after reading the code)
+
+A codebase audit found the surface is further along than the original draft assumed. "MCP" and "WebMCP" each have an inbound and outbound direction, touching two planes: the **tool plane** (`ToolRegistry`) and the **render plane** (`ComponentRegistry` / `<mvk-widget-container>`).
+
+| Capability | Direction | Plane | Status in repo |
+|---|---|---|---|
+| MCP server (expose tools to an MCP host) | outbound | tool | ✅ `@infra-tools/agentic-ui-mcp` |
+| MCP-UI emit (`text/html;profile=mcp-app`) | outbound | render | ✅ partial — [`result-formatter.ts:41`](../../projects/agentic-ui-mcp/src/result-formatter.ts) `MCP_UI_HTML_MIME` |
+| MCP tools import (external MCP server → `ToolRegistry`) | inbound | tool | ✅ [`lib/mcp/mcp-tool-bridge.ts`](../../projects/agentic-ui/src/lib/mcp/mcp-tool-bridge.ts) |
+| **MCP-UI render (UIResource → on-screen UI)** | **inbound** | **render** | ❌ **the real gap — Phase 1** |
+| **WebMCP expose (tools → in-browser agent via `navigator.modelContext`)** | **outbound** | **tool** | ❌ **Phase 2** |
+| WebMCP consume (page-exposed tools → `ToolRegistry`) | inbound | tool | ❌ Phase 3 (thin — feed a `navigator.modelContext` `McpClient` into the existing `mcpToolBridge`) |
+
+So the genuinely new work is **two pieces**: MCP-UI *rendering* on the client (Phase 1), and a *WebMCP adapter* (Phase 2). Both map onto seams that already exist.
+
+### Reusable seams (verified in code)
+
+- **`ToolRegistry`** — signal-backed `RegistryBase`; `register` / reactive `signal` / `removeBySource` / scope policies / approval policies. The spine both new features hook into.
+- **`mcpToolBridge()`** — already imports a remote MCP server's `listTools()` into `ToolRegistry` as `ToolDef`s tagged `source: 'mcp:<server>'`, JSON-Schema → Zod. Transport-agnostic.
+- **`ToolResultRenderHints`** — already declares `html` (active) and a reserved-but-unprocessed `iframe_url` ([`tool-result.ts:108`](../../projects/agentic-ui/src/lib/types/tool-result.ts)). Phase 1 finally activates `iframe_url`.
+- **`syntheticToolContext()` + `zodToMcpSchema()`** (in the MCP package) — the pattern for invoking a `ToolDef.handler` outside the chat shell. Phase 2's WebMCP adapter needs exactly these; they get promoted to a shared internal so both adapters share one impl.
+- **Render channel** — `widget-render` / `layout-render` events → `<mvk-widget-container>` → `ComponentRegistry.get(name)`. There is **no path today that renders raw HTML / external-URL / remote-DOM** — that's the core MCP-UI render gap.
+
+### The killer feature (Phase 3): remote-dom → `ComponentRegistry`
+
+MCP-UI's `application/vnd.mcp-ui.remote-dom+javascript` payload lets a server describe UI as remote-DOM elements. Mapped onto the lib's `ComponentRegistry`, that means **server-driven UI rendered as the adopter's own registered Angular components** — not a sandboxed iframe. This is the strongest differentiator and the most complex piece (needs a remote-dom runtime dep), so it's deferred to Phase 3.
+
+### MCP-UI action protocol → existing registries (why this is natural, not bolted-on)
+
+MCP-UI `UIResource`s emit actions over `postMessage`: `{ type: 'tool' | 'prompt' | 'link' | 'intent' | 'notify', payload }`. Each maps 1:1 onto a registry the lib already has:
+
+| MCP-UI action | Dispatches to |
+|---|---|
+| `tool` | `ToolRegistry` (through existing scope + approval gating) |
+| `intent` | `IntentRegistry` |
+| `link` | Angular `Router` |
+| `notify` | `<mvk-notification-tray>` |
+| `prompt` | inject text into the active `AgenticChatRef` turn |
+
+This is why MCP-UI is a natural fit: the action plane already exists. Phase 1 wires the `tool` + `link` actions (with scope/approval enforcement); `intent` / `notify` / `prompt` follow as the registries are threaded in.
+
+## Four implementation directions (original framing, retained for reference)
 
 The work splits along two axes — direction (lib-as-client vs lib-as-server) × protocol (MCP-UI vs WebMCP):
 
