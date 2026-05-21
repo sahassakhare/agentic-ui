@@ -80,6 +80,13 @@ WebMCP (R3) and MCP-UI (R4) are different — WebMCP needs a `navigator.modelCon
 
 ---
 
+## Hard constraint — eDiscovery demo apps are off-limits
+
+**The existing eDiscovery demo apps are NOT touched by any slice in this plan.** That means all of:
+`demo-ediscovery-shell`, `demo-ediscovery-server`, `demo-ediscovery-review`, `demo-ediscovery-production`, `demo-ediscovery-search`, `demo-ediscovery-mcp`, `demo-ediscovery-shared`.
+
+Both home options below already satisfy this — reference servers land in `demo-server` (the flights/bookings reference server, not eDiscovery), and the demo wiring is either `demo-monolith` (Option A) or a new `demo-protocol-gallery` (Option B). The eDiscovery flagship stays exactly as-is.
+
 ## Where it all lives — two options
 
 **Option A — extend existing demos.** Hashbrown/A2UI routes go in `examples/demo-server`; the demo wiring extends `demo-monolith` with a backend switcher; WebMCP + MCP-UI get routes in an existing demo. Pro: no new app. Con: `demo-monolith` grows a lot of protocol-switching chrome that muddies its "simplest example" purpose.
