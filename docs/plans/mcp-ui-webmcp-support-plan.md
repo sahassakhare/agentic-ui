@@ -1,8 +1,11 @@
 # MCP-UI + WebMCP support — RFC + plan
 
 > **Date prepared**: 2026-05-21
-> **Revised**: 2026-05-21 — folded in a codebase-grounded analysis that mapped the actual seams. Key correction: MCP-UI *emit* already ships (`MCP_UI_HTML_MIME` in the MCP package); inbound MCP tool import already ships (`mcpToolBridge`). The real gaps are **MCP-UI inbound rendering** and **WebMCP expose** (`navigator.modelContext`). Implementation of Phase 1 (MCP-UI inbound renderer) is **in progress** as of this revision.
-> **Status**: Phase 1 approved + implementing. Phases 2–3 (WebMCP + remote-dom) remain plan-only.
+> **Revised**: 2026-05-21 — folded in a codebase-grounded analysis that mapped the actual seams. Key correction: MCP-UI *emit* already ships (`MCP_UI_HTML_MIME` in the MCP package); inbound MCP tool import already ships (`mcpToolBridge`). The real gaps were **MCP-UI inbound rendering** and **WebMCP expose** (`navigator.modelContext`).
+> **Status**: **ALL PHASES SHIPPED (2026-05-21).**
+>  - Phase 1 — MCP-UI inbound rendering (sandboxed iframe + action bridge): `lib/mcp-ui/`, [ADR-049](../adr/0049-mcp-ui-inbound-rendering.md). Commit dc90f45.
+>  - Phase 2 — WebMCP expose (`navigator.modelContext`): `@infra-tools/agentic-ui-webmcp` sibling package, [ADR-050](../adr/0050-webmcp-tool-exposure.md).
+>  - Phase 3 — server-driven UI as native registered widgets: the `component-tree+json` renderer in `lib/mcp-ui/`. (Full `@remote-dom/core` JS-mutation protocol intentionally NOT bundled — the JSON component-tree is the dependency-light lib-native path; see ADR-049 alternatives.)
 > **Predecessor**: [ADR-006](../adr/0006-mcp-server-side-adapter.md) added `@infra-tools/agentic-ui-mcp` (lib-as-MCP-server — expose this lib's tools to Claude Desktop / Cursor / Zed). [ADR-048](../adr/0048-backend-adapter-parity-contract.md) codified the backend parity contract that AG-UI / Hashbrown / A2UI all conform to. This plan extends both.
 > **Audience**: maintainers + anyone evaluating whether MCP-UI / WebMCP belong in the same lib.
 

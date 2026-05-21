@@ -127,8 +127,15 @@ jobs:
           npm ci --no-audit --fund=false
           npx tsc -p tsconfig.json
 
-      - name: Bundle-size guard (lib FESM under 768 KB)
+      - name: Bundle-size guard (lib FESM under 800 KB)
         run: |
+          # Cap raised 768 KB → 800 KB for MCP-UI inbound rendering
+          # (ADR-049 sandboxed-iframe renderer + action bridge) and the
+          # Phase 3 component-tree renderer (server-driven UI as native
+          # registered widgets). Pre-bump baseline ~781 KB; post-bump
+          # ~790 KB leaves ~29 KB headroom. WebMCP (Phase 2) is a sibling
+          # package and does NOT count against this FESM. Tree-shaking
+          # holds — apps that don't import lib/mcp-ui don't pay for it.
           # Cap raised 720 KB → 768 KB for the post-ADR-046/047 follow-on
           # sprints — UserSavedLayoutInput, MatterPhaseLayoutInput, and
           # AlertLayoutInput each added a lib-side seam to close the
@@ -163,8 +170,8 @@ jobs:
           # Lower this back if a refactor materially shrinks the surface.
           size=$(wc -c < dist/agentic-ui/fesm2022/infra-tools-agentic-ui.mjs)
           echo "FESM size: $size bytes"
-          if [ "$size" -gt 786432 ]; then
-            echo "::error::Lib FESM exceeded 768 KB ($size B). Investigate before merging."
+          if [ "$size" -gt 819200 ]; then
+            echo "::error::Lib FESM exceeded 800 KB ($size B). Investigate before merging."
             exit 1
           fi
 

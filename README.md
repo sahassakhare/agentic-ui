@@ -814,7 +814,7 @@ All published packages share a unified version line — currently **1.2.0** — 
 
 ### Publishing to npm
 
-A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) builds and publishes all **ten** packages to npm with [provenance attestations](https://docs.npmjs.com/generating-provenance-statements):
+A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) builds and publishes all **eleven** packages to npm with [provenance attestations](https://docs.npmjs.com/generating-provenance-statements):
 
 | Package | npm | Source dir | Purpose |
 |---|---|---|---|
@@ -828,6 +828,7 @@ A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflo
 | [`@infra-tools/agentic-ui-server-stores`](https://www.npmjs.com/package/@infra-tools/agentic-ui-server-stores) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-server-stores.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-server-stores) | [`projects/agentic-ui-server-stores`](./projects/agentic-ui-server-stores) | Redis + Postgres adapters for `ThreadStateStore` ([ADR-012](./docs/adr/0012-thread-state-store-adapters.md)) |
 | [`@infra-tools/agentic-ui-server-registrar`](https://www.npmjs.com/package/@infra-tools/agentic-ui-server-registrar) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-server-registrar.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-server-registrar) | [`projects/agentic-ui-server-registrar`](./projects/agentic-ui-server-registrar) | Server-side helper that auto-registers an agent server with the catalog ([ADR-039](./docs/adr/0039-agent-auto-registration.md)) |
 | [`@infra-tools/agentic-ui-opa-authorizer`](https://www.npmjs.com/package/@infra-tools/agentic-ui-opa-authorizer) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-opa-authorizer.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-opa-authorizer) | [`projects/agentic-ui-opa-authorizer`](./projects/agentic-ui-opa-authorizer) | OPA-backed `CapabilityAuthorizer` for fine-grained per-tool policy ([ADR-040](./docs/adr/0040-opa-policy-integration.md)) |
+| [`@infra-tools/agentic-ui-webmcp`](https://www.npmjs.com/package/@infra-tools/agentic-ui-webmcp) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-webmcp.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-webmcp) | [`projects/agentic-ui-webmcp`](./projects/agentic-ui-webmcp) | WebMCP adapter — exposes the host's `ToolRegistry` to an in-browser agent via `navigator.modelContext`; scope- + approval-gated ([ADR-050](./docs/adr/0050-webmcp-tool-exposure.md)) |
 
 Two ways to trigger a publish:
 
@@ -842,6 +843,7 @@ Two ways to trigger a publish:
    - `agentic-ui-server-stores-v<X.Y.Z>` → `@infra-tools/agentic-ui-server-stores`
    - `agentic-ui-server-registrar-v<X.Y.Z>` → `@infra-tools/agentic-ui-server-registrar`
    - `agentic-ui-opa-authorizer-v<X.Y.Z>` → `@infra-tools/agentic-ui-opa-authorizer`
+   - `agentic-ui-webmcp-v<X.Y.Z>` → `@infra-tools/agentic-ui-webmcp`
    - `v<X.Y.Z>` (legacy) → primary `@infra-tools/agentic-ui`
 
    Then create the GitHub Release for that tag — the workflow fires automatically on `release: published`.
@@ -856,7 +858,7 @@ Once the first publish succeeds, switching to [npm Trusted Publishing](https://d
 
 ### Tagging convention
 
-Annotated tags `<package>-v<MAJOR>.<MINOR>.<PATCH>` against the commit that bumps that package's `package.json#version`. The repo currently ships all ten packages on a **unified version line** (1.2.1) for clarity at the public-API boundary; package-by-package independent versioning is supported by the workflow if/when that diverges.
+Annotated tags `<package>-v<MAJOR>.<MINOR>.<PATCH>` against the commit that bumps that package's `package.json#version`. The repo currently ships all eleven packages on a **unified version line** (1.2.2) for clarity at the public-API boundary; package-by-package independent versioning is supported by the workflow if/when that diverges.
 
 ## Compatibility
 
