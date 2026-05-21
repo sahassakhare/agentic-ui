@@ -1648,6 +1648,9 @@ A scannable map of "I need X — does the library do X?" answers, with the wire-
 | 41 | M365 Copilot / Direct Line / sovereign cloud channels | ✅ | `@infra-tools/agentic-ui-m365-agents` → `createM365AgentMiddleware({…})` | step 17 |
 | 42 | GitHub Copilot Chat extension | ✅ | `@infra-tools/agentic-ui-copilot-skill` | step 17 |
 | 43 | M365 Copilot Studio (Power Platform action) | ✅ | `@infra-tools/agentic-ui-copilot-studio-connector` | step 17 |
+| 43a | Expose tools to an in-browser agent (WebMCP) | ✅ | `@infra-tools/agentic-ui-webmcp` → `provideWebMcp({...})` (scope + approval gated; feature-detects `navigator.modelContext`) | [ADR-050](./adr/0050-webmcp-tool-exposure.md) |
+| 43b | Render server-described UI from an MCP server (MCP-UI inbound) | ✅ | `<mvk-mcp-ui-resource>` + `provideMcpUi({...})` — sandboxed iframe (html / uri-list) or native widget tree (`component-tree+json`) | [ADR-049](./adr/0049-mcp-ui-inbound-rendering.md) |
+| 43c | Server-driven UI as the host's own registered widgets | ✅ | `component-tree+json` payload → `<mvk-mcp-ui-component-tree>` resolves each node via `ComponentRegistry` | [ADR-049](./adr/0049-mcp-ui-inbound-rendering.md) |
 | 44 | Slack / Discord / WhatsApp adapter | ❌ | Same pattern as Teams: write a middleware that calls your `Handler`; lib doesn't ship the adapter | — |
 | 45 | Email-based agent | ❌ | Not shipped. Adopter writes a Postfix / Mailgun ingress that calls `Handler({text, identity})` | — |
 

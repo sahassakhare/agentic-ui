@@ -12,20 +12,26 @@ import {
 import { DomSanitizer, type SafeHtml, type SafeResourceUrl } from '@angular/platform-browser';
 import { MCP_UI_CONFIG } from './config';
 import { McpUiActionBridge } from './mcp-ui-action-bridge';
+import { McpUiComponentTreeComponent } from './mcp-ui-component-tree.component';
 import {
+  MCP_UI_COMPONENT_TREE_MIME,
   MCP_UI_HTML_MIME,
   MCP_UI_REMOTE_DOM_MIME,
   MCP_UI_URI_LIST_MIME,
+  componentTreeNodeSchema,
   mcpUiResourceSchema,
+  type ComponentTreeNode,
   type McpUiResource,
 } from './types';
 
 interface RenderPlan {
-  readonly kind: 'srcdoc' | 'src' | 'unsupported' | 'blocked-origin' | 'invalid';
+  readonly kind: 'srcdoc' | 'src' | 'component-tree' | 'unsupported' | 'blocked-origin' | 'invalid';
   readonly srcdoc?: SafeHtml;
   readonly src?: SafeResourceUrl;
   /** The external origin (for `src`); used to validate inbound postMessages. */
   readonly origin?: string;
+  /** Parsed component tree (for `component-tree`). */
+  readonly tree?: ComponentTreeNode;
   readonly reason?: string;
 }
 
@@ -46,6 +52,7 @@ interface RenderPlan {
  */
 @Component({
   selector: 'mvk-mcp-ui-resource',
+  imports: [McpUiComponentTreeComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let plan = renderPlan();
@@ -68,6 +75,11 @@ interface RenderPlan {
           [src]="plan.src"
         ></iframe>
       }
+      @case ('component-tree') {
+        @if (plan.tree; as tree) {
+          <mvk-mcp-ui-component-tree [node]="tree" />
+        }
+      }
       @case ('blocked-origin') {
         <div class="mcp-ui-stub mcp-ui-blocked">
           Blocked: <code>{{ resource().content }}</code> is not on the MCP-UI origin allowlist.
@@ -75,7 +87,9 @@ interface RenderPlan {
       }
       @case ('unsupported') {
         <div class="mcp-ui-stub">
-          Unsupported MCP-UI payload (<code>{{ resource().mimeType }}</code>). remote-dom rendering lands in a later phase.
+          Unsupported MCP-UI payload (<code>{{ resource().mimeType }}</code>).
+          remote-dom (@remote-dom/core) isn't bundled — use
+          <code>application/vnd.mcp-ui.component-tree+json</code> for native widget rendering.
         </div>
       }
       @default {
@@ -123,6 +137,19 @@ export class McpUiResourceComponent {
         src: this.sanitizer.bypassSecurityTrustResourceUrl(url),
         origin,
       };
+    }
+    if (r.mimeType === MCP_UI_COMPONENT_TREE_MIME) {
+      // Parse the JSON component tree + validate against the recursive
+      // schema. Rendered as native registered widgets — not an iframe.
+      let raw: unknown;
+      try {
+        raw = JSON.parse(r.content);
+      } catch {
+        return { kind: 'invalid', reason: 'component-tree-json' };
+      }
+      const treeParsed = componentTreeNodeSchema.safeParse(raw);
+      if (!treeParsed.success) return { kind: 'invalid', reason: 'component-tree-schema' };
+      return { kind: 'component-tree', tree: treeParsed.data };
     }
     if (r.mimeType === MCP_UI_REMOTE_DOM_MIME) {
       return { kind: 'unsupported', reason: 'remote-dom' };

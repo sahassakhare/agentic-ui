@@ -27,19 +27,61 @@ import { z } from 'zod';
 export const MCP_UI_HTML_MIME = 'text/html';
 export const MCP_UI_URI_LIST_MIME = 'text/uri-list';
 export const MCP_UI_REMOTE_DOM_MIME = 'application/vnd.mcp-ui.remote-dom+javascript';
+/**
+ * Lib-native server-driven-UI payload (Phase 3). A JSON component tree
+ * rendered as the host's OWN registered `ComponentRegistry` widgets —
+ * not a sandboxed iframe. A server describes a UI composition by widget
+ * name + props and it renders as native Angular components with full
+ * styling + interactivity.
+ *
+ * Distinct from `remote-dom+javascript`: that MIME is the Shopify
+ * remote-dom JS-mutation protocol (needs the @remote-dom/core worker
+ * runtime, not bundled here). The component-tree+json format is the
+ * JSON-serializable, fully-validated, dependency-light path the lib
+ * ships natively.
+ */
+export const MCP_UI_COMPONENT_TREE_MIME = 'application/vnd.mcp-ui.component-tree+json';
+
+/**
+ * Recursive component-tree node. `component` is a `ComponentRegistry`
+ * widget name; `props` are validated against the widget's propsSchema
+ * at mount; `children` render recursively beneath the node.
+ */
+export interface ComponentTreeNode {
+  readonly component: string;
+  readonly props?: Record<string, unknown>;
+  readonly children?: readonly ComponentTreeNode[];
+}
+
+export const componentTreeNodeSchema: z.ZodType<ComponentTreeNode> = z.lazy(() =>
+  z.object({
+    component: z.string().min(1),
+    props: z.record(z.string(), z.unknown()).optional(),
+    children: z.array(componentTreeNodeSchema).optional(),
+  }),
+);
 
 export const mcpUiResourceSchema = z.object({
   /** Stable id for the resource — used as the iframe name + dedup key. */
   uri: z.string().min(1),
   /**
-   * Payload MIME. `text/html` → inline srcdoc; `text/uri-list` → external
-   * URL (origin-allowlisted); remote-dom → Phase 3.
+   * Payload MIME:
+   *  - `text/html` → inline srcdoc iframe
+   *  - `text/uri-list` → external-URL iframe (origin-allowlisted)
+   *  - `application/vnd.mcp-ui.component-tree+json` → native widget tree
+   *  - `application/vnd.mcp-ui.remote-dom+javascript` → recognised; not
+   *    bundled (use component-tree+json for the lib-native path)
    */
-  mimeType: z.enum([MCP_UI_HTML_MIME, MCP_UI_URI_LIST_MIME, MCP_UI_REMOTE_DOM_MIME]),
+  mimeType: z.enum([
+    MCP_UI_HTML_MIME,
+    MCP_UI_URI_LIST_MIME,
+    MCP_UI_COMPONENT_TREE_MIME,
+    MCP_UI_REMOTE_DOM_MIME,
+  ]),
   /**
-   * The payload. For `text/html` this is the HTML string (rendered via
-   * `srcdoc`). For `text/uri-list` this is a single absolute URL. For
-   * remote-dom it's the remote-dom script (Phase 3).
+   * The payload. `text/html` → HTML string; `text/uri-list` → a single
+   * absolute URL; `component-tree+json` → a JSON `ComponentTreeNode`
+   * (string-encoded); `remote-dom+javascript` → the remote-dom script.
    */
   content: z.string(),
   /** Optional human label surfaced in the render chrome. */
