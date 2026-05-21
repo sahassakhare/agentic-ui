@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { AssistPanelComponent, type AssistAction } from '@infra-tools/agentic-ui';
 import { listAuditEvents, listDocuments, listLegalHolds } from '@infra-tools/demo-ediscovery-shared';
@@ -20,7 +20,7 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
 @Component({
   selector: 'app-custodians',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, IconComponent, TagChipComponent, StatusBadgeComponent, EmptyStateComponent, AssistPanelComponent, InterviewPrepComponent],
+  imports: [DecimalPipe, RouterLink, IconComponent, TagChipComponent, StatusBadgeComponent, EmptyStateComponent, AssistPanelComponent, InterviewPrepComponent],
   template: `
     <section class="page-head">
       <div>
@@ -28,6 +28,10 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
         <h1>Custodians</h1>
         <p class="muted">{{ list().length }} on this matter — {{ onHoldCount() }} under legal hold, {{ completedCount() }} collections complete.</p>
       </div>
+      <a class="create-btn" routerLink="/intake/custodian">
+        <svg-icon name="plus" [size]="16" />
+        Create custodian
+      </a>
     </section>
 
     <!-- "Just-created" confirmation banner. Lands when the intake
@@ -221,7 +225,16 @@ import { EmptyStateComponent } from '../../ui/empty-state.component';
   styles: `
     :host { display: block; max-width: 1280px; margin: 0 auto; }
 
-    .page-head { margin-bottom: var(--s-5); }
+    .page-head { margin-bottom: var(--s-5); display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-4); }
+    .create-btn {
+      display: inline-flex; align-items: center; gap: 0.4rem; flex-shrink: 0;
+      padding: 0.5rem 0.875rem; margin-top: 0.2rem;
+      background: var(--c-brand); color: #fff;
+      border: 1px solid var(--c-brand); border-radius: var(--r-md);
+      font-size: var(--fs-sm); font-weight: 600; text-decoration: none;
+      cursor: pointer; transition: filter var(--t-fast);
+    }
+    .create-btn:hover { filter: brightness(1.08); }
     .crumb { margin: 0; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-brand); font-weight: 600; }
     h1 { margin: 0.2rem 0 0.3rem; font-size: var(--fs-2xl); font-weight: 600; letter-spacing: -0.02em; }
     .muted { color: var(--c-text-mute); margin: 0; font-size: var(--fs-sm); }
