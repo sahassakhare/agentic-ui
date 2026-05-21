@@ -18,6 +18,14 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, demo-monolith');
+    expect(compiled.querySelector('h1')?.textContent).toContain('demo-monolith');
+  });
+
+  it('renders the backend switcher with three protocols', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const ids = Array.from(compiled.querySelectorAll('[data-backend]')).map((b) => b.getAttribute('data-backend'));
+    expect(ids).toEqual(['ag-ui', 'hashbrown', 'a2ui']);
   });
 });

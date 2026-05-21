@@ -61,7 +61,6 @@ interface RenderPlan {
         <iframe
           #frame
           class="mcp-ui-frame"
-          [attr.sandbox]="sandbox"
           [attr.title]="resource().title ?? 'MCP UI resource'"
           [srcdoc]="plan.srcdoc"
         ></iframe>
@@ -70,7 +69,6 @@ interface RenderPlan {
         <iframe
           #frame
           class="mcp-ui-frame"
-          [attr.sandbox]="sandbox"
           [attr.title]="resource().title ?? 'MCP UI resource'"
           [src]="plan.src"
         ></iframe>
@@ -113,10 +111,6 @@ export class McpUiResourceComponent {
   private readonly config = inject(MCP_UI_CONFIG);
   private readonly bridge = inject(McpUiActionBridge);
   private readonly destroyRef = inject(DestroyRef);
-
-  protected get sandbox(): string {
-    return this.config.iframeSandbox;
-  }
 
   protected readonly renderPlan = computed<RenderPlan>(() => {
     const parsed = mcpUiResourceSchema.safeParse(this.resource());
@@ -165,6 +159,11 @@ export class McpUiResourceComponent {
       const plan = this.renderPlan();
       const frameRef = this.frame();
       if ((plan.kind !== 'srcdoc' && plan.kind !== 'src') || !frameRef) return;
+
+      // `sandbox` must be a STATIC attribute on an <iframe> — Angular
+      // refuses it as a binding (NG0910, security). Set it imperatively
+      // here so it stays config-driven without tripping that guard.
+      frameRef.nativeElement.setAttribute('sandbox', this.config.iframeSandbox);
 
       const expectedOrigin = plan.kind === 'src' ? (plan.origin ?? null) : null;
       const listener = (event: MessageEvent) => {

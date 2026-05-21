@@ -1,7 +1,11 @@
 # Reference implementations — Hashbrown · A2UI · WebMCP · MCP-UI
 
 > **Date prepared**: 2026-05-21
-> **Status**: Draft RFC — **do not implement**. Awaiting approval + decisions on the items at the end.
+> **Status**: R1 + R2 + R4 **SHIPPED** (2026-05-21); R3 (WebMCP shim) deferred per the recommendation.
+>  - R1 Hashbrown + R2 A2UI reference servers — NDJSON handlers in `examples/demo-server/src/reference-protocol-servers.ts` (4 vitest smoke tests).
+>  - Demo wiring — `examples/demo-monolith` doubles as the protocol gallery: a 3-backend switcher (AG-UI / Hashbrown / A2UI), a custom A2UI `UI_ACTION_DISPATCHER` logging ui-actions with live thread/run ids, and an MCP-UI showcase (component-tree of native widgets + inline html). Home = Option A (extend demo-monolith), chosen over a new app for lower build-config risk; constraint-safe (not an eDiscovery app); protocol features isolated in a `protocols/` folder + opt-in sections.
+>  - R4 MCP-UI — exercised by the gallery's `<mvk-mcp-ui-resource>` sections. Surfaced + fixed a real lib bug (NG0910: `sandbox` can't be an Angular binding on `<iframe>` — now set imperatively via ElementRef).
+>  - eDiscovery demo apps untouched (standing constraint).
 > **Predecessor**: [ADR-048](../adr/0048-backend-adapter-parity-contract.md) (backend parity — client adapters), [ADR-049](../adr/0049-mcp-ui-inbound-rendering.md) (MCP-UI), [ADR-050](../adr/0050-webmcp-tool-exposure.md) (WebMCP). The [Backend support matrix](../../README.md#backend-support-matrix) already documents these as "client-conformant, reference adopter-supplied."
 
 ## The gap this closes
