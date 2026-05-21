@@ -56,6 +56,7 @@ on:
           - agentic-ui-server-stores
           - agentic-ui-server-registrar
           - agentic-ui-opa-authorizer
+          - agentic-ui-webmcp
       dry_run:
         description: "Dry run — build + `npm publish --dry-run`, but don't push to npm"
         required: false
@@ -112,6 +113,7 @@ jobs:
               agentic-ui-server-stores-v*)             pkgs="agentic-ui-server-stores" ;;
               agentic-ui-server-registrar-v*)          pkgs="agentic-ui-server-registrar" ;;
               agentic-ui-opa-authorizer-v*)            pkgs="agentic-ui-opa-authorizer" ;;
+              agentic-ui-webmcp-v*)                    pkgs="agentic-ui-webmcp" ;;
               agentic-ui-server-v*)                    pkgs="agentic-ui-server" ;;
               agentic-ui-mcp-v*)                       pkgs="agentic-ui-mcp" ;;
               agentic-ui-v*)                           pkgs="agentic-ui" ;;
@@ -123,7 +125,7 @@ jobs:
             esac
           else
             case "${{ inputs.package }}" in
-              all) pkgs="agentic-ui agentic-ui-server agentic-ui-mcp agentic-ui-copilot-skill agentic-ui-teams-bot agentic-ui-m365-agents agentic-ui-copilot-studio-connector agentic-ui-server-stores agentic-ui-server-registrar agentic-ui-opa-authorizer" ;;
+              all) pkgs="agentic-ui agentic-ui-server agentic-ui-mcp agentic-ui-copilot-skill agentic-ui-teams-bot agentic-ui-m365-agents agentic-ui-copilot-studio-connector agentic-ui-server-stores agentic-ui-server-registrar agentic-ui-opa-authorizer agentic-ui-webmcp" ;;
               *)   pkgs="${{ inputs.package }}" ;;
             esac
           fi
@@ -180,6 +182,9 @@ jobs:
           npm --prefix projects/agentic-ui-server-stores            run build
           npm --prefix projects/agentic-ui-server-registrar         run build
           npm --prefix projects/agentic-ui-opa-authorizer           run build
+          # webmcp depends on the just-built dist/agentic-ui (file: ref).
+          npm --prefix projects/agentic-ui-webmcp                    install --no-audit --fund=false
+          npm --prefix projects/agentic-ui-webmcp                    run build
 
       # Single loop replaces 10 near-identical publish steps. Each package
       # is attempted independently — one failure doesn't cascade-skip the
@@ -275,6 +280,26 @@ jobs:
             exit 1
           fi
 
+      - name: Publish @infra-tools/agentic-ui-webmcp
+        working-directory: projects/agentic-ui-webmcp
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PKGS: ${{ steps.target.outputs.pkgs }}
+        run: |
+          set -e
+          if ! [[ " $PKGS " == *" agentic-ui-webmcp "* ]]; then
+            echo "::notice::@infra-tools/agentic-ui-webmcp not in target list — skipping"; exit 0
+          fi
+          version=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-webmcp@$version" version > /dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-webmcp@$version already on npm — skipping"; exit 0
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --dry-run
+          else
+            npm publish
+          fi
+
       - name: Summary
         if: always()
         run: |
@@ -291,7 +316,7 @@ jobs:
             echo
             echo "| Package | Version |"
             echo "|---|---|"
-            for p in agentic-ui agentic-ui-server agentic-ui-mcp agentic-ui-copilot-skill agentic-ui-teams-bot agentic-ui-m365-agents agentic-ui-copilot-studio-connector agentic-ui-server-stores agentic-ui-server-registrar agentic-ui-opa-authorizer; do
+            for p in agentic-ui agentic-ui-server agentic-ui-mcp agentic-ui-copilot-skill agentic-ui-teams-bot agentic-ui-m365-agents agentic-ui-copilot-studio-connector agentic-ui-server-stores agentic-ui-server-registrar agentic-ui-opa-authorizer agentic-ui-webmcp; do
               # agentic-ui's manifest is in dist/ after build; the others are
               # at projects/<name>/package.json (no build-time rewrite).
               if [ "$p" = "agentic-ui" ] && [ -f dist/agentic-ui/package.json ]; then

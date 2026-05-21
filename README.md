@@ -732,7 +732,9 @@ Open <http://localhost:4201>, <http://localhost:4203>, and <http://localhost:420
 |----------|----------|
 | [API reference](https://sahassakhare.github.io/agentic-ui/) | Full TypeDoc-generated reference; rebuilt on every push to `main` and on every `v*` tag. Locally: `npm run docs:api`. |
 | Compodoc site | Angular-aware docs site (components, services, modules, routes) with the cookbook embedded as an additional-pages section. Build: `npm run docs:compodoc`. Live-reload: `npm run docs:compodoc:serve`. Output: `docs/compodoc/`. |
-| [User Guide](./docs/USER_GUIDE.md) | 7-step walkthrough from clean clone to a working federated demo, plus a troubleshooting matrix keyed to specific error messages. |
+| [Concepts & Taxonomy](./docs/CONCEPTS.md) | **Read first.** 7-layer taxonomy defining every primitive (Tool / Widget / Capability / Registry / Action / Intent / Backend / ServerAgent / Form / Approval / Operation / Layout / Trigger / Dashboard / Playbook / DataSource / Persona / Scope policy / …) + 8 "when to use what" decision matrices + alphabetical glossary. Pairs with the Developer Guide. |
+| [Developer Guide](./docs/DEVELOPER_GUIDE.md) | **Step-by-step journey** from `ng add` to production: 19 sequenced steps (install → providers → tools → widgets → backend → server → real LLM → forms / approvals / LRO / multi-modal / federation / persona scope / telemetry / catalog / MCP / Teams + Copilot / deployment / observability). Each step has a complete working code example + a "skip if…" clause. Common pitfalls table at the end. **Start here if you're building your own agentic UI.** |
+| [User Guide](./docs/USER_GUIDE.md) | 7-step walkthrough from clean clone to a working federated *demo* (run the included apps). |
 | [Quickstart](./docs/cookbook/quickstart.md) | Provider wiring in five minutes. |
 | [Sample prompts](./docs/cookbook/sample-prompts.md) | Canonical prompts for every demo and every library feature — paste into the chat, or use as a manual regression suite. |
 | [Production deployment](./docs/cookbook/production-deployment.md) | The `ThreadStateStore` abstraction (Redis / Postgres adapters), rate-limiting, secrets, K8s liveness probes — what changes between localhost and a multi-pod deploy. |
@@ -808,11 +810,11 @@ GitHub Actions runs the full pipeline (build → test → three production demo 
 
 ## Versioning and release
 
-All published packages share a unified version line — currently **1.2.0** — and follow [Semantic Versioning](https://semver.org/). See per-package `CHANGELOG.md` for details.
+All published packages share a unified version line — currently **1.2.3** — and follow [Semantic Versioning](https://semver.org/). See per-package `CHANGELOG.md` for details.
 
 ### Publishing to npm
 
-A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) builds and publishes all **ten** packages to npm with [provenance attestations](https://docs.npmjs.com/generating-provenance-statements):
+A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflows/publish.yml) builds and publishes all **eleven** packages to npm with [provenance attestations](https://docs.npmjs.com/generating-provenance-statements):
 
 | Package | npm | Source dir | Purpose |
 |---|---|---|---|
@@ -826,6 +828,7 @@ A GitHub Actions workflow at [`.github/workflows/publish.yml`](./.github/workflo
 | [`@infra-tools/agentic-ui-server-stores`](https://www.npmjs.com/package/@infra-tools/agentic-ui-server-stores) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-server-stores.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-server-stores) | [`projects/agentic-ui-server-stores`](./projects/agentic-ui-server-stores) | Redis + Postgres adapters for `ThreadStateStore` ([ADR-012](./docs/adr/0012-thread-state-store-adapters.md)) |
 | [`@infra-tools/agentic-ui-server-registrar`](https://www.npmjs.com/package/@infra-tools/agentic-ui-server-registrar) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-server-registrar.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-server-registrar) | [`projects/agentic-ui-server-registrar`](./projects/agentic-ui-server-registrar) | Server-side helper that auto-registers an agent server with the catalog ([ADR-039](./docs/adr/0039-agent-auto-registration.md)) |
 | [`@infra-tools/agentic-ui-opa-authorizer`](https://www.npmjs.com/package/@infra-tools/agentic-ui-opa-authorizer) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-opa-authorizer.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-opa-authorizer) | [`projects/agentic-ui-opa-authorizer`](./projects/agentic-ui-opa-authorizer) | OPA-backed `CapabilityAuthorizer` for fine-grained per-tool policy ([ADR-040](./docs/adr/0040-opa-policy-integration.md)) |
+| [`@infra-tools/agentic-ui-webmcp`](https://www.npmjs.com/package/@infra-tools/agentic-ui-webmcp) | [![npm](https://img.shields.io/npm/v/@infra-tools/agentic-ui-webmcp.svg)](https://www.npmjs.com/package/@infra-tools/agentic-ui-webmcp) | [`projects/agentic-ui-webmcp`](./projects/agentic-ui-webmcp) | WebMCP adapter — exposes the host's `ToolRegistry` to an in-browser agent via `navigator.modelContext`; scope- + approval-gated ([ADR-050](./docs/adr/0050-webmcp-tool-exposure.md)) |
 
 Two ways to trigger a publish:
 
@@ -840,6 +843,7 @@ Two ways to trigger a publish:
    - `agentic-ui-server-stores-v<X.Y.Z>` → `@infra-tools/agentic-ui-server-stores`
    - `agentic-ui-server-registrar-v<X.Y.Z>` → `@infra-tools/agentic-ui-server-registrar`
    - `agentic-ui-opa-authorizer-v<X.Y.Z>` → `@infra-tools/agentic-ui-opa-authorizer`
+   - `agentic-ui-webmcp-v<X.Y.Z>` → `@infra-tools/agentic-ui-webmcp`
    - `v<X.Y.Z>` (legacy) → primary `@infra-tools/agentic-ui`
 
    Then create the GitHub Release for that tag — the workflow fires automatically on `release: published`.
@@ -854,7 +858,7 @@ Once the first publish succeeds, switching to [npm Trusted Publishing](https://d
 
 ### Tagging convention
 
-Annotated tags `<package>-v<MAJOR>.<MINOR>.<PATCH>` against the commit that bumps that package's `package.json#version`. The repo currently ships all ten packages on a **unified version line** (1.2.1) for clarity at the public-API boundary; package-by-package independent versioning is supported by the workflow if/when that diverges.
+Annotated tags `<package>-v<MAJOR>.<MINOR>.<PATCH>` against the commit that bumps that package's `package.json#version`. The repo currently ships all eleven packages on a **unified version line** (1.2.3) for clarity at the public-API boundary; package-by-package independent versioning is supported by the workflow if/when that diverges.
 
 ## Compatibility
 

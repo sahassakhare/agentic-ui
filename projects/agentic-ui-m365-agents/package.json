@@ -1,6 +1,6 @@
 {
   "name": "@infra-tools/agentic-ui-m365-agents",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Microsoft 365 Agents SDK adapter for the @infra-tools/agentic-ui platform. Successor to the Bot Framework adapter — same Activity wire, broader channel set (Teams + M365 Copilot + Direct Line + Webchat) and AAD-channel issuer support. Adopters bring their own LLM behind an M365AgentHandler.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
