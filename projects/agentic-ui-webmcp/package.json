@@ -1,6 +1,6 @@
 {
   "name": "@infra-tools/agentic-ui-webmcp",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "WebMCP adapter for @infra-tools/agentic-ui — exposes the host app's ToolRegistry to an in-browser agent via the navigator.modelContext proposal. Tools register/unregister reactively; every inbound call is scope- and approval-gated. Optional plugin; stays outside the core lib per ADR-010 D4.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/sahassakhare/agentic-ui#readme",

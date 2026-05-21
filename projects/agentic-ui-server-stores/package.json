@@ -1,6 +1,6 @@
 {
   "name": "@infra-tools/agentic-ui-server-stores",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Redis and Postgres adapters for @infra-tools/agentic-ui-server's ThreadStateStore interface — multi-pod-safe thread state for production deployments.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/sahassakhare/agentic-ui#readme",

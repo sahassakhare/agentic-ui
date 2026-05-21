@@ -810,7 +810,7 @@ GitHub Actions runs the full pipeline (build → test → three production demo 
 
 ## Versioning and release
 
-All published packages share a unified version line — currently **1.2.0** — and follow [Semantic Versioning](https://semver.org/). See per-package `CHANGELOG.md` for details.
+All published packages share a unified version line — currently **1.2.3** — and follow [Semantic Versioning](https://semver.org/). See per-package `CHANGELOG.md` for details.
 
 ### Publishing to npm
 
@@ -858,7 +858,7 @@ Once the first publish succeeds, switching to [npm Trusted Publishing](https://d
 
 ### Tagging convention
 
-Annotated tags `<package>-v<MAJOR>.<MINOR>.<PATCH>` against the commit that bumps that package's `package.json#version`. The repo currently ships all eleven packages on a **unified version line** (1.2.2) for clarity at the public-API boundary; package-by-package independent versioning is supported by the workflow if/when that diverges.
+Annotated tags `<package>-v<MAJOR>.<MINOR>.<PATCH>` against the commit that bumps that package's `package.json#version`. The repo currently ships all eleven packages on a **unified version line** (1.2.3) for clarity at the public-API boundary; package-by-package independent versioning is supported by the workflow if/when that diverges.
 
 ## Compatibility
 
