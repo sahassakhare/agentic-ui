@@ -14,6 +14,7 @@ import { GeminiAgent } from './gemini-agent.js';
 import { OrchestratorAgent } from './orchestrator-agent.js';
 import { bearerAuth } from './auth.js';
 import { log } from './logger.js';
+import { hashbrownReferenceHandler, a2uiReferenceHandler } from './reference-protocol-servers.js';
 
 const PORT = Number(process.env['PORT'] ?? 4111);
 
@@ -153,6 +154,16 @@ app.get('/health', (c) =>
     authEnabled: Boolean(process.env['AGENT_AUTH_TOKENS']?.trim()),
   }),
 );
+
+// Reference protocol servers (NDJSON) — the Hashbrown + A2UI wire
+// counterparts to the AG-UI SSE handler. Echo-based; demonstrate the
+// canonical AgenticEvent NDJSON shape the client adapters parse. These
+// MUST be registered before the `/agents/:id/run` catch-all (Hono
+// matches in registration order; the param route would otherwise treat
+// 'hashbrown' / 'a2ui' as agent ids and 404).
+// See src/reference-protocol-servers.ts + docs/plans/reference-implementations-plan.md.
+app.post('/agents/hashbrown/run', async (c) => hashbrownReferenceHandler(c.req.raw));
+app.post('/agents/a2ui/run', async (c) => a2uiReferenceHandler(c.req.raw));
 
 app.post('/agents/:id/run', async (c) => handler(c.req.raw));
 
