@@ -60,6 +60,7 @@ That's a working chat UI talking to an AG-UI backend. For real tools + widgets +
 | **15 registries** | Tool · Component · Capability · Backend · MFE · Action · Intent · Form · DataSource · **Approval (F4)** · **Operation (F5)** · Validation · Persistence · Layout · SchemaTransformer — all uniform `register / list / signal / removeBySource / setScopePolicy` |
 | **Orchestration loop** | `injectAgenticChat()` · `runUntilSettled` · abort signals · turn lifecycle hooks |
 | **Backend adapters** | `provideAgUiBackend` · `provideHashbrownBackend` · `provideA2uiBackend` — swap by config |
+| **MCP-UI inbound** | `provideMcpUi({...})` + `<mvk-mcp-ui-resource>` render server-described UI — sandboxed iframe (`html` / `uri-list`) or a native widget tree (`component-tree+json` → `<mvk-mcp-ui-component-tree>` resolved through `ComponentRegistry`). postMessage actions dispatch through the host registries under the active scope policy ([ADR-049](https://github.com/sahassakhare/agentic-ui/blob/main/docs/adr/0049-mcp-ui-inbound-rendering.md)) |
 | **Federation** | `defineCapabilityModule` + `loadRemoteCapabilities` (Native Federation) / `loadRemoteCapabilitiesMF` (webpack MF). Remotes contribute tools + widgets at runtime |
 | **Platform integration** | `provideAgenticPlatform({...})` — IAM persona, MFE registry, capability registrar / authorizer, usage metering through one composite provider |
 | **Schematics** | 10 generators: `ng add`, `tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `action`, `intent`, `form` |
@@ -81,6 +82,7 @@ That's a working chat UI talking to an AG-UI backend. For real tools + widgets +
 | [`@infra-tools/agentic-ui-copilot-skill`](https://www.npmjs.com/package/@infra-tools/agentic-ui-copilot-skill) | GitHub Copilot Extensions webhook adapter |
 | [`@infra-tools/agentic-ui-teams-bot`](https://www.npmjs.com/package/@infra-tools/agentic-ui-teams-bot) | Microsoft Teams Bot Framework adapter — Adaptive Cards in Teams chat |
 | [`@infra-tools/agentic-ui-copilot-studio-connector`](https://www.npmjs.com/package/@infra-tools/agentic-ui-copilot-studio-connector) | Microsoft Copilot Studio Connector — catalog tools as Power Platform actions invocable from M365 Copilot |
+| [`@infra-tools/agentic-ui-webmcp`](https://www.npmjs.com/package/@infra-tools/agentic-ui-webmcp) | WebMCP adapter — `provideWebMcp({...})` exposes the host's `ToolRegistry` to an in-browser agent via `navigator.modelContext` (scope- + approval-gated) |
 
 ## Demos
 

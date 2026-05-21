@@ -183,7 +183,7 @@ Twenty-seven distinct scenarios the library covers, ranked roughly by adoption o
 | 2 | **Tool calling with state mutation** — typed args, abort signals | `ToolRegistry` · `tool-call-*` events | Foundational |
 | 3 | **Federating MFE remotes** — remotes contribute tools/widgets at runtime | `defineCapabilityModule` · `loadRemoteCapabilities` | Architects |
 | 4 | **Per-persona entitlement** — LLM can't see tools the user isn't entitled to | `RegistryBase.setScopePolicy(predicate)` | Architects + execs |
-| 5 | **Backend swap (AG-UI ↔ Hashbrown ↔ A2UI)** — one shell, three protocols (all three client adapters conformant per [ADR-048](./docs/adr/0048-backend-adapter-parity-contract.md); reference server in `examples/demo-server` is AG-UI-only) | `AgenticBackend` interface | Architects |
+| 5 | **Backend swap (AG-UI ↔ Hashbrown ↔ A2UI)** — one shell, three protocols (all three client adapters conformant per [ADR-048](./docs/adr/0048-backend-adapter-parity-contract.md); AG-UI SSE + Hashbrown/A2UI echo NDJSON reference servers all ship in `examples/demo-server`, switchable live in the `demo-monolith` protocol gallery) | `AgenticBackend` interface | Architects |
 | 6 | **Multi-agent orchestration** — sticky routing across specialists | `OrchestratorAgent` · `ThreadStateStore` | Architects |
 | 7 | **Per-turn tool budget at scale** — keyword-filtered tool list per prompt | `provideToolFilter(keywordToolFilter({maxTools, floor}))` | Architects |
 | 8 | **MCP — same tools power Claude Desktop / Cursor** | `@infra-tools/agentic-ui-mcp` | Execs + architects |
@@ -249,13 +249,13 @@ The library ships three protocol adapters. All three are **client-conformant** (
 | Sibling spec coverage | 3 spec files, 298 LOC | 2 spec files (adapter + shared) | 2 spec files (adapter + shared) |
 | Conformance harness | passes | passes | passes |
 | **End-to-end story** | | | |
-| Reference server in `examples/` | ✓ [`demo-server`](./examples/demo-server) + [`demo-ediscovery-server`](./examples/demo-ediscovery-server) | adopter-supplied (see [`flights42`](https://github.com/liveloveapp/hashbrown) for a reference) | adopter-supplied (A2UI spec 0.x) |
-| Demos exercising the adapter | 16 demos (AG-UI is the default) | none in this repo | none in this repo |
+| Reference server in `examples/` | ✓ [`demo-server`](./examples/demo-server) + [`demo-ediscovery-server`](./examples/demo-ediscovery-server) | ✓ echo NDJSON reference handler in [`demo-server`](./examples/demo-server/src/reference-protocol-servers.ts) (LLM-free; identical wire shape — adopters swap the echo body for their LLM loop) | ✓ echo NDJSON reference handler in [`demo-server`](./examples/demo-server/src/reference-protocol-servers.ts) (also fires a `ui-action` exercising the dispatcher path) |
+| Demos exercising the adapter | 16 demos (AG-UI is the default) | ✓ [`demo-monolith`](./examples/demo-monolith) protocol gallery (3-backend switcher) | ✓ [`demo-monolith`](./examples/demo-monolith) protocol gallery (+ live `ui-action` log) |
 | Real-LLM e2e tests | ✓ Gemini via [Playwright](./e2e/README.md) | none | none |
 | Deployed reference | ✓ [ediscovery-shell.onrender.com](https://ediscovery-shell.onrender.com) | none | none |
 | Upstream spec stability | `@ag-ui/client` v0.0.52 (pinned) | server-defined wire (adopter contract) | spec 0.x (unsettled) |
 
-**What this means in practice.** Wire-protocol fidelity is the same across all three; build and ship against any of them. AG-UI is the recommended default because the repo ships the full stack (host adapter + server + LLM-driven e2e tests + deployed demo). Hashbrown and A2UI are correct client adapters waiting for an adopter to bring the server. If you do, please open an issue / PR with a reference server so the next adopter doesn't repeat the work.
+**What this means in practice.** Wire-protocol fidelity is the same across all three; build and ship against any of them. AG-UI is the recommended default because the repo ships the full stack (host adapter + server + LLM-driven e2e tests + deployed demo). Hashbrown and A2UI now ship **echo (LLM-free) reference servers** in [`demo-server`](./examples/demo-server/src/reference-protocol-servers.ts) and are exercised end-to-end by the [`demo-monolith`](./examples/demo-monolith) protocol gallery — the wire shape is production-identical, so an adopter swaps the echo body for a real LLM loop rather than building the server from scratch. What's still missing for these two is a real-LLM e2e suite and a deployed reference; PRs welcome.
 
 ¹ Footnote from the headline pitch: *"works against AG-UI, Hashbrown, or A2UI without rewriting application code"* — the **application** (registries, widgets, tools, chat shell) is genuinely backend-agnostic. Hashbrown + A2UI need an adopter-supplied **server**.
 
@@ -625,7 +625,7 @@ What ships through Phase 7 — quick reference:
 
 | App | Purpose | Port |
 |-----|---------|------|
-| `demo-monolith` | Single-app, single-agent demo. Tools and widgets registered locally; no federation moving parts. | 4202 |
+| `demo-monolith` | Single-app, single-agent demo. Tools and widgets registered locally; no federation moving parts. Doubles as the **protocol gallery**: a 3-backend switcher (AG-UI / Hashbrown / A2UI), a custom A2UI `UI_ACTION_DISPATCHER` logging `ui-action`s with live thread/run ids, and an MCP-UI showcase (`<mvk-mcp-ui-resource>` — native widget `component-tree` + inline html). | 4202 |
 | `demo-multi-agent` | One host, multiple agents. Registers tools + widgets for three domains inline; the orchestrator on the server classifies each turn and forwards events from the chosen specialist. | 4204 |
 | `demo-feature-tour` | Extended-registry showcase. Demonstrates the four library capabilities not covered by the other demos: `ActionRegistry` (agent-triggered navigation + toasts), `FormRegistry` (`<mvk-form-renderer>`), `DataSourceRegistry` (typed REST adapter), and an `IntentRegistry` entry for pre-LLM short-circuit. | 4206 |
 
@@ -642,7 +642,7 @@ What ships through Phase 7 — quick reference:
 
 | App | Purpose | Port |
 |-----|---------|------|
-| `demo-server` | Hono SSE agent server. Hosts six `ServerAgent` implementations under one process: `EchoAgent`, the single-domain `GeminiAgent`, three specialists (`bookings`, `loyalty`, `support`), and an `OrchestratorAgent` that classifies each turn and forwards events from the chosen specialist. | 4111 |
+| `demo-server` | Hono SSE agent server. Hosts six `ServerAgent` implementations under one process: `EchoAgent`, the single-domain `GeminiAgent`, three specialists (`bookings`, `loyalty`, `support`), and an `OrchestratorAgent` that classifies each turn and forwards events from the chosen specialist. Also exposes **Hashbrown + A2UI echo NDJSON reference endpoints** ([`reference-protocol-servers.ts`](./examples/demo-server/src/reference-protocol-servers.ts)) the protocol gallery switches to. | 4111 |
 
 ### Quick start — single-process multi-agent (`demo-multi-agent`)
 

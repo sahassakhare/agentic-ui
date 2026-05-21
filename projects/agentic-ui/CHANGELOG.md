@@ -426,6 +426,35 @@ the host is back. The plan's §9 P0–P5 acceptance criteria all read
 against the library, not the demo, so this defer doesn't block the
 program from being declared shipped at the library tier.
 
+## [1.2.3] — 2026-05-21
+
+### Added — MCP-UI inbound rendering ([ADR-049](../../docs/adr/0049-mcp-ui-inbound-rendering.md))
+
+Render server-described UI emitted by an MCP server (the consumer side
+of MCP-UI; the *server* side already ships in `@infra-tools/agentic-ui-mcp`).
+Opt-in via `provideMcpUi({...})`; existing consumers see no change unless
+they wire it.
+
+- **`<mvk-mcp-ui-resource>`** renders a `UIResource` by MIME type:
+  `text/html` and `text/uri-list` in a sandboxed iframe (the iframe
+  `sandbox` attribute is set imperatively via `ElementRef` — it cannot
+  be an Angular binding, NG0910), and `application/vnd.mcp-ui.component-tree+json`
+  as a **native widget tree** through `<mvk-mcp-ui-component-tree>`, which
+  resolves each node against the host's `ComponentRegistry`.
+- **`McpUiActionBridge`** validates incoming postMessage actions
+  (`mcpUiMessageSchema` / `mcpUiActionSchema`, Zod) and dispatches them
+  through the host registries — tool calls go through the **active scope
+  policy**, so an MCP-UI surface can't invoke a tool the persona can't see.
+- New exports: `provideMcpUi`, `McpUiResourceComponent`,
+  `McpUiComponentTreeComponent`, `McpUiActionBridge`, `MCP_UI_CONFIG`,
+  the `MCP_UI_*_MIME` constants, and the `McpUi*` schemas / types.
+- Telemetry: MCP-UI render + action events emit through `AgenticTelemetrySink`.
+
+> A sibling package, [`@infra-tools/agentic-ui-webmcp`](https://www.npmjs.com/package/@infra-tools/agentic-ui-webmcp),
+> ships in the same release line — it exposes the host's `ToolRegistry`
+> to an in-browser agent via `navigator.modelContext` ([ADR-050](../../docs/adr/0050-webmcp-tool-exposure.md)).
+> See that package's README + CHANGELOG.
+
 ## [1.2.0] — 2026-05-07
 
 This minor release lands **six new capabilities** from the [r3 dynamic-UI plan](../../docs/plans/ediscovery-dynamic-ui-plan.md): runtime-composed forms, live data fetching from generative UI, guided multi-step workflows, human-in-the-loop approval, long-running operations, and multi-modal input. All additions are opt-in and backward-compatible — existing 1.0 / 1.1 consumers see zero behaviour change without explicit wiring.

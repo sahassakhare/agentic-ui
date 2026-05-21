@@ -166,7 +166,7 @@ export class App {}
 
 **Goal**: pick the protocol that connects the chat shell to an agent server.
 
-The default is AG-UI (most-tested; reference server in `examples/demo-server`). Hashbrown and A2UI are also production-grade client adapters per [ADR-048](./adr/0048-backend-adapter-parity-contract.md) but you need to write the server for those — see the [Backend support matrix](../README.md#backend-support-matrix).
+The default is AG-UI (most-tested; reference server in `examples/demo-server`). Hashbrown and A2UI are also production-grade client adapters per [ADR-048](./adr/0048-backend-adapter-parity-contract.md); each now ships an **echo (LLM-free) reference server** in [`examples/demo-server/src/reference-protocol-servers.ts`](../examples/demo-server/src/reference-protocol-servers.ts) — production-identical wire shape, so you swap the echo body for your LLM loop rather than starting from scratch. All three are switchable live in the `demo-monolith` protocol gallery. See the [Backend support matrix](../README.md#backend-support-matrix).
 
 ```ts
 // src/app/app.config.ts — backend variations
