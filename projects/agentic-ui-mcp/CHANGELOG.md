@@ -8,7 +8,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added — MCP UI support
 
-- **`html` render-hint field is now active** as the highest-precedence channel in `formatToolResult`. When present, the adapter emits an MCP `resource` content block with `mimeType: text/html;profile=mcp-app` — the format Claude Desktop and Cursor announce via their `io.modelcontextprotocol/ui` capability. Hosts that recognise it iframe-render the HTML in a sandbox; hosts that don't fall back to the resource's text representation.
+- **`html` render-hint field is now active** as the highest-precedence channel in `formatToolResult`. When present, the adapter emits an MCP `resource` content block with `mimeType: text/html` and a `ui://` URI — the MCP-UI convention, matching the inbound renderer's `MCP_UI_HTML_MIME` in `@infra-tools/agentic-ui` so this library's server output round-trips through its own renderer. MCP-UI–aware hosts iframe-render the HTML in a sandbox; hosts that don't fall back to the resource's text representation.
 - **`MCP_UI_HTML_MIME` constant** exported for consumers building their own formatter wrappers.
 - **`McpContentBlock` union extended** to include the `resource` block variant in addition to the existing `text` block.
 - **Demo update** (`examples/demo-mcp-server`): `bookFlight` now returns a styled HTML flight card via the `html` field, with the existing `components` + `markdown` fields preserved as fallbacks for the chat shell and markdown-only hosts.

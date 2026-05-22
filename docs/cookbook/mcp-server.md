@@ -237,10 +237,11 @@ After restarting Claude Desktop, try:
 
 ## MCP UI — render rich HTML in Claude Desktop / Cursor
 
-Hosts that announce the `io.modelcontextprotocol/ui` capability (Claude
-Desktop and Cursor as of mid-2026) iframe-render `text/html;profile=mcp-app`
-resource blocks in a sandbox. The adapter activates this whenever your
-tool result includes an `html` field.
+MCP-UI–aware hosts iframe-render `text/html` resource blocks (carried on a
+`ui://` URI) in a sandbox. The adapter activates this whenever your tool
+result includes an `html` field. The emitted MIME (`MCP_UI_HTML_MIME`)
+matches the inbound renderer in `@infra-tools/agentic-ui`, so the same
+output round-trips through this library's own MCP-UI renderer.
 
 ```ts
 import type { ToolDef, ToolResultRenderHints } from '@infra-tools/agentic-ui';
@@ -285,7 +286,7 @@ When multiple render-hint fields are present, the formatter picks
 
 | Priority | Field | Block emitted | Where it renders |
 |---|---|---|---|
-| 1 | `html` | `resource` (`text/html;profile=mcp-app`) | Claude Desktop, Cursor (sandboxed iframe). Hosts without MCP UI fall back to the resource's `text` |
+| 1 | `html` | `resource` (`text/html`, `ui://` URI) | MCP-UI–aware hosts (sandboxed iframe). Hosts without MCP-UI fall back to the resource's `text` |
 | 2 | `markdown` (+ optional `image_url`) | `text` | All MCP hosts |
 | 3 | `image_url` alone | `text` with `![](url)` | Markdown-rendering hosts |
 | 4 | (nothing) | `text` with JSON-stringified domain data | Last-resort plain-text |

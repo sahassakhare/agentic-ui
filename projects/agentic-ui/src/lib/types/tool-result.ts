@@ -63,18 +63,17 @@ export interface ToolResultRenderHints {
   readonly image_url?: string;
 
   /**
-   * Pre-rendered static HTML for hosts that support the **MCP UI**
-   * extension (`io.modelcontextprotocol/ui` capability with
-   * `text/html;profile=mcp-app`). Claude Desktop, Cursor, and other
-   * MCP UI–aware hosts iframe-embed the HTML in a sandbox; hosts
-   * without UI support fall back to the resource's text representation.
+   * Pre-rendered static HTML for hosts that support **MCP-UI**
+   * (a `text/html` resource block with a `ui://` URI). MCP-UI–aware
+   * hosts iframe-embed the HTML in a sandbox; hosts without UI support
+   * fall back to the resource's text representation.
    *
    * @remarks
    * **Highest-precedence render hint** in `@infra-tools/agentic-ui-mcp`'s
-   * formatter — when `html` is present, the MCP server emits an
-   * `text/html;profile=mcp-app` resource block and ignores `markdown` /
-   * `image_url`. Use it for rich tool results: styled cards, charts,
-   * server-rendered Angular components.
+   * formatter — when `html` is present, the MCP server emits a
+   * `text/html` resource block and ignores `markdown` / `image_url`.
+   * Use it for rich tool results: styled cards, charts, server-rendered
+   * Angular components.
    *
    * **Sandboxing**: the HTML runs in the host's iframe sandbox.
    * Standard `<style>`, inline CSS, and most JS work; cross-origin

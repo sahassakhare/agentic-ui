@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { formatToolResult, MCP_UI_HTML_MIME } from './result-formatter.js';
+// Cross-package conformance: validate this server's MCP-UI output against
+// the INBOUND renderer's schema + mime constant in `@infra-tools/agentic-ui`.
+// We import the schema's pure source directly because the published Angular
+// bundle can't be loaded in a plain Node test (JIT). Both are pure Zod, so
+// this is a faithful round-trip check that the two packages can't drift.
+import {
+  mcpUiResourceSchema,
+  MCP_UI_HTML_MIME as INBOUND_MCP_UI_HTML_MIME,
+} from '../../agentic-ui/src/lib/mcp-ui/types';
 
 describe('formatToolResult precedence', () => {
   it('returns a single text block for a markdown-only result', () => {
@@ -65,7 +74,7 @@ describe('formatToolResult MCP UI (html)', () => {
     const block = out[0] as { type: 'resource'; resource: { uri: string; mimeType: string; text: string } };
     expect(block.resource.text).toBe(html);
     expect(block.resource.mimeType).toBe(MCP_UI_HTML_MIME);
-    expect(block.resource.uri).toMatch(/^mcp-ui:\/\/result-/);
+    expect(block.resource.uri).toMatch(/^ui:\/\/result-/);
   });
 
   it('html takes precedence over markdown', () => {
@@ -94,5 +103,32 @@ describe('formatToolResult MCP UI (html)', () => {
     const a = formatToolResult({ html: '<x/>' })[0] as { resource: { uri: string } };
     const b = formatToolResult({ html: '<x/>' })[0] as { resource: { uri: string } };
     expect(a.resource.uri).not.toBe(b.resource.uri);
+  });
+});
+
+describe('formatToolResult ↔ inbound MCP-UI conformance', () => {
+  it('the outbound mime equals the inbound renderer mime (no drift)', () => {
+    expect(MCP_UI_HTML_MIME).toBe(INBOUND_MCP_UI_HTML_MIME);
+    expect(MCP_UI_HTML_MIME).toBe('text/html');
+  });
+
+  it('an emitted html resource block parses through the inbound mcpUiResourceSchema', () => {
+    const block = formatToolResult({ html: '<article><h1>Booked</h1></article>' })[0] as {
+      type: 'resource';
+      resource: { uri: string; mimeType: string; text: string };
+    };
+    // The inbound schema keys on `content`, not `text` — the renderer's
+    // UIResource shape. The MCP resource block carries the HTML in `text`;
+    // map it the way the host adapter does before handing to the renderer.
+    const resource = {
+      uri: block.resource.uri,
+      mimeType: block.resource.mimeType,
+      content: block.resource.text,
+    };
+    const parsed = mcpUiResourceSchema.safeParse(resource);
+    expect(parsed.success).toBe(true);
+    // ui:// scheme + bare text/html is what the renderer's srcdoc path matches.
+    expect(resource.uri).toMatch(/^ui:\/\//);
+    expect(resource.mimeType).toBe(INBOUND_MCP_UI_HTML_MIME);
   });
 });

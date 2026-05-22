@@ -51,10 +51,10 @@ Restart Claude Desktop. Your tools are now in the tool picker.
 |---------|---------|
 | `createMcpServer(opts)` | Builds an MCP `Server` that exposes the given `ToolDef[]` as MCP tools. Returns a handle with `start()` / `stop()` |
 | `BeforeCallHook` / `AfterCallHook` | Per-tool middleware seams — log every invocation, redact PII, fail closed on policy violations |
-| `formatToolResult(result)` | Maps an `agentic-ui` tool result (text + render hints + components) into MCP `ContentBlock[]`. Honours the `text/html;profile=mcp-app` MIME for inline-rendered HTML |
+| `formatToolResult(result)` | Maps an `agentic-ui` tool result (text + render hints + components) into MCP `ContentBlock[]`. Emits a `text/html` resource with a `ui://` URI (the MCP-UI convention) for inline-rendered HTML |
 | `zodToMcpSchema(schema, name)` | Translates a Zod input schema into the JSON-Schema fragment MCP requires |
 | `syntheticToolContext({...})` | Builds a `ToolContext` shaped to satisfy your existing handler when invoked from MCP (no `Component`, no `Backend` — those are browser concerns) |
-| `MCP_UI_HTML_MIME` | The `text/html;profile=mcp-app` constant for tools that return HTML render hints |
+| `MCP_UI_HTML_MIME` | The `text/html` MCP-UI MIME constant for tools that return HTML render hints (matches the inbound renderer in `@infra-tools/agentic-ui`) |
 
 ## Common patterns
 
@@ -86,7 +86,7 @@ const server = createMcpServer({
 
 ### Inline-rendering HTML in MCP hosts that support it
 
-When a tool returns `{ ...result, renderHints: { html: '<...>' } }`, `formatToolResult` emits a content block with MIME `text/html;profile=mcp-app`. Cursor and Continue render this inline; Claude Desktop falls back to the plain-text representation.
+When a tool returns `{ ...result, renderHints: { html: '<...>' } }`, `formatToolResult` emits a `resource` block with MIME `text/html` and a `ui://` URI — the MCP-UI convention. MCP-UI–aware hosts render it inline in a sandboxed iframe; hosts without UI support fall back to the resource's plain-text representation.
 
 ## Demos
 
