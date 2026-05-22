@@ -37,10 +37,9 @@ import { normaliseDepartment } from './intake-constants';
       @if (cancelled()) {
         <p class="cancelled">Intake cancelled. <button type="button" class="reopen" (click)="cancelled.set(false)">Reopen</button></p>
       } @else {
-        <mvk-form-renderer formName="custodianIntakeForm" [context]="ctx()" [initialValues]="initialValues()" />
-        <div class="card-actions">
-          <button type="button" class="cancel-btn" (click)="cancelled.set(true)">Cancel</button>
-        </div>
+        <mvk-form-renderer formName="custodianIntakeForm" [context]="ctx()" [initialValues]="initialValues()">
+          <button formActions type="button" class="cancel-btn" (click)="cancelled.set(true)">Cancel</button>
+        </mvk-form-renderer>
       }
     </article>
   `,
@@ -53,7 +52,6 @@ import { normaliseDepartment } from './intake-constants';
     header { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.4rem; }
     .badge { font-size: 0.7em; padding: 2px 6px; border-radius: 4px; background: #dcfce7; color: #166534; text-transform: uppercase; letter-spacing: 0.04em; }
     .muted { color: #64748b; font-size: 0.8em; margin-left: auto; }
-    .card-actions { display: flex; justify-content: flex-end; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #f0f1f4; }
     .cancel-btn {
       padding: 0.35rem 0.75rem; background: transparent; color: #374151;
       border: 1px solid #d1d5db; border-radius: 0.3rem;
