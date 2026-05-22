@@ -5,6 +5,7 @@ import {
   EnvironmentInjector,
   inject,
   input,
+  type OnInit,
   runInInjectionContext,
   signal,
 } from '@angular/core';
@@ -100,7 +101,9 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
           @if (schema.description) { <p class="desc">{{ schema.description }}</p> }
         </header>
 
-        @if (submitted()) {
+        @if (cancelled()) {
+          <p class="cancelled">Intake cancelled. <button type="button" class="reopen" (click)="cancelled.set(false)">Reopen</button></p>
+        } @else if (submitted()) {
           <div class="ok">
             <strong>Submitted.</strong>
             @if (createdCustodianId(); as cid) {
@@ -207,14 +210,17 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
                 {{ invalidFields().join(', ') }}
               </p>
             }
-            <button type="submit"
-                    [disabled]="!isValid() || submitting()">
-              @if (submitting()) {
-                Submitting…
-              } @else {
-                {{ schema.submitLabel ?? 'Submit' }}
-              }
-            </button>
+            <div class="actions">
+              <button type="button" class="cancel-btn" (click)="cancelled.set(true)">Cancel</button>
+              <button type="submit"
+                      [disabled]="!isValid() || submitting()">
+                @if (submitting()) {
+                  Submitting…
+                } @else {
+                  {{ schema.submitLabel ?? 'Submit' }}
+                }
+              </button>
+            </div>
           </form>
         }
       </article>
@@ -288,6 +294,15 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
     .checkboxes { display: grid; gap: 4px; }
     .checkbox { display: flex; align-items: center; gap: 6px; font-weight: 400; }
     .help { color: var(--c-text-mute, #6b7280); font-size: 0.72rem; }
+    .actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .cancel-btn {
+      background: transparent; color: #374151;
+      border: 1px solid var(--c-border, #d1d5db); padding: 7px 14px; border-radius: 4px;
+      font: inherit; font-weight: 600; cursor: pointer;
+    }
+    .cancel-btn:hover { background: #f9fafb; }
+    .cancelled { margin: 0; color: #6b7280; }
+    .reopen { background: none; border: 0; color: var(--c-brand, #1e3a5f); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0; }
     button[type="submit"] {
       background: var(--c-brand, #1e3a5f); color: white;
       border: 0; padding: 7px 14px; border-radius: 4px;
@@ -304,11 +319,31 @@ export type DynamicFormSchema = z.infer<typeof dynamicFormSchema>;
     .hint { font-size: 0.75rem; color: #7f1d1d; margin-bottom: 0; }
   `,
 })
-export class DynamicFormCardComponent {
+export class DynamicFormCardComponent implements OnInit {
   /** The raw schema as emitted by the LLM — validated on init. */
   readonly schema = input.required<unknown>();
 
+  /**
+   * Optional initial field values the agent extracted from the user's
+   * message, keyed by field `name` (e.g. `{ name: 'Ramesh', email:
+   * 'ramesh@test.com', department: 'HR' }`). Seeds the form so it lands
+   * pre-filled; empty when the user supplied nothing.
+   */
+  readonly initialValues = input<Record<string, unknown>>({});
+
+  /** Cancel collapses the form to a dismissable note; Reopen restores it. */
+  protected readonly cancelled = signal(false);
+
   private readonly env = inject(EnvironmentInjector);
+
+  ngOnInit(): void {
+    // Seed values once from the agent-provided initial values so the
+    // fields land pre-filled. Inputs are bound by the time ngOnInit runs.
+    const init = this.initialValues();
+    if (init && Object.keys(init).length > 0) {
+      this.values.set({ ...init });
+    }
+  }
 
   protected readonly parsed = computed<DynamicFormSchema | null>(() => {
     const raw = this.schema();

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { FormRendererComponent } from '@infra-tools/agentic-ui';
 import { PersonaService } from '../services/persona.service';
 import { normaliseDepartment } from './intake-constants';
@@ -34,7 +34,14 @@ import { normaliseDepartment } from './intake-constants';
         <strong>Onboard custodian</strong>
         <span class="muted">{{ matterType() }} · {{ livePersona() }}</span>
       </header>
-      <mvk-form-renderer formName="custodianIntakeForm" [context]="ctx()" [initialValues]="initialValues()" />
+      @if (cancelled()) {
+        <p class="cancelled">Intake cancelled. <button type="button" class="reopen" (click)="cancelled.set(false)">Reopen</button></p>
+      } @else {
+        <mvk-form-renderer formName="custodianIntakeForm" [context]="ctx()" [initialValues]="initialValues()" />
+        <div class="card-actions">
+          <button type="button" class="cancel-btn" (click)="cancelled.set(true)">Cancel</button>
+        </div>
+      }
     </article>
   `,
   styles: `
@@ -46,6 +53,15 @@ import { normaliseDepartment } from './intake-constants';
     header { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.4rem; }
     .badge { font-size: 0.7em; padding: 2px 6px; border-radius: 4px; background: #dcfce7; color: #166534; text-transform: uppercase; letter-spacing: 0.04em; }
     .muted { color: #64748b; font-size: 0.8em; margin-left: auto; }
+    .card-actions { display: flex; justify-content: flex-end; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #f0f1f4; }
+    .cancel-btn {
+      padding: 0.35rem 0.75rem; background: transparent; color: #374151;
+      border: 1px solid #d1d5db; border-radius: 0.3rem;
+      font: inherit; font-weight: 600; cursor: pointer;
+    }
+    .cancel-btn:hover { background: #f9fafb; }
+    .cancelled { margin: 0; color: #6b7280; font-size: 0.85em; }
+    .reopen { background: none; border: 0; color: var(--c-brand, #1e3a5f); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0; }
   `,
 })
 export class CustodianIntakeCardComponent {
@@ -63,6 +79,10 @@ export class CustodianIntakeCardComponent {
   readonly email = input<string>('');
 
   private readonly personaService = inject(PersonaService);
+
+  /** Cancel collapses the form to a dismissable note (no navigation
+   *  target on an inline chat card). Reopen restores it. */
+  protected readonly cancelled = signal(false);
 
   /** Live persona signal — drives the form context on every render. */
   protected readonly livePersona = this.personaService.active;

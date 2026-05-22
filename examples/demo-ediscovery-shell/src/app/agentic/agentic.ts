@@ -191,6 +191,9 @@ export const widgets: ComponentDef[] = [
       // when the user switches persona via the header dropdown.
       persona: z.string().optional(),
       department: z.string().optional(),
+      // Identity pre-fill the agent extracted from the prompt.
+      name: z.string().optional(),
+      email: z.string().optional(),
     }),
   }),
   // ── F3 — placeLegalHold workflow step widgets ──────────────────────────
@@ -287,7 +290,7 @@ export const widgets: ComponentDef[] = [
     // (`dynamicFormSchema` Zod), so the agent can emit any reasonable
     // form spec and the widget reports parse errors inline if it
     // misses a constraint.
-    propsSchema: z.object({ schema: z.unknown() }),
+    propsSchema: z.object({ schema: z.unknown(), initialValues: z.record(z.string(), z.unknown()).optional() }),
   }),
   // ── ADR-046 / ADR-047 slot widgets — placeholders for the named
   //    components the resolver references (documentPreview, tagPanel,
@@ -1037,6 +1040,13 @@ function generateCustodianIntakeFormTool() {
       'work email. Use type "checkbox" for compliance acknowledgements. ' +
       'Field types available: text, email, textarea, select, ' +
       'multiselect, checkbox, number. ' +
+      'ALSO: if the user already gave any field values (name, email, ' +
+      'department, …), pass them in `initialValues` keyed by the SAME ' +
+      'field `name` you used in the schema, so the form lands pre-filled. ' +
+      'E.g. user says "generate an intake form for Ramesh, ' +
+      'ramesh@test.com, HR" -> initialValues: { name: "Ramesh", email: ' +
+      '"ramesh@test.com", department: "HR" }. Omit `initialValues` (or ' +
+      'leave it empty) when the user gave no field values. ' +
       'CALL THIS TOOL EXACTLY ONCE PER USER REQUEST.',
     schema: z.object({
       title: z.string().describe('Form title shown at the top of the card'),
@@ -1048,22 +1058,26 @@ function generateCustodianIntakeFormTool() {
         description: z.string().optional(),
         fields: z.array(dynamicFieldSchemaForTool).min(1),
       })).min(1).describe('Ordered list of form sections; each must have at least one field'),
+      initialValues: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string())])).optional()
+        .describe('Pre-fill values keyed by field name, extracted from what the user already provided'),
     }),
-    handler: async (schema) => {
+    handler: async ({ initialValues, ...formSchema }) => {
       // The widget validates the schema again with the strict dialect
       // (`dynamicFormSchema` in dynamic-form-card.component.ts) and
       // surfaces parse errors inline if anything slipped past Gemini's
       // schema coercion.
-      const normalized = normaliseDynamicSchema(schema);
+      const normalized = normaliseDynamicSchema(formSchema);
       return {
         components: [{
           name: 'dynamicFormCard',
-          props: { schema: normalized },
+          props: { schema: normalized, initialValues: initialValues ?? {} },
         }],
         markdown:
           `Generated form **${normalized.title}** with ${normalized.sections.length} ` +
           `section${normalized.sections.length === 1 ? '' : 's'}, ` +
-          `${normalized.sections.reduce((s, sec) => s + sec.fields.length, 0)} fields total.`,
+          `${normalized.sections.reduce((s, sec) => s + sec.fields.length, 0)} fields total` +
+          (initialValues && Object.keys(initialValues).length ? `, pre-filled from the request` : '') +
+          '.',
       };
     },
   });
