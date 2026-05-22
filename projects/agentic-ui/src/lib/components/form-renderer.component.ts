@@ -108,7 +108,10 @@ interface ResolvedSection {
               }
             </section>
           }
-          <button type="submit" [disabled]="submitting()">{{ submitting() ? 'Submitting…' : 'Submit' }}</button>
+          <div class="form-actions">
+            <button type="submit" [disabled]="submitting()">{{ submitting() ? 'Submitting…' : 'Submit' }}</button>
+            <ng-content select="[formActions]" />
+          </div>
         </form>
       } @else {
         <form (submit)="$event.preventDefault(); onSubmit()">
@@ -167,7 +170,10 @@ interface ResolvedSection {
               }
             </label>
           }
-          <button type="submit" [disabled]="submitting()">{{ submitting() ? 'Submitting…' : 'Submit' }}</button>
+          <div class="form-actions">
+            <button type="submit" [disabled]="submitting()">{{ submitting() ? 'Submitting…' : 'Submit' }}</button>
+            <ng-content select="[formActions]" />
+          </div>
         </form>
       }
     } @else {
@@ -183,6 +189,7 @@ interface ResolvedSection {
     label em { color: #b91c1c; font-style: normal; margin-left: 0.15rem; }
     input, select, textarea { padding: 0.4rem 0.5rem; border: 1px solid #d1d5db; border-radius: 0.3rem; font: inherit; }
     .error { color: #b91c1c; font-size: 0.75rem; }
+    .form-actions { display: flex; align-items: center; gap: 0.5rem; }
     button { padding: 0.5rem 1rem; background: #2563eb; color: white; border: 0; border-radius: 0.3rem; cursor: pointer; align-self: flex-start; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     button.danger { background: #dc2626; }
