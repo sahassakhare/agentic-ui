@@ -75,7 +75,7 @@ export class App {
 
   protected readonly backends = [
     { id: 'ag-ui', label: 'AG-UI (SSE)' },
-    { id: 'hashbrown', label: 'Hashbrown (NDJSON)' },
+    { id: 'hashbrown', label: 'Hashbrown (@hashbrownai/core frames)' },
     { id: 'a2ui', label: 'A2UI (NDJSON + ui-action)' },
   ];
 

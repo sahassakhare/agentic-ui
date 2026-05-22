@@ -1,10 +1,18 @@
 /**
- * Reference protocol servers — Hashbrown + A2UI (NDJSON).
+ * Reference protocol servers — Hashbrown + A2UI.
  *
  * The AG-UI reference server is `agUiRouteHandler` (SSE). These two are
- * the NDJSON-wire counterparts the Hashbrown + A2UI client adapters in
- * `@infra-tools/agentic-ui` consume. They demonstrate exactly what such
- * a server emits: one JSON-encoded canonical `AgenticEvent` per line.
+ * the wire counterparts the Hashbrown + A2UI client adapters in
+ * `@infra-tools/agentic-ui` consume:
+ *
+ *  - **Hashbrown (R1)** speaks Hashbrown's REAL protocol — a request of
+ *    `Chat.Api.CompletionCreateParams`, answered with a stream of
+ *    length-prefixed frames (`[4-byte BE length][UTF-8 JSON]`) encoded by
+ *    `@hashbrownai/core`'s `encodeFrame`. This is what a real Hashbrown
+ *    backend (`@hashbrownai/openai` etc.) emits; the client adapter
+ *    decodes it with the same SDK.
+ *  - **A2UI (R2)** emits canonical `AgenticEvent` NDJSON (one JSON object
+ *    per line) plus the distinguishing `ui-action` event.
  *
  * Echo-based (LLM-free) so they run without an API key — the WIRE SHAPE
  * is identical to what an LLM-backed server would emit; only the content
@@ -15,6 +23,7 @@
  * docs/plans/reference-implementations-plan.md. See ADR-048 for the
  * canonical event contract every adapter conforms to.
  */
+import { encodeFrame, type Frame } from '@hashbrownai/core';
 
 /** Subset of the request body the client adapters POST (see ADR-048). */
 interface RefRequestBody {
@@ -54,32 +63,62 @@ function ndjsonResponse(events: () => AsyncGenerator<unknown>): Response {
 }
 
 /**
- * Hashbrown reference server (R1). Echoes the user message back as a
- * canonical `text-delta` stream, surfacing the tool count + state keys
- * it received — proof that the client adapter serialized tools (with
- * JSON-Schema parameters) and threaded `state` per ADR-013.
+ * Stream an async generator of Hashbrown `Frame`s as the SDK's
+ * length-prefixed binary format (`application/octet-stream`). Each frame
+ * is `encodeFrame`'d to `[4-byte BE length][UTF-8 JSON]` — byte-for-byte
+ * what the client adapter's `decodeFrames` expects.
+ */
+function framesResponse(frames: () => AsyncGenerator<Frame>): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        for await (const frame of frames()) {
+          controller.enqueue(encodeFrame(frame));
+          // Small pause so the stream visibly arrives in chunks.
+          await new Promise((r) => setTimeout(r, 25));
+        }
+      } finally {
+        controller.close();
+      }
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-cache' },
+  });
+}
+
+/**
+ * Hashbrown reference server (R1). Speaks Hashbrown's REAL protocol:
+ * reads a `Chat.Api.CompletionCreateParams` request and answers with a
+ * length-prefixed `Frame` stream — `generation-start`, a sequence of
+ * `generation-chunk`s (OpenAI-style `CompletionChunk` deltas), then
+ * `generation-finish`. The echo body surfaces the tool count it received
+ * as proof the client adapter serialized tools into `CompletionCreateParams.tools`.
+ *
+ * Swap the echo loop for `HashbrownOpenAI.stream.text(...)` (or any
+ * `@hashbrownai/*` model adapter) to make this a real LLM backend; the
+ * frame shape is identical.
  */
 export async function hashbrownReferenceHandler(req: Request): Promise<Response> {
   const body = (await req.json().catch(() => ({}))) as RefRequestBody;
-  const runId = body.runId ?? `run-${Date.now()}`;
-  const threadId = body.threadId ?? `thread-${Date.now()}`;
   const text = lastUserText(body.messages);
   const toolNames = (body.tools ?? []).map((t) => t.name).filter(Boolean);
-  const stateKeys = Object.keys(body.state ?? {});
 
-  return ndjsonResponse(async function* () {
-    yield { type: 'run-started', threadId, runId };
-    const messageId = `m-${runId}`;
+  return framesResponse(async function* () {
+    yield { type: 'generation-start' };
     const reply =
       `Hashbrown reference server — echo: "${text}". ` +
       `Received ${toolNames.length} tool(s)` +
       (toolNames.length ? ` [${toolNames.join(', ')}]` : '') +
-      ` and state key(s) [${stateKeys.join(', ') || 'none'}].`;
+      '.';
     for (const word of reply.split(' ')) {
-      yield { type: 'text-delta', messageId, delta: word + ' ' };
+      yield {
+        type: 'generation-chunk',
+        chunk: { choices: [{ index: 0, delta: { content: word + ' ' }, finishReason: null }] },
+      };
     }
-    yield { type: 'text-end', messageId };
-    yield { type: 'run-finished', runId };
+    yield { type: 'generation-finish' };
   });
 }
 

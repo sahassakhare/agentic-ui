@@ -1,16 +1,29 @@
 import { describe, expect, it } from 'vitest';
+import { decodeFrames, type Frame } from '@hashbrownai/core';
 import { hashbrownReferenceHandler, a2uiReferenceHandler } from './reference-protocol-servers.js';
 
 /**
- * Smoke for the Hashbrown + A2UI reference servers (R1 + R2). Calls the
- * handlers directly with a mock Request, reads the NDJSON Response
- * stream, and asserts the canonical AgenticEvent sequence — the wire
+ * Smoke for the Hashbrown + A2UI reference servers (R1 + R2).
+ *
+ * Hashbrown speaks its REAL protocol — the response is a length-prefixed
+ * `Frame` stream, decoded here with `@hashbrownai/core`'s `decodeFrames`
+ * (the same SDK the client adapter uses). A2UI emits canonical
+ * AgenticEvent NDJSON. Both are read back and asserted against the wire
  * contract the client adapters parse.
  */
 
 async function readEvents(res: Response): Promise<Array<Record<string, unknown>>> {
   const text = await res.text();
   return text.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l) as Record<string, unknown>);
+}
+
+/** Decode a Hashbrown frame Response back into Frame[] via the real SDK. */
+async function readFrames(res: Response): Promise<Frame[]> {
+  const frames: Frame[] = [];
+  for await (const f of decodeFrames(res.body as ReadableStream<Uint8Array>, { signal: new AbortController().signal })) {
+    frames.push(f);
+  }
+  return frames;
 }
 
 function req(body: unknown): Request {
@@ -22,40 +35,31 @@ function req(body: unknown): Request {
 }
 
 describe('hashbrownReferenceHandler', () => {
-  it('emits a canonical run-started → text-delta* → text-end → run-finished sequence', async () => {
+  it('emits a real Hashbrown frame stream: generation-start → chunk* → generation-finish', async () => {
     const res = await hashbrownReferenceHandler(req({
-      threadId: 't1', runId: 'r1',
       messages: [{ role: 'user', content: 'hello there' }],
       tools: [{ name: 'bookFlight' }],
-      state: { persona: 'lead-counsel' },
     }));
-    expect(res.headers.get('Content-Type')).toContain('application/x-ndjson');
-    const events = await readEvents(res);
-    expect(events[0]).toMatchObject({ type: 'run-started', threadId: 't1', runId: 'r1' });
-    expect(events.some((e) => e['type'] === 'text-delta')).toBe(true);
-    expect(events.some((e) => e['type'] === 'text-end')).toBe(true);
-    expect(events.at(-1)).toMatchObject({ type: 'run-finished', runId: 'r1' });
+    expect(res.headers.get('Content-Type')).toContain('application/octet-stream');
+    const frames = await readFrames(res);
+    expect(frames[0]).toEqual({ type: 'generation-start' });
+    expect(frames.some((f) => f.type === 'generation-chunk')).toBe(true);
+    expect(frames.at(-1)).toEqual({ type: 'generation-finish' });
   });
 
-  it('echoes the received tool names + state keys (proves client serialization)', async () => {
+  it('streams the echo as CompletionChunk content deltas (decodable by the client adapter)', async () => {
     const res = await hashbrownReferenceHandler(req({
-      runId: 'r2',
       messages: [{ role: 'user', content: 'hi' }],
       tools: [{ name: 'searchDocs' }, { name: 'tagDoc' }],
-      state: { route: '/workspace' },
     }));
-    const events = await readEvents(res);
-    const text = events.filter((e) => e['type'] === 'text-delta').map((e) => e['delta']).join('');
+    const frames = await readFrames(res);
+    const text = frames
+      .filter((f): f is Extract<Frame, { type: 'generation-chunk' }> => f.type === 'generation-chunk')
+      .map((f) => f.chunk.choices[0]?.delta?.content ?? '')
+      .join('');
     expect(text).toContain('searchDocs');
     expect(text).toContain('tagDoc');
-    expect(text).toContain('route');
-  });
-
-  it('defaults thread/run ids when omitted', async () => {
-    const res = await hashbrownReferenceHandler(req({ messages: [{ role: 'user', content: 'x' }] }));
-    const events = await readEvents(res);
-    expect((events[0]?.['threadId'] as string)).toMatch(/^thread-/);
-    expect((events[0]?.['runId'] as string)).toMatch(/^run-/);
+    expect(text).toContain('echo: "hi"');
   });
 });
 

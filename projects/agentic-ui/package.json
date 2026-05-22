@@ -53,6 +53,9 @@
     "@ag-ui/client": {
       "optional": true
     },
+    "@hashbrownai/core": {
+      "optional": true
+    },
     "@module-federation/runtime": {
       "optional": true
     },

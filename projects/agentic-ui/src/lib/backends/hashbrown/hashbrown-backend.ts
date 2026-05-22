@@ -1,4 +1,5 @@
 import { EnvironmentProviders, inject, makeEnvironmentProviders, provideEnvironmentInitializer } from '@angular/core';
+import { Chat, decodeFrames } from '@hashbrownai/core';
 import {
   AGENTIC_TELEMETRY_SINK,
   BackendRegistry,
@@ -9,16 +10,22 @@ import {
   type BackendCapabilities,
   type BackendDef,
 } from '../../internal';
-import { parseAgenticEventStrict } from '../_shared/canonical-events';
 import { serializeToolsForWire } from '../_shared/canonical-messages';
+import { convertMessagesToHashbrown } from './hashbrown-converters';
+import { HashbrownFrameMapper } from './hashbrown-frame-mapper';
 
 export interface HashbrownBackendConfig {
-  /** URL of the Hashbrown server endpoint (returns NDJSON or SSE). */
+  /** URL of the Hashbrown completions endpoint (emits length-prefixed frames). */
   readonly url: string;
   /** Optional headers to include on every request. */
   readonly headers?: Record<string, string>;
-  /** Model variant to use. Server determines actual model from this. */
-  readonly model?: 'openai' | 'google' | string;
+  /**
+   * Hashbrown model id passed through as `CompletionCreateParams.model`
+   * (e.g. `gpt-4o`, `gemini-2.0-flash`). The server's configured model
+   * adapter (`@hashbrownai/openai`, `@hashbrownai/google`, …) resolves it.
+   * Defaults to `gpt-4o`.
+   */
+  readonly model?: string;
 }
 
 export const HASHBROWN_CAPABILITIES: BackendCapabilities = {
@@ -29,25 +36,25 @@ export const HASHBROWN_CAPABILITIES: BackendCapabilities = {
 };
 
 /**
- * Backend adapter for Hashbrown UI servers. Hashbrown is a
- * model-agnostic LLM abstraction (LiveLoveApp) supporting OpenAI and
- * Google variants — see `flights42`'s `hashbrown/server-{openai,
- * google}.ts` for reference servers.
+ * Backend adapter for **Hashbrown** servers — a real client of
+ * `@hashbrownai/core`.
  *
- * The wire protocol is server-defined; this adapter posts the lib's
- * `AgenticMessage[]` shape directly (the same shape AG-UI consumes),
- * with `tools[]` carrying the full JSON-Schema parameters derived
- * from each ToolDef's Zod schema, and `state` threaded per ADR-013.
+ * It speaks Hashbrown's actual wire protocol rather than a look-alike:
+ *   - the request body is a `Chat.Api.CompletionCreateParams`
+ *     (`operation`, `model`, `system`, `messages`, `tools`), built by
+ *     {@link convertMessagesToHashbrown};
+ *   - the response is a stream of length-prefixed frames
+ *     (`[4-byte BE length][UTF-8 JSON]`) decoded with the SDK's
+ *     `decodeFrames`;
+ *   - frames are mapped to canonical `AgenticEvent`s by
+ *     {@link HashbrownFrameMapper}.
  *
- * Slice L1 of `docs/plans/library-hardening-plan.md` brings this
- * adapter to parity with AG-UI:
- *   - Tools posted with full schemas (was: `{name, description}` only)
- *   - `state` field threaded (was: not posted; lost persona/route ctx)
- *   - Inbound NDJSON lines validated against `agenticEventSchema`
- *     (was: `as unknown as AgenticEvent` cast — could corrupt run
- *     state on a malformed wire payload)
- *   - Malformed events emit `agentic.run.malformed_event` telemetry
- *     instead of silently dropping
+ * `@hashbrownai/core` is an **optional peer dependency** — only apps that
+ * call {@link provideHashbrownBackend} pull it into their bundle.
+ *
+ * The adapter owns the run lifecycle (`run-started` / `run-finished`)
+ * so exactly one of each is emitted even on abort or a truncated stream;
+ * the frame mapper supplies text + tool-call + error events in between.
  */
 export class HashbrownBackend implements AgenticBackend {
   readonly id = 'hashbrown';
@@ -66,50 +73,54 @@ export class HashbrownBackend implements AgenticBackend {
       return;
     }
 
+    const mapper = new HashbrownFrameMapper(input.runId);
+
     try {
+      const { system, messages } = convertMessagesToHashbrown(input.messages);
+      const params: Chat.Api.CompletionCreateParams = {
+        operation: 'generate',
+        model: (this.config.model ?? 'gpt-4o') as Chat.Api.CompletionCreateParams['model'],
+        system,
+        messages,
+        tools: serializeToolsForWire(input.tools) as Chat.Api.Tool[],
+        threadId: input.threadId,
+      };
+
       const res = await fetch(this.config.url, {
         method: 'POST',
         signal: input.signal,
-        headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson', ...(this.config.headers ?? {}) },
-        body: JSON.stringify({
-          threadId: input.threadId,
-          runId: input.runId,
-          messages: input.messages,
-          tools: serializeToolsForWire(input.tools),
-          // ADR-013 — host's per-turn reasoning context (persona,
-          // matter, active route). Default `{}` matches v1.2 wire when
-          // no AGENTIC_RUN_STATE_PROVIDER is registered.
-          state: input.state ?? {},
-          model: this.config.model ?? 'openai',
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/octet-stream',
+          ...(this.config.headers ?? {}),
+        },
+        body: JSON.stringify(params),
       });
-      if (!res.ok || !res.body) throw new Error(`Hashbrown request failed: ${res.status} ${res.statusText}`);
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      while (true) {
-        if (input.signal.aborted) break;
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let idx: number;
-        while ((idx = buffer.indexOf('\n')) >= 0) {
-          const line = buffer.slice(0, idx).trim();
-          buffer = buffer.slice(idx + 1);
-          if (!line) continue;
-          const ev = parseAgenticEventStrict(line, {
-            telemetry: this.telemetry,
-            threadId: input.threadId,
-            runId: input.runId,
-            backendId: this.id,
-          });
-          if (ev) yield ev;
-        }
+      if (!res.ok || !res.body) {
+        throw new Error(`Hashbrown request failed: ${res.status} ${res.statusText}`);
       }
 
+      let errored = false;
+      for await (const frame of decodeFrames(res.body, { signal: input.signal })) {
+        for (const ev of mapper.map(frame)) {
+          if (ev.type === 'run-error') errored = true;
+          yield ev;
+        }
+        if (errored) break;
+      }
+
+      // Close any tool calls left open by a truncated stream, then end.
+      for (const ev of mapper.finalize()) yield ev;
       yield { type: 'run-finished', runId: input.runId };
     } catch (err) {
+      // Network / decode failure — a wire-level problem, not a model
+      // error. Mirror the other adapters' observability.
+      this.telemetry.emit('agentic.run.malformed_event', {
+        backendId: this.id,
+        threadId: input.threadId,
+        runId: input.runId,
+        message: err instanceof Error ? err.message : String(err),
+      });
       yield {
         type: 'run-error',
         runId: input.runId,
