@@ -55,6 +55,7 @@
     "@angular/cli": "^21.0.0",
     "@angular/compiler-cli": "^21.0.0",
     "@compodoc/compodoc": "^1.2.1",
+    "@hashbrownai/core": "^0.4.1",
     "@playwright/test": "^1.59.1",
     "@schematics/angular": "^21.0.0",
     "@types/node": "^22.10.0",

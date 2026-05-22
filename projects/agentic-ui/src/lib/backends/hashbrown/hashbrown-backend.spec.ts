@@ -1,46 +1,52 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { z } from 'zod';
+import { encodeFrame, type Frame } from '@hashbrownai/core';
 import { agenticTool } from '../../factories/agentic-tool';
 import { HashbrownBackend } from './hashbrown-backend';
 import { InMemoryTelemetrySink } from '../../testing/in-memory-telemetry-sink';
 import type { AgenticEvent, AgenticMessage, ToolDef } from '../../internal';
 
 /**
- * Slice L1 — Hashbrown adapter spec. Asserts the parity contract:
- *   - Tools posted with full JSON-Schema parameters
- *   - `state` field threaded
- *   - Inbound NDJSON Zod-validated; malformed lines telemetry'd + dropped
- *   - Malformed events do not corrupt run state
+ * Hashbrown adapter spec — native `@hashbrownai/core` integration.
  *
- * Mocks the `fetch` global to control the wire — no live HTTP.
+ * Asserts the real-protocol contract:
+ *   - the request body is a `Chat.Api.CompletionCreateParams`
+ *     (`operation`, `model`, `system`, `messages`, `tools` with full
+ *     JSON-Schema parameters);
+ *   - the length-prefixed `Frame` response (built here with the SDK's
+ *     `encodeFrame`) is decoded + mapped to canonical `AgenticEvent`s;
+ *   - the adapter owns run lifecycle + error handling.
+ *
+ * Mocks `fetch` to control the wire — no live HTTP.
  */
 
-function ndjsonReadable(events: unknown[]): ReadableStream<Uint8Array> {
+/** A length-prefixed frame stream, encoded with the real SDK codec. */
+function framesReadable(frames: Frame[]): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     start(controller) {
-      const enc = new TextEncoder();
-      for (const ev of events) {
-        controller.enqueue(enc.encode(JSON.stringify(ev) + '\n'));
-      }
+      for (const f of frames) controller.enqueue(encodeFrame(f));
       controller.close();
     },
   });
 }
 
-function ndjsonResponse(events: unknown[]): Response {
-  return new Response(ndjsonReadable(events), {
+function framesResponse(frames: Frame[]): Response {
+  return new Response(framesReadable(frames), {
     status: 200,
-    headers: { 'Content-Type': 'application/x-ndjson' },
+    headers: { 'Content-Type': 'application/octet-stream' },
   });
 }
 
-let lastRequest: { url: string; init?: RequestInit; body: unknown } | null = null;
+function chunk(content: string): Frame {
+  return { type: 'generation-chunk', chunk: { choices: [{ index: 0, delta: { content }, finishReason: null }] } };
+}
+
+let lastRequest: { url: string; body: unknown } | null = null;
 
 function stubFetch(response: Response): typeof fetch {
   return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    const body = init?.body ? JSON.parse(String(init.body)) : null;
-    lastRequest = { url, ...(init !== undefined ? { init } : {}), body };
+    lastRequest = { url, body: init?.body ? JSON.parse(String(init.body)) : null };
     return response;
   }) as typeof fetch;
 }
@@ -61,7 +67,7 @@ const baseInput = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-describe('HashbrownBackend — L1 parity', () => {
+describe('HashbrownBackend — native @hashbrownai/core integration', () => {
   let originalFetch: typeof fetch;
   beforeEach(() => {
     originalFetch = globalThis.fetch;
@@ -71,10 +77,28 @@ describe('HashbrownBackend — L1 parity', () => {
     globalThis.fetch = originalFetch;
   });
 
-  it('posts tools with their full JSON-Schema parameters (was: dropped)', async () => {
-    globalThis.fetch = stubFetch(ndjsonResponse([
-      { type: 'run-finished', runId: 'r-1' },
-    ]));
+  it('posts a CompletionCreateParams request (operation/model/system/messages)', async () => {
+    globalThis.fetch = stubFetch(framesResponse([{ type: 'generation-finish' }]));
+
+    const backend = new HashbrownBackend({ url: 'http://hashbrown.test/run', model: 'gpt-4o-mini' }, new InMemoryTelemetrySink());
+    await collect(backend.run(baseInput({
+      messages: [
+        { id: 's', role: 'system', content: 'Be terse.', toolCalls: [], widgets: [] },
+        { id: 'u', role: 'user', content: 'hi', toolCalls: [], widgets: [] },
+      ] as readonly AgenticMessage[],
+    })));
+
+    const body = lastRequest?.body as {
+      operation: string; model: string; system: string; messages: Array<{ role: string }>;
+    };
+    expect(body.operation).toBe('generate');
+    expect(body.model).toBe('gpt-4o-mini');
+    expect(body.system).toBe('Be terse.');           // system lifted out of messages
+    expect(body.messages).toEqual([{ role: 'user', content: 'hi' }]);
+  });
+
+  it('defaults the model to gpt-4o and posts tools with full JSON-Schema parameters', async () => {
+    globalThis.fetch = stubFetch(framesResponse([{ type: 'generation-finish' }]));
 
     const tool = agenticTool({
       name: 'searchDocs',
@@ -82,123 +106,81 @@ describe('HashbrownBackend — L1 parity', () => {
       schema: z.object({ q: z.string(), limit: z.number().optional() }),
       handler: async () => ({ ok: true }),
     });
-    const backend = new HashbrownBackend(
-      { url: 'http://hashbrown.test/run' },
-      new InMemoryTelemetrySink(),
-    );
-
+    const backend = new HashbrownBackend({ url: 'http://hashbrown.test/run' }, new InMemoryTelemetrySink());
     await collect(backend.run(baseInput({ tools: [tool] as unknown as ToolDef[] })));
 
-    const tools = (lastRequest?.body as { tools: Array<{ name: string; parameters: { properties?: Record<string, unknown> } }> }).tools;
-    expect(tools).toHaveLength(1);
-    expect(tools[0]?.name).toBe('searchDocs');
-    // The pre-L1 wire dropped `parameters`. Assert it's now present.
-    expect(tools[0]?.parameters?.properties?.['q']).toBeDefined();
-    expect(tools[0]?.parameters?.properties?.['limit']).toBeDefined();
+    const body = lastRequest?.body as { model: string; tools: Array<{ name: string; parameters: { properties?: Record<string, unknown> } }> };
+    expect(body.model).toBe('gpt-4o');
+    expect(body.tools).toHaveLength(1);
+    expect(body.tools[0]?.name).toBe('searchDocs');
+    expect(body.tools[0]?.parameters?.properties?.['q']).toBeDefined();
+    expect(body.tools[0]?.parameters?.properties?.['limit']).toBeDefined();
   });
 
-  it('threads the host `state` field per ADR-013 (was: not posted)', async () => {
-    globalThis.fetch = stubFetch(ndjsonResponse([
-      { type: 'run-finished', runId: 'r-1' },
+  it('decodes a frame stream into run-started → text-delta* → run-finished', async () => {
+    globalThis.fetch = stubFetch(framesResponse([
+      { type: 'generation-start' },
+      chunk('Hi '),
+      chunk('there'),
+      { type: 'generation-finish' },
     ]));
 
-    const backend = new HashbrownBackend(
-      { url: 'http://hashbrown.test/run' },
-      new InMemoryTelemetrySink(),
-    );
-
-    await collect(backend.run(baseInput({
-      state: { persona: 'lead-counsel', route: '/workspace', matter: 'M-2026-0042' },
-    })));
-
-    const state = (lastRequest?.body as { state: Record<string, unknown> }).state;
-    expect(state['persona']).toBe('lead-counsel');
-    expect(state['route']).toBe('/workspace');
-    expect(state['matter']).toBe('M-2026-0042');
-  });
-
-  it('defaults `state` to `{}` when none is provided', async () => {
-    globalThis.fetch = stubFetch(ndjsonResponse([
-      { type: 'run-finished', runId: 'r-1' },
-    ]));
-
-    const backend = new HashbrownBackend(
-      { url: 'http://hashbrown.test/run' },
-      new InMemoryTelemetrySink(),
-    );
-    await collect(backend.run(baseInput()));
-    expect((lastRequest?.body as { state: object }).state).toEqual({});
-  });
-
-  it('yields valid events from the NDJSON stream', async () => {
-    globalThis.fetch = stubFetch(ndjsonResponse([
-      { type: 'text-delta', messageId: 'm-1', delta: 'hi' },
-      { type: 'text-end', messageId: 'm-1' },
-      { type: 'run-finished', runId: 'r-1' },
-    ]));
-
-    const backend = new HashbrownBackend(
-      { url: 'http://hashbrown.test/run' },
-      new InMemoryTelemetrySink(),
-    );
-
+    const backend = new HashbrownBackend({ url: 'http://hashbrown.test/run' }, new InMemoryTelemetrySink());
     const events = await collect(backend.run(baseInput()));
-    // run-started is yielded by the adapter; then the 3 wire events;
-    // then run-finished is the LAST wire event.
-    const types = events.map((e) => e.type);
-    expect(types).toEqual([
-      'run-started', 'text-delta', 'text-end', 'run-finished', 'run-finished',
+
+    expect(events.map((e) => e.type)).toEqual(['run-started', 'text-delta', 'text-delta', 'run-finished']);
+    const text = events.filter((e): e is Extract<AgenticEvent, { type: 'text-delta' }> => e.type === 'text-delta').map((e) => e.delta).join('');
+    expect(text).toBe('Hi there');
+  });
+
+  it('maps streamed tool calls to tool-call-start/args/end', async () => {
+    globalThis.fetch = stubFetch(framesResponse([
+      { type: 'generation-chunk', chunk: { choices: [{ index: 0, delta: { toolCalls: [{ index: 0, id: 'tc1', function: { name: 'searchDocs', arguments: '{"q":' } }] }, finishReason: null }] } },
+      { type: 'generation-chunk', chunk: { choices: [{ index: 0, delta: { toolCalls: [{ index: 0, function: { arguments: '"ipsa"}' } }] }, finishReason: null }] } },
+      { type: 'generation-finish' },
+    ]));
+
+    const backend = new HashbrownBackend({ url: 'http://hashbrown.test/run' }, new InMemoryTelemetrySink());
+    const events = await collect(backend.run(baseInput()));
+    const toolEvents = events.filter((e) => e.type.startsWith('tool-call'));
+    expect(toolEvents).toEqual([
+      { type: 'tool-call-start', toolCallId: 'tc1', name: 'searchDocs' },
+      { type: 'tool-call-args', toolCallId: 'tc1', delta: '{"q":' },
+      { type: 'tool-call-args', toolCallId: 'tc1', delta: '"ipsa"}' },
+      { type: 'tool-call-end', toolCallId: 'tc1' },
     ]);
   });
 
-  it('drops malformed NDJSON lines with telemetry (was: cast crashed)', async () => {
-    globalThis.fetch = stubFetch(ndjsonResponse([
-      { type: 'text-delta', delta: 'no-id' },  // missing messageId
-      { type: 'text-delta', messageId: 'm-1', delta: 'valid' },
-      { type: 'invented-event' },              // unknown type
-      { type: 'run-finished', runId: 'r-1' },
+  it('surfaces a generation-error frame as a run-error event', async () => {
+    globalThis.fetch = stubFetch(framesResponse([
+      { type: 'generation-start' },
+      { type: 'generation-error', error: 'model exploded' },
     ]));
-    const sink = new InMemoryTelemetrySink();
 
-    const backend = new HashbrownBackend(
-      { url: 'http://hashbrown.test/run' },
-      sink,
-    );
-
-    const events = await collect(backend.run(baseInput()));
-    // Only the valid text-delta + run-finished pass through.
-    const types = events.map((e) => e.type);
-    expect(types).toContain('text-delta');
-    expect(types.filter((t) => t === 'text-delta')).toHaveLength(1);
-
-    const malformed = sink.eventsByName('agentic.run.malformed_event');
-    expect(malformed).toHaveLength(2);
-    expect(malformed.every((e) => e.attributes?.['agentic.backend.id'] === 'hashbrown')).toBe(true);
-  });
-
-  it('yields run-error when the wire request fails', async () => {
-    globalThis.fetch = stubFetch(new Response('boom', { status: 500 }));
-
-    const backend = new HashbrownBackend(
-      { url: 'http://hashbrown.test/run' },
-      new InMemoryTelemetrySink(),
-    );
-
+    const backend = new HashbrownBackend({ url: 'http://hashbrown.test/run' }, new InMemoryTelemetrySink());
     const events = await collect(backend.run(baseInput()));
     const err = events.find((e): e is Extract<AgenticEvent, { type: 'run-error' }> => e.type === 'run-error');
-    expect(err).toBeDefined();
+    expect(err?.error.code).toBe('hashbrown_generation_error');
+    expect(err?.error.message).toBe('model exploded');
+  });
+
+  it('yields run-error + telemetry when the wire request fails', async () => {
+    globalThis.fetch = stubFetch(new Response('boom', { status: 500 }));
+    const sink = new InMemoryTelemetrySink();
+
+    const backend = new HashbrownBackend({ url: 'http://hashbrown.test/run' }, sink);
+    const events = await collect(backend.run(baseInput()));
+
+    const err = events.find((e): e is Extract<AgenticEvent, { type: 'run-error' }> => e.type === 'run-error');
     expect(err?.error.code).toBe('hashbrown_error');
+    expect(sink.eventsByName('agentic.run.malformed_event').length).toBeGreaterThanOrEqual(1);
   });
 
   it('honours a pre-aborted signal — emits run-started + run-finished, no fetch', async () => {
     const fetchSpy = vi.fn();
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
-    const backend = new HashbrownBackend(
-      { url: 'http://hashbrown.test/run' },
-      new InMemoryTelemetrySink(),
-    );
-
+    const backend = new HashbrownBackend({ url: 'http://hashbrown.test/run' }, new InMemoryTelemetrySink());
     const ac = new AbortController();
     ac.abort();
     const events = await collect(backend.run(baseInput({ signal: ac.signal })));
@@ -207,10 +189,7 @@ describe('HashbrownBackend — L1 parity', () => {
   });
 
   it('advertises capabilities (streaming + clientTools + generativeUi)', () => {
-    const backend = new HashbrownBackend(
-      { url: 'http://hashbrown.test/run' },
-      new InMemoryTelemetrySink(),
-    );
+    const backend = new HashbrownBackend({ url: 'http://hashbrown.test/run' }, new InMemoryTelemetrySink());
     expect(backend.capabilities.streaming).toBe(true);
     expect(backend.capabilities.clientTools).toBe(true);
     expect(backend.capabilities.generativeUi).toBe(true);

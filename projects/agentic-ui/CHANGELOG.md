@@ -4,6 +4,18 @@ All notable changes to `@infra-tools/agentic-ui` are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed — native Hashbrown integration
+
+- **`HashbrownBackend` is now a real client of `@hashbrownai/core`** (added as an optional peer dependency). It sends a `Chat.Api.CompletionCreateParams` request (`operation` / `model` / `system` / `messages` / `tools`) and decodes the SDK's length-prefixed frame stream (`[4-byte BE length][UTF-8 JSON]`) via `decodeFrames`, mapping `generation-chunk` / `generation-finish` / `generation-error` frames to canonical `AgenticEvent`s. The matching reference server (`examples/demo-server`) emits those frames via `encodeFrame`.
+- ⚠️ **BREAKING (Hashbrown adapter only)**: the request body changed from the canonical `{ messages, tools, state }` shape to `Chat.Api.CompletionCreateParams`, and the response is now a Hashbrown frame stream rather than canonical `AgenticEvent` NDJSON. Servers written against the v1.2.2 Hashbrown adapter must adopt the Hashbrown wire (or copy the reference server). AG-UI and A2UI adapters are unchanged.
+- Note: `state` (ADR-013) is not part of Hashbrown's `CompletionCreateParams`; for this backend, host reasoning context is conveyed through `system` / `messages`.
+
+### Fixed
+
+- MCP-UI mime alignment: the `@infra-tools/agentic-ui-mcp` server now emits `text/html` (was `text/html;profile=mcp-app`) with a `ui://` URI, matching this package's inbound `MCP_UI_HTML_MIME` so server output round-trips through the renderer. See that package's changelog.
+
 ## [1.0.0] — first stable release
 
 ### Added

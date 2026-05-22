@@ -100,7 +100,7 @@ It's the **plumbing between your app code and the agentic protocols**. You write
                                   │  AgenticBackend abstraction
 ┌──────────┬──────────────────────▼───────────────────┬────────────────┐
 │  AG-UI   │     Hashbrown    │     A2UI             │  Bring-your-own │  ← pluggable,
-│  (SSE)   │     (NDJSON)     │     (ui-action)      │  protocol       │    swap by config
+│  (SSE)   │     (frames)     │     (ui-action)      │  protocol       │    swap by config
 └──────────┴──────────────────────────────────────────┴────────────────┘
                                   │
                                   │  loadRemoteCapabilities()
@@ -134,7 +134,7 @@ flowchart TB
 
     subgraph PROTO["Pluggable backend adapters · swap by config"]
         AG["AG-UI<br/>(SSE)"]:::adapter
-        HB["Hashbrown<br/>(NDJSON)"]:::adapter
+        HB["Hashbrown<br/>(@hashbrownai/core frames)"]:::adapter
         A2["A2UI<br/>(ui-action)"]:::adapter
         BYO["Bring-your-own<br/>protocol"]:::adapter
     end
@@ -225,7 +225,7 @@ Twenty-seven distinct scenarios the library covers, ranked roughly by adoption o
 
 ## Features
 
-- **Pluggable agent backends.** A single `AgenticBackend` interface; ship adapters for AG-UI (`@ag-ui/client` HttpAgent + SSE), Hashbrown (NDJSON), and A2UI (`ui-action` event class routed through `ActionRegistry`). All three pass the `runConformance` harness per [ADR-048](./docs/adr/0048-backend-adapter-parity-contract.md) (tool schemas posted with full JSON-Schema, `state` threaded per [ADR-013](./docs/adr/0013-run-state-provider.md), inbound events Zod-validated, ui-action dispatcher carries live thread/run ids). See the [Backend support matrix](#backend-support-matrix) for what's tested end-to-end vs adopter-supplied.
+- **Pluggable agent backends.** A single `AgenticBackend` interface; ship adapters for AG-UI (`@ag-ui/client` HttpAgent + SSE), Hashbrown (`@hashbrownai/core` length-prefixed frames), and A2UI (`ui-action` event class routed through `ActionRegistry`). All three pass the `runConformance` harness per [ADR-048](./docs/adr/0048-backend-adapter-parity-contract.md) (tool schemas posted with full JSON-Schema, `state` threaded per [ADR-013](./docs/adr/0013-run-state-provider.md), inbound events Zod-validated, ui-action dispatcher carries live thread/run ids). See the [Backend support matrix](#backend-support-matrix) for what's tested end-to-end vs adopter-supplied.
 - **Layered registry system.** Eighteen registries grouped into Core, Extended, and Seam tiers, all sharing one `Registry<TDef>` shape — uniform `register / list / signal / removeBySource` semantics across tools, components, capabilities, backends, MFE remotes, actions, intents, forms, data sources, validation, persistence, layout, schema transformation, plus the dynamic-UI additions (approval, operation) and the post-chat-surfaces additions (trigger, dashboard, playbook).
 - **Generative UI.** Tool results carrying a `components: [{ name, props }]` field cause the chat shell to render registered Angular components by name through `*ngComponentOutlet`, with Zod-validated props.
 - **MFE federation.** `defineCapabilityModule` packages a remote's tools and widgets; `loadRemoteCapabilities` (Native Federation) and `loadRemoteCapabilitiesMF` (webpack Module Federation) push them into the host's runtime registries. Remote discovery happens through a pluggable `MfeRegistrySource` (static JSON or Spring Boot reference adapters; bring-your-own for Consul, Etcd, etc.).
@@ -249,15 +249,15 @@ The library ships three protocol adapters. All three are **client-conformant** (
 | Sibling spec coverage | 3 spec files, 298 LOC | 2 spec files (adapter + shared) | 2 spec files (adapter + shared) |
 | Conformance harness | passes | passes | passes |
 | **End-to-end story** | | | |
-| Reference server in `examples/` | ✓ [`demo-server`](./examples/demo-server) + [`demo-ediscovery-server`](./examples/demo-ediscovery-server) | adopter-supplied (see [`flights42`](https://github.com/liveloveapp/hashbrown) for a reference) | adopter-supplied (A2UI spec 0.x) |
-| Demos exercising the adapter | 16 demos (AG-UI is the default) | none in this repo | none in this repo |
-| Real-LLM e2e tests | ✓ Gemini via [Playwright](./e2e/README.md) | none | none |
+| Reference server in `examples/` | ✓ [`demo-server`](./examples/demo-server) + [`demo-ediscovery-server`](./examples/demo-ediscovery-server) | ✓ [`demo-server`](./examples/demo-server) — real `@hashbrownai/core` frames (echo-based) | adopter-supplied (A2UI spec 0.x) |
+| Demos exercising the adapter | 16 demos (AG-UI is the default) | [`demo-monolith`](./examples/demo-monolith) protocol gallery | [`demo-monolith`](./examples/demo-monolith) protocol gallery |
+| Real-LLM e2e tests | ✓ Gemini via [Playwright](./e2e/README.md) | none (echo reference server) | none |
 | Deployed reference | ✓ [ediscovery-shell.onrender.com](https://ediscovery-shell.onrender.com) | none | none |
-| Upstream spec stability | `@ag-ui/client` v0.0.52 (pinned) | server-defined wire (adopter contract) | spec 0.x (unsettled) |
+| Upstream spec stability | `@ag-ui/client` v0.0.52 (pinned) | `@hashbrownai/core` 0.4.x (optional peer dep) | spec 0.x (unsettled) |
 
-**What this means in practice.** Wire-protocol fidelity is the same across all three; build and ship against any of them. AG-UI is the recommended default because the repo ships the full stack (host adapter + server + LLM-driven e2e tests + deployed demo). Hashbrown and A2UI are correct client adapters waiting for an adopter to bring the server. If you do, please open an issue / PR with a reference server so the next adopter doesn't repeat the work.
+**What this means in practice.** Wire-protocol fidelity is the same across all three; build and ship against any of them. AG-UI is the recommended default because the repo ships the full stack (host adapter + server + LLM-driven e2e tests + deployed demo). **Hashbrown is now a real client of `@hashbrownai/core`** — it sends a `Chat.Api.CompletionCreateParams` request and decodes the SDK's length-prefixed frame stream; the `demo-server` reference handler emits those same frames via `encodeFrame` (echo body — swap in a `@hashbrownai/*` model adapter for a real LLM). A2UI remains a correct client adapter waiting for an adopter to bring the server.
 
-¹ Footnote from the headline pitch: *"works against AG-UI, Hashbrown, or A2UI without rewriting application code"* — the **application** (registries, widgets, tools, chat shell) is genuinely backend-agnostic. Hashbrown + A2UI need an adopter-supplied **server**.
+¹ Footnote from the headline pitch: *"works against AG-UI, Hashbrown, or A2UI without rewriting application code"* — the **application** (registries, widgets, tools, chat shell) is genuinely backend-agnostic. A2UI still needs an adopter-supplied **server**.
 
 ## Library capability inventory
 
@@ -318,7 +318,7 @@ For the surface-by-surface enterprise-readiness analysis (what's wired vs protot
 ### Backend tier (chat protocols)
 
 - **`AgUiBackend`** — AG-UI protocol adapter (HttpAgent + SSE event stream).
-- *`HashbrownBackend`* — Hashbrown protocol adapter (NDJSON).
+- *`HashbrownBackend`* — native Hashbrown client (`@hashbrownai/core` frame codec).
 - *`A2uiBackend`* — A2UI protocol adapter (`ui-action` event class routed through `ActionRegistry`).
 - **`FakeAgenticBackend`** — deterministic testing backend; powers the `runConformance` test harness.
 - *`mcpToolBridge`* — Model Context Protocol (Anthropic's tool protocol) bridge.

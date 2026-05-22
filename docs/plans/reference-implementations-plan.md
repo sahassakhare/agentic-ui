@@ -2,7 +2,7 @@
 
 > **Date prepared**: 2026-05-21
 > **Status**: R1 + R2 + R4 **SHIPPED** (2026-05-21); R3 (WebMCP shim) deferred per the recommendation.
->  - R1 Hashbrown + R2 A2UI reference servers — NDJSON handlers in `examples/demo-server/src/reference-protocol-servers.ts` (4 vitest smoke tests).
+>  - R1 Hashbrown + R2 A2UI reference servers in `examples/demo-server/src/reference-protocol-servers.ts`. **Update (2026-05-22): R1 Hashbrown upgraded to a native `@hashbrownai/core` integration** — the client adapter sends `Chat.Api.CompletionCreateParams` and decodes the SDK's length-prefixed frame stream (`decodeFrames`); the reference server emits real frames via `encodeFrame`. A2UI remains canonical-NDJSON. Smoke + unit tests cover the frame round-trip.
 >  - Demo wiring — `examples/demo-monolith` doubles as the protocol gallery: a 3-backend switcher (AG-UI / Hashbrown / A2UI), a custom A2UI `UI_ACTION_DISPATCHER` logging ui-actions with live thread/run ids, and an MCP-UI showcase (component-tree of native widgets + inline html). Home = Option A (extend demo-monolith), chosen over a new app for lower build-config risk; constraint-safe (not an eDiscovery app); protocol features isolated in a `protocols/` folder + opt-in sections.
 >  - R4 MCP-UI — exercised by the gallery's `<mvk-mcp-ui-resource>` sections. Surfaced + fixed a real lib bug (NG0910: `sandbox` can't be an Angular binding on `<iframe>` — now set imperatively via ElementRef).
 >  - eDiscovery demo apps untouched (standing constraint).
