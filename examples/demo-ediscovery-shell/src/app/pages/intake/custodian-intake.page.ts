@@ -128,15 +128,20 @@ export class CustodianIntakePage {
   }));
 
   /**
-   * Pre-fills the Identity section's Department field from the URL so the
-   * dropdown lands on the department the user mentioned ("…for a Finance
-   * custodian"). Keyed by the composition slot (`intake-identity-fields`);
-   * the renderer seeds the CompositionStore from this on mount.
+   * Pre-fills the Identity section from the URL so the form lands with
+   * whatever the user already gave ("…for custodian Ramesh,
+   * ramesh@test.com, HR" → name + email + department all populated).
+   * Keyed by the composition slot (`intake-identity-fields`); the
+   * renderer seeds the CompositionStore from this on mount. Emits the
+   * slot only when at least one field is present so an empty deep-link
+   * still mounts a blank form.
    */
   protected readonly initialValues = computed(() => {
-    const dept = this.department();
-    return dept
-      ? { 'intake-identity-fields': { name: '', email: '', department: dept } }
+    const name = this.params()?.get('name')?.trim() ?? '';
+    const email = this.params()?.get('email')?.trim() ?? '';
+    const department = this.department();
+    return name || email || department
+      ? { 'intake-identity-fields': { name, email, department } }
       : {};
   });
 }
