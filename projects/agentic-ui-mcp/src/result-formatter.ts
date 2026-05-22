@@ -6,11 +6,12 @@ import type { ToolResultRenderHints } from '@infra-tools/agentic-ui';
  *
  * - **`text`** — markdown / plain text / JSON-stringified domain data.
  *   Renders in every MCP host (Claude Desktop, Cursor, Continue, etc.).
- * - **`resource`** with `mimeType: 'text/html;profile=mcp-app'` — the
- *   MCP UI standard (announced by Claude Desktop's
- *   `io.modelcontextprotocol/ui` capability). Hosts that recognise it
- *   render the HTML in a sandboxed iframe; hosts that don't fall back
- *   to the resource's `text` field as plain text.
+ * - **`resource`** with `mimeType: 'text/html'` and a `ui://` URI — the
+ *   MCP-UI convention. Hosts that recognise it render the HTML in a
+ *   sandboxed iframe; hosts that don't fall back to the resource's
+ *   `text` field as plain text. This matches the inbound renderer in
+ *   `@infra-tools/agentic-ui` (`MCP_UI_HTML_MIME`), so this library's own
+ *   server output round-trips through its own renderer.
  *
  * @remarks
  * The `image` block is intentionally not used — converting an
@@ -30,15 +31,21 @@ export type McpContentBlock =
     };
 
 /**
- * The MCP UI mime type, as announced by Claude Desktop's
- * `io.modelcontextprotocol/ui` capability and emitted as a `resource`
- * block when a tool result includes an `html` render hint. Hosts that
- * recognise it render the HTML in a sandboxed iframe; hosts that don't
- * fall back to the resource's `text` field as plain text.
+ * The MCP-UI HTML mime type, emitted as a `resource` block when a tool
+ * result includes an `html` render hint. Hosts that recognise MCP-UI
+ * render the HTML in a sandboxed iframe; hosts that don't fall back to
+ * the resource's `text` field as plain text.
  *
- * @see https://modelcontextprotocol.io/specification (MCP UI extension)
+ * MUST stay equal to `MCP_UI_HTML_MIME` in `@infra-tools/agentic-ui`
+ * (the inbound renderer matches on this exact string), and to the
+ * MCP-UI convention of bare `text/html` paired with a `ui://` URI.
+ * The conformance test in `result-formatter.spec.ts` asserts the
+ * emitted resource parses through the inbound `mcpUiResourceSchema`,
+ * so the two packages cannot silently drift.
+ *
+ * @see https://mcpui.dev — MCP-UI resource convention (`ui://` + `text/html`)
  */
-export const MCP_UI_HTML_MIME = 'text/html;profile=mcp-app';
+export const MCP_UI_HTML_MIME = 'text/html';
 
 /**
  * Format a tool handler's return value into MCP `content` blocks.
@@ -47,9 +54,9 @@ export const MCP_UI_HTML_MIME = 'text/html;profile=mcp-app';
  * Precedence — the *first* matching condition wins so callers know
  * exactly which surface they're targeting:
  *
- *   1. **`html`** present  → MCP UI `resource` block (`text/html;profile=mcp-app`).
- *      Highest fidelity — Claude Desktop / Cursor / any MCP UI–aware
- *      host renders the HTML in a sandboxed iframe.
+ *   1. **`html`** present  → MCP-UI `resource` block (`text/html`, `ui://` URI).
+ *      Highest fidelity — any MCP-UI–aware host renders the HTML in a
+ *      sandboxed iframe.
  *   2. **`markdown`** present  → single text block; `image_url`
  *      appended as markdown image syntax if also present.
  *   3. **`image_url`** alone  → markdown image embed (`![](url)`).
@@ -81,9 +88,10 @@ export function formatToolResult(result: unknown): readonly McpContentBlock[] {
       resource: {
         // The `uri` is the host's display id for this resource — must be
         // unique per result. We mint one tied to the tool's render so the
-        // host can cache or replay if it wants. Using the `mcp-ui:` scheme
-        // makes it self-describing in logs.
-        uri: `mcp-ui://result-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        // host can cache or replay if it wants. The `ui://` scheme is the
+        // MCP-UI convention recognised by compliant hosts and the inbound
+        // renderer's examples.
+        uri: `ui://result-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
         mimeType: MCP_UI_HTML_MIME,
         text: hints.html,
       },

@@ -671,7 +671,7 @@ For 17+ tool inventories like the eDiscovery demo, this typically narrows each t
 
 **Library responsibility.**
 - `@infra-tools/agentic-ui-mcp` is a separate package that wraps `ToolDef` instances as an MCP server.
-- `createMcpServer({ tools, transport })` produces a Hono-mountable server that speaks MCP over stdio, SSE, or the `text/html;profile=mcp-app` HTTP profile.
+- `createMcpServer({ tools, transport })` produces a Hono-mountable server that speaks MCP over stdio or HTTP+SSE. Tool results that carry an `html` render hint are emitted as MCP-UI `text/html` resource blocks (`ui://` URI) for hosts that render them.
 - Same Zod schemas, same handlers — only the transport differs.
 
 **Wiring.**
