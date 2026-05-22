@@ -39,11 +39,9 @@ import { normaliseDepartment } from '../../agentic/intake-constants';
     </section>
 
     <section class="form-host">
-      <mvk-form-renderer formName="custodianIntakeForm" [context]="ctx()" [initialValues]="initialValues()" />
-
-      <div class="form-actions">
-        <a routerLink="/custodians" class="cancel-btn">Cancel</a>
-      </div>
+      <mvk-form-renderer formName="custodianIntakeForm" [context]="ctx()" [initialValues]="initialValues()">
+        <a formActions routerLink="/custodians" class="cancel-btn">Cancel</a>
+      </mvk-form-renderer>
     </section>
 
     <p class="hint">
@@ -64,13 +62,6 @@ import { normaliseDepartment } from '../../agentic/intake-constants';
       border: 1px solid var(--c-border);
       border-radius: 0.625rem;
       padding: 1.5rem;
-    }
-    .form-actions {
-      margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid var(--c-border);
-      display: flex;
-      justify-content: flex-end;
     }
     .cancel-btn {
       display: inline-flex; align-items: center;
