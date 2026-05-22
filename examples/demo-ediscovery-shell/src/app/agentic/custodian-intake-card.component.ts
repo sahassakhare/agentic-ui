@@ -58,6 +58,9 @@ export class CustodianIntakeCardComponent {
    */
   readonly persona = input<string>('');
   readonly department = input<string>('');
+  /** Custodian name / email the agent extracted from the prompt. */
+  readonly name = input<string>('');
+  readonly email = input<string>('');
 
   private readonly personaService = inject(PersonaService);
 
@@ -75,14 +78,16 @@ export class CustodianIntakeCardComponent {
   }));
 
   /**
-   * Pre-fills the Identity section's Department field with the department
-   * the agent mentioned, so the dropdown lands pre-selected instead of
-   * empty. Keyed by the composition slot (`intake-identity-fields`).
+   * Pre-fills the Identity section with whatever the agent extracted —
+   * name, email, and/or department — so the form lands populated instead
+   * of empty. Keyed by the composition slot (`intake-identity-fields`).
    */
   protected readonly initialValues = computed(() => {
-    const dept = this.normalizedDepartment();
-    return dept
-      ? { 'intake-identity-fields': { name: '', email: '', department: dept } }
+    const name = this.name().trim();
+    const email = this.email().trim();
+    const department = this.normalizedDepartment();
+    return name || email || department
+      ? { 'intake-identity-fields': { name, email, department } }
       : {};
   });
 }

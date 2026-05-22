@@ -933,18 +933,26 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
       'Finance team", "Engineering custodian", "in Legal" all map to ' +
       'a department string. Pass it as `department`. Only omit ' +
       '`department` when the user gave no department hint at all ' +
-      '(then the form skips the accounting-systems section). ' +
+      '(then the form skips the accounting-systems section). ALSO ' +
+      'extract the custodian\'s full name and work email if the user ' +
+      'gave them ("onboard Ramesh, ramesh@test.com from HR" -> ' +
+      'name:"Ramesh", email:"ramesh@test.com", department:"HR") and pass ' +
+      'them as `name` / `email` so the form lands pre-filled. ' +
       'IMPORTANT -- only switch to `openCustodianIntakePage` if the ' +
       'user EXPLICITLY uses the word "page" or one of the navigation ' +
       'verbs "go to" / "navigate to" / "route to". A bare "open" verb ' +
       'is THIS tool, not the page tool.',
     schema: z.object({
+      name: z.string().optional()
+        .describe("The custodian's full name, if the user gave one (e.g. 'Ramesh Iyer')"),
+      email: z.string().optional()
+        .describe("The custodian's work email, if the user gave one"),
       department: z.string().optional()
         .describe("The custodian's department (e.g. 'Finance', 'Engineering')"),
       matterType: z.string().optional()
         .describe("Matter type override (defaults to 'securities' for the demo Project Phoenix matter)"),
     }),
-    handler: async ({ department, matterType }) => {
+    handler: async ({ name, email, department, matterType }) => {
       return runInInjectionContext(env, () => {
         // Chat-only mount. The form lands inline in the chat panel
         // via the custodianIntakeCard widget. Users who want the
@@ -960,6 +968,8 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
             props: {
               matterType: matter,
               persona,
+              name: name ?? '',
+              email: email ?? '',
               department: department ?? '',
             },
           }],
@@ -967,6 +977,7 @@ function openCustodianIntakeTool(env: EnvironmentInjector) {
             `Opening custodian intake — matter **${matter}**, ` +
             `persona **${persona}**` +
             (department ? `, department **${department}**` : '') +
+            (name ? `, for **${name}**` : '') +
             '.',
         };
       });
@@ -1284,21 +1295,38 @@ function openCustodianIntakePageTool(env: EnvironmentInjector) {
       "'onboard a Finance custodian', 'add a custodian', 'fill in " +
       "intake'. " +
       "Do NOT use this for the plural 'open custodians' -- that " +
-      "wants `openCustodians` (the list page).",
+      "wants `openCustodians` (the list page). " +
+      "Before calling, extract ANY custodian details the user gave -- " +
+      "their full name, work email, and department -- and pass them as " +
+      "`name`, `email`, `department` so the page lands with those fields " +
+      "pre-filled. E.g. 'go to the custodian intake page for Ramesh, " +
+      "ramesh@test.com, HR' -> name:'Ramesh', email:'ramesh@test.com', " +
+      "department:'HR'. Omit any the user didn't mention.",
     schema: z.object({
+      name: z.string().optional()
+        .describe("The custodian's full name, if the user gave one (e.g. 'Ramesh Iyer')"),
+      email: z.string().optional()
+        .describe("The custodian's work email, if the user gave one"),
       department: z.string().optional()
         .describe("Optional department to pre-select on the page"),
     }),
-    handler: async ({ department }) => {
+    handler: async ({ name, email, department }) => {
       return runInInjectionContext(env, async () => {
         const queryParams: Record<string, string> = {};
+        if (name) queryParams['name'] = name;
+        if (email) queryParams['email'] = email;
         if (department) queryParams['department'] = department;
         await env.get(Router).navigate(['/intake/custodian'], { queryParams });
+        const filled = [
+          name ? `name **${name}**` : '',
+          email ? `email **${email}**` : '',
+          department ? `department **${department}**` : '',
+        ].filter(Boolean);
         return {
           markdown:
             'Opened the standalone intake page at ' +
             '[/intake/custodian](/intake/custodian)' +
-            (department ? ` with department **${department}**` : '') +
+            (filled.length ? ` with ${filled.join(', ')} pre-filled` : '') +
             '. Form is rendered there directly -- no chat card.',
         };
       });
