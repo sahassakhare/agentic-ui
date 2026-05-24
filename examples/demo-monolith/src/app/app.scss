@@ -1,44 +1,183 @@
 :host {
+  /* design tokens */
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --border: #e6e8ec;
+  --text: #0f172a;
+  --muted: #64748b;
+  --faint: #94a3b8;
+  --brand: #6366f1;
+  --brand-2: #a855f7;
+  --grad: linear-gradient(135deg, #6366f1, #a855f7);
+  --r: 12px;
+  --r-sm: 8px;
+  --sh-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --sh: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+
+  /* per-backend accent (pip + status dot) */
+  --c-ag-ui: #2563eb;
+  --c-hashbrown: #db2777;
+  --c-a2ui: #16a34a;
+
   display: flex;
   flex-direction: column;
   height: 100vh;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: #111827;
-  background: #f9fafb;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
 }
 
-header {
-  padding: 1.5rem 2rem 1rem;
-  border-bottom: 1px solid #e5e7eb;
-  background: white;
-
-  h1 {
-    margin: 0 0 0.25rem;
-    font-size: 1.25rem;
-    font-weight: 600;
-  }
-
-  p {
-    margin: 0;
-    color: #6b7280;
-    font-size: 0.9rem;
-  }
-}
-
-main {
-  flex: 1;
+/* ── Top bar ─────────────────────────────────────────────────────────── */
+.topbar {
   display: flex;
-  min-height: 0;
-  padding: 1rem;
-
-  mvk-chat-shell {
-    flex: 1;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 0.6rem;
-    overflow: hidden;
-    max-width: 860px;
-    margin: 0 auto;
-    width: 100%;
-  }
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.7rem 1.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--sh-sm);
+  z-index: 2;
 }
+.brand { display: flex; align-items: center; gap: 0.7rem; }
+.brand .mark {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: grid; place-items: center;
+  background: var(--grad); color: #fff; font-size: 1rem;
+  box-shadow: var(--sh-sm);
+}
+.brand-text h1 { margin: 0; font-size: 1.05rem; font-weight: 650; letter-spacing: -0.01em; }
+.brand-text p { margin: 0.1rem 0 0; font-size: 0.78rem; color: var(--muted); }
+
+/* segmented protocol switcher */
+.switcher {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.switcher button {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  border: 0; background: transparent; cursor: pointer;
+  padding: 0.4rem 0.85rem; border-radius: 999px;
+  font: inherit; font-size: 0.8rem; font-weight: 550; color: var(--muted);
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+.switcher button:hover { color: var(--text); }
+.switcher button.active {
+  background: var(--surface); color: var(--text);
+  box-shadow: var(--sh-sm);
+}
+.switcher .pip {
+  width: 7px; height: 7px; border-radius: 999px; background: var(--faint);
+}
+.switcher .pip[data-pip="ag-ui"] { background: var(--c-ag-ui); }
+.switcher .pip[data-pip="hashbrown"] { background: var(--c-hashbrown); }
+.switcher .pip[data-pip="a2ui"] { background: var(--c-a2ui); }
+
+/* ── Body: chat hero + context rail ──────────────────────────────────── */
+.body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  /* Bound the single row to the viewport so children scroll internally
+     instead of the chat pane growing to its content and overflowing. */
+  grid-template-rows: minmax(0, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+}
+@media (max-width: 1024px) {
+  .body { grid-template-columns: 1fr; overflow-y: auto; }
+  .chat-pane { min-height: 70vh; }
+}
+
+/* chat pane */
+.chat-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--sh);
+  overflow: hidden;
+}
+.pane-head {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem; color: var(--muted);
+  background: var(--surface-2);
+}
+.pane-head code { background: #eef2ff; color: #3730a3; padding: 1px 6px; border-radius: 5px; font-size: 0.92em; }
+.pane-head .status-dot {
+  width: 8px; height: 8px; border-radius: 999px; background: var(--c-a2ui);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+/* Let the chat shell keep its own `:host { display:flex }`. We only make it
+   a bounded flex child: `flex:1 + min-height:0` gives it a definite height so
+   its internal `.transcript` scrolls; `height:auto` neutralises its
+   `height:100%` (which would otherwise ignore the pane-head sibling and
+   overflow the card). Do NOT set `display` here — that breaks its column. */
+.chat-pane mvk-chat-shell { flex: 1; min-height: 0; height: auto; overflow: hidden; }
+
+/* context rail */
+.rail {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-right: 2px;
+}
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--sh-sm);
+  padding: 0.85rem 1rem 1rem;
+}
+.panel-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+.panel-h h2 { margin: 0; font-size: 0.92rem; font-weight: 650; letter-spacing: -0.01em; }
+.panel .tag {
+  font-size: 0.66rem; font-family: ui-monospace, monospace; text-transform: lowercase;
+  color: #3730a3; background: #eef2ff; padding: 2px 7px; border-radius: 999px;
+}
+.panel-sub { margin: 0 0 0.7rem; font-size: 0.8rem; color: var(--muted); line-height: 1.45; }
+.panel .sub { margin: 0.8rem 0 0.35rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); font-weight: 600; }
+.panel code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 0.85em; }
+
+/* try-these tips */
+.tips { background: linear-gradient(180deg, #fbfaff, #fff); }
+.tip-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55rem; }
+.tip-list li { font-size: 0.8rem; color: var(--text); line-height: 1.45; }
+.cap {
+  display: inline-block; margin-right: 0.35rem;
+  font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 2px 7px; border-radius: 999px;
+}
+.cap.gen { background: #e0e7ff; color: #3730a3; }
+.cap.hitl { background: #fee2e2; color: #991b1b; }
+.cap.state { background: #dcfce7; color: #166534; }
+
+/* generative-UI preview */
+.gen-grid { display: grid; gap: 0.6rem; }
+.gen-cell {
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 0.4rem 0.6rem 0.6rem; background: var(--surface-2);
+}
+.gen-cell .tool {
+  display: inline-block; margin-bottom: 0.2rem;
+  font-size: 0.66rem; font-family: ui-monospace, monospace; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--brand);
+}
+
+/* ui-action log */
+.log { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; font-size: 0.78rem; color: var(--muted); }
+.log code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
