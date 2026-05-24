@@ -2,7 +2,9 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   CallToolRequestSchema,
+  ListResourcesRequestSchema,
   ListToolsRequestSchema,
+  ReadResourceRequestSchema,
   type CallToolResult,
   type ListToolsResult,
 } from '@modelcontextprotocol/sdk/types.js';
@@ -11,6 +13,9 @@ import { formatToolResult } from './result-formatter.js';
 import { syntheticToolContext } from './synthetic-tool-context.js';
 import type { CreateMcpServerOptions, McpServerHandle } from './types.js';
 import { zodToMcpSchema } from './zod-to-mcp-schema.js';
+
+/** MCP Apps (SEP-1865) UI resource MIME type. */
+const MCP_APP_MIME = 'text/html;profile=mcp-app';
 
 /**
  * Wrap a list of `ToolDef`s as a Model Context Protocol server.
@@ -62,6 +67,12 @@ export function createMcpServer(opts: CreateMcpServerOptions): McpServerHandle {
   // Build the tool index up-front so list / call requests don't repeat
   // the schema conversion. This also surfaces schema problems at boot
   // rather than on the first call.
+  // MCP Apps (SEP-1865) wiring — only active when uiResources are supplied.
+  const uiResources = opts.uiResources ?? [];
+  const toolUi = opts.toolUi ?? {};
+  const hasApps = uiResources.length > 0;
+  const uiByUri = new Map(uiResources.map((r) => [r.uri, r]));
+
   const toolIndex = new Map<string, ToolDef>();
   const toolListCache: ListToolsResult['tools'] = opts.tools.map((tool) => {
     if (toolIndex.has(tool.name)) {
@@ -73,21 +84,60 @@ export function createMcpServer(opts: CreateMcpServerOptions): McpServerHandle {
     // public-facing shape — cast to satisfy the SDK's wider runtime
     // type without polluting our exported interface.
     const inputSchema = zodToMcpSchema(tool.schema, tool.name) as ListToolsResult['tools'][number]['inputSchema'];
+    const ui = toolUi[tool.name];
     return {
       name: tool.name,
       description: tool.description,
       inputSchema,
+      // SEP-1865: link the tool to its predeclared UI template so MCP-Apps
+      // hosts know to render it. `visibility` exposes the UI to both the
+      // model and the app surface.
+      ...(ui ? { _meta: { ui: { resourceUri: ui.resourceUri, visibility: ['model', 'app'] } } } : {}),
     };
   });
 
-  const server = new Server(
-    { name: opts.name, version: opts.version },
-    { capabilities: { tools: {} } },
-  );
+  // SEP-1865 requires the UI extension to be negotiated. Declare it (plus the
+  // `resources` capability the templates are served through) so MCP-Apps hosts
+  // know this server provides interactive UI and will render the linked
+  // templates. Cast: the SDK's ServerCapabilities type predates the
+  // `extensions` field, but it's forwarded verbatim in the initialize result.
+  const capabilities = (hasApps
+    ? {
+        tools: {},
+        resources: {},
+        extensions: { 'io.modelcontextprotocol/ui': { mimeTypes: [MCP_APP_MIME] } },
+      }
+    : { tools: {} }) as ConstructorParameters<typeof Server>[1]['capabilities'];
+
+  const server = new Server({ name: opts.name, version: opts.version }, { capabilities });
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: toolListCache,
   }));
+
+  // SEP-1865 resource surface: serve the predeclared `ui://` templates so
+  // hosts can prefetch + render them in a sandboxed iframe.
+  if (hasApps) {
+    server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+      resources: uiResources.map((r) => ({
+        uri: r.uri,
+        name: r.name ?? r.uri,
+        mimeType: MCP_APP_MIME,
+      })),
+    }));
+    server.setRequestHandler(ReadResourceRequestSchema, async (req) => {
+      const r = uiByUri.get(req.params.uri);
+      if (!r) throw new Error(`Unknown resource: ${req.params.uri}`);
+      return {
+        contents: [{
+          uri: r.uri,
+          mimeType: MCP_APP_MIME,
+          text: r.html,
+          ...(r.csp ? { _meta: { ui: { csp: r.csp } } } : {}),
+        }],
+      };
+    });
+  }
 
   server.setRequestHandler(CallToolRequestSchema, async (req): Promise<CallToolResult> => {
     const callId = randomCallId();
@@ -136,8 +186,20 @@ export function createMcpServer(opts: CreateMcpServerOptions): McpServerHandle {
     try {
       const handlerResult = await tool.handler(parsed.data, ctx);
       const durationMs = Date.now() - startedAt;
+      const isApp = Boolean(toolUi[name]) && isPlainObject(handlerResult);
+      // For MCP-App tools, drop the legacy `html` render-hint so the
+      // formatter does NOT also emit a `text/html` resource block — the
+      // MCP App template owns the UI. Non-UI hosts still get the markdown
+      // text fallback; the booking data rides in `structuredContent`.
+      const forFormat = isApp
+        ? { ...(handlerResult as Record<string, unknown>), html: undefined }
+        : handlerResult;
       const result: CallToolResult = {
-        content: [...formatToolResult(handlerResult)],
+        content: [...formatToolResult(forFormat)],
+        // SEP-1865: surface the (render-hint-free) domain data as
+        // `structuredContent` so the host forwards it to the iframe
+        // (`ui/notifications/tool-result`) for rendering.
+        ...(isApp ? { structuredContent: stripRenderHints(handlerResult as Record<string, unknown>) } : {}),
       };
       await invokeAfterCall(opts.afterCall, {
         name, callId, result: handlerResult, durationMs, ok: true,
@@ -183,6 +245,21 @@ export function createMcpServer(opts: CreateMcpServerOptions): McpServerHandle {
       ]);
     },
   };
+}
+
+/** True for a non-null, non-array object (valid `structuredContent`). */
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === 'object' && !Array.isArray(v);
+}
+
+/** Strip render-hint fields so `structuredContent` carries only domain data. */
+const RENDER_HINT_KEYS = new Set(['components', 'html', 'markdown', 'image_url', 'iframe_url']);
+function stripRenderHints(o: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(o)) {
+    if (!RENDER_HINT_KEYS.has(k)) out[k] = o[k];
+  }
+  return out;
 }
 
 /** Stable random id for one MCP `tools/call` invocation. */

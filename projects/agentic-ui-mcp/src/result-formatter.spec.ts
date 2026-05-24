@@ -65,44 +65,48 @@ describe('formatToolResult precedence', () => {
   });
 });
 
+function resourceOf(out: readonly unknown[]): { uri: string; mimeType: string; text: string } {
+  const block = out.find((b): b is { type: 'resource'; resource: { uri: string; mimeType: string; text: string } } =>
+    (b as { type?: string }).type === 'resource');
+  if (!block) throw new Error('no resource block');
+  return block.resource;
+}
+
 describe('formatToolResult MCP UI (html)', () => {
-  it('emits an MCP UI resource block when html is present', () => {
+  it('emits a text fallback AND an MCP-UI resource block when html is present', () => {
     const html = '<article><h1>Booked</h1></article>';
-    const out = formatToolResult({ html, bookingId: 'BK-001' });
-    expect(out).toHaveLength(1);
-    expect(out[0]?.type).toBe('resource');
-    const block = out[0] as { type: 'resource'; resource: { uri: string; mimeType: string; text: string } };
-    expect(block.resource.text).toBe(html);
-    expect(block.resource.mimeType).toBe(MCP_UI_HTML_MIME);
-    expect(block.resource.uri).toMatch(/^ui:\/\/result-/);
-  });
-
-  it('html takes precedence over markdown', () => {
-    const out = formatToolResult({
-      html: '<div>rich</div>',
-      markdown: '**fallback**',
-    });
-    expect(out[0]?.type).toBe('resource');
-  });
-
-  it('html takes precedence over image_url', () => {
-    const out = formatToolResult({
-      html: '<div>rich</div>',
-      image_url: 'https://x/y.png',
-    });
-    expect(out[0]?.type).toBe('resource');
-  });
-
-  it('falls through to markdown when html is missing', () => {
-    const out = formatToolResult({ markdown: '**hi**' });
+    const out = formatToolResult({ html, markdown: '**Booked** BK-001', bookingId: 'BK-001' });
+    // progressive enhancement: readable text first, rich resource second.
+    expect(out).toHaveLength(2);
     expect(out[0]?.type).toBe('text');
-    expect((out[0] as { text: string }).text).toBe('**hi**');
+    const res = resourceOf(out);
+    expect(res.text).toBe(html);
+    expect(res.mimeType).toBe(MCP_UI_HTML_MIME);
+    expect(res.uri).toMatch(/^ui:\/\/result-/);
   });
 
-  it('produces a unique uri per call', () => {
-    const a = formatToolResult({ html: '<x/>' })[0] as { resource: { uri: string } };
-    const b = formatToolResult({ html: '<x/>' })[0] as { resource: { uri: string } };
-    expect(a.resource.uri).not.toBe(b.resource.uri);
+  it('uses markdown as the text fallback when present (clean result on non-UI hosts)', () => {
+    const out = formatToolResult({ html: '<div>rich</div>', markdown: '**fallback**' });
+    expect(out[0]).toEqual({ type: 'text', text: '**fallback**' });
+    expect(resourceOf(out).text).toBe('<div>rich</div>');
+  });
+
+  it('derives a stripped-JSON fallback when html is present without markdown', () => {
+    const out = formatToolResult({ html: '<div/>', bookingId: 'BK-9' } as Record<string, unknown>);
+    expect(out[0]?.type).toBe('text');
+    // the fallback omits render-hint fields like `html`.
+    expect((out[0] as { text: string }).text).not.toContain('<div');
+  });
+
+  it('falls through to markdown-only when html is missing', () => {
+    const out = formatToolResult({ markdown: '**hi**' });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toEqual({ type: 'text', text: '**hi**' });
+  });
+
+  it('produces a unique resource uri per call', () => {
+    expect(resourceOf(formatToolResult({ html: '<x/>' })).uri)
+      .not.toBe(resourceOf(formatToolResult({ html: '<x/>' })).uri);
   });
 });
 
@@ -113,17 +117,14 @@ describe('formatToolResult ↔ inbound MCP-UI conformance', () => {
   });
 
   it('an emitted html resource block parses through the inbound mcpUiResourceSchema', () => {
-    const block = formatToolResult({ html: '<article><h1>Booked</h1></article>' })[0] as {
-      type: 'resource';
-      resource: { uri: string; mimeType: string; text: string };
-    };
+    const res = resourceOf(formatToolResult({ html: '<article><h1>Booked</h1></article>' }));
     // The inbound schema keys on `content`, not `text` — the renderer's
     // UIResource shape. The MCP resource block carries the HTML in `text`;
     // map it the way the host adapter does before handing to the renderer.
     const resource = {
-      uri: block.resource.uri,
-      mimeType: block.resource.mimeType,
-      content: block.resource.text,
+      uri: res.uri,
+      mimeType: res.mimeType,
+      content: res.text,
     };
     const parsed = mcpUiResourceSchema.safeParse(resource);
     expect(parsed.success).toBe(true);
