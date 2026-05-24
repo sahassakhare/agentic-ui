@@ -73,6 +73,41 @@ export interface CreateMcpServerOptions {
    * (`console.warn`) — they do NOT change the response sent to the host.
    */
   readonly afterCall?: AfterCallHook;
+
+  /**
+   * **MCP Apps (SEP-1865)** — predeclared interactive UI templates that
+   * MCP-Apps hosts (Claude Desktop, VS Code Copilot, …) render in a
+   * sandboxed iframe. Each is served via `resources/list` + `resources/read`
+   * with mime `text/html;profile=mcp-app`. Link a tool to one via
+   * {@link toolUi}; the host fetches the template, renders it, and pushes
+   * the tool's `structuredContent` to the iframe as a
+   * `ui/notifications/tool-result` JSON-RPC message.
+   *
+   * Optional + backwards-compatible: omit and the server behaves exactly
+   * as before (legacy MCP-UI resource blocks via the formatter).
+   */
+  readonly uiResources?: readonly McpUiResourceTemplate[];
+
+  /**
+   * Map of tool name → the `ui://` resource it renders. Adds
+   * `_meta.ui.resourceUri` to that tool in `tools/list` so MCP-Apps hosts
+   * know to render the linked template, and includes the handler's return
+   * value as `structuredContent` on the tool result so the iframe receives
+   * the data.
+   */
+  readonly toolUi?: Readonly<Record<string, { readonly resourceUri: string }>>;
+}
+
+/** A predeclared MCP Apps UI template (SEP-1865). */
+export interface McpUiResourceTemplate {
+  /** `ui://`-scheme URI uniquely identifying the template. */
+  readonly uri: string;
+  /** The HTML document (a self-contained MCP App that speaks `ui/*` JSON-RPC over postMessage). */
+  readonly html: string;
+  /** Optional human label surfaced in `resources/list`. */
+  readonly name?: string;
+  /** Optional Content-Security-Policy hints surfaced in the resource `_meta.ui.csp`. */
+  readonly csp?: { readonly connectDomains?: readonly string[]; readonly resourceDomains?: readonly string[] };
 }
 
 /**

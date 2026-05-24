@@ -81,21 +81,32 @@ export function formatToolResult(result: unknown): readonly McpContentBlock[] {
   // record otherwise.
   const hints = isObject(result) ? (result as ToolResultRenderHints & Record<string, unknown>) : undefined;
 
-  // 1. MCP UI — sandboxed HTML.
+  // 1. MCP UI — sandboxed HTML, with a text fallback (progressive
+  //    enhancement). MCP-UI–aware hosts render the `ui://` resource as a
+  //    sandboxed iframe; hosts that don't (e.g. Claude Desktop today) show
+  //    the leading text block instead of an unrenderable HTML blob. Always
+  //    emit BOTH so every host shows something readable.
   if (hints?.html && typeof hints.html === 'string') {
-    return [{
-      type: 'resource',
-      resource: {
-        // The `uri` is the host's display id for this resource — must be
-        // unique per result. We mint one tied to the tool's render so the
-        // host can cache or replay if it wants. The `ui://` scheme is the
-        // MCP-UI convention recognised by compliant hosts and the inbound
-        // renderer's examples.
-        uri: `ui://result-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-        mimeType: MCP_UI_HTML_MIME,
-        text: hints.html,
+    const fallback =
+      hints.markdown && typeof hints.markdown === 'string'
+        ? hints.markdown
+        : isObject(result)
+          ? JSON.stringify(stripRenderHints(result as Record<string, unknown>), null, 2)
+          : String(result);
+    return [
+      { type: 'text', text: fallback },
+      {
+        type: 'resource',
+        resource: {
+          // The `uri` is the host's display id for this resource — must be
+          // unique per result. The `ui://` scheme is the MCP-UI convention
+          // recognised by compliant hosts and the inbound renderer.
+          uri: `ui://result-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+          mimeType: MCP_UI_HTML_MIME,
+          text: hints.html,
+        },
       },
-    }];
+    ];
   }
 
   // 2. Markdown (with optional inline image).
