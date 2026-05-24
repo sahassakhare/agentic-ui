@@ -410,7 +410,7 @@ describe('RegistryBase onDispose lifecycle hook', () => {
     // ─────────────────────────────────────────────────────────────────────
     describe('governance metadata + requiredHostVersion', () => {
       it('register skips when requiredHostVersion is unsatisfiable', () => {
-        // Lib version is currently 1.1.0; ^99 will not match.
+        // Lib version is currently 1.3.0; ^99 will not match.
         const dispose = registry.register({ ...makeTool('alpha'), requiredHostVersion: '^99.0.0' });
         expect(registry.list()).toEqual([]);
         // Disposer is a no-op for skipped registrations.

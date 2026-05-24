@@ -1,40 +1,55 @@
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 
 /**
- * Process a single MCP JSON-RPC envelope without owning a transport.
+ * Process a single MCP request through a stateless Streamable HTTP transport.
  *
  * @remarks
  * For embedding the MCP server inside an existing HTTP framework
  * (Hono / Express / Fastify) where you already own the request/response
- * lifecycle and just want the protocol bridge.
+ * lifecycle. Unlike {@link startHttpTransport}, this owns no listener and
+ * keeps no session state — each call spins up a throwaway
+ * `StreamableHTTPServerTransport` in **stateless** mode
+ * (`sessionIdGenerator: undefined`, `enableJsonResponse: true`), connects
+ * the shared server, dispatches the request, and tears the transport down
+ * when the response finishes.
  *
- * The MCP SDK exposes its handler internals through `Server.handleRequest`
- * (private but callable via cast). When the SDK formalises a public
- * embeddable API we'll switch to it.
+ * This replaces the previous reliance on the SDK's private
+ * `Server._handleRequest` with the SDK's public transport API, so it no
+ * longer breaks across SDK releases.
+ *
+ * @param server the MCP server (built by {@link createMcpServer})
+ * @param req the framework's Node-compatible request
+ * @param res the framework's Node-compatible response
+ * @param parsedBody optional pre-parsed JSON body (from body-parser middleware);
+ *   omit to let the transport read + parse the request stream itself
  *
  * @example
  * ```ts
- * // Hono integration
- * app.post('/mcp', async (c) => {
- *   const body = await c.req.json();
- *   const response = await mcpHandle.handleRequest(body);
- *   return c.json(response);
+ * // Express integration
+ * app.post('/mcp', express.json(), (req, res) => {
+ *   void mcpHandle.handleRequest(req, res, req.body);
  * });
  * ```
- *
- * @internal Subject to MCP SDK internals; pin a tested SDK version.
  */
-export async function handleSingleRequest(server: Server, request: unknown): Promise<unknown> {
-  // The SDK's Server has a private `_handleRequest` method that processes
-  // a JSON-RPC envelope. We use a structural type cast rather than `as any`
-  // to keep the call site honest about the contract.
-  type WithInternalHandler = { _handleRequest?: (request: unknown) => Promise<unknown> };
-  const internal = server as unknown as WithInternalHandler;
-  if (typeof internal._handleRequest !== 'function') {
-    throw new Error(
-      '[agentic-ui-mcp] handleRequest: the installed @modelcontextprotocol/sdk version does not expose the embeddable request handler. ' +
-      'Pin to a known-good SDK version (see ADR-006 supported-versions section in the cookbook), or use startHttp / startStdio instead.',
-    );
-  }
-  return internal._handleRequest(request);
+export async function handleSingleRequest(
+  server: Server,
+  req: IncomingMessage,
+  res: ServerResponse,
+  parsedBody?: unknown,
+): Promise<void> {
+  const transport = new StreamableHTTPServerTransport({
+    // Stateless: no session id, JSON response (no SSE upgrade) — the
+    // simplest request/response shape for an embedded handler.
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  });
+  // Tear the transport (and its connection) down once the response is done
+  // so a long-lived host process doesn't accumulate connections.
+  res.on('close', () => {
+    void transport.close();
+  });
+  await server.connect(transport);
+  await transport.handleRequest(req, res, parsedBody);
 }

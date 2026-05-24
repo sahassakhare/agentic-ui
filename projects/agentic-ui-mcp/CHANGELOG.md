@@ -4,7 +4,24 @@ All notable changes to `@infra-tools/agentic-ui-mcp` are documented in this file
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0]
+
+### Changed — Streamable HTTP transport (⚠️ BREAKING)
+
+- **`startHttp()` now serves the modern Streamable HTTP transport** (MCP 2025-03-26) — a single `/mcp` endpoint (POST/GET/DELETE) with stateful in-memory sessions — replacing the **deprecated** HTTP+SSE two-endpoint transport (`GET /sse` + `POST /message`). Remote MCP hosts on the current spec now connect directly. Verified end-to-end (initialize → session id → `tools/list`).
+- ⚠️ **BREAKING — `handleRequest` signature changed.** The embeddable handler no longer takes a bare JSON-RPC envelope (`handleRequest(request): Promise<unknown>`). It now takes the framework's request/response: `handleRequest(req, res, parsedBody?): Promise<void>`, delegating to a stateless Streamable HTTP transport. This also **removes the dependency on the SDK's private `Server._handleRequest`**, so the embeddable path no longer breaks across SDK releases.
+
+  ```ts
+  // before
+  app.post('/mcp', async (c) => c.json(await handle.handleRequest(await c.req.json())));
+  // after (Express)
+  app.post('/mcp', express.json(), (req, res) => void handle.handleRequest(req, res, req.body));
+  ```
+
+### Changed — packaging
+
+- **`@modelcontextprotocol/sdk` pin tightened** from `^1.0.0` to `^1.26.0` (the version providing the Node `StreamableHTTPServerTransport` API this package now uses).
+- **`tsconfig` moduleResolution → `NodeNext`** so `tsc` enforces explicit `.js` extensions on relative ESM imports — structurally preventing the extensionless-import class of bug that breaks native Node ESM execution.
 
 ### Added — MCP UI support
 

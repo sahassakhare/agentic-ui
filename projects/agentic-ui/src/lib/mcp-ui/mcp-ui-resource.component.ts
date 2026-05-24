@@ -14,6 +14,7 @@ import { MCP_UI_CONFIG } from './config';
 import { McpUiActionBridge } from './mcp-ui-action-bridge';
 import { McpUiComponentTreeComponent } from './mcp-ui-component-tree.component';
 import {
+  MCP_UI_APP_MIME,
   MCP_UI_COMPONENT_TREE_MIME,
   MCP_UI_HTML_MIME,
   MCP_UI_REMOTE_DOM_MIME,
@@ -21,11 +22,12 @@ import {
   componentTreeNodeSchema,
   mcpUiResourceSchema,
   type ComponentTreeNode,
+  type McpAppRpcResponse,
   type McpUiResource,
 } from './types';
 
 interface RenderPlan {
-  readonly kind: 'srcdoc' | 'src' | 'component-tree' | 'unsupported' | 'blocked-origin' | 'invalid';
+  readonly kind: 'srcdoc' | 'app' | 'src' | 'component-tree' | 'unsupported' | 'blocked-origin' | 'invalid';
   readonly srcdoc?: SafeHtml;
   readonly src?: SafeResourceUrl;
   /** The external origin (for `src`); used to validate inbound postMessages. */
@@ -62,6 +64,14 @@ interface RenderPlan {
           #frame
           class="mcp-ui-frame"
           [attr.title]="resource().title ?? 'MCP UI resource'"
+          [srcdoc]="plan.srcdoc"
+        ></iframe>
+      }
+      @case ('app') {
+        <iframe
+          #frame
+          class="mcp-ui-frame"
+          [attr.title]="resource().title ?? 'MCP App'"
           [srcdoc]="plan.srcdoc"
         ></iframe>
       }
@@ -120,6 +130,12 @@ export class McpUiResourceComponent {
     if (r.mimeType === MCP_UI_HTML_MIME) {
       return { kind: 'srcdoc', srcdoc: this.sanitizer.bypassSecurityTrustHtml(r.content) };
     }
+    if (r.mimeType === MCP_UI_APP_MIME) {
+      // MCP Apps (SEP-1865): same sandboxed srcdoc rendering as legacy
+      // `text/html`, but the frame speaks JSON-RPC over postMessage instead
+      // of the `{source:'mcp-ui'}` envelope — see the `app`-kind effect path.
+      return { kind: 'app', srcdoc: this.sanitizer.bypassSecurityTrustHtml(r.content) };
+    }
     if (r.mimeType === MCP_UI_URI_LIST_MIME) {
       const url = r.content.trim().split(/\s+/)[0] ?? '';
       const origin = safeOrigin(url);
@@ -158,22 +174,58 @@ export class McpUiResourceComponent {
     effect((onCleanup) => {
       const plan = this.renderPlan();
       const frameRef = this.frame();
-      if ((plan.kind !== 'srcdoc' && plan.kind !== 'src') || !frameRef) return;
+      if ((plan.kind !== 'srcdoc' && plan.kind !== 'app' && plan.kind !== 'src') || !frameRef) return;
 
       // `sandbox` must be a STATIC attribute on an <iframe> — Angular
       // refuses it as a binding (NG0910, security). Set it imperatively
       // here so it stays config-driven without tripping that guard.
       frameRef.nativeElement.setAttribute('sandbox', this.config.iframeSandbox);
 
-      const expectedOrigin = plan.kind === 'src' ? (plan.origin ?? null) : null;
-      const listener = (event: MessageEvent) => {
-        // Only handle messages from THIS resource's frame.
-        if (event.source !== frameRef.nativeElement.contentWindow) return;
-        this.bridge.handleMessage({ data: event.data, origin: event.origin }, expectedOrigin);
-      };
+      const listener =
+        plan.kind === 'app'
+          ? this.appRpcListener(frameRef.nativeElement)
+          : this.legacyListener(frameRef.nativeElement, plan.kind === 'src' ? (plan.origin ?? null) : null);
       globalThis.addEventListener('message', listener);
       onCleanup(() => globalThis.removeEventListener('message', listener));
     });
+  }
+
+  /**
+   * Legacy MCP-UI listener — forwards `{source:'mcp-ui', action}` messages
+   * from THIS frame to the bridge with origin context. `expectedOrigin` is
+   * `null` for inline srcdoc frames (which post from origin `'null'`).
+   */
+  private legacyListener(frame: HTMLIFrameElement, expectedOrigin: string | null): (e: MessageEvent) => void {
+    return (event: MessageEvent) => {
+      if (event.source !== frame.contentWindow) return;
+      this.bridge.handleMessage({ data: event.data, origin: event.origin }, expectedOrigin);
+    };
+  }
+
+  /**
+   * MCP Apps (SEP-1865) listener — routes JSON-RPC requests from THIS frame
+   * to `McpUiActionBridge.handleAppRpc` and posts replies back into the
+   * frame. After the `ui/initialize` handshake, pushes the resource's
+   * `data` as a `ui/notifications/tool-result` so a predeclared template
+   * renders from data (presentation/data separation per SEP).
+   */
+  private appRpcListener(frame: HTMLIFrameElement): (e: MessageEvent) => void {
+    const post = (msg: McpAppRpcResponse): void => {
+      // Sandboxed srcdoc frames have an opaque ('null') origin, so the SEP
+      // contract uses '*'; the frame ran our own served HTML.
+      frame.contentWindow?.postMessage(msg, '*');
+    };
+    return (event: MessageEvent) => {
+      if (event.source !== frame.contentWindow) return;
+      void this.bridge.handleAppRpc(event.data, post).then((result) => {
+        if (result.reason === 'initialized') {
+          const data = this.resource().data;
+          if (data !== undefined) {
+            post({ jsonrpc: '2.0', method: 'ui/notifications/tool-result', params: { structuredContent: data } });
+          }
+        }
+      });
+    };
   }
 
   private originAllowed(origin: string): boolean {
