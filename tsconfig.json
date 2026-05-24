@@ -26,6 +26,9 @@
       "@infra-tools/demo-ediscovery-shared": [
         "./examples/demo-ediscovery-shared/dist/index"
       ],
+      "@infra-tools/demo-shared-tools": [
+        "./examples/demo-shared-tools/dist/index"
+      ],
     }
   },
   "angularCompilerOptions": {
