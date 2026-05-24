@@ -27,7 +27,7 @@
         "./examples/demo-ediscovery-shared/dist/index"
       ],
       "@infra-tools/demo-shared-tools": [
-        "./examples/demo-shared-tools/dist/index"
+        "./examples/demo-shared-tools/src/index.ts"
       ],
     }
   },
