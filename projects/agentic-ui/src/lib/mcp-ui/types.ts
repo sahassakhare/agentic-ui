@@ -25,6 +25,15 @@ import { z } from 'zod';
  * (renders server-described UI as registered ComponentRegistry widgets).
  */
 export const MCP_UI_HTML_MIME = 'text/html';
+/**
+ * MCP Apps (SEP-1865) HTML mime. Hosts that implement the SEP serve UI
+ * templates with this profile and drive them over a JSON-RPC-over-postMessage
+ * channel. The inbound renderer treats it like `text/html` for rendering
+ * (sandboxed srcdoc) but additionally speaks the SEP `ui/*` protocol — see
+ * `McpUiActionBridge.handleAppRpc`. Legacy `text/html` keeps the older
+ * custom postMessage protocol for back-compat.
+ */
+export const MCP_UI_APP_MIME = 'text/html;profile=mcp-app';
 export const MCP_UI_URI_LIST_MIME = 'text/uri-list';
 export const MCP_UI_REMOTE_DOM_MIME = 'application/vnd.mcp-ui.remote-dom+javascript';
 /**
@@ -74,18 +83,28 @@ export const mcpUiResourceSchema = z.object({
    */
   mimeType: z.enum([
     MCP_UI_HTML_MIME,
+    MCP_UI_APP_MIME,
     MCP_UI_URI_LIST_MIME,
     MCP_UI_COMPONENT_TREE_MIME,
     MCP_UI_REMOTE_DOM_MIME,
   ]),
   /**
-   * The payload. `text/html` → HTML string; `text/uri-list` → a single
-   * absolute URL; `component-tree+json` → a JSON `ComponentTreeNode`
-   * (string-encoded); `remote-dom+javascript` → the remote-dom script.
+   * The payload. `text/html` (+ `;profile=mcp-app`) → HTML string;
+   * `text/uri-list` → a single absolute URL; `component-tree+json` → a JSON
+   * `ComponentTreeNode` (string-encoded); `remote-dom+javascript` → the
+   * remote-dom script.
    */
   content: z.string(),
   /** Optional human label surfaced in the render chrome. */
   title: z.string().optional(),
+  /**
+   * Optional structured data for MCP Apps (SEP-1865) templates. When the
+   * resource is rendered, the host pushes this to the iframe as the
+   * `ui/notifications/tool-result` `structuredContent` so a predeclared
+   * template renders from data (presentation/data separation). Ignored by
+   * legacy `text/html` resources, which embed their data in `content`.
+   */
+  data: z.unknown().optional(),
 });
 
 export type McpUiResource = z.infer<typeof mcpUiResourceSchema>;
@@ -150,3 +169,37 @@ export const mcpUiMessageSchema = z.object({
 });
 
 export type McpUiMessage = z.infer<typeof mcpUiMessageSchema>;
+
+// ── MCP Apps (SEP-1865) JSON-RPC-over-postMessage channel ─────────────────
+//
+// MCP Apps templates (`text/html;profile=mcp-app`) don't use the legacy
+// `{source:'mcp-ui', action}` envelope — they speak JSON-RPC 2.0. The iframe
+// posts requests (`ui/initialize`, `tools/list`, `tools/call`, `ui/open-link`,
+// `ui/update-model-context`); the host replies with a matching response and
+// pushes notifications (`ui/notifications/tool-result`, `…/tool-input`). See
+// `McpUiActionBridge.handleAppRpc`.
+
+/**
+ * A JSON-RPC 2.0 request/notification an MCP App iframe posts to the host.
+ * Requests carry an `id` (host must reply); notifications omit it.
+ */
+export const mcpAppRpcRequestSchema = z.object({
+  jsonrpc: z.literal('2.0'),
+  id: z.union([z.string(), z.number()]).optional(),
+  method: z.string().min(1),
+  params: z.unknown().optional(),
+});
+
+export type McpAppRpcRequest = z.infer<typeof mcpAppRpcRequestSchema>;
+
+/** A JSON-RPC 2.0 response (or notification) the host posts into the iframe. */
+export interface McpAppRpcResponse {
+  readonly jsonrpc: '2.0';
+  /** Matches the request `id`; omitted for host→iframe notifications. */
+  readonly id?: string | number;
+  /** Notification method (e.g. `ui/notifications/tool-result`); omitted for replies. */
+  readonly method?: string;
+  readonly params?: unknown;
+  readonly result?: unknown;
+  readonly error?: { readonly code: number; readonly message: string; readonly data?: unknown };
+}

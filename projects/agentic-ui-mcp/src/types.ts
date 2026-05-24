@@ -126,9 +126,10 @@ export interface McpServerHandle {
   startStdio(): Promise<void>;
 
   /**
-   * Start with HTTP/SSE — for remote MCP hosts that connect over the
-   * network rather than spawning a child process. Binds an HTTP server
-   * on the given port; one MCP session per connected client.
+   * Start with **Streamable HTTP** (MCP 2025-03-26) — for remote MCP hosts
+   * that connect over the network rather than spawning a child process.
+   * Binds an HTTP server exposing a single `/mcp` endpoint (POST/GET/DELETE)
+   * with stateful, in-memory MCP sessions (one per connected client).
    *
    * @param opts.port Listening port.
    * @param opts.cors Optional CORS allowlist; defaults to `'*'` for dev.
@@ -140,15 +141,27 @@ export interface McpServerHandle {
   }): Promise<void>;
 
   /**
-   * Lower-level: process a single MCP request and return a response.
-   * For embedding the MCP handler inside an existing HTTP server
-   * (Hono / Express / Fastify) without spinning up a second listener.
+   * Lower-level: handle a single MCP request against the framework's own
+   * `req`/`res`. For embedding the MCP handler inside an existing HTTP
+   * server (Hono / Express / Fastify) without spinning up a second listener.
    *
-   * The request shape mirrors `@modelcontextprotocol/sdk`'s wire format
-   * — typically a JSON-RPC envelope with `jsonrpc`, `id`, `method`,
-   * `params`. Returns the matching response envelope.
+   * Delegates to a stateless Streamable HTTP transport (JSON responses,
+   * no session) via the SDK's public transport API. Pass `parsedBody` when
+   * your framework already parsed the JSON body (e.g. `express.json()`);
+   * omit it to let the transport read the request stream.
+   *
+   * @example
+   * ```ts
+   * app.post('/mcp', express.json(), (req, res) => {
+   *   void handle.handleRequest(req, res, req.body);
+   * });
+   * ```
    */
-  handleRequest(request: unknown): Promise<unknown>;
+  handleRequest(
+    req: import('node:http').IncomingMessage,
+    res: import('node:http').ServerResponse,
+    parsedBody?: unknown,
+  ): Promise<void>;
 
   /** Drain in-flight calls, close the transport, free resources. */
   close(): Promise<void>;
