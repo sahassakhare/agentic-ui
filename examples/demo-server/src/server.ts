@@ -155,15 +155,15 @@ app.get('/health', (c) =>
   }),
 );
 
-// Reference protocol servers (NDJSON) — the Hashbrown + A2UI wire
-// counterparts to the AG-UI SSE handler. Echo-based; demonstrate the
-// canonical AgenticEvent NDJSON shape the client adapters parse. These
-// MUST be registered before the `/agents/:id/run` catch-all (Hono
-// matches in registration order; the param route would otherwise treat
+// Reference protocol servers — the Hashbrown + A2UI wire counterparts to
+// the AG-UI SSE handler. They run the SAME `resolver` agent and transcode
+// its event stream into frames / NDJSON (echo fallback when no API key).
+// MUST be registered before the `/agents/:id/run` catch-all (Hono matches
+// in registration order; the param route would otherwise treat
 // 'hashbrown' / 'a2ui' as agent ids and 404).
 // See src/reference-protocol-servers.ts + docs/plans/reference-implementations-plan.md.
-app.post('/agents/hashbrown/run', async (c) => hashbrownReferenceHandler(c.req.raw));
-app.post('/agents/a2ui/run', async (c) => a2uiReferenceHandler(c.req.raw));
+app.post('/agents/hashbrown/run', async (c) => hashbrownReferenceHandler(c.req.raw, resolver));
+app.post('/agents/a2ui/run', async (c) => a2uiReferenceHandler(c.req.raw, resolver));
 
 app.post('/agents/:id/run', async (c) => handler(c.req.raw));
 
