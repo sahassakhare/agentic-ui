@@ -4,7 +4,21 @@ All notable changes to `@infra-tools/agentic-ui` are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0]
+
+### Added — MCP Apps (SEP-1865) inbound rendering
+
+- **`<mvk-mcp-ui-resource>` now renders the MCP Apps SEP** alongside the legacy MCP-UI convention. A resource with `mimeType: 'text/html;profile=mcp-app'` (new exported `MCP_UI_APP_MIME`) renders as a sandboxed `srcdoc` iframe that speaks **JSON-RPC 2.0 over `postMessage`** instead of the legacy `{source:'mcp-ui', action}` envelope. Outbound (`@infra-tools/agentic-ui-mcp`) and inbound now both speak the SEP.
+- **`McpUiActionBridge.handleAppRpc(message, respond)`** — the host side of the SEP `ui/*` action channel, scope-gated through the same `ToolRegistry` policy as the legacy channel:
+  - `ui/initialize` → host-capabilities handshake; the renderer then pushes the resource's optional `data` as a `ui/notifications/tool-result` (SEP presentation/data separation).
+  - `tools/list` / `tools/call` → only scope-visible tools; unknown/forbidden tools return an `isError` result without leaking existence.
+  - `ui/open-link` → router/external navigation; `ui/update-model-context` → delegated to the host handler.
+- **New `data` field on `McpUiResource`** carries the SEP `structuredContent` pushed to the iframe after initialize. New exports: `MCP_UI_APP_MIME`, `mcpAppRpcRequestSchema`, types `McpAppRpcRequest` / `McpAppRpcResponse`.
+- Backward-compatible: legacy `text/html` + the `{source:'mcp-ui', action}` protocol are unchanged.
+
+### Changed
+
+- `LIB_VERSION` bumped to `1.3.0` (was out of sync at `1.1.0`) so host-version compatibility checks reflect the published version.
 
 ### Changed — native Hashbrown integration
 

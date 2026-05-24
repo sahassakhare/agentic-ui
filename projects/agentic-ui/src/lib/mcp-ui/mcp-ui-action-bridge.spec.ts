@@ -10,6 +10,7 @@ import { agenticTool } from '../factories/agentic-tool';
 import { InMemoryTelemetrySink } from '../testing/in-memory-telemetry-sink';
 import { McpUiActionBridge } from './mcp-ui-action-bridge';
 import { MCP_UI_CONFIG, type McpUiConfig } from './config';
+import type { McpAppRpcResponse } from './types';
 import type { ToolDef } from '../types/registry-defs';
 
 /**
@@ -159,6 +160,100 @@ describe('McpUiActionBridge — malformed payloads', () => {
     expect(result.handled).toBe(false);
     expect(result.reason).toBe('malformed-message');
     expect(sink.eventsByName('agentic.mcp_ui.action_blocked')).toHaveLength(1);
+  });
+});
+
+describe('McpUiActionBridge — MCP Apps (SEP-1865) JSON-RPC channel', () => {
+  it('replies to ui/initialize with host capabilities + reports initialized', async () => {
+    const { bridge } = setup();
+    const replies: unknown[] = [];
+    const result = await bridge.handleAppRpc(
+      { jsonrpc: '2.0', id: 1, method: 'ui/initialize', params: {} },
+      (r) => replies.push(r),
+    );
+    expect(result).toEqual({ handled: true, reason: 'initialized' });
+    expect(replies).toHaveLength(1);
+    expect(replies[0]).toMatchObject({
+      jsonrpc: '2.0',
+      id: 1,
+      result: { capabilities: expect.objectContaining({ tools: expect.anything() }) },
+    });
+  });
+
+  it('lists only scope-visible tools', async () => {
+    const { bridge, tools } = setup();
+    tools.register(agenticTool({ name: 'visible', description: 'd', schema: z.object({}), handler: async () => ({}) }) as ToolDef);
+    tools.register({ ...(agenticTool({ name: 'hidden', description: 'd', schema: z.object({}), handler: async () => ({}) }) as ToolDef), scopes: ['admin'] });
+    tools.setScopePolicy((e) => (e.scopes ?? []).length === 0);
+
+    let listed: Array<{ name: string }> = [];
+    await bridge.handleAppRpc({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, (r) => {
+      listed = (r.result as { tools: Array<{ name: string }> }).tools;
+    });
+    expect(listed.map((t) => t.name)).toEqual(['visible']);
+  });
+
+  it('invokes a scoped tool via tools/call and returns structuredContent', async () => {
+    const { bridge, tools } = setup();
+    const handler = vi.fn(async () => ({ bookingId: 'BK1', from: 'LAX' }));
+    tools.register(agenticTool({ name: 'bookFlight', description: 'd', schema: z.object({ to: z.string() }), handler }) as ToolDef);
+
+    let reply: McpAppRpcResponse | undefined;
+    const result = await bridge.handleAppRpc(
+      { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'bookFlight', arguments: { to: 'JFK' } } },
+      (r) => { reply = r; },
+    );
+    expect(result.handled).toBe(true);
+    expect(handler).toHaveBeenCalledWith({ to: 'JFK' }, expect.objectContaining({ toolCallId: expect.any(String) }));
+    expect(reply?.result).toMatchObject({ structuredContent: { bookingId: 'BK1', from: 'LAX' } });
+  });
+
+  it('returns an isError result (not a leak) for an unknown/forbidden tool', async () => {
+    const { bridge } = setup();
+    let reply: McpAppRpcResponse | undefined;
+    const result = await bridge.handleAppRpc(
+      { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'ghost' } },
+      (r) => { reply = r; },
+    );
+    expect(result.reason).toBe('tool-not-found');
+    expect(reply?.result).toMatchObject({ isError: true });
+  });
+
+  it('routes ui/open-link through the navigator', async () => {
+    const { bridge } = setup();
+    const nav = vi.fn();
+    bridge.setNavigator(nav);
+    let reply: McpAppRpcResponse | undefined;
+    await bridge.handleAppRpc(
+      { jsonrpc: '2.0', id: 5, method: 'ui/open-link', params: { url: '/dash', target: 'router' } },
+      (r) => { reply = r; },
+    );
+    expect(nav).toHaveBeenCalledWith('/dash');
+    expect(reply?.result).toEqual({});
+  });
+
+  it('returns -32601 for an unknown method', async () => {
+    const { bridge } = setup();
+    let reply: McpAppRpcResponse | undefined;
+    const result = await bridge.handleAppRpc(
+      { jsonrpc: '2.0', id: 6, method: 'ui/bogus' },
+      (r) => { reply = r; },
+    );
+    expect(result.reason).toBe('method-not-found');
+    expect(reply?.error?.code).toBe(-32601);
+  });
+
+  it('does not reply to a notification (no id)', async () => {
+    const { bridge } = setup();
+    const replies: unknown[] = [];
+    await bridge.handleAppRpc({ jsonrpc: '2.0', method: 'ui/initialize', params: {} }, (r) => replies.push(r));
+    expect(replies).toHaveLength(0);
+  });
+
+  it('drops a non-JSON-RPC message', async () => {
+    const { bridge } = setup();
+    const result = await bridge.handleAppRpc({ hello: 'world' }, () => undefined);
+    expect(result).toEqual({ handled: false, reason: 'malformed-message' });
   });
 });
 

@@ -10,16 +10,20 @@
  */
 export {
   MCP_UI_HTML_MIME,
+  MCP_UI_APP_MIME,
   MCP_UI_URI_LIST_MIME,
   MCP_UI_REMOTE_DOM_MIME,
   MCP_UI_COMPONENT_TREE_MIME,
   mcpUiResourceSchema,
   mcpUiActionSchema,
   mcpUiMessageSchema,
+  mcpAppRpcRequestSchema,
   componentTreeNodeSchema,
   type McpUiResource,
   type McpUiAction,
   type McpUiMessage,
+  type McpAppRpcRequest,
+  type McpAppRpcResponse,
   type ComponentTreeNode,
 } from './types';
 export { MCP_UI_CONFIG, MCP_UI_DEFAULT_CONFIG, type McpUiConfig } from './config';

@@ -30,8 +30,8 @@ const MCP_APP_MIME = 'text/html;profile=mcp-app';
  * Pick a transport once configured:
  *
  *  - `startStdio()` — Claude Desktop's default. Reads stdin, writes stdout.
- *  - `startHttp({ port, cors })` — for remote MCP hosts.
- *  - `handleRequest(req)` — embed in an existing HTTP server (Hono / Express).
+ *  - `startHttp({ port, cors })` — Streamable HTTP for remote MCP hosts.
+ *  - `handleRequest(req, res, body?)` — embed in an existing HTTP server (Hono / Express).
  *
  * @example
  * ```ts
@@ -107,7 +107,7 @@ export function createMcpServer(opts: CreateMcpServerOptions): McpServerHandle {
         resources: {},
         extensions: { 'io.modelcontextprotocol/ui': { mimeTypes: [MCP_APP_MIME] } },
       }
-    : { tools: {} }) as ConstructorParameters<typeof Server>[1]['capabilities'];
+    : { tools: {} }) as NonNullable<ConstructorParameters<typeof Server>[1]>['capabilities'];
 
   const server = new Server({ name: opts.name, version: opts.version }, { capabilities });
 
@@ -229,14 +229,13 @@ export function createMcpServer(opts: CreateMcpServerOptions): McpServerHandle {
       const { startHttpTransport } = await import('./transports/http.js');
       httpClose = await startHttpTransport(server, httpOpts);
     },
-    async handleRequest(request: unknown): Promise<unknown> {
-      // For embedding into an existing HTTP server. The MCP SDK doesn't
-      // expose a simple "process this single JSON-RPC envelope" path —
-      // consumers can use the embeddable transport from the SDK
-      // directly, but we surface a thin wrapper so they don't import
-      // the SDK themselves.
+    async handleRequest(req, res, parsedBody): Promise<void> {
+      // For embedding into an existing HTTP server (Hono / Express /
+      // Fastify). Delegates to a stateless Streamable HTTP transport — the
+      // SDK's public transport API — so we no longer depend on the SDK's
+      // private request handler.
       const { handleSingleRequest } = await import('./transports/embeddable.js');
-      return handleSingleRequest(server, request);
+      await handleSingleRequest(server, req, res, parsedBody);
     },
     async close(): Promise<void> {
       await Promise.all([
