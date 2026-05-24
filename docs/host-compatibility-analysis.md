@@ -81,7 +81,12 @@ our side but gated on host/spec maturity we don't control.**
 
 ## 6. Server-side infra packages (not deep-analyzed this session)
 
-`agentic-ui-server` (AG-UI SSE route handler — **[V]** correct: validation, status codes, SSE encoding, abort), `agentic-ui-server-registrar`, `agentic-ui-server-stores`, `agentic-ui-opa-authorizer`. **[A]** Only `agentic-ui-server` was exercised this session; the registrar/stores/OPA packages need their own review pass — flagged, not assessed.
+`agentic-ui-server` (AG-UI SSE route handler — **[V]** correct: validation, status codes, SSE encoding, abort).
+
+**Review pass (this session) [V]:**
+- **`agentic-ui-server-registrar`** — solid. Idempotent register (409 recovery via name lookup), best-effort heartbeat, `unref`'d timer, graceful SIGTERM → inactive. No issues.
+- **`agentic-ui-server-stores`** (Redis + Postgres `ThreadStateStore`) — solid. Caller-owned client lifecycle, TTL, corrupt-entry-as-missing, upsert on conflict. Minor notes (not bugs): Postgres `table` is string-interpolated (dev config, not user input — pg can't parameterize identifiers); Redis/PG don't pub/sub on change (documented — pair with `RegistryProviderHook`).
+- **`agentic-ui-opa-authorizer`** — ⚠️ **fixed a real reactivity bug.** A background OPA decision flipping to *deny* after the first `onMiss:'allow'` read never hid the entry: the registry's filtered `computed` didn't re-evaluate (the policy read a plain `Map`; the provider's `effect` reading the registry signals was a no-op for propagation). Fix: `decide()` now reads the `cacheVersion` signal so the policy-running `computed` tracks it; removed the no-op `effect`. New regression test. (v1.2.4)
 
 ---
 
@@ -107,8 +112,8 @@ our side but gated on host/spec maturity we don't control.**
 5. Cut a **minor release (≥1.3.0)** capturing the breaking Hashbrown wire change. (§7)
 
 **P2 — verification / honesty**
-6. **Live-verify M365/Teams** Adaptive Card rendering on a real tenant. (§5)
-7. Review the **server infra packages** (registrar/stores/OPA). (§6)
+6. **Live-verify M365/Teams** Adaptive Card rendering on a real tenant. (§5) — *code-level review done (mappers + send path solid); live-tenant run still outstanding.*
+7. ✅ Reviewed the **server infra packages** (registrar/stores/OPA) — registrar + stores clean; fixed an OPA reactivity bug (v1.2.4). (§6)
 8. Keep **A2UI / WebMCP** labeled as contract-/spec-shaped until upstream specs ratify. (§1, §4)
 
 **Not actionable by us:** Claude Desktop's MCP Apps renderer bug (file upstream with the `oncalltool` loop). (§2)
