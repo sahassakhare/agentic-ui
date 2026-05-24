@@ -1,21 +1,22 @@
-import { ApplicationConfig, inject, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
+import { ApplicationConfig, inject, makeEnvironmentProviders, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection, type EnvironmentProviders } from '@angular/core';
 import {
   provideAgenticTelemetry,
   provideAgenticTelemetryConsole,
-  provideAgenticUi,
+  provideAgenticUiPlatform,
   provideAgUiBackend,
   provideHashbrownBackend,
   provideA2uiBackend,
-  provideMcpUi,
+  AGENTIC_RUN_STATE_PROVIDER,
   UI_ACTION_DISPATCHER,
   type UiActionDispatcher,
 } from '@infra-tools/agentic-ui';
 
 import { environment } from '../environments/environment';
-import { tools, widgets } from './agentic/agentic';
+import { tools, widgets, provideDojoApprovals } from './agentic/agentic';
 import { UiActionLogService } from './protocols/ui-action-log.service';
+import { TravelerContextService } from './agentic/traveler-context.service';
 
-function telemetryProvider() {
+function telemetryProvider(): EnvironmentProviders {
   switch (environment.telemetry) {
     case 'console': return provideAgenticTelemetryConsole();
     case 'otel':    return provideAgenticTelemetry({
@@ -26,7 +27,7 @@ function telemetryProvider() {
         },
       },
     });
-    default: return [];
+    default: return makeEnvironmentProviders([]);
   }
 }
 
@@ -50,27 +51,46 @@ const uiActionDispatcher: () => UiActionDispatcher = () => {
   };
 };
 
+// Three backends registered side-by-side so the protocol switcher in
+// app.ts can flip the active one via BackendRegistry.setActive(id).
+// Bundled as the platform's `transport` with AG-UI LAST so it's the
+// default active backend (each provider calls setActive on init).
+const transport: EnvironmentProviders = makeEnvironmentProviders([
+  provideHashbrownBackend({ url: `${base}/agents/hashbrown/run` }),
+  provideA2uiBackend({ url: `${base}/agents/a2ui/run` }),
+  provideAgUiBackend({ url: environment.agentUrl }),
+]);
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
-    provideAgenticUi({ tools, widgets }),
 
-    // Three backends registered side-by-side; the protocol switcher in
-    // app.ts flips the active one via BackendRegistry.setActive(id).
-    // AG-UI registers last so it's the default active backend.
-    provideHashbrownBackend({ url: `${base}/agents/hashbrown/run` }),
-    provideA2uiBackend({ url: `${base}/agents/a2ui/run` }),
-    provideAgUiBackend({ url: environment.agentUrl }),
-
-    // Custom A2UI ui-action dispatcher (records into UiActionLogService).
-    { provide: UI_ACTION_DISPATCHER, useFactory: uiActionDispatcher },
-
-    // MCP-UI inbound rendering for the showcase section. Inline html
-    // (srcdoc) + component-tree need no external origins; the allowlist
-    // stays empty (default-deny).
-    provideMcpUi(),
-
-    telemetryProvider(),
+    // Unified entry point — one call wires tools/widgets, the chat
+    // transport, and MCP-UI inbound rendering. MCP-UI needs no external
+    // origins for the showcase (inline html + component-tree), so the
+    // default-deny allowlist is fine (`mcpUi: true`).
+    provideAgenticUiPlatform({
+      tools,
+      widgets,
+      transport,
+      mcpUi: true,
+      extraProviders: [
+        // Custom A2UI ui-action dispatcher (records into UiActionLogService).
+        { provide: UI_ACTION_DISPATCHER, useFactory: uiActionDispatcher },
+        // Shared state — thread the editable traveler context to the agent
+        // on every turn as `AgenticRunInput.state` (ADR-013).
+        {
+          provide: AGENTIC_RUN_STATE_PROVIDER,
+          useFactory: () => {
+            const ctx = inject(TravelerContextService);
+            return () => ctx.snapshot();
+          },
+        },
+        // Human-in-the-loop: register the redeemPoints approval policy.
+        provideDojoApprovals(),
+        telemetryProvider(),
+      ],
+    }),
   ],
 };
