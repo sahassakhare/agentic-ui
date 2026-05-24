@@ -13,6 +13,7 @@
   "dependencies": {
     "@infra-tools/agentic-ui": "file:../../dist/agentic-ui",
     "@infra-tools/agentic-ui-mcp": "file:../../projects/agentic-ui-mcp",
+    "@infra-tools/demo-shared-tools": "file:../demo-shared-tools",
     "zod": "^3.23.8"
   },
   "devDependencies": {
