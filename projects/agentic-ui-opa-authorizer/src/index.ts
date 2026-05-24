@@ -44,7 +44,6 @@ import {
   DestroyRef,
   Injectable,
   computed,
-  effect,
   inject,
   makeEnvironmentProviders,
   provideEnvironmentInitializer,
@@ -128,6 +127,13 @@ export class OpaAuthorizerService {
   decide(kind: string, name: string): boolean {
     const opts = this.options;
     if (!opts) return true; // defensive: never configured
+    // Read `cacheVersion` so that when `decide` runs inside a registry's
+    // filtered `computed` (the scope policy is called there), the computed
+    // tracks this signal and re-evaluates whenever a background decision
+    // lands — i.e. a deny that arrives after the first `onMiss: 'allow'`
+    // read actually hides the entry. Reading a signal outside a reactive
+    // context is a harmless plain read.
+    this.cacheVersion();
     const key = `${kind}:${name}`;
     const cached = this.cache.get(key);
     if (cached && cached.expiresAt > Date.now()) {
@@ -257,16 +263,12 @@ export function provideOpaAuthorizer(
         void svc.prefetch(entries);
       }
 
-      // Re-evaluate registries when the cache changes — the registry's
-      // signal recomputation is what reflects allow/deny flips.
-      effect(() => {
-        svc.cachedDecisions();
-        // Touching the registries triggers their filtered-signal
-        // consumers to recompute. There's no-op API for this; reading
-        // their signals from inside the effect is enough.
-        tools.signal();
-        widgets.signal();
-      });
+      // Note: decision-flip propagation is handled by the scope policy
+      // itself — `OpaAuthorizerService.decide` reads the `cacheVersion`
+      // signal, so each registry's filtered `computed` re-evaluates when a
+      // background OPA decision lands. No extra effect is needed (and an
+      // effect that merely reads the registry signals would NOT invalidate
+      // their other consumers — reading a signal in an effect doesn't push).
     }),
   ]);
 }

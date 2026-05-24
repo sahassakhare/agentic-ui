@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest';
+// The lib dist ships partially-compiled (Angular Linker) declarations; load
+// the JIT compiler so `Injector.create`-instantiated services from the lib
+// barrel compile at runtime in this plain-vitest (no-TestBed) harness.
+import '@angular/compiler';
+import { describe, expect, it, vi } from 'vitest';
+import { Injector, computed } from '@angular/core';
+import { AGENTIC_TELEMETRY_SINK } from '@infra-tools/agentic-ui';
 import { composeWithOpaAuthorizer } from './compose.js';
+import { OpaAuthorizerService } from './index.js';
 
 /**
  * Pure-function unit tests for the OPA plugin's composition logic.
@@ -60,5 +67,58 @@ describe('composeWithOpaAuthorizer', () => {
       'tool',
     );
     expect(composed({ name: 'allowed' })).toBe(true);
+  });
+});
+
+/**
+ * Reactive-propagation regression test for `OpaAuthorizerService`.
+ *
+ * The registry's filtered view is a `computed` that calls the scope policy
+ * (→ `decide`). A background OPA decision that flips to *deny* after the
+ * first `onMiss: 'allow'` read MUST cause that computed to re-evaluate and
+ * hide the entry — otherwise a denied tool stays visible until something
+ * unrelated invalidates the registry. `decide` reads the `cacheVersion`
+ * signal precisely so the tracking computed depends on it. Without that
+ * read, the `visible()` recompute below never returns `false`.
+ *
+ * Uses `Injector.create` (no TestBed/zone needed — signals are zoneless;
+ * only the service's `inject()` calls need an injection context).
+ */
+describe('OpaAuthorizerService — reactive decision propagation', () => {
+  const sink = { emit() {}, counter() {}, histogram() {}, startSpan() { return { end() {}, recordError() {}, setAttribute() {} }; } };
+
+  it('re-evaluates a tracking computed when a background decision flips to deny', async () => {
+    const injector = Injector.create({
+      providers: [
+        { provide: AGENTIC_TELEMETRY_SINK, useValue: sink },
+        { provide: OpaAuthorizerService },
+      ],
+    });
+    const svc = injector.get(OpaAuthorizerService);
+
+    // OPA denies every decision; the call resolves on the next microtask.
+    const fetchFn = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ allow: false }),
+    })) as unknown as typeof fetch;
+    svc.configure({
+      catalogUrl: 'https://catalog.example.com',
+      tenantId: 'acme',
+      getToken: () => null,
+      onMiss: 'allow',
+      cacheTtlMs: 60_000,
+      fetchFn,
+    });
+
+    // Stand-in for a registry's filtered computed: it filters via the policy.
+    const visible = computed(() => svc.decide('tool', 'bookFlight'));
+
+    // First read: cache miss → onMiss 'allow' → visible; fires a background fetch.
+    expect(visible()).toBe(true);
+
+    // Once the deny lands + bumps cacheVersion, the computed recomputes.
+    await vi.waitFor(() => expect(visible()).toBe(false));
+    expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 });
