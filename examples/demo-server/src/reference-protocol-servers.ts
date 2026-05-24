@@ -1,43 +1,48 @@
 /**
  * Reference protocol servers — Hashbrown + A2UI.
  *
- * The AG-UI reference server is `agUiRouteHandler` (SSE). These two are
- * the wire counterparts the Hashbrown + A2UI client adapters in
- * `@infra-tools/agentic-ui` consume:
+ * Both reuse the SAME `GeminiAgent` the AG-UI route runs, then transcode
+ * its AG-UI event stream into their own wire (see protocol-transcoders.ts):
  *
- *  - **Hashbrown (R1)** speaks Hashbrown's REAL protocol — a request of
- *    `Chat.Api.CompletionCreateParams`, answered with a stream of
- *    length-prefixed frames (`[4-byte BE length][UTF-8 JSON]`) encoded by
- *    `@hashbrownai/core`'s `encodeFrame`. This is what a real Hashbrown
- *    backend (`@hashbrownai/openai` etc.) emits; the client adapter
- *    decodes it with the same SDK.
- *  - **A2UI (R2)** emits canonical `AgenticEvent` NDJSON (one JSON object
- *    per line) plus the distinguishing `ui-action` event.
+ *  - **Hashbrown (R1)** answers a `Chat.Api.CompletionCreateParams` request
+ *    with a stream of length-prefixed `Frame`s (`encodeFrame`).
+ *  - **A2UI (R2)** answers with canonical `AgenticEvent` NDJSON, plus the
+ *    distinguishing `ui-action` event.
  *
- * Echo-based (LLM-free) so they run without an API key — the WIRE SHAPE
- * is identical to what an LLM-backed server would emit; only the content
- * is an echo. Adopters copy these as the starting point for a real
- * Hashbrown / A2UI server and swap the echo body for their LLM loop.
+ * Because the agent emits a REAL tool call (e.g. `bookFlight`) and the
+ * tool's handler runs CLIENT-SIDE, the chat shell renders the same
+ * generative-UI widget over all three protocols — no echo, no special
+ * casing. When no API key is configured the agent is absent and each
+ * handler falls back to an LLM-free echo so the demo still runs.
  *
  * Reference implementations R1 + R2 of
  * docs/plans/reference-implementations-plan.md. See ADR-048 for the
  * canonical event contract every adapter conforms to.
  */
+import { EventType } from '@ag-ui/core';
 import { encodeFrame, type Frame } from '@hashbrownai/core';
+import type { AgentResolver } from '@infra-tools/agentic-ui-server';
+import {
+  AgUiToHashbrownFrames,
+  aguiEventToCanonical,
+  a2uiBodyToRunInput,
+  hashbrownParamsToRunInput,
+} from './protocol-transcoders.js';
 
-/** Subset of the request body the client adapters POST (see ADR-048). */
-interface RefRequestBody {
-  readonly threadId?: string;
-  readonly runId?: string;
-  readonly messages?: ReadonlyArray<{ readonly role?: string; readonly content?: unknown }>;
-  readonly tools?: ReadonlyArray<{ readonly name?: string; readonly description?: string; readonly parameters?: unknown }>;
-  readonly state?: Record<string, unknown>;
-}
+/** The agent both reference servers run when an API key is configured. */
+const AGENT_ID = 'gemini';
 
-function lastUserText(messages: RefRequestBody['messages']): string {
+function lastUserText(messages: ReadonlyArray<{ role?: string; content?: unknown }> | undefined): string {
   const last = [...(messages ?? [])].reverse().find((m) => m.role === 'user');
   if (!last) return '(no user message)';
   return typeof last.content === 'string' ? last.content : '[multipart content]';
+}
+
+/** Bridge the incoming web `Request`'s abort to an `AbortController`. */
+function abortFromRequest(req: Request): AbortController {
+  const ac = new AbortController();
+  req.signal?.addEventListener('abort', () => ac.abort(), { once: true });
+  return ac;
 }
 
 /** Stream an async generator of events as `application/x-ndjson`. */
@@ -48,8 +53,6 @@ function ndjsonResponse(events: () => AsyncGenerator<unknown>): Response {
       try {
         for await (const ev of events()) {
           controller.enqueue(encoder.encode(JSON.stringify(ev) + '\n'));
-          // Small pause so the stream visibly arrives in chunks (streaming feel).
-          await new Promise((r) => setTimeout(r, 25));
         }
       } finally {
         controller.close();
@@ -63,9 +66,8 @@ function ndjsonResponse(events: () => AsyncGenerator<unknown>): Response {
 }
 
 /**
- * Stream an async generator of Hashbrown `Frame`s as the SDK's
- * length-prefixed binary format (`application/octet-stream`). Each frame
- * is `encodeFrame`'d to `[4-byte BE length][UTF-8 JSON]` — byte-for-byte
+ * Stream Hashbrown `Frame`s as the SDK's length-prefixed binary format
+ * (`application/octet-stream`) — `[4-byte BE length][UTF-8 JSON]`, exactly
  * what the client adapter's `decodeFrames` expects.
  */
 function framesResponse(frames: () => AsyncGenerator<Frame>): Response {
@@ -74,8 +76,6 @@ function framesResponse(frames: () => AsyncGenerator<Frame>): Response {
       try {
         for await (const frame of frames()) {
           controller.enqueue(encodeFrame(frame));
-          // Small pause so the stream visibly arrives in chunks.
-          await new Promise((r) => setTimeout(r, 25));
         }
       } finally {
         controller.close();
@@ -89,67 +89,74 @@ function framesResponse(frames: () => AsyncGenerator<Frame>): Response {
 }
 
 /**
- * Hashbrown reference server (R1). Speaks Hashbrown's REAL protocol:
- * reads a `Chat.Api.CompletionCreateParams` request and answers with a
- * length-prefixed `Frame` stream — `generation-start`, a sequence of
- * `generation-chunk`s (OpenAI-style `CompletionChunk` deltas), then
- * `generation-finish`. The echo body surfaces the tool count it received
- * as proof the client adapter serialized tools into `CompletionCreateParams.tools`.
- *
- * Swap the echo loop for `HashbrownOpenAI.stream.text(...)` (or any
- * `@hashbrownai/*` model adapter) to make this a real LLM backend; the
- * frame shape is identical.
+ * Hashbrown reference server (R1). Runs the real agent and transcodes its
+ * AG-UI events to Hashbrown `Frame`s (`generation-start` → `generation-chunk`*
+ * carrying text + streamed `tool_calls` → `generation-finish`). Falls back
+ * to an echo when no agent (no API key) is available.
  */
-export async function hashbrownReferenceHandler(req: Request): Promise<Response> {
-  const body = (await req.json().catch(() => ({}))) as RefRequestBody;
-  const text = lastUserText(body.messages);
-  const toolNames = (body.tools ?? []).map((t) => t.name).filter(Boolean);
+export async function hashbrownReferenceHandler(req: Request, resolver?: AgentResolver): Promise<Response> {
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const agent = resolver?.resolve(AGENT_ID);
 
+  if (!agent) {
+    const text = lastUserText(body['messages'] as ReadonlyArray<{ role?: string; content?: unknown }>);
+    return framesResponse(async function* () {
+      yield { type: 'generation-start' };
+      const reply = `Hashbrown reference (no API key) — echo: "${text}".`;
+      for (const word of reply.split(' ')) {
+        yield { type: 'generation-chunk', chunk: { choices: [{ index: 0, delta: { content: word + ' ' }, finishReason: null }] } };
+      }
+      yield { type: 'generation-finish' };
+    });
+  }
+
+  const input = hashbrownParamsToRunInput(body);
+  const ac = abortFromRequest(req);
+  const transcoder = new AgUiToHashbrownFrames();
   return framesResponse(async function* () {
-    yield { type: 'generation-start' };
-    const reply =
-      `Hashbrown reference server — echo: "${text}". ` +
-      `Received ${toolNames.length} tool(s)` +
-      (toolNames.length ? ` [${toolNames.join(', ')}]` : '') +
-      '.';
-    for (const word of reply.split(' ')) {
-      yield {
-        type: 'generation-chunk',
-        chunk: { choices: [{ index: 0, delta: { content: word + ' ' }, finishReason: null }] },
-      };
+    for await (const ev of agent.run(input, ac.signal)) {
+      for (const frame of transcoder.frames(ev)) yield frame;
     }
-    yield { type: 'generation-finish' };
   });
 }
 
 /**
- * A2UI reference server (R2). Like Hashbrown's echo, plus it emits the
- * distinguishing A2UI `ui-action` event — exercising the client
- * adapter's `UiActionDispatcher` path (and the L1 fix that threads the
- * live `threadId` / `runId` into the dispatched action).
+ * A2UI reference server (R2). Runs the real agent and transcodes its AG-UI
+ * events to canonical `AgenticEvent` NDJSON, injecting the distinguishing
+ * `ui-action` event just before `run-finished`. Falls back to an echo when
+ * no agent (no API key) is available.
  */
-export async function a2uiReferenceHandler(req: Request): Promise<Response> {
-  const body = (await req.json().catch(() => ({}))) as RefRequestBody;
-  const runId = body.runId ?? `run-${Date.now()}`;
-  const threadId = body.threadId ?? `thread-${Date.now()}`;
-  const text = lastUserText(body.messages);
+export async function a2uiReferenceHandler(req: Request, resolver?: AgentResolver): Promise<Response> {
+  const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+  const agent = resolver?.resolve(AGENT_ID);
+  const runId = String(body['runId'] ?? `run-${Date.now()}`);
+  const threadId = String(body['threadId'] ?? `thread-${Date.now()}`);
 
+  if (!agent) {
+    const text = lastUserText(body['messages'] as ReadonlyArray<{ role?: string; content?: unknown }>);
+    return ndjsonResponse(async function* () {
+      yield { type: 'run-started', threadId, runId };
+      const messageId = `m-${runId}`;
+      const reply = `A2UI reference (no API key) — echo: "${text}".`;
+      for (const word of reply.split(' ')) {
+        yield { type: 'text-delta', messageId, delta: word + ' ' };
+      }
+      yield { type: 'text-end', messageId };
+      yield { type: 'ui-action', actionId: `act-${runId}`, op: 'notify', payload: { message: 'A2UI fired a ui-action', level: 'info' } };
+      yield { type: 'run-finished', runId };
+    });
+  }
+
+  const input = a2uiBodyToRunInput(body);
+  const ac = abortFromRequest(req);
   return ndjsonResponse(async function* () {
-    yield { type: 'run-started', threadId, runId };
-    const messageId = `m-${runId}`;
-    const reply = `A2UI reference server — echo: "${text}". Firing a ui-action you can dispatch via ActionRegistry.`;
-    for (const word of reply.split(' ')) {
-      yield { type: 'text-delta', messageId, delta: word + ' ' };
+    for await (const ev of agent.run(input, ac.signal)) {
+      // The A2UI distinguishing feature — a UI op fired alongside the run,
+      // dispatched host-side (UI_ACTION_DISPATCHER → ActionRegistry).
+      if (ev.type === EventType.RUN_FINISHED) {
+        yield { type: 'ui-action', actionId: `act-${input.runId}`, op: 'notify', payload: { message: 'A2UI agent fired a ui-action', level: 'info' } };
+      }
+      for (const c of aguiEventToCanonical(ev, { threadId: input.threadId, runId: input.runId })) yield c;
     }
-    yield { type: 'text-end', messageId };
-    // The A2UI distinguishing feature — a UI op the host dispatches.
-    // 'notify' is a safe demo op; adopters map it to a registered ActionDef.
-    yield {
-      type: 'ui-action',
-      actionId: `act-${runId}`,
-      op: 'notify',
-      payload: { message: 'A2UI reference server fired a ui-action', level: 'info' },
-    };
-    yield { type: 'run-finished', runId };
   });
 }
