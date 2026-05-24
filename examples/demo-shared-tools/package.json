@@ -1,0 +1,27 @@
+{
+  "name": "@infra-tools/demo-shared-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The single ToolDef[] source shared by demo-monolith (Angular app) and demo-mcp-server (Node MCP server). Zero Angular imports — schema-first ToolDef literals so the same contract drives browser chat and the MCP server without duplication. Phase 0 of the unified-agentic-protocol-interface plan.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist/**"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@infra-tools/agentic-ui": "file:../../dist/agentic-ui",
+    "@types/node": "^22.10.0",
+    "typescript": "~5.9.0"
+  }
+}
