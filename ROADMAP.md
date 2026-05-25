@@ -27,6 +27,9 @@ already built; the roadmap below is what's *next*, not what's missing.
 | **Pluggable per-thread state** | `ThreadStateStore<TState>` + `InMemoryThreadStateStore` | Async-shaped contract; Redis / Postgres adapters sketched in cookbook |
 | **MCP consumer-side bridge** | `mcpToolBridge({ client })` | Imports tools FROM an MCP server INTO `ToolRegistry` |
 | **MCP server-side adapter** | `@infra-tools/agentic-ui-mcp` (`createMcpServer`) | Exposes `ToolDef[]` AS an MCP server. Stdio + HTTP transports. Live in `examples/demo-mcp-server/` and `examples/demo-ediscovery-mcp/` (Phase 6). |
+| **MCP Streamable HTTP transport** | `@infra-tools/agentic-ui-mcp` `startHttp` / `handleRequest` | Modern MCP 2025-03-26 **Streamable HTTP** (single `/mcp` endpoint, stateful sessions) replacing the deprecated HTTP+SSE transport; embeddable handler uses the SDK's public transport API (dropped the private `_handleRequest`); SDK pin tightened to `^1.26.0`. v1.3.0. |
+| **MCP Apps (SEP-1865) — inbound + outbound** | `<mvk-mcp-ui-resource>` + `McpUiActionBridge.handleAppRpc` + `createMcpServer({ uiResources, toolUi })` | Inbound renderer **and** outbound server both speak the MCP Apps SEP: `text/html;profile=mcp-app`, predeclared `ui://` templates, `structuredContent`, and the `ui/*` JSON-RPC-over-postMessage action channel (`ui/initialize` / `tools/list` / `tools/call` / `ui/open-link`) scope-gated through `ToolRegistry`. Legacy MCP-UI convention retained for back-compat. v1.3.0. |
+| **WebMCP in-page tool exposure** | `@infra-tools/agentic-ui-webmcp` | Exposes the host's `ToolRegistry` to an in-browser agent via the draft `navigator.modelContext` API, scope- + approval-gated ([ADR-050](./docs/adr/0050-webmcp-tool-exposure.md)). Spec-shaped — feature-detects + no-ops when the API is absent. |
 | **Teams Tab embed seam** | `provideTeamsContext({ loadContext })` · `TEAMS_CONTEXT` | Bridges `microsoftTeams.app.getContext()` into the runtime as a signal. Lib carries no `@microsoft/teams-js` dep — adopters import it lazily. Plan P0 of [Teams + Copilot integration](docs/plans/teams-copilot-integration-plan.md); cookbook in [docs/cookbook/teams-tab-embed.md](docs/cookbook/teams-tab-embed.md). |
 | **GitHub Copilot Extension adapter** | `@infra-tools/agentic-ui-copilot-skill` | Webhook server-side library wrapping the Copilot Extensions protocol (signature verify + body parse + identity + OpenAI-shaped SSE response). Adopters bring their own LLM behind a `SkillHandler`. Plan P2 of [Teams + Copilot integration](docs/plans/teams-copilot-integration-plan.md); design rationale in [ADR-041](docs/adr/0041-teams-copilot-external-surfaces.md); cookbook in [docs/cookbook/github-copilot-extension.md](docs/cookbook/github-copilot-extension.md). |
 | **Teams Bot Framework adapter** | `@infra-tools/agentic-ui-teams-bot` | Wraps the Microsoft Bot Framework webhook protocol — JWT verify against the Bot Connector + activity parse + AAD client-credentials bearer for replies + Adaptive Card response builder + generic `widgetFallbackCard` for tools without an `adaptiveCard` render hint. Adopters bring their own LLM behind a `TeamsBotHandler`. Plan P1 of [Teams + Copilot integration](docs/plans/teams-copilot-integration-plan.md); contract addition `adaptiveCard?: object` on `ToolResultRenderHints` per [ADR-041 D2](docs/adr/0041-teams-copilot-external-surfaces.md); cookbook in [docs/cookbook/teams-bot-adaptive-cards.md](docs/cookbook/teams-bot-adaptive-cards.md). |
@@ -71,6 +74,23 @@ gantt
     Sandboxed code-interpreter tool    : t8, after t7, 7d
     Voice / multimodal backend         : t9, after t8, 18d
 ```
+
+---
+
+## Framework bindings — non-Angular support
+
+> **Status: roadmap (strategic).** Enabled by the [`@infra-tools/agentic-core` split RFC](./docs/plans/agentic-core-split-plan.md) (drafted, *do not implement — awaiting approval*). No non-Angular binding is shipped today.
+
+Today the library ships a single UI binding: **Angular 21** (`@infra-tools/agentic-ui`). The contracts it sits on — the `AgenticEvent` union, the Zod schemas, the `AgenticBackend` / `ToolDef` / `MessageContent` types, the backend adapters, and the pure `runUntilSettled` orchestration — are framework-agnostic TypeScript. The phased direction below makes that explicit and opens the door to React/Vue/vanilla bindings without forking the repo.
+
+| Phase | Deliverable | Notes |
+|---|---|---|
+| **FB0** | Extract `@infra-tools/agentic-core` | Per the [split RFC](./docs/plans/agentic-core-split-plan.md): C1 pure types + Zod schemas + protocol contracts → C2 backend adapters + pure orchestration → C3 `agentic-ui` re-exports from core (no breaking change for Angular adopters; federation singleton preserved). |
+| **FB1** | `@infra-tools/agentic-react` binding | Re-implements the reactive registry layer on React primitives (`useSyncExternalStore` / signals), a `<ChatShell />` component, and `useAgenticChat()` hook — importing contracts, schemas, and adapters from `agentic-core`. The conformance harness and event model are shared, so protocol fidelity is identical to the Angular binding. |
+| **FB2** | Vue + vanilla-web bindings | Same pattern: per-framework reactivity + components over the shared core. Vanilla-web targets a Web-Components binding for framework-free embedding. |
+| **FB3** | Cross-binding parity harness | A binding-conformance suite (analogous to `runConformance` for backends) asserting every binding renders the same generative-UI / tool-call / approval flows from the same `AgenticEvent` stream. |
+
+**Why this matters.** The hard, valuable parts of an agentic UI — the protocol translation, the registry governance model, the orchestration loop, the scope/approval gating — live in the core and are framework-neutral. Only the rendering + reactivity layer is framework-specific. A React or Vue shop should get the same governance, federation, and MCP story as the Angular binding by depending on the core and writing a thin binding, not by reimplementing the protocol plumbing. The [agentic-core RFC](./docs/plans/agentic-core-split-plan.md) calls out "future framework adapters" as one of its two load-bearing justifications — this section is that justification made concrete.
 
 ---
 

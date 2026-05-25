@@ -6,8 +6,8 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D20.19-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 
-> **A reusable Angular 21 library for building user interfaces an LLM can drive.**
-> One chat shell, one set of registries, one orchestration loop — works against AG-UI, Hashbrown, or A2UI without rewriting application code.[¹](#backend-support-matrix)
+> **A library for building user interfaces an LLM can drive — a framework-agnostic core with a production Angular 21 binding.**
+> One chat shell, one set of registries, one orchestration loop — works against AG-UI, Hashbrown, or A2UI without rewriting application code.[¹](#backend-support-matrix) **Angular is the only shipped UI binding today; React, Vue, and vanilla-web bindings are [planned](#framework-support).**
 
 ![eDiscovery flagship — chat panel typing the prompt, the agent routing to the collection specialist, the addCustodian tool firing, and an app-custodian-card widget rendering live (animated)](docs/assets/agentic-ui-in-action.gif)
 
@@ -19,7 +19,9 @@
 
 - [What is an "agentic UI"?](#what-is-an-agentic-ui)
 - [What this library does](#what-this-library-does)
+- [Framework support](#framework-support)
 - [Features](#features)
+- [MCP surfaces](#mcp-surfaces)
 - [Backend support matrix](#backend-support-matrix)
 - [Installation](#installation)
 - [Quick start](#quick-start)
@@ -106,6 +108,21 @@ If you've ever shipped a chat box where rendering "the flight card" required a `
 
 > **For the full system architecture, the registry layer up close, the external-surface adapters, and the architect's problem statement (six axes of pain), see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). For the 27 supported use cases, see [docs/USE_CASES.md](./docs/USE_CASES.md); for the complete capability surface, [docs/CAPABILITY_INVENTORY.md](./docs/CAPABILITY_INVENTORY.md).**
 
+## Framework support
+
+The design separates a **framework-agnostic core** from the **UI binding** that renders it. The core is the canonical `AgenticEvent` / protocol contracts, the Zod schemas, and the backend adapters (AG-UI / Hashbrown / A2UI) — plain TypeScript with no framework dependency. The binding supplies the reactive registry layer, the chat shell, and the widgets for one UI framework.
+
+**Today there is exactly one shipped binding: Angular 21.** React, Vue, and vanilla-web bindings are on the roadmap, unblocked by extracting the core into its own package.
+
+| Layer | Package | Status |
+|---|---|---|
+| Framework-agnostic core — types, Zod schemas, protocol contracts, backend adapters, pure orchestration logic | folded into `@infra-tools/agentic-ui` today; extraction to `@infra-tools/agentic-core` is a pending [RFC](./docs/plans/agentic-core-split-plan.md) | ⏳ Planned (RFC) |
+| **Angular 21 binding** — `<mvk-chat-shell>`, 18 registries, widgets, 13 schematics | `@infra-tools/agentic-ui` | ✅ **Production** |
+| React binding | `@infra-tools/agentic-react` (proposed) | 🗺 Roadmap |
+| Vue / vanilla-web bindings | proposed | 🗺 Roadmap |
+
+The contracts are *already* framework-agnostic — a non-Angular backend can consume the type/schema surface today via `.d.ts` codegen. What's planned is (1) the formal [`agentic-core` split](./docs/plans/agentic-core-split-plan.md) so non-Angular adopters install a package that doesn't advertise Angular peer-deps, and (2) first-class React/Vue/vanilla bindings on top of it (the Angular binding's registry layer currently uses Angular signals; a React binding would reimplement that reactive layer on React primitives over the shared core). See the [Roadmap](./ROADMAP.md#framework-bindings--non-angular-support).
+
 ## Features
 
 - **Pluggable agent backends.** A single `AgenticBackend` interface; ship adapters for AG-UI (`@ag-ui/client` HttpAgent + SSE), Hashbrown (`@hashbrownai/core` length-prefixed frames), and A2UI (`ui-action` event class routed through `ActionRegistry`). All three pass the `runConformance` harness per [ADR-048](./docs/adr/0048-backend-adapter-parity-contract.md). See the [Backend support matrix](#backend-support-matrix) for what's tested end-to-end vs adopter-supplied.
@@ -114,9 +131,22 @@ If you've ever shipped a chat box where rendering "the flight card" required a `
 - **MFE federation.** `defineCapabilityModule` packages a remote's tools and widgets; `loadRemoteCapabilities` (Native Federation) and `loadRemoteCapabilitiesMF` (webpack Module Federation) push them into the host's runtime registries. Remote discovery happens through a pluggable `MfeRegistrySource`.
 - **Schematics.** Thirteen generators: `ng-add`, `tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `action`, `intent`, `form`, plus the post-chat-surfaces scaffolds `trigger`, `dashboard`, `playbook`. All snapshot-tested.
 - **Post-chat surfaces (P0–P5).** The agent is reachable beyond the chat rail through 16 dispatch-agnostic widgets (workspace layout, ⌘K palette, smart cells, notification tray, inbox, dashboards, review queue, timeline, playbook runner, …). Every contribution federates through `defineCapabilityModule`; `removeBySource` reaps them on unload. **Try the live demo** at [ediscovery-shell.onrender.com](https://ediscovery-shell.onrender.com) — the [guided tour](./docs/cookbook/post-chat-surfaces-tour.md) walks through every pillar. See the [post-chat-surfaces plan](./docs/plans/post-chat-surfaces-plan.md).
+- **MCP on three sides.** Expose your `ToolDef[]` **as** an MCP server (`@infra-tools/agentic-ui-mcp`) over stdio or modern **Streamable HTTP** for Claude Desktop / Cursor / Zed; render server-driven UI **in-app** with `<mvk-mcp-ui-resource>` — both the legacy MCP-UI convention and the **MCP Apps SEP-1865** (`text/html;profile=mcp-app` + a scope-gated `ui/*` JSON-RPC action channel); and expose the host's tools to an **in-page** agent via WebMCP. See [MCP surfaces](#mcp-surfaces).
 - **Observability.** `AgenticTelemetrySink` emit points are baked into the orchestrator and registries from M1; the optional OpenTelemetry-backed sink ships with W3C trace context propagation across SSE.
 - **Federation-safe single primary entry.** All public API exports through one entry point so Native Federation can share the runtime as a singleton across host and remote (see [ADR-005](./docs/adr/0005-single-primary-entry.md)). Tree-shaking is preserved by `"sideEffects": false`.
 - **Platform integration in one provider.** `provideAgenticPlatform({...})` wires every catalog adapter through a single shared config: IAM persona resolver, federated MFE registry, capability registrar, capability authorizer, and usage metering. All opt-in per-feature. See [ADRs 031](./docs/adr/0031-provide-agentic-platform.md)–[034](./docs/adr/0034-catalog-usage-metering.md).
+
+## MCP surfaces
+
+The library touches the [Model Context Protocol](https://modelcontextprotocol.io) on three sides — all reusing the same `ToolDef` and the same `ToolRegistry` scope policy, so a tool authored once is exposable everywhere without forking:
+
+| Side | Surface | What it does |
+|---|---|---|
+| **Outbound — MCP server** | `@infra-tools/agentic-ui-mcp` · `createMcpServer({ tools, uiResources, toolUi })` | Wraps any `ToolDef[]` as an MCP server. Transports: **stdio** (Claude Desktop / Cursor / Zed) and modern **Streamable HTTP** (MCP 2025-03-26 — single `/mcp` endpoint, stateful sessions), replacing the deprecated HTTP+SSE transport. Serves **MCP Apps (SEP-1865)** templates: predeclared `ui://` resources as `text/html;profile=mcp-app`, `_meta.ui.resourceUri` on tools, `structuredContent` on results. |
+| **Inbound — server-driven UI** | `<mvk-mcp-ui-resource>` + `McpUiActionBridge` | Renders a UI resource in a sandboxed iframe. Speaks both the legacy MCP-UI convention (`text/html` + `{source:'mcp-ui'}` postMessage) **and the MCP Apps SEP-1865** (`text/html;profile=mcp-app` + the `ui/*` JSON-RPC-over-postMessage channel — `ui/initialize`, `tools/list`, `tools/call`, `ui/open-link` — scope-gated through the host's `ToolRegistry`). Component-tree resources render as native registered widgets. |
+| **In-page — WebMCP** | `@infra-tools/agentic-ui-webmcp` | Exposes the host's `ToolRegistry` to an in-browser agent via the draft `navigator.modelContext` API, scope- + approval-gated. |
+
+> The MCP Apps SEP support (inbound renderer + outbound server) and the Streamable HTTP transport landed in **v1.3.0** — see the [agentic-ui](./projects/agentic-ui/CHANGELOG.md) and [agentic-ui-mcp](./projects/agentic-ui-mcp/CHANGELOG.md) changelogs. Host-renderer maturity varies; see [docs/host-compatibility-analysis.md](./docs/host-compatibility-analysis.md).
 
 ## Backend support matrix
 
@@ -285,11 +315,12 @@ GitHub Actions runs the full pipeline (build → test → three production demo 
 
 | Tool | Version |
 |------|---------|
-| Angular | 21+ |
+| UI binding | Angular 21+ (only shipped binding today — see [Framework support](#framework-support)) |
 | Node.js | ≥ 20.19 |
 | TypeScript | 5.9+ |
 | RxJS | 7.8.x (peer) |
 | Zod | 3.23+ (peer) |
+| `@modelcontextprotocol/sdk` | ^1.26.0 (used by `@infra-tools/agentic-ui-mcp`) |
 
 ## License
 

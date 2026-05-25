@@ -1,8 +1,42 @@
 # Architecture
 
 > How `@infra-tools/agentic-ui` is put together — the problem it solves, the layered
-> runtime, the registry model, and the external-surface adapters. For the elevator
-> pitch and quick start, see the [root README](../README.md).
+> runtime, the registry model, the framework-binding model, the MCP surfaces, and the
+> external-surface adapters. For the elevator pitch and quick start, see the
+> [root README](../README.md).
+
+## Framework bindings & the agentic-core split
+
+The library is designed as a **framework-agnostic core** plus a **per-framework UI binding**. The core is plain TypeScript: the canonical `AgenticEvent` union + Zod schemas, the protocol contracts (`AgenticBackend`, `ToolDef`, `MessageContent`), the backend adapters (AG-UI / Hashbrown / A2UI), and the pure orchestration logic (`runUntilSettled`). A binding sits on top and supplies the reactive registry layer, the chat shell, and the widgets for one UI framework.
+
+**Today there is exactly one shipped binding: Angular 21.** The core is not yet a separate package — it's folded into `@infra-tools/agentic-ui`, and its registry/orchestration runtime currently uses Angular signals. Extracting the core into `@infra-tools/agentic-core` is a drafted RFC ([docs/plans/agentic-core-split-plan.md](./plans/agentic-core-split-plan.md), status: *do not implement — awaiting approval*), and non-Angular bindings are roadmap, not shipped.
+
+```
+                    ┌──────────────────────────────────────────────────┐
+                    │   FRAMEWORK-AGNOSTIC CORE  (plain TypeScript)     │
+                    │   • AgenticEvent union + Zod schemas              │
+                    │   • protocol contracts (AgenticBackend, ToolDef)  │
+                    │   • backend adapters (AG-UI · Hashbrown · A2UI)   │
+                    │   • pure orchestration (runUntilSettled)          │
+                    │                                                   │
+                    │   folded into @infra-tools/agentic-ui today;      │
+                    │   @infra-tools/agentic-core extraction = RFC      │
+                    └───────────────────────┬──────────────────────────┘
+                                            │  one contract, many bindings
+            ┌───────────────────────────────┼───────────────────────────────┐
+            ▼                               ▼                               ▼
+   ┌──────────────────┐           ┌──────────────────┐          ┌──────────────────┐
+   │ Angular 21       │           │ React            │          │ Vue / vanilla    │
+   │ binding          │           │ binding          │          │ bindings         │
+   │ <mvk-chat-shell> │           │ (proposed —      │          │ (proposed)       │
+   │ 18 registries    │           │  reactive layer  │          │                  │
+   │ widgets · 13     │           │  on React        │          │                  │
+   │ schematics       │           │  primitives)     │          │                  │
+   │ ✅ PRODUCTION    │           │ 🗺 ROADMAP       │          │ 🗺 ROADMAP       │
+   └──────────────────┘           └──────────────────┘          └──────────────────┘
+```
+
+A React binding would re-implement the reactive registry layer on React primitives (signals/`useSyncExternalStore`) while importing the *same* contracts, schemas, and backend adapters from the core — so protocol fidelity, the conformance harness, and the event model are shared, and only the rendering + reactivity layer is per-framework. See the [agentic-core split RFC](./plans/agentic-core-split-plan.md) for the precise package boundary and the [Roadmap](../ROADMAP.md#framework-bindings--non-angular-support).
 
 ## Problem statement (for technical architects)
 
@@ -122,3 +156,39 @@ Each adapter is a **thin protocol shim**: it verifies the inbound signature, par
 | P3 | `@infra-tools/agentic-ui-copilot-studio-connector` | Microsoft 365 Copilot | Power Platform OpenAPI 2.0 + Adaptive Card response | Azure AD v2.0 JWT (tenant whitelist + JWKS) | [copilot-studio-connector](./cookbook/copilot-studio-connector.md) |
 
 [ADR-041](./adr/0041-teams-copilot-external-surfaces.md) and [ADR-042](./adr/0042-copilot-studio-connector.md) document the design contracts. The integration plan that prioritised these four paths is at [docs/plans/teams-copilot-integration-plan.md](./plans/teams-copilot-integration-plan.md). All four are **additive** — runtime tier (`@infra-tools/agentic-ui`) is unchanged; adopters install only the adapters they need.
+
+## MCP surfaces
+
+The library touches the [Model Context Protocol](https://modelcontextprotocol.io) on three sides. All three reuse the same `ToolDef` and the same `ToolRegistry` scope policy, so a tool authored once is exposable to a desktop MCP host, renderable as an in-app MCP App, and callable by an in-page agent — without forking the tool.
+
+```
+                       ┌──────────────────────────────────────┐
+                       │  YOUR ToolDef[]  +  ToolRegistry      │
+                       │  scope policy (one definition)        │
+                       └───┬───────────────┬──────────────┬────┘
+                           │               │              │
+              outbound ◄───┘     inbound ◄─┘    in-page ◄─┘
+              ┌────────────────┐ ┌──────────────────┐ ┌────────────────────┐
+              │ agentic-ui-mcp │ │ mvk-mcp-ui-       │ │ agentic-ui-webmcp  │
+              │ createMcpServer│ │ resource          │ │ navigator.         │
+              │ stdio /        │ │ sandboxed iframe  │ │ modelContext       │
+              │ Streamable HTTP│ │ legacy + SEP-1865 │ │ (draft)            │
+              └───────┬────────┘ └─────────┬─────────┘ └─────────┬──────────┘
+                      ▼                    ▼                     ▼
+              Claude Desktop /     in-app server-driven    in-browser page
+              Cursor / Zed         UI (MCP Apps)           agent
+```
+
+**1. Outbound — MCP server (`@infra-tools/agentic-ui-mcp`).** `createMcpServer({ tools, uiResources, toolUi })` wraps any `ToolDef[]` as an MCP server.
+- **Transports:** `startStdio()` (the desktop default) and `startHttp()` — the modern **Streamable HTTP** transport (MCP 2025-03-26): a single `/mcp` endpoint multiplexing POST/GET/DELETE with stateful in-memory sessions. This replaced the deprecated HTTP+SSE two-endpoint transport. The embeddable `handleRequest(req, res, body?)` uses a stateless Streamable HTTP transport via the SDK's public API (no private `_handleRequest`).
+- **MCP Apps (SEP-1865):** predeclared `ui://` templates are served via `resources/list` + `resources/read` as `text/html;profile=mcp-app`; linked tools carry `_meta.ui.resourceUri`; the handler's domain data rides back as `structuredContent`; the `io.modelcontextprotocol/ui` capability is negotiated in `initialize`.
+
+**2. Inbound — server-driven UI (`<mvk-mcp-ui-resource>` + `McpUiActionBridge`).** Renders a UI resource in a sandboxed `allow-scripts` iframe and dispatches its actions through the host registries. It speaks **two** protocols:
+- **Legacy MCP-UI** — `text/html` rendered as `srcdoc`, actions via the `{ source: 'mcp-ui', action }` postMessage envelope.
+- **MCP Apps SEP-1865** — `text/html;profile=mcp-app` rendered as `srcdoc`, driven over a **JSON-RPC-2.0-over-`postMessage`** channel (`McpUiActionBridge.handleAppRpc`): `ui/initialize` → host-capabilities handshake (then the renderer pushes the resource's `data` as a `ui/notifications/tool-result`), `tools/list` / `tools/call` (scope-gated through the host's `ToolRegistry` — unknown/forbidden tools return an `isError` result without leaking existence), `ui/open-link`, `ui/update-model-context`.
+- Component-tree resources (`application/vnd.mcp-ui.component-tree+json`) render as the host's own registered widgets — not an iframe.
+- Security model in [ADR-049](./adr/0049-mcp-ui-inbound-rendering.md); outbound (server) and inbound (renderer) now both speak the SEP. Host-renderer maturity across third-party assistants varies — see [host-compatibility-analysis.md](./host-compatibility-analysis.md).
+
+**3. In-page — WebMCP (`@infra-tools/agentic-ui-webmcp`).** Exposes the host's `ToolRegistry` to an in-browser agent via the draft `navigator.modelContext` browser API, scope- + approval-gated. Spec-shaped (the API is a draft), feature-detects and no-ops when absent.
+
+> The MCP Apps SEP inbound rendering and the Streamable HTTP transport shipped in **v1.3.0**. See the [agentic-ui](../projects/agentic-ui/CHANGELOG.md) and [agentic-ui-mcp](../projects/agentic-ui-mcp/CHANGELOG.md) changelogs.

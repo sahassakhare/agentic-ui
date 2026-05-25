@@ -60,8 +60,12 @@ For the surface-by-surface enterprise-readiness analysis (what's wired vs protot
 - *`HashbrownBackend`* — native Hashbrown client (`@hashbrownai/core` frame codec).
 - *`A2uiBackend`* — A2UI protocol adapter (`ui-action` event class routed through `ActionRegistry`).
 - **`FakeAgenticBackend`** — deterministic testing backend; powers the `runConformance` test harness.
-- *`mcpToolBridge`* — Model Context Protocol (Anthropic's tool protocol) bridge.
+- *`mcpToolBridge`* — Model Context Protocol (Anthropic's tool protocol) bridge — imports tools FROM an MCP server INTO `ToolRegistry`.
 - *`composeWithCatalogAuthorizer`* — backend composition with catalog ACL applied at the wire layer.
+
+### MCP-UI inbound rendering (server-driven UI)
+
+- **`<mvk-mcp-ui-resource>`** + **`McpUiActionBridge`** + **`provideMcpUi({...})`** — renders an MCP UI resource in a sandboxed `allow-scripts` iframe and dispatches its actions through the host registries. Two protocols: the **legacy MCP-UI** convention (`text/html` + `{source:'mcp-ui'}` postMessage) and the **MCP Apps SEP-1865** (`text/html;profile=mcp-app` + JSON-RPC-over-postMessage `ui/*` channel via `handleAppRpc` — `ui/initialize`, `tools/list`, `tools/call`, `ui/open-link`). Tool calls back from the iframe are scope-gated through the same `ToolRegistry` policy (no existence leak on a forbidden tool). `application/vnd.mcp-ui.component-tree+json` resources render as native registered widgets instead of an iframe. New exports: `MCP_UI_APP_MIME`, `mcpAppRpcRequestSchema`, `McpAppRpcRequest` / `McpAppRpcResponse`. See [ADR-049](./adr/0049-mcp-ui-inbound-rendering.md) + [host-compatibility-analysis.md](./host-compatibility-analysis.md).
 
 ## Platform integration tier
 
