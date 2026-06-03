@@ -3,6 +3,9 @@ import { agenticWidget, type ComponentDef } from '@infra-tools/agentic-ui';
 import { FlightCardComponent } from './flight-card.component';
 import { PointsCardComponent } from './points-card.component';
 import { TicketCardComponent } from './ticket-card.component';
+import { DashboardWrapperComponent } from './dashboard-wrapper.component';
+import { WorkspaceWrapperComponent } from './workspace-wrapper.component';
+import { EmptyLayoutComponent } from './empty-layout.component';
 
 /**
  * Widget registry entries for the chatless demo. Names match the
@@ -40,5 +43,30 @@ export const widgets: readonly ComponentDef[] = [
       status: z.string(),
       priority: z.string(),
     }),
+  }),
+
+  // ── Agent-composer surfaces (L2 / L3) ────────────────────────────────────
+  // The agent's `composeAccountDashboard` / `composeAccountWorkspace` tools
+  // emit `components: [{ name: 'dashboardWrapper' | 'workspaceWrapper', … }]`;
+  // these adapters then mount the lib's `<mvk-dashboard-canvas>` /
+  // `<mvk-workspace-layout>`. `emptyLayout` is a placeholder type the
+  // generated dashboard's `LayoutDef.component` references.
+  agenticWidget({
+    name: 'dashboardWrapper',
+    component: DashboardWrapperComponent,
+    // The dashboard def carries arbitrary nested shape; validate only the
+    // top-level discriminator. The wrapper mounts the canvas which itself
+    // validates downstream.
+    propsSchema: z.object({ dashboard: z.unknown() }),
+  }),
+  agenticWidget({
+    name: 'workspaceWrapper',
+    component: WorkspaceWrapperComponent,
+    propsSchema: z.object({ slots: z.unknown() }),
+  }),
+  agenticWidget({
+    name: 'emptyLayout',
+    component: EmptyLayoutComponent,
+    propsSchema: z.object({}),
   }),
 ];

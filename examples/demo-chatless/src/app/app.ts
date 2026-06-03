@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { DashboardCardComponent, type CardSpec } from './dashboard-card.component';
 import { PlanTripFormComponent } from './plan-trip-form.component';
+import { AgentComposerComponent } from './agent-composer.component';
 
 /**
  * The product dashboard. The cards on this page are filled by the agent on
@@ -47,7 +48,7 @@ const SECTIONS: readonly SectionSpec[] = [
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DashboardCardComponent, PlanTripFormComponent],
+  imports: [DashboardCardComponent, PlanTripFormComponent, AgentComposerComponent],
   template: `
     <div class="shell">
       <header class="topbar">
@@ -83,6 +84,8 @@ const SECTIONS: readonly SectionSpec[] = [
             </div>
           </section>
         }
+
+        <app-agent-composer />
       </main>
     </div>
   `,
