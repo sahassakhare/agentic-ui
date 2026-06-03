@@ -9,6 +9,7 @@ import { EmptyLayoutComponent } from './empty-layout.component';
 import { TripListCardComponent } from './trip-list-card.component';
 import { LoyaltyOverviewCardComponent } from './loyalty-overview-card.component';
 import { TicketListCardComponent } from './ticket-list-card.component';
+import { AgentShellWrapperComponent } from './agent-shell-wrapper.component';
 
 /**
  * Widget registry entries for the chatless demo. Names match the
@@ -97,5 +98,12 @@ export const widgets: readonly ComponentDef[] = [
     name: 'ticketListCard',
     component: TicketListCardComponent,
     propsSchema: z.object({ tickets: z.array(z.unknown()) }),
+  }),
+
+  // ── Agent-driven whole shell (C) ─────────────────────────────────────────
+  agenticWidget({
+    name: 'agentShellWrapper',
+    component: AgentShellWrapperComponent,
+    propsSchema: z.object({ shell: z.unknown() }),
   }),
 ];
