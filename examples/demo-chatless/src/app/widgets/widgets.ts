@@ -6,6 +6,9 @@ import { TicketCardComponent } from './ticket-card.component';
 import { DashboardWrapperComponent } from './dashboard-wrapper.component';
 import { WorkspaceWrapperComponent } from './workspace-wrapper.component';
 import { EmptyLayoutComponent } from './empty-layout.component';
+import { TripListCardComponent } from './trip-list-card.component';
+import { LoyaltyOverviewCardComponent } from './loyalty-overview-card.component';
+import { TicketListCardComponent } from './ticket-list-card.component';
 
 /**
  * Widget registry entries for the chatless demo. Names match the
@@ -68,5 +71,31 @@ export const widgets: readonly ComponentDef[] = [
     name: 'emptyLayout',
     component: EmptyLayoutComponent,
     propsSchema: z.object({}),
+  }),
+
+  // ── Mature account-management widgets ────────────────────────────────────
+  // Rich list/table surfaces emitted by the account tools. Each props schema
+  // is intentionally loose at the list level — internal row schemas are
+  // type-narrowed inside the components.
+  agenticWidget({
+    name: 'tripListCard',
+    component: TripListCardComponent,
+    propsSchema: z.object({ trips: z.array(z.unknown()) }),
+  }),
+  agenticWidget({
+    name: 'loyaltyOverviewCard',
+    component: LoyaltyOverviewCardComponent,
+    propsSchema: z.object({
+      balance: z.number(),
+      tier: z.string(),
+      nextTierAt: z.number(),
+      milesToNext: z.number(),
+      transactions: z.array(z.unknown()),
+    }),
+  }),
+  agenticWidget({
+    name: 'ticketListCard',
+    component: TicketListCardComponent,
+    propsSchema: z.object({ tickets: z.array(z.unknown()) }),
   }),
 ];

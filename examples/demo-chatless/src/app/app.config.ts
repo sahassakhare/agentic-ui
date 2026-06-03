@@ -11,6 +11,7 @@ import {
 import { sharedTools } from '@infra-tools/demo-shared-tools';
 
 import { composerTools } from './agentic/composer-tools';
+import { accountTools } from './agentic/account-tools';
 import { widgets } from './widgets/widgets';
 
 /**
@@ -34,7 +35,7 @@ export const appConfig: ApplicationConfig = {
     // One call wires tools + widgets + transport. The transport here is
     // just AG-UI — the chatless demo isn't a protocol switcher.
     provideAgenticUiPlatform({
-      tools: [...sharedTools, ...composerTools],
+      tools: [...sharedTools, ...composerTools, ...accountTools],
       widgets,
       transport: makeEnvironmentProviders([
         provideAgUiBackend({ url: AGENT_URL }),
