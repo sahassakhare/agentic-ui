@@ -100,22 +100,47 @@ export class DashboardCardComponent {
 
   protected readonly chat: AgenticChatRef = injectAgenticChat();
 
-  private readonly lastReply = computed<AgenticMessage | null>(() => {
+  /**
+   * The trailing assistant message — its `content` carries the natural-language
+   * summary. Note: this is NOT where widgets necessarily live (see below).
+   */
+  private readonly lastTextReply = computed<AgenticMessage | null>(() => {
     const msgs = this.chat.value();
     for (let i = msgs.length - 1; i >= 0; i--) {
-      if (msgs[i].role === 'assistant') return msgs[i];
+      const m = msgs[i];
+      if (m.role === 'assistant' && typeof m.content === 'string' && m.content.length > 0) {
+        return m;
+      }
     }
     return null;
   });
 
   protected readonly replyText = computed<string>(() => {
-    const r = this.lastReply();
+    const r = this.lastTextReply();
     return r && typeof r.content === 'string' ? r.content : '';
   });
 
-  protected readonly replyWidgets = computed<readonly AgenticWidgetInstance[]>(
-    () => this.lastReply()?.widgets ?? [],
-  );
+  /**
+   * Widgets the agent emitted during this turn.
+   *
+   * The orchestrator attaches `components: []` widgets from a tool result to
+   * `activeMessageId ?? randomId('msg')`. When the agent emits the tool call
+   * BEFORE any text (the common case for `bookFlight` / `checkPoints` /
+   * `openTicket`), the active message id is undefined, so the widget lands on
+   * a freshly-minted assistant message whose `content` is empty — separate
+   * from the message that later carries the natural-language summary.
+   *
+   * Reading only the trailing assistant message therefore loses the widget.
+   * Collect widgets across every assistant message in the thread instead.
+   */
+  protected readonly replyWidgets = computed<readonly AgenticWidgetInstance[]>(() => {
+    const out: AgenticWidgetInstance[] = [];
+    for (const m of this.chat.value()) {
+      if (m.role !== 'assistant') continue;
+      for (const w of m.widgets) out.push(w);
+    }
+    return out;
+  });
 
   constructor() {
     // Fire on mount; re-fire on refreshTick change. Microtask delay so the
