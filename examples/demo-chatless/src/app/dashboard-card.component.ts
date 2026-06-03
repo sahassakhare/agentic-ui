@@ -143,14 +143,19 @@ export class DashboardCardComponent {
   });
 
   constructor() {
-    // Fire on mount; re-fire on refreshTick change. Microtask delay so the
-    // parent's input binding has flushed before send.
-    let lastFiredTick = -1;
+    // Fire on mount; re-fire on refreshTick change OR when the bound card
+    // spec changes (the parent switches routes and reuses this component
+    // instance with a new spec). Without keying on both, the second case
+    // shows the previous card's content forever — the bug that surfaced as
+    // "the side nav looks broken." Microtask delay so the parent's input
+    // binding has flushed before send.
+    let lastFiredKey = '';
     effect(() => {
       const tick = this.refreshTick();
       const spec = this.card();
-      if (tick === lastFiredTick) return;
-      lastFiredTick = tick;
+      const key = `${spec.id}::${tick}`;
+      if (key === lastFiredKey) return;
+      lastFiredKey = key;
       queueMicrotask(() => {
         this.chat.reset();
         this.chat.sendMessage(spec.prompt);
