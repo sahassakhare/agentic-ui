@@ -30,7 +30,7 @@ function template(name: string, slotMap: Record<string, { component: string }>):
 function plan(overrides: Partial<ExperiencePlan> = {}): ExperiencePlan {
   return {
     experienceId: 'legalIntake', goal: 'g', access: { allowed: true }, layout: 'legal-layout',
-    components: [], forms: [], tools: [], dataSources: [], prompts: [], knowledge: [], skills: [],
+    components: [], forms: [], tools: [], dataSources: [], prompts: [], knowledge: [], memory: [], skills: [],
     policies: [], unmet: [], rationale: [], ...overrides,
   };
 }

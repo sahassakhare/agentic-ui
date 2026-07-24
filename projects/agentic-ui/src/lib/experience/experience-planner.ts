@@ -17,6 +17,7 @@ import {
   MemoryRegistry,
   WorkflowRegistry,
 } from '../registries';
+import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
 import { ExperienceRegistry, type ExperienceDef } from './experience-registry';
 import type { RegistryEntry, SkillDef } from '../types/registry-defs';
 
@@ -80,6 +81,7 @@ export interface ExperiencePlan {
   readonly dataSources: readonly string[];
   readonly prompts: readonly string[];
   readonly knowledge: readonly string[];
+  readonly memory: readonly string[];
   readonly skills: readonly string[];
   /** First workflow capability reached, if any. */
   readonly workflow?: string;
@@ -112,6 +114,7 @@ export class ExperiencePlanner {
   private readonly knowledge = inject(KnowledgeRegistry);
   private readonly memory = inject(MemoryRegistry);
   private readonly workflows = inject(WorkflowRegistry);
+  private readonly telemetry = inject(AGENTIC_TELEMETRY_SINK);
 
   /** Resolve + plan an experience for a user. Returns `null` if none resolves. */
   plan(input: ExperiencePlanInput): ExperiencePlan | null {
@@ -128,11 +131,18 @@ export class ExperiencePlanner {
     };
 
     if (!access.allowed) {
-      // Denied → no capability resolution. Denial is itself the audit record.
+      // Denied → no capability resolution. Denial is itself the audit record —
+      // and it MUST be observable (this is an access-control decision point).
+      this.telemetry.emit('agentic.experience.access_denied', {
+        experienceId: experience.name,
+        persona: input.user.persona,
+        userId: input.user.id,
+        reason: access.reason,
+      });
       return {
         ...base,
         components: [], forms: [], tools: [], dataSources: [], prompts: [],
-        knowledge: [], skills: [], workflow: undefined, unmet: [],
+        knowledge: [], memory: [], skills: [], workflow: undefined, unmet: [],
         rationale: [{ capability: `experience:${experience.name}`, kind: 'experience', reason: access.reason ?? 'access denied' }],
       };
     }
@@ -147,7 +157,9 @@ export class ExperiencePlanner {
     const skillNames = byKind('skill');
     for (const s of skillNames) {
       const def = this.skills.get(s) as SkillDef | undefined;
-      def?.tools.forEach((t) => toolSet.add(t));
+      // Guard `tools` too: a raw-registered skill may omit it (no factory
+      // guarantees the shape), and an unguarded forEach would abort the plan.
+      def?.tools?.forEach((t) => toolSet.add(t));
     }
 
     const workflow = byKind('workflow')[0];
@@ -159,7 +171,7 @@ export class ExperiencePlanner {
         .map((e) => ({ capability: e.to, kind: e.to.split(':')[0], reason: e.reason! })),
     ];
 
-    return {
+    const plan: ExperiencePlan = {
       ...base,
       components: byKind('component'),
       forms: byKind('form'),
@@ -167,11 +179,28 @@ export class ExperiencePlanner {
       dataSources: byKind('dataSource'),
       prompts: byKind('prompt'),
       knowledge: byKind('knowledge'),
+      memory: byKind('memory'),
       skills: skillNames,
       workflow,
       unmet: graph.unmet,
       rationale,
     };
+
+    this.telemetry.emit('agentic.experience.plan', {
+      experienceId: experience.name,
+      persona: input.user.persona,
+      userId: input.user.id,
+      toolCount: plan.tools.length,
+      unmetCount: plan.unmet.length,
+      truncated: graph.truncated.length,
+    });
+    if (plan.unmet.length > 0) {
+      this.telemetry.emit('agentic.experience.unresolved', {
+        experienceId: experience.name,
+        unmet: plan.unmet.map((u) => `${u.requirement.kind}:${u.requirement.name ?? u.requirement.tag ?? '*'}`),
+      });
+    }
+    return plan;
   }
 
   /** Builds a capability lookup over the live registries, keyed by kind. */
@@ -219,10 +248,14 @@ export class ExperiencePlanner {
   }
 
   /**
-   * Access gate. Denies when the experience is unapproved (unless
-   * `allowUnapproved`) or when its `personas` allow-list excludes the user's
-   * persona. Runs *before* capability resolution so a forbidden experience is
-   * never planned — the enterprise-grade difference from "LLM emits a layout".
+   * Access gate — the in-runtime authorization decision point, run *before*
+   * capability resolution so a forbidden experience is never planned. Enforces,
+   * in order: approval state (unless `allowUnapproved`), the `personas`
+   * allow-list, and `requiredPermissions` (the user must hold all). It does NOT
+   * evaluate `ExperienceDef.policies` — those are OPA/downstream and forwarded
+   * into the plan for the policy layer to enforce (runtime non-goal: no OPA in
+   * the bundle). So "denied here" is a subset of the full policy decision, not
+   * the whole of it; the plan still carries `policies` for downstream enforcement.
    */
   private evaluateAccess(experience: ExperienceDef, input: ExperiencePlanInput): ExperiencePlanAccess {
     if (!input.allowUnapproved && this.experiences.stateOf(experience.name) !== 'approved') {
@@ -230,6 +263,14 @@ export class ExperiencePlanner {
     }
     if (experience.personas && experience.personas.length > 0 && !experience.personas.includes(input.user.persona)) {
       return { allowed: false, reason: `persona "${input.user.persona}" is not permitted for "${experience.name}"` };
+    }
+    const required = experience.requiredPermissions ?? [];
+    if (required.length > 0) {
+      const held = new Set(input.user.permissions ?? []);
+      const missing = required.filter((p) => !held.has(p));
+      if (missing.length > 0) {
+        return { allowed: false, reason: `missing permission(s): ${missing.join(', ')}` };
+      }
     }
     return { allowed: true };
   }

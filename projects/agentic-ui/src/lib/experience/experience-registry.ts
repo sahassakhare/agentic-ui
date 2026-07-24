@@ -1,5 +1,6 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import { RegistryBase } from '../registries/registry-base';
+import { AGENTIC_TELEMETRY_SINK } from '../telemetry/telemetry-sink';
 import type { CapabilityRequirement, RegistryEntry } from '../types/registry-defs';
 import { randomId } from '../chat/message-utils';
 import { nextState } from '../layout/templates/approval-workflow';
@@ -30,10 +31,23 @@ export interface ExperienceDef extends RegistryEntry {
   readonly requires?: readonly CapabilityRequirement[];
   /** Optional `LayoutTemplateRegistry` name used to seed the layout. */
   readonly defaultLayout?: string;
-  /** OPA rule paths / `ApprovalRegistry` policy ids gating this experience. */
+  /**
+   * OPA rule paths / `ApprovalRegistry` policy ids associated with this
+   * experience. **Advisory / pass-through:** the planner forwards these into
+   * the `ExperiencePlan` for enforcement by the downstream policy layer (the
+   * OPA sidecar / catalog `/policy/decide`) — it does NOT evaluate OPA
+   * in-runtime (runtime non-goal: no OPA in the bundle). For in-runtime denial,
+   * use {@link personas} and {@link requiredPermissions}.
+   */
   readonly policies?: readonly string[];
-  /** Personas allowed to run this experience (planner-level gate). */
+  /** Personas allowed to run this experience (enforced in-runtime by the planner gate). */
   readonly personas?: readonly string[];
+  /**
+   * Permissions the acting user must ALL hold to run this experience. Enforced
+   * in-runtime by the planner's access gate against `ExperiencePlanUser.permissions`
+   * (simple ABAC that needs no OPA). Omit for no permission requirement.
+   */
+  readonly requiredPermissions?: readonly string[];
   /** Semver; reuse the template version-chain convention. */
   readonly version?: string;
   /** Initial approval state at registration. Defaults to 'draft'. */
@@ -54,7 +68,17 @@ interface ApprovalRecord {
 export class ExperienceRegistry extends RegistryBase<ExperienceDef> {
   protected readonly registryName = 'experience';
 
-  /** Live approval state per experience name, seeded on register. */
+  private readonly experienceTelemetry = inject(AGENTIC_TELEMETRY_SINK);
+
+  /**
+   * Transition-driven approval overlay, keyed by experience name. Populated
+   * ONLY by {@link transition} — never at register time. This is deliberate:
+   * seeding at register (before `super.register` decides whether the def is
+   * actually stored) corrupted approval state under `first-wins` / `namespace`
+   * / version-mismatch conflict policies (a dropped re-registration would still
+   * reset a live experience's approval). With the lazy overlay, the base state
+   * comes from the stored def's `approvalState`, and transitions layer on top.
+   */
   private readonly _approvals = signal<ReadonlyMap<string, ApprovalRecord>>(new Map());
 
   /** Experiences currently `approved` — what the planner runs by default. */
@@ -67,18 +91,32 @@ export class ExperienceRegistry extends RegistryBase<ExperienceDef> {
     this.list().filter((e) => this.stateOf(e.name) === 'review'),
   );
 
-  override register(def: ExperienceDef): () => void {
-    this._approvals.update((cur) => {
-      const next = new Map(cur);
-      next.set(def.name, { state: def.approvalState ?? 'draft', chain: [] });
-      return next;
-    });
-    return super.register(def);
+  /**
+   * Prune the approval overlay for a removed source so it can't leak or go
+   * stale across MFE load/unload cycles (the overlay is not the source of
+   * truth — the stored def is).
+   */
+  override removeBySource(source: string): void {
+    const removed = new Set(this.listRaw().filter((e) => e.source === source).map((e) => e.name));
+    super.removeBySource(source);
+    if (removed.size > 0) {
+      this._approvals.update((cur) => {
+        const next = new Map(cur);
+        for (const name of removed) next.delete(name);
+        return next;
+      });
+    }
   }
 
-  /** Live approval state of an experience (defaults to 'draft' if unknown). */
+  /**
+   * Live approval state: a recorded transition wins; otherwise the stored def's
+   * initial `approvalState` (defaulting to 'draft'). Reads `getRaw` so state is
+   * scope-policy-independent (a hidden experience still has a real state).
+   */
   stateOf(name: string): TemplateApprovalState {
-    return this._approvals().get(name)?.state ?? 'draft';
+    const overlaid = this._approvals().get(name)?.state;
+    if (overlaid) return overlaid;
+    return this.getRaw(name)?.approvalState ?? 'draft';
   }
 
   /** Full approval chain for one experience. */
@@ -116,6 +154,15 @@ export class ExperienceRegistry extends RegistryBase<ExperienceDef> {
       const rec = next.get(name);
       next.set(name, { state: toState, chain: [...(rec?.chain ?? []), event] });
       return next;
+    });
+    // Approval state changes are audit-critical — surface to the telemetry
+    // pipeline, not just the in-memory signal that dies with the tab.
+    this.experienceTelemetry.emit('agentic.experience.approval_transition', {
+      experience: name,
+      action,
+      fromState: current,
+      toState,
+      actor: opts.actor.userId,
     });
   }
 }

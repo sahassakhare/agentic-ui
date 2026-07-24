@@ -10,6 +10,7 @@ import {
   PromptRegistry,
   SkillRegistry,
   WorkflowRegistry,
+  MemoryRegistry,
 } from '../registries';
 import type {
   ComponentDef,
@@ -166,5 +167,42 @@ describe('ExperiencePlanner (AEP Seam D)', () => {
     registerLegalIntake();
     const plan = planner.plan({ intent: 'create matter', user });
     expect(plan?.experienceId).toBe('legalIntake');
+  });
+
+  it('denies when the user lacks a required permission', () => {
+    seedCapabilities();
+    registerLegalIntake({ requiredPermissions: ['matter.create'] });
+    const denied = planner.plan({ experienceId: 'legalIntake', user })!; // user has no permissions
+    expect(denied.access.allowed).toBe(false);
+    expect(denied.access.reason).toMatch(/missing permission\(s\): matter\.create/);
+
+    const allowed = planner.plan({
+      experienceId: 'legalIntake',
+      user: { ...user, permissions: ['matter.create'] },
+    })!;
+    expect(allowed.access.allowed).toBe(true);
+  });
+
+  it('surfaces resolved memory providers in the plan', () => {
+    const mem = TestBed.inject(MemoryRegistry);
+    mem.register({ name: 'userPrefs', kind: 'long-term' });
+    experiences.register({
+      name: 'memExp', title: 'x', goal: 'g', approvalState: 'approved',
+      requires: [{ kind: 'memory', name: 'userPrefs' }],
+    });
+    const plan = planner.plan({ experienceId: 'memExp', user })!;
+    expect(plan.memory).toEqual(['userPrefs']);
+  });
+
+  it('a skill missing its tools array does not crash the plan', () => {
+    // Raw-registered skill with no `tools` (bypassing the factory).
+    skills.register({ name: 'brokenSkill', description: 'd' } as SkillDef);
+    experiences.register({
+      name: 'brokenExp', title: 'x', goal: 'g', approvalState: 'approved',
+      requires: [{ kind: 'skill', name: 'brokenSkill' }],
+    });
+    const plan = planner.plan({ experienceId: 'brokenExp', user })!;
+    expect(plan.skills).toEqual(['brokenSkill']);
+    expect(plan.tools).toEqual([]);
   });
 });

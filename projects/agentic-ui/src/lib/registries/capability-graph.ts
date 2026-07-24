@@ -90,6 +90,8 @@ export interface CapabilityGraph {
   readonly unmet: readonly UnmetRequirement[];
   /** Detected cycles, each a list of node ids forming the loop. */
   readonly cycles: readonly (readonly string[])[];
+  /** Node ids whose dependency expansion was cut off by `maxDepth`. */
+  readonly truncated: readonly string[];
   /** Best-effort topological order (dependencies before dependents). */
   readonly order: readonly string[];
 }
@@ -175,9 +177,22 @@ export function resolveCapabilityGraph(
 
   // Track the active DFS stack for cycle detection and its index for slicing.
   const onStack = new Map<string, number>();
+  // Nodes whose children have actually been processed. A node first reached at
+  // maxDepth is added but NOT expanded; if it's later reached via a shorter
+  // path (children now in-bounds) we must re-expand it — otherwise plan
+  // completeness would depend on `requires` ordering.
+  const expanded = new Set<string>();
+  // Nodes whose expansion was cut off by maxDepth and never later re-reached
+  // in-bounds — surfaced so the truncation isn't silent (audit).
+  const truncated = new Set<string>();
 
   const visit = (id: string, entry: RegistryEntry, depth: number, stack: string[]): void => {
-    if (depth >= maxDepth) return;
+    if (depth >= maxDepth) {
+      if ((entry.requires?.length ?? 0) > 0 && !expanded.has(id)) truncated.add(id);
+      return;
+    }
+    expanded.add(id);
+    truncated.delete(id);
     onStack.set(id, stack.length);
     stack.push(id);
 
@@ -233,8 +248,10 @@ export function resolveCapabilityGraph(
           cycles.push([...stack.slice(stackIndex), targetId]);
           continue;
         }
-        // Only recurse the first time we reach a node (avoids reprocessing DAG joins).
-        if (!existing) {
+        // Recurse until a node is actually expanded — so a node first seen at
+        // maxDepth (truncated) still gets expanded if later reached in-bounds.
+        // Once expanded, never re-visited (DAG joins + edges stay single).
+        if (!expanded.has(targetId)) {
           visit(targetId, match.entry, depth + 1, stack);
         }
       }
@@ -252,6 +269,7 @@ export function resolveCapabilityGraph(
     edges,
     unmet,
     cycles,
+    truncated: [...truncated],
     order: topologicalOrder(rootId, nodes, adjacency, cycles),
   };
 }

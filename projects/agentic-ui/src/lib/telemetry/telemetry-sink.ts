@@ -49,7 +49,18 @@ export type TelemetryEventName =
   // `call_queued_for_approval` — an inbound call matched an approval policy.
   | 'agentic.webmcp.unavailable'
   | 'agentic.webmcp.call_blocked'
-  | 'agentic.webmcp.call_queued_for_approval';
+  | 'agentic.webmcp.call_queued_for_approval'
+  // AEP Seam D — Experience Planner decisions. The planner is an access
+  // decision point (deny by persona / approval), so every plan and every
+  // denial must be observable for enterprise audit/traceability.
+  // `plan` — a plan was produced (attrs: experienceId, persona, tool/unmet counts).
+  // `access_denied` — the access gate denied (attrs: experienceId, persona, reason).
+  // `unresolved` — a produced plan carried unmet required capabilities.
+  // `approval_transition` — an experience approval state changed (attrs: from/to/action/actor).
+  | 'agentic.experience.plan'
+  | 'agentic.experience.access_denied'
+  | 'agentic.experience.unresolved'
+  | 'agentic.experience.approval_transition';
 
 export interface AgenticTelemetrySink {
   startSpan(name: TelemetryEventName, attributes?: Readonly<Record<string, unknown>>): TelemetrySpan;

@@ -150,7 +150,7 @@ describe('resolveCapabilityGraph', () => {
     expect(graph.edges[0].viaTag).toBeUndefined();
   });
 
-  it('respects maxDepth', () => {
+  it('respects maxDepth and reports truncation', () => {
     const chain = lookupFrom({
       tool: [
         entry('t0', { requires: [{ kind: 'tool', name: 't1' }] }),
@@ -162,8 +162,40 @@ describe('resolveCapabilityGraph', () => {
     const root: RootCapability = { kind: 'tool', entry: entry('t0', { requires: [{ kind: 'tool', name: 't1' }] }) };
     const graph = resolveCapabilityGraph(root, chain, { maxDepth: 2 });
 
-    // depth 0 (t0) and depth 1 (t1) processed; t1's children not expanded past maxDepth
+    // depth 0 (t0) and depth 1 (t1) processed; t2 hit the bound before expanding.
     expect(graph.nodes.some((n) => n.id === 'tool:t3')).toBe(false);
+    expect(graph.truncated).toContain('tool:t2'); // truncation is visible, not silent
+  });
+
+  it('re-expands a node first reached at the depth bound but later reached in-bounds', () => {
+    // root requires (deep chain to X) AND (X directly). X depends on leaf.
+    // If X is first hit via the deep path at the bound, it must still expand
+    // when reached directly (order-independent completeness).
+    const root: RootCapability = {
+      kind: 'experience',
+      entry: entry('r', {
+        requires: [
+          { kind: 'tool', name: 'a' }, // a → b → X  (X first seen deep)
+          { kind: 'tool', name: 'x' }, // x is X, reached shallow
+        ],
+      }),
+    };
+    const graph = resolveCapabilityGraph(
+      root,
+      lookupFrom({
+        tool: [
+          entry('a', { requires: [{ kind: 'tool', name: 'b' }] }),
+          entry('b', { requires: [{ kind: 'tool', name: 'x' }] }),
+          entry('x', { requires: [{ kind: 'dataSource', name: 'leaf' }] }),
+        ],
+        dataSource: [entry('leaf')],
+      }),
+      { maxDepth: 3 }, // deep path adds x at depth 3 (bound → truncated); direct req reaches x at depth 1
+    );
+
+    // x's dependency (leaf) must be present because x was re-expanded when reached in-bounds.
+    expect(graph.nodes.some((n) => n.id === 'dataSource:leaf')).toBe(true);
+    expect(graph.truncated).not.toContain('tool:x');
   });
 
   it('capabilityNodeId composes kind and name', () => {

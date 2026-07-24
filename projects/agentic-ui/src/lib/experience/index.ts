@@ -1,4 +1,5 @@
 export * from './experience-registry';
+export * from './agentic-experience';
 export * from './experience-planner';
 export * from './experience-plan-store';
 export * from './experience-plan-context-contributor';

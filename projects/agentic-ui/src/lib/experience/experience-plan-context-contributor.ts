@@ -46,6 +46,7 @@ export class ExperiencePlanContextContributor implements ContextContributor {
     list('dataSources', plan.dataSources);
     list('prompts', plan.prompts);
     list('knowledge', plan.knowledge);
+    list('memory', plan.memory);
     list('skills', plan.skills);
     if (plan.workflow) children.push({ tag: 'workflow', content: plan.workflow });
     list('policies', plan.policies);

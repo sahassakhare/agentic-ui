@@ -18,6 +18,7 @@ function plan(overrides: Partial<ExperiencePlan> = {}): ExperiencePlan {
     dataSources: [],
     prompts: ['intakeGreeting'],
     knowledge: [],
+    memory: [],
     skills: [],
     workflow: 'intakeFlow',
     policies: ['maverick/legal/allow'],

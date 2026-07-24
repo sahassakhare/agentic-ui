@@ -34,7 +34,7 @@ export class ExperienceLayoutInput implements LayoutInput {
     const template = this.templates.get(plan.layout);
     if (!template || template.approvalState !== 'approved') return [];
 
-    const slots = template.body.slotMap as SlotMap | undefined;
+    const slots = template.body?.slotMap as SlotMap | undefined;
     if (!slots || Object.keys(slots).length === 0) return [];
 
     return [

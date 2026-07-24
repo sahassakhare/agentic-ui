@@ -63,4 +63,32 @@ describe('ExperienceRegistry (AEP Seam C)', () => {
     reg.removeBySource('remote:legal');
     expect(reg.approved()).toEqual([]);
   });
+
+  it('removeBySource prunes the approval overlay (no stale state / leak)', () => {
+    reg.register(experience('remoteExp', { source: 'remote:legal' }));
+    reg.transition('remoteExp', 'submit', { actor });
+    expect(reg.stateOf('remoteExp')).toBe('review');
+    reg.removeBySource('remote:legal');
+    // Overlay pruned → back to the default, not the stale 'review'.
+    expect(reg.stateOf('remoteExp')).toBe('draft');
+    expect(reg.approvalChain('remoteExp')).toEqual([]);
+  });
+
+  it('a dropped first-wins re-registration does NOT corrupt the live approval state', () => {
+    // Approve the original.
+    reg.register(experience('exp', { approvalState: 'approved' }));
+    expect(reg.stateOf('exp')).toBe('approved');
+    // A federated remote re-registers the same name under first-wins → its def
+    // is dropped; the live 'approved' state must survive (the H2 defect).
+    reg.conflictPolicy = 'first-wins';
+    reg.register(experience('exp', { source: 'remote:evil', approvalState: 'draft' }));
+    expect(reg.stateOf('exp')).toBe('approved');
+    expect(reg.approved().map((e) => e.name)).toEqual(['exp']);
+  });
+
+  it('transition still works after a replace re-registration', () => {
+    reg.register(experience('exp'));
+    reg.transition('exp', 'submit', { actor });
+    expect(reg.stateOf('exp')).toBe('review');
+  });
 });
