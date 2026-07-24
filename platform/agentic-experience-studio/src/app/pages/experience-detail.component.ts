@@ -7,6 +7,7 @@ import {
   type ExperiencePlanResult,
 } from '../services/experience-catalog.service';
 import { buildExperienceGraphElements, partitionGraph } from '../experience-graph';
+import { GraphViewComponent } from '../graph-view.component';
 
 /**
  * Experience detail (AEP Seam E) — shows one experience, its capability
@@ -15,7 +16,7 @@ import { buildExperienceGraphElements, partitionGraph } from '../experience-grap
  */
 @Component({
   selector: 'aes-experience-detail',
-  imports: [RouterLink],
+  imports: [RouterLink, GraphViewComponent],
   template: `
     <a routerLink="/experiences" class="back">← Experiences</a>
 
@@ -38,6 +39,8 @@ import { buildExperienceGraphElements, partitionGraph } from '../experience-grap
         <h2>Capability dependency graph</h2>
         @if (graph().nodes.length <= 1) {
           <p class="muted">No declared requirements.</p>
+        } @else {
+          <aes-graph-view [elements]="graphElements()" />
         }
         <ul class="nodes">
           @for (n of graph().nodes; track n.id) {
@@ -91,11 +94,14 @@ export class ExperienceDetailComponent {
   readonly plan = signal<ExperiencePlanResult | null>(null);
   readonly error = signal<string | null>(null);
 
-  readonly graph = computed(() => {
+  /** Raw cytoscape elements for the graph view. */
+  readonly graphElements = computed(() => {
     const e = this.experience();
-    if (!e) return { nodes: [], edges: [] };
-    return partitionGraph(buildExperienceGraphElements(e, this.plan() ?? undefined));
+    return e ? buildExperienceGraphElements(e, this.plan() ?? undefined) : [];
   });
+
+  /** Partitioned nodes/edges for the accessible text list. */
+  readonly graph = computed(() => partitionGraph(this.graphElements()));
 
   /** Legal approval actions from the current state (mirrors the server machine). */
   readonly actions = computed<ApprovalAction[]>(() => {

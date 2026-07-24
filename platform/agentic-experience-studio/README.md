@@ -39,7 +39,6 @@ then set tenant + token in the connection bar.
 
 ## Not yet built (follow-ups)
 
-- Cytoscape rendering of the dependency graph (data builder is ready).
-- Create/edit forms for Experiences and the other authoring surfaces
-  (Prompt / Policy / Navigation studios).
+- Edit forms for Experiences and the other authoring surfaces
+  (Prompt / Policy / Navigation studios). Create is done.
 - OIDC login screen (the studio currently accepts a pasted token).
