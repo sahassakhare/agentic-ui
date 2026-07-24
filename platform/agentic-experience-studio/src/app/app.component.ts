@@ -14,6 +14,7 @@ import { AuthService } from './services/auth.service';
         <a routerLink="/skills" routerLinkActive="active">Skills</a>
         <a routerLink="/knowledge" routerLinkActive="active">Knowledge</a>
         <a routerLink="/memory" routerLinkActive="active">Memory</a>
+        <a routerLink="/workflows" routerLinkActive="active">Workflows</a>
         <a routerLink="/navigation" routerLinkActive="active">Navigation</a>
         <a routerLink="/policy" routerLinkActive="active">Policy</a>
       </nav>

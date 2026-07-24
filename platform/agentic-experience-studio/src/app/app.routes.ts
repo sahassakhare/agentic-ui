@@ -55,6 +55,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
   },
   {
+    path: 'workflows',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/workflow.component').then((m) => m.WorkflowComponent),
+  },
+  {
     path: 'policy',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/policy.component').then((m) => m.PolicyComponent),

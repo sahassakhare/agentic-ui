@@ -28,6 +28,9 @@ ops-console code.
 - `pages/capability-studio.component.ts` — generic authoring studio for a
   capability kind, driven by route `data.config`; powers the Prompt, Skill,
   Knowledge, Memory, and Navigation studios (`studio-configs.ts`).
+- `pages/workflow.component.ts` — Workflow Studio: a step-graph editor with a
+  live cytoscape preview (`workflow-graph.ts`), authoring `workflow`-kind
+  capabilities.
 - `pages/policy.component.ts` — Policy Studio: author/activate OPA rego bundles
   via the catalog `/policy/bundles` API (OPA evaluation stays in the sidecar).
 - `pages/login.component.ts` + `guards/auth.guard.ts` — OIDC (paste JWT, tenant
@@ -46,5 +49,7 @@ then set tenant + token in the connection bar.
 
 ## Not yet built (follow-ups)
 
-- Workflow studio (a step-graph editor — more than the generic form covers).
-- Real OIDC redirect flow (the login screen currently accepts a pasted JWT).
+- Real OIDC **redirect** flow against an identity provider (the login screen
+  currently accepts a pasted JWT, matching the ops-console pattern).
+- Function-of-state workflow transitions (the editor covers string/terminal
+  `next`; conditional branches are wired by the runtime adopter).
