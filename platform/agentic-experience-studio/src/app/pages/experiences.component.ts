@@ -1,7 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { AuthService } from '../services/auth.service';
 import { ExperienceCatalogService, type Experience } from '../services/experience-catalog.service';
 import { parseRequirementLines } from '../experience-form';
 
@@ -15,12 +14,6 @@ import { parseRequirementLines } from '../experience-form';
   selector: 'aes-experiences',
   imports: [RouterLink, FormsModule],
   template: `
-    <section class="conn">
-      <label>Tenant <input [(ngModel)]="tenant" placeholder="test-tenant" /></label>
-      <label>Token <input [(ngModel)]="token" type="password" placeholder="JWT" /></label>
-      <button (click)="connect()">Connect</button>
-    </section>
-
     <h1>Experiences</h1>
 
     <details class="create" [open]="createOpen()">
@@ -58,8 +51,6 @@ import { parseRequirementLines } from '../experience-form';
     </ul>
   `,
   styles: [`
-    .conn { display: flex; gap: 1rem; align-items: end; flex-wrap: wrap; margin-bottom: 1rem;
-      padding: .75rem; border: 1px solid color-mix(in srgb, currentColor 15%, transparent); border-radius: 8px; }
     label { display: flex; flex-direction: column; font-size: .75rem; gap: .25rem; }
     input, textarea { padding: .35rem .5rem; font: inherit; }
     .create { margin-bottom: 1rem; }
@@ -82,14 +73,10 @@ import { parseRequirementLines } from '../experience-form';
 })
 export class ExperiencesComponent {
   private readonly catalog = inject(ExperienceCatalogService);
-  private readonly auth = inject(AuthService);
 
   readonly items = signal<readonly Experience[]>([]);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
-
-  tenant = this.auth.tenant() ?? '';
-  token = '';
 
   // Create form state.
   readonly createOpen = signal(false);
@@ -131,12 +118,6 @@ export class ExperiencesComponent {
   }
 
   constructor() {
-    if (this.auth.tenant()) this.refresh();
-  }
-
-  connect(): void {
-    if (this.tenant) this.auth.setTenant(this.tenant.trim());
-    if (this.token) this.auth.setToken(this.token.trim());
     this.refresh();
   }
 
@@ -152,6 +133,6 @@ export class ExperiencesComponent {
 
 function describe(err: unknown): string {
   const e = err as { status?: number; error?: { message?: string } };
-  if (e?.status === 401) return 'Unauthorized — set a valid token above.';
-  return e?.error?.message ?? 'Request failed. Check the catalog URL and tenant.';
+  if (e?.status === 401) return 'Session expired — please sign in again.';
+  return e?.error?.message ?? 'Request failed. Check the catalog URL.';
 }

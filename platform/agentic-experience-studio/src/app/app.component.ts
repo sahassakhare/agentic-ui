@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, inject } from '@angular/core';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
+import { AuthService } from './services/auth.service';
 
 @Component({
   selector: 'aes-root',
@@ -11,6 +12,10 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
         <a routerLink="/experiences" routerLinkActive="active">Experiences</a>
       </nav>
       <span class="hint">Independent of the ops console</span>
+      @if (auth.isAuthenticated()) {
+        <span class="tenant">{{ auth.tenant() }}</span>
+        <button class="logout" (click)="logout()">Sign out</button>
+      }
     </header>
     <main><router-outlet /></main>
   `,
@@ -20,7 +25,17 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
     nav a { text-decoration: none; padding: .25rem .5rem; border-radius: 6px; color: inherit; }
     nav a.active { background: color-mix(in srgb, currentColor 12%, transparent); }
     .hint { margin-left: auto; opacity: .6; font-size: .8rem; }
+    .tenant { font-size: .8rem; opacity: .8; }
+    .logout { padding: .2rem .6rem; font-size: .8rem; }
     main { padding: 1.25rem; max-width: 1100px; }
   `],
 })
-export class App {}
+export class App {
+  protected readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+
+  logout(): void {
+    this.auth.logout();
+    void this.router.navigate(['/login']);
+  }
+}
