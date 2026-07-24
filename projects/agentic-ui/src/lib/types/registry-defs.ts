@@ -11,6 +11,47 @@ import type { AgenticBackend } from './agentic-backend';
 export type CapabilitySource = 'host' | 'user' | `team:${string}` | `remote:${string}` | `mcp:${string}` | `external:${string}`;
 
 /**
+ * A dependency a capability declares on another capability. Consumed by the
+ * capability-graph resolver (`resolveCapabilityGraph`) to build the
+ * dependency DAG the Experience Planner traverses — the substrate that lets
+ * the platform "traverse the graph instead of loading static workflows"
+ * (AEP Seam A).
+ *
+ * A requirement selects a target either **by exact `name`** (single, pinned
+ * implementation) or **by `tag`** (late binding — any capability of `kind`
+ * carrying the tag satisfies it, which is how one requirement can resolve to
+ * *multiple* implementations of the same capability). Set `name` XOR `tag`;
+ * when both are set `name` wins and `tag` is ignored.
+ *
+ * `kind` names the capability family (and hence which registry the resolver
+ * searches): `'tool'`, `'component'`, `'form'`, `'dataSource'`, `'capability'`,
+ * `'prompt'`, `'skill'`, `'knowledge'`, `'policy'`, or any adopter-defined
+ * string.
+ *
+ * @example
+ * ```ts
+ * // Conflict-check needs the customer entity and produces a conflict status.
+ * const conflictCheck = {
+ *   name: 'conflictCheck',
+ *   requires: [{ kind: 'dataSource', name: 'customerEntity', reason: 'lookup parties' }],
+ *   produces: ['conflict-status'],
+ * };
+ * ```
+ */
+export interface CapabilityRequirement {
+  /** Capability family / registry to resolve against ('tool', 'form', …). */
+  readonly kind: string;
+  /** Exact target capability name. Set this XOR `tag`. */
+  readonly name?: string;
+  /** Late-binding selector: any `kind` capability tagged with this. Set XOR `name`. */
+  readonly tag?: string;
+  /** When true, an unmet requirement is reported but does not block the graph. */
+  readonly optional?: boolean;
+  /** Human/audit-facing explanation of why the dependency exists. */
+  readonly reason?: string;
+}
+
+/**
  * Common shape every registry entry shares. The uniform `name` lets registries
  * use the same lookup/dispose machinery regardless of TDef payload.
  */
@@ -117,6 +158,22 @@ export interface RegistryEntry {
    * Capability M1 R5 — ADR-014.
    */
   readonly lifecycle?: 'draft' | 'published' | 'deprecated' | 'disabled';
+  /**
+   * Capabilities this entry depends on. Consumed by `resolveCapabilityGraph`
+   * to build the dependency DAG (AEP Seam A). Omit for a leaf capability —
+   * the default, and identical to pre-Seam-A behaviour. Purely additive:
+   * `register()` never reads this field, so a missing resolver target does
+   * not block registration; it surfaces as an `unmet` requirement in the
+   * graph the planner can act on.
+   */
+  readonly requires?: readonly CapabilityRequirement[];
+  /**
+   * Semantic outputs this capability produces (opaque string labels, e.g.
+   * `'conflict-status'`, `'customer-entity'`). Lets an experience/plan express
+   * "I need whatever produces X" and lets viz/audit explain data flow. Opaque
+   * to the runtime; consumed by the capability graph + Experience Planner.
+   */
+  readonly produces?: readonly string[];
 }
 
 /**

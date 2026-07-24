@@ -16,3 +16,4 @@ export * from './operation-registry';
 export * from './trigger-registry';
 export * from './dashboard-registry';
 export * from './playbook-registry';
+export * from './capability-graph';
