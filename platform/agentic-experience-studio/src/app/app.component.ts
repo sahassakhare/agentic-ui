@@ -10,6 +10,8 @@ import { AuthService } from './services/auth.service';
       <strong>Agentic Experience Studio</strong>
       <nav>
         <a routerLink="/experiences" routerLinkActive="active">Experiences</a>
+        <a routerLink="/prompts" routerLinkActive="active">Prompts</a>
+        <a routerLink="/navigation" routerLinkActive="active">Navigation</a>
       </nav>
       <span class="hint">Independent of the ops console</span>
       @if (auth.isAuthenticated()) {

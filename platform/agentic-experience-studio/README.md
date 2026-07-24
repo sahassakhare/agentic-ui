@@ -22,9 +22,14 @@ ops-console code.
   resolution into **dependency-edge** graph data (matched / unmet / optional),
   the view the ops-console containment graph lacks. Unit-tested, no cytoscape
   dependency.
-- `pages/experiences.component.ts` — experience list + a connection bar.
-- `pages/experience-detail.component.ts` — one experience, its dependency graph,
-  a server-side plan dry-run, and the approval actions.
+- `pages/experiences.component.ts` — experience list + create form.
+- `pages/experience-detail.component.ts` — one experience, its cytoscape
+  dependency graph, a server-side plan dry-run, edit form, and approval actions.
+- `pages/capability-studio.component.ts` — generic authoring studio for a
+  capability kind, driven by route `data.config`; powers the Prompt and
+  Navigation studios (`studio-configs.ts`).
+- `pages/login.component.ts` + `guards/auth.guard.ts` — OIDC (paste JWT, tenant
+  decoded from claims) / disabled (type tenant) auth.
 
 ## Run
 
@@ -39,6 +44,7 @@ then set tenant + token in the connection bar.
 
 ## Not yet built (follow-ups)
 
-- Edit forms for Experiences and the other authoring surfaces
-  (Prompt / Policy / Navigation studios). Create is done.
-- OIDC login screen (the studio currently accepts a pasted token).
+- Policy studio (OPA bundle editing via the catalog `/policy/bundles` API).
+- Skill / Knowledge / Memory studios (the generic `capability-studio` makes
+  these a config entry away).
+- Real OIDC redirect flow (the login screen currently accepts a pasted JWT).
