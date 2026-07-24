@@ -340,6 +340,18 @@ export interface CapabilityManifest {
     readonly dashboards?: readonly string[];
     /** Post-chat-surfaces P5 playbooks contributed by this remote. */
     readonly playbooks?: readonly string[];
+    /** AEP Seam C experiences contributed by this remote. */
+    readonly experiences?: readonly string[];
+    /** AEP Seam B skills contributed by this remote. */
+    readonly skills?: readonly string[];
+    /** AEP Seam B knowledge sources contributed by this remote. */
+    readonly knowledge?: readonly string[];
+    /** AEP Seam B memory providers contributed by this remote. */
+    readonly memory?: readonly string[];
+    /** AEP Seam B workflows contributed by this remote. */
+    readonly workflows?: readonly string[];
+    /** AEP Seam B navigation entries contributed by this remote. */
+    readonly navigation?: readonly string[];
   };
   /** Optional URL of the manifest document (if loaded out-of-band). */
   readonly manifestUrl?: string;
@@ -1139,4 +1151,107 @@ export interface PlaybookRun {
   readonly startedAt: string;
   readonly steps: readonly PlaybookStepState[];
   readonly overall: PlaybookRunStatus;
+}
+
+// ─── AEP Seam B — new capability registries ─────────────────────────────────
+//
+// Each of the following is a registrable capability with its own `*Def`
+// extending `RegistryEntry`, hosted by a trivial `RegistryBase<TDef>` subclass.
+// They fill conceptual gaps that had no home before (no existing registry owns
+// prompts, skills, knowledge sources, memory providers, standalone workflows,
+// or navigation). All are additive and inherit `requires`/`produces` (Seam A)
+// so the Experience Planner can traverse them.
+
+/**
+ * A versioned, reusable prompt template. Prompts were inline strings before;
+ * `PromptRegistry` gives them a catalog with lifecycle + scoping so a
+ * "Prompt Studio" can author and approve them.
+ */
+export interface PromptDef extends RegistryEntry {
+  /** The prompt text. May contain `{{variable}}` placeholders. */
+  readonly template: string;
+  /** Human-facing description for catalog listing. */
+  readonly description?: string;
+  /** Names of `{{variables}}` the template expects. */
+  readonly variables?: readonly string[];
+  /** Optional target-model hint (e.g. 'claude-opus-5'). */
+  readonly model?: string;
+  /** Semver; reuse the template version-chain convention. */
+  readonly version?: string;
+}
+
+/**
+ * A named, reusable bundle of tools + guiding prompt the agent can select as a
+ * unit. Distinct from a `PlaybookDef` (a deterministic, author-ordered
+ * sequence) — a skill is agent-selectable and order-free.
+ */
+export interface SkillDef extends RegistryEntry {
+  readonly description: string;
+  /** `ToolRegistry` names this skill draws on. */
+  readonly tools: readonly string[];
+  /** Optional `PromptRegistry` name that guides the skill. */
+  readonly prompt?: string;
+  readonly version?: string;
+}
+
+/**
+ * Metadata for a knowledge source (RAG corpus, document store, SQL/graph/API).
+ * Metadata only — retrieval stays adapter-side (no OpenSearch etc. in the
+ * runtime bundle; honors the runtime non-goals).
+ */
+export interface KnowledgeDef extends RegistryEntry {
+  readonly description?: string;
+  /** Shape of the source. */
+  readonly kind: 'vector' | 'document' | 'sql' | 'graph' | 'api' | (string & {});
+  /** Adapter / `DataSourceRegistry` name that performs retrieval. */
+  readonly connector?: string;
+  /** Optional locator for the source (index name, URL, table). */
+  readonly uri?: string;
+}
+
+/**
+ * Metadata for a memory provider (aligns to ROADMAP Tier 1.4 —
+ * "Long-term memory registry"). Metadata only; the provider adapter does the
+ * storage/retrieval work.
+ */
+export interface MemoryDef extends RegistryEntry {
+  readonly description?: string;
+  /** Memory class. */
+  readonly kind: 'short-term' | 'long-term' | 'episodic' | 'semantic' | (string & {});
+  /** Isolation scope the memory is keyed by. */
+  readonly scope?: 'user' | 'thread' | 'tenant' | 'global' | (string & {});
+  /** Adapter / `PersistenceRegistry` name backing this memory. */
+  readonly provider?: string;
+}
+
+/**
+ * Promotes a {@link WorkflowDef} step graph to a first-class, registered,
+ * versioned, discoverable capability. Previously workflows only existed
+ * embedded in a synthesized `FormDef.workflow`; this makes them addressable.
+ */
+export interface WorkflowCapabilityDef extends RegistryEntry {
+  readonly description?: string;
+  /** The step graph this capability runs. */
+  readonly workflow: WorkflowDef;
+  readonly version?: string;
+}
+
+/**
+ * A navigation entry an app or MFE contributes to the shell, so navigation
+ * becomes capability-driven (contributable + scopable + federation-symmetric)
+ * instead of app-hardcoded.
+ */
+export interface NavigationDef extends RegistryEntry {
+  /** Label shown in the nav. */
+  readonly title: string;
+  /** Router path or external URL. */
+  readonly route: string;
+  /** Optional icon name/token. */
+  readonly icon?: string;
+  /** Sort key within the parent group (ascending; unset sorts last). */
+  readonly order?: number;
+  /** Parent `NavigationDef` name for nesting; unset = top-level. */
+  readonly parent?: string;
+  /** When true, `route` is an external URL. */
+  readonly external?: boolean;
 }
