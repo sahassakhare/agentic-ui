@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import {
   ExperienceCatalogService,
   type ApprovalAction,
@@ -7,6 +8,7 @@ import {
   type ExperiencePlanResult,
 } from '../services/experience-catalog.service';
 import { buildExperienceGraphElements, partitionGraph } from '../experience-graph';
+import { formatRequirementLines, parseRequirementLines } from '../experience-form';
 import { GraphViewComponent } from '../graph-view.component';
 
 /**
@@ -16,15 +18,31 @@ import { GraphViewComponent } from '../graph-view.component';
  */
 @Component({
   selector: 'aes-experience-detail',
-  imports: [RouterLink, GraphViewComponent],
+  imports: [RouterLink, FormsModule, GraphViewComponent],
   template: `
     <a routerLink="/experiences" class="back">← Experiences</a>
 
     @if (error()) { <p class="error">{{ error() }}</p> }
 
     @if (experience(); as e) {
-      <h1>{{ e.title }} <span class="badge" [class]="e.approvalState">{{ e.approvalState }}</span></h1>
-      <p class="goal">{{ e.goal }}</p>
+      <h1>
+        {{ e.title }}
+        <span class="badge" [class]="e.approvalState">{{ e.approvalState }}</span>
+        <button class="edit" (click)="startEdit(e)">{{ editing() ? 'Cancel' : 'Edit' }}</button>
+      </h1>
+
+      @if (editing()) {
+        <section class="editform">
+          <label>Title <input [(ngModel)]="editTitle" /></label>
+          <label>Goal <input [(ngModel)]="editGoal" /></label>
+          <label class="wide">Requirements — <code>kind selector [optional]</code>
+            <textarea rows="4" [(ngModel)]="editRequires"></textarea>
+          </label>
+          <button [disabled]="saving()" (click)="save()">{{ saving() ? 'Saving…' : 'Save' }}</button>
+        </section>
+      } @else {
+        <p class="goal">{{ e.goal }}</p>
+      }
       <code>{{ e.name }}</code>
 
       <section class="actions">
@@ -63,6 +81,13 @@ import { GraphViewComponent } from '../graph-view.component';
   styles: [`
     .back { text-decoration: none; opacity: .7; }
     h1 { display: flex; align-items: center; gap: .75rem; }
+    .edit { margin-left: auto; padding: .25rem .7rem; font-size: .8rem; }
+    .editform { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin: .5rem 0 1rem;
+      padding: .75rem; border: 1px solid color-mix(in srgb, currentColor 15%, transparent); border-radius: 8px; }
+    .editform label { display: flex; flex-direction: column; font-size: .75rem; gap: .25rem; }
+    .editform .wide { grid-column: 1 / -1; }
+    .editform input, .editform textarea { padding: .35rem .5rem; font: inherit; }
+    .editform button { grid-column: 1 / -1; justify-self: start; padding: .35rem 1rem; }
     .goal { font-size: 1.05rem; }
     code { opacity: .7; }
     .badge { font-size: .7rem; text-transform: uppercase; padding: .1rem .4rem; border-radius: 4px;
@@ -94,6 +119,13 @@ export class ExperienceDetailComponent {
   readonly plan = signal<ExperiencePlanResult | null>(null);
   readonly error = signal<string | null>(null);
 
+  // Edit form state.
+  readonly editing = signal(false);
+  readonly saving = signal(false);
+  editTitle = '';
+  editGoal = '';
+  editRequires = '';
+
   /** Raw cytoscape elements for the graph view. */
   readonly graphElements = computed(() => {
     const e = this.experience();
@@ -124,6 +156,35 @@ export class ExperienceDetailComponent {
       next: (e) => this.experience.set(e),
       error: (err) => this.error.set(message(err)),
     });
+  }
+
+  startEdit(e: Experience): void {
+    if (this.editing()) { this.editing.set(false); return; }
+    this.editTitle = e.title;
+    this.editGoal = e.goal;
+    this.editRequires = formatRequirementLines(e.body.requires);
+    this.editing.set(true);
+  }
+
+  save(): void {
+    this.saving.set(true);
+    this.error.set(null);
+    const current = this.experience();
+    this.catalog
+      .update(this.id(), {
+        title: this.editTitle.trim(),
+        goal: this.editGoal.trim(),
+        body: { ...(current?.body ?? {}), requires: parseRequirementLines(this.editRequires) },
+      })
+      .subscribe({
+        next: (updated) => {
+          this.experience.set(updated);
+          this.plan.set(null); // stale after a requirements change
+          this.saving.set(false);
+          this.editing.set(false);
+        },
+        error: (err) => { this.error.set(message(err)); this.saving.set(false); },
+      });
   }
 
   transition(action: ApprovalAction): void {
