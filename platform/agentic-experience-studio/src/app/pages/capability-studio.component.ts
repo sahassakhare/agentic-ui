@@ -6,7 +6,8 @@ import { CapabilityCatalogService, type Capability } from '../services/capabilit
 export interface StudioField {
   readonly key: string;
   readonly label: string;
-  readonly type: 'text' | 'textarea' | 'number' | 'checkbox';
+  /** `list` splits whitespace/commas into a string[] stored in body. */
+  readonly type: 'text' | 'textarea' | 'number' | 'checkbox' | 'list';
   readonly required?: boolean;
   readonly placeholder?: string;
 }
@@ -43,6 +44,7 @@ export interface StudioConfig {
             {{ f.label }}{{ f.required ? ' *' : '' }}
             @switch (f.type) {
               @case ('textarea') { <textarea rows="3" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''"></textarea> }
+              @case ('list') { <textarea rows="2" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''"></textarea> }
               @case ('checkbox') { <input type="checkbox" [(ngModel)]="values[f.key]" /> }
               @case ('number') { <input type="number" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''" /> }
               @default { <input [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''" /> }
@@ -131,7 +133,12 @@ export class CapabilityStudioComponent {
     for (const f of this.cfg().bodyFields) {
       const raw = this.values[f.key];
       if (raw === undefined || raw === '' || raw === null) continue;
-      body[f.key] = f.type === 'number' ? Number(raw) : f.type === 'checkbox' ? Boolean(raw) : raw;
+      if (f.type === 'number') body[f.key] = Number(raw);
+      else if (f.type === 'checkbox') body[f.key] = Boolean(raw);
+      else if (f.type === 'list') {
+        const arr = String(raw).split(/[\s,]+/).filter(Boolean);
+        if (arr.length) body[f.key] = arr;
+      } else body[f.key] = raw;
     }
     this.catalog.create({ kind: this.cfg().kind, name, body }).subscribe({
       next: (created) => {

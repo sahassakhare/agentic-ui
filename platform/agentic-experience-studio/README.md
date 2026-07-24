@@ -26,8 +26,8 @@ ops-console code.
 - `pages/experience-detail.component.ts` — one experience, its cytoscape
   dependency graph, a server-side plan dry-run, edit form, and approval actions.
 - `pages/capability-studio.component.ts` — generic authoring studio for a
-  capability kind, driven by route `data.config`; powers the Prompt and
-  Navigation studios (`studio-configs.ts`).
+  capability kind, driven by route `data.config`; powers the Prompt, Skill,
+  Knowledge, Memory, and Navigation studios (`studio-configs.ts`).
 - `pages/login.component.ts` + `guards/auth.guard.ts` — OIDC (paste JWT, tenant
   decoded from claims) / disabled (type tenant) auth.
 
@@ -45,6 +45,5 @@ then set tenant + token in the connection bar.
 ## Not yet built (follow-ups)
 
 - Policy studio (OPA bundle editing via the catalog `/policy/bundles` API).
-- Skill / Knowledge / Memory studios (the generic `capability-studio` makes
-  these a config entry away).
+- Workflow studio (a step-graph editor — more than the generic form covers).
 - Real OIDC redirect flow (the login screen currently accepts a pasted JWT).

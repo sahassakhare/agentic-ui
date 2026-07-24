@@ -11,6 +11,9 @@ import { AuthService } from './services/auth.service';
       <nav>
         <a routerLink="/experiences" routerLinkActive="active">Experiences</a>
         <a routerLink="/prompts" routerLinkActive="active">Prompts</a>
+        <a routerLink="/skills" routerLinkActive="active">Skills</a>
+        <a routerLink="/knowledge" routerLinkActive="active">Knowledge</a>
+        <a routerLink="/memory" routerLinkActive="active">Memory</a>
         <a routerLink="/navigation" routerLinkActive="active">Navigation</a>
       </nav>
       <span class="hint">Independent of the ops console</span>
