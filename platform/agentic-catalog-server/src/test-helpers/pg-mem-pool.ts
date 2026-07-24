@@ -71,6 +71,11 @@ export function createPgMemPool(options: PgMemPoolOptions = {}): PgMemHandle {
     '007_agents.sql',
     '008_policy_bundles.sql',
     '010_experiences.sql',
+    // 011_capability_kinds.sql intentionally skipped in tests (like 009):
+    // it widens the capabilities.kind CHECK via ALTER TABLE ... DROP/ADD
+    // CONSTRAINT, which pg-mem doesn't implement. The Zod-level kind enum
+    // (CAPABILITY_KINDS) is exercised here; the DB CHECK widening is
+    // integration-tested against real Postgres.
     // 009_agents_policy_safety.sql intentionally skipped in tests:
     // it's an idempotent re-declaration of 007/008 (CREATE TABLE
     // IF NOT EXISTS) for production deployments where the

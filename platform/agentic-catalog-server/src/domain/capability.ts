@@ -22,6 +22,13 @@ export const CAPABILITY_KINDS = [
   'schema-transformer',
   'approval',
   'operation',
+  // AEP Seam B — new registry kinds (migration 011).
+  'prompt',
+  'skill',
+  'knowledge',
+  'memory',
+  'workflow',
+  'navigation',
 ] as const;
 
 export const CapabilityKindSchema = z.enum(CAPABILITY_KINDS);
