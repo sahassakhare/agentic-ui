@@ -16,11 +16,12 @@
 > | **C** Experience Registry (approval-gated) | ✅ shipped | `lib/experience/experience-registry.ts` |
 > | **D** Experience Planner + agent-context + `experience` layout source | ✅ shipped | `lib/experience/*` |
 > | **F** Catalog `/experiences` API + `010`/`011` migrations | ✅ shipped | `platform/agentic-catalog-server/*` |
-> | **E** `agentic-experience-studio` app (client, dep-graph builder, list/detail/create, approvals) | ⚙️ first cut | `platform/agentic-experience-studio/*` |
+> | **E** `agentic-experience-studio` app — experiences (list/create/edit/cytoscape graph/plan/approvals), login+guard, and authoring studios for **every** registry kind (Prompt/Skill/Knowledge/Memory/Workflow/Navigation) + Policy | ✅ shipped | `platform/agentic-experience-studio/*` |
 >
-> **Remaining (studio polish, tracked in the app README):** cytoscape rendering of the dependency
-> graph (data builder ready), OIDC login screen, and richer authoring surfaces (Prompt/Policy/
-> Navigation studios). Ops-console remains untouched by design.
+> **Remaining (tracked in the app README, both need external infra):** a real OIDC **redirect** flow
+> against an identity provider (the login screen accepts a pasted JWT today, matching ops-console), and
+> function-of-state workflow branches (the editor covers string/terminal `next`). Ops-console remains
+> untouched by design.
 
 > **What this document is.** An external vision (drafted in a general-purpose assistant) proposed
 > turning `@infra-tools` into a "Registry-Driven Agentic Experience Platform." This document
