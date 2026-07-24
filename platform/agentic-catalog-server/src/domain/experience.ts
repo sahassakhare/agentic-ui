@@ -113,7 +113,12 @@ export const ExperienceListQuerySchema = z.object({
   q: z.string().optional(), // free-text on name / title
   limit: z.coerce.number().int().min(1).max(500).default(100),
   offset: z.coerce.number().int().min(0).default(0),
-  includeDeleted: z.coerce.boolean().default(false),
+  // NOT z.coerce.boolean() — that makes the string "false" truthy. Explicit
+  // string/boolean parse so ?includeDeleted=false actually excludes deleted.
+  includeDeleted: z
+    .union([z.boolean(), z.string()])
+    .optional()
+    .transform((v) => v === true || v === 'true'),
 });
 export type ExperienceListQuery = z.infer<typeof ExperienceListQuerySchema>;
 

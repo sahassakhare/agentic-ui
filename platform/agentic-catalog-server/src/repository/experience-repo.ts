@@ -153,25 +153,31 @@ export async function updateExperience(
 }
 
 /**
- * Apply an approval transition: swap `approval_state` and persist the full
- * `approval_chain`, atomically. The caller validated the transition via
- * `nextApprovalState`, appended the event, and passes the complete new chain
- * (avoids the `jsonb || jsonb` operator, which pg-mem doesn't implement).
+ * Apply an approval transition with OPTIMISTIC CONCURRENCY: the UPDATE only
+ * fires when `approval_state` still equals `fromState` the caller read. If a
+ * concurrent transition already moved the row, zero rows come back and the
+ * caller returns 409 instead of silently dropping an approval event / losing
+ * the appended chain (the read-modify-write race under READ COMMITTED).
+ *
+ * The full chain is passed (not `jsonb || jsonb`, which pg-mem lacks); the
+ * `fromState` guard makes the whole read-compute-write sequence safe without a
+ * row lock.
  */
 export async function applyExperienceTransition(
   client: pg.PoolClient,
   id: string,
+  fromState: ApprovalState,
   toState: ApprovalState,
   chain: readonly ApprovalEvent[],
 ): Promise<Experience | null> {
   const result = await client.query<ExperienceRow>(
     `UPDATE experiences
-        SET approval_state = $2,
-            approval_chain = $3::JSONB,
+        SET approval_state = $3,
+            approval_chain = $4::JSONB,
             updated_at = now()
-      WHERE id = $1 AND soft_deleted_at IS NULL
+      WHERE id = $1 AND approval_state = $2 AND soft_deleted_at IS NULL
      RETURNING ${COLUMNS}`,
-    [id, toState, JSON.stringify(chain)],
+    [id, fromState, toState, JSON.stringify(chain)],
   );
   return result.rows[0] ? rowToExperience(result.rows[0]) : null;
 }

@@ -132,6 +132,34 @@ describe('experiences routes (AEP Seam F)', () => {
     expect(body.complete).toBe(true);
   });
 
+  it('returns 400 (not 500) on a malformed JSON body', async () => {
+    const auth = await h.authHeader();
+    const res = await h.fetch(new Request(BASE, {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: '{ not json',
+    }));
+    expect(res.status).toBe(400);
+  });
+
+  it('/plan 404s on a soft-deleted experience', async () => {
+    const auth = await h.authHeader();
+    const created = await (await h.fetch(json(auth, { name: 'delPlan', title: 'x', goal: 'g' }))).json();
+    await h.fetch(new Request(`${BASE}/${created.id}`, { method: 'DELETE', headers: { Authorization: auth } }));
+    const plan = await h.fetch(new Request(`${BASE}/${created.id}/plan`, { method: 'POST', headers: { Authorization: auth } }));
+    expect(plan.status).toBe(404);
+  });
+
+  it('a concurrent-safe transition returns 409 when the state already moved', async () => {
+    const auth = await h.authHeader();
+    const created = await (await h.fetch(json(auth, { name: 'concur', title: 'x', goal: 'g' }))).json();
+    // First submit → review.
+    await h.fetch(json(auth, { action: 'submit' }, 'POST', `${BASE}/${created.id}/transition`));
+    // A second submit now sees state=review; submit from review is illegal → 409.
+    const again = await h.fetch(json(auth, { action: 'submit' }, 'POST', `${BASE}/${created.id}/transition`));
+    expect(again.status).toBe(409);
+  });
+
   it('PATCH updates and DELETE soft-deletes', async () => {
     const auth = await h.authHeader();
     const created = await (await h.fetch(json(auth, { name: 'crud', title: 'x', goal: 'g' }))).json();

@@ -28,6 +28,15 @@ import { publishCatalogEvent } from '../events/publisher.js';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (s: string): boolean => UUID_RE.test(s);
 
+/** Parse a JSON body, mapping a malformed/empty body to 400 (not an unhandled 500). */
+async function readJson(c: { req: { json: () => Promise<unknown> } }): Promise<unknown> {
+  try {
+    return await c.req.json();
+  } catch {
+    throw new HTTPException(400, { message: 'Request body must be valid JSON' });
+  }
+}
+
 /**
  * Experience catalog routes (AEP Seam F).
  *
@@ -74,7 +83,7 @@ export function experiencesRoutes(pool: CatalogPool): Hono {
     const principal = c.get('principal');
     const requestId = c.get('requestId');
     const tenantId = principal.tenantId;
-    const body = ExperienceCreateSchema.parse(await c.req.json());
+    const body = ExperienceCreateSchema.parse(await readJson(c));
 
     const created = await withTenantScope(pool, principal, async (client) => {
       const existing = await findExperienceByName(client, body.name);
@@ -110,7 +119,7 @@ export function experiencesRoutes(pool: CatalogPool): Hono {
     const requestId = c.get('requestId');
     const id = c.req.param('id');
     if (!isUuid(id)) throw new HTTPException(404, { message: 'Experience not found' });
-    const patch = ExperienceUpdateSchema.parse(await c.req.json());
+    const patch = ExperienceUpdateSchema.parse(await readJson(c));
 
     const updated = await withTenantScope(pool, principal, async (client) => {
       const before = await findExperienceById(client, id);
@@ -146,7 +155,7 @@ export function experiencesRoutes(pool: CatalogPool): Hono {
     const requestId = c.get('requestId');
     const id = c.req.param('id');
     if (!isUuid(id)) throw new HTTPException(404, { message: 'Experience not found' });
-    const { action, comment } = ExperienceTransitionSchema.parse(await c.req.json());
+    const { action, comment } = ExperienceTransitionSchema.parse(await readJson(c));
 
     const updated = await withTenantScope(pool, principal, async (client) => {
       const before = await findExperienceById(client, id);
@@ -171,8 +180,10 @@ export function experiencesRoutes(pool: CatalogPool): Hono {
         toState,
         comment,
       };
-      const after = await applyExperienceTransition(client, id, toState, [...before.approvalChain, event]);
-      if (!after) return null;
+      const after = await applyExperienceTransition(client, id, before.approvalState, toState, [...before.approvalChain, event]);
+      // Zero rows despite a confirmed `before` = a concurrent transition moved
+      // the state first (optimistic-concurrency guard). Fail loudly, don't drop.
+      if (!after) throw new HTTPException(409, { message: 'Experience was modified concurrently; retry the transition.' });
       await appendAudit(client, {
         tenantId: principal.tenantId,
         actor: auditActor(principal),
@@ -206,14 +217,17 @@ export function experiencesRoutes(pool: CatalogPool): Hono {
 
     const result = await withTenantScope(pool, principal, async (client) => {
       const experience = await findExperienceById(client, id);
-      if (!experience) return null;
+      // Don't plan a tombstone — a soft-deleted experience is gone for planning.
+      if (!experience || experience.softDeletedAt !== null) return null;
       const resolution = await resolveExperienceRequirements(client, experience);
       return { experience, resolution };
     });
     if (!result) throw new HTTPException(404, { message: 'Experience not found' });
 
     return c.json({
-      experienceId: result.experience.name,
+      id: result.experience.id,
+      experienceId: result.experience.name,   // the runtime plan keys on name
+      name: result.experience.name,
       goal: result.experience.goal,
       approvalState: result.experience.approvalState,
       matched: result.resolution.matched,

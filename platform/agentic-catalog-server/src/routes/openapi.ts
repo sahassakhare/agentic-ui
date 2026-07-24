@@ -72,6 +72,7 @@ const SPEC = {
             'action', 'intent', 'form', 'datasource',
             'validation', 'persistence', 'layout',
             'schema-transformer', 'approval', 'operation',
+            'prompt', 'skill', 'knowledge', 'memory', 'workflow', 'navigation',
           ] },
           name: { type: 'string' },
           body: { type: 'object', additionalProperties: true },
