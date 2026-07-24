@@ -1,8 +1,26 @@
 # Agentic Experience Platform (AEP) plan — verified & refined
 
-**Status:** Draft for review · does **not** authorize implementation · refinement of an external
+**Status:** Refined & **implementation in progress** · refinement of an external
 "Enterprise Agentic Experience Platform" proposal, re-grounded against the real codebase.
 **Date:** 2026-07-24 · **Decider:** sahas
+
+> ## Implementation status (branch `claude/aep-architecture-plan-xisko5`)
+>
+> The AEP core is built and tested — all six seams landed additively (ADR-010 D4), each with vitest
+> coverage; the full agentic-ui suite (1069 tests) and catalog-server suite (215 tests) stay green.
+>
+> | Seam | Status | Where |
+> |---|---|---|
+> | **A** Capability dependency graph (`requires`/`produces` + `resolveCapabilityGraph`) | ✅ shipped | `lib/registries/capability-graph.ts` |
+> | **B** Prompt/Skill/Knowledge/Memory/Workflow/Navigation registries | ✅ shipped | `lib/registries/*` |
+> | **C** Experience Registry (approval-gated) | ✅ shipped | `lib/experience/experience-registry.ts` |
+> | **D** Experience Planner + agent-context + `experience` layout source | ✅ shipped | `lib/experience/*` |
+> | **F** Catalog `/experiences` API + `010`/`011` migrations | ✅ shipped | `platform/agentic-catalog-server/*` |
+> | **E** `agentic-experience-studio` app (client, dep-graph builder, list/detail/create, approvals) | ⚙️ first cut | `platform/agentic-experience-studio/*` |
+>
+> **Remaining (studio polish, tracked in the app README):** cytoscape rendering of the dependency
+> graph (data builder ready), OIDC login screen, and richer authoring surfaces (Prompt/Policy/
+> Navigation studios). Ops-console remains untouched by design.
 
 > **What this document is.** An external vision (drafted in a general-purpose assistant) proposed
 > turning `@infra-tools` into a "Registry-Driven Agentic Experience Platform." This document
