@@ -54,4 +54,9 @@ export const routes: Routes = [
     data: { config: MEMORY_STUDIO },
     loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
   },
+  {
+    path: 'policy',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/policy.component').then((m) => m.PolicyComponent),
+  },
 ];

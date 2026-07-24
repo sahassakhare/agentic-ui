@@ -15,6 +15,7 @@ import { AuthService } from './services/auth.service';
         <a routerLink="/knowledge" routerLinkActive="active">Knowledge</a>
         <a routerLink="/memory" routerLinkActive="active">Memory</a>
         <a routerLink="/navigation" routerLinkActive="active">Navigation</a>
+        <a routerLink="/policy" routerLinkActive="active">Policy</a>
       </nav>
       <span class="hint">Independent of the ops console</span>
       @if (auth.isAuthenticated()) {

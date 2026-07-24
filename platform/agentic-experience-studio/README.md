@@ -28,6 +28,8 @@ ops-console code.
 - `pages/capability-studio.component.ts` — generic authoring studio for a
   capability kind, driven by route `data.config`; powers the Prompt, Skill,
   Knowledge, Memory, and Navigation studios (`studio-configs.ts`).
+- `pages/policy.component.ts` — Policy Studio: author/activate OPA rego bundles
+  via the catalog `/policy/bundles` API (OPA evaluation stays in the sidecar).
 - `pages/login.component.ts` + `guards/auth.guard.ts` — OIDC (paste JWT, tenant
   decoded from claims) / disabled (type tenant) auth.
 
@@ -44,6 +46,5 @@ then set tenant + token in the connection bar.
 
 ## Not yet built (follow-ups)
 
-- Policy studio (OPA bundle editing via the catalog `/policy/bundles` API).
 - Workflow studio (a step-graph editor — more than the generic form covers).
 - Real OIDC redirect flow (the login screen currently accepts a pasted JWT).
