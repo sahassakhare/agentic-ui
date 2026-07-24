@@ -685,5 +685,153 @@ const SPEC = {
         },
       },
     },
+    '/v1/catalogs/{tenant}/experiences': {
+      get: {
+        summary: 'List experiences (AEP Seam F)',
+        parameters: [
+          { name: 'tenant', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'approvalState', in: 'query', schema: { type: 'string', enum: ['draft', 'review', 'approved', 'rejected', 'deprecated'] } },
+          { name: 'owner', in: 'query', schema: { type: 'string' } },
+          { name: 'tag', in: 'query', schema: { type: 'string' } },
+          { name: 'q', in: 'query', schema: { type: 'string' } },
+          { name: 'limit', in: 'query', schema: { type: 'integer' } },
+          { name: 'offset', in: 'query', schema: { type: 'integer' } },
+          { name: 'includeDeleted', in: 'query', schema: { type: 'boolean' } },
+        ],
+        responses: {
+          200: {
+            description: 'OK',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    items: { type: 'array', items: { type: 'object' } },
+                    total: { type: 'integer' },
+                    limit: { type: 'integer' },
+                    offset: { type: 'integer' },
+                  },
+                  required: ['items', 'total', 'limit', 'offset'],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+      post: {
+        summary: 'Create an experience',
+        parameters: [{ name: 'tenant', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: {
+          201: {
+            description: 'Created',
+            headers: { Location: { schema: { type: 'string' } } },
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          409: { description: 'Experience name already exists' },
+          422: { $ref: '#/components/responses/Unprocessable' },
+        },
+      },
+    },
+    '/v1/catalogs/{tenant}/experiences/{id}': {
+      get: {
+        summary: 'Get an experience',
+        parameters: [
+          { name: 'tenant', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'OK', content: { 'application/json': { schema: { type: 'object' } } } },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      patch: {
+        summary: 'Update an experience (name immutable)',
+        parameters: [
+          { name: 'tenant', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: { required: true, content: { 'application/json': { schema: { type: 'object' } } } },
+        responses: {
+          200: { description: 'OK', content: { 'application/json': { schema: { type: 'object' } } } },
+          404: { $ref: '#/components/responses/NotFound' },
+          422: { $ref: '#/components/responses/Unprocessable' },
+        },
+      },
+      delete: {
+        summary: 'Soft-delete an experience',
+        parameters: [
+          { name: 'tenant', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          204: { description: 'No Content' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/v1/catalogs/{tenant}/experiences/{id}/transition': {
+      post: {
+        summary: 'Apply an approval transition (submit/approve/reject/deprecate/revoke)',
+        parameters: [
+          { name: 'tenant', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  action: { type: 'string', enum: ['submit', 'approve', 'reject', 'deprecate', 'revoke'] },
+                  comment: { type: 'string' },
+                },
+                required: ['action'],
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'OK', content: { 'application/json': { schema: { type: 'object' } } } },
+          404: { $ref: '#/components/responses/NotFound' },
+          409: { description: 'Illegal state transition' },
+          422: { $ref: '#/components/responses/Unprocessable' },
+        },
+      },
+    },
+    '/v1/catalogs/{tenant}/experiences/{id}/plan': {
+      post: {
+        summary: 'Resolve direct requirements against the tenant catalog (dry-run)',
+        parameters: [
+          { name: 'tenant', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: {
+            description: 'OK',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    experienceId: { type: 'string' },
+                    goal: { type: 'string' },
+                    approvalState: { type: 'string' },
+                    matched: { type: 'array', items: { type: 'object' } },
+                    unmet: { type: 'array', items: { type: 'object' } },
+                    complete: { type: 'boolean' },
+                  },
+                  required: ['experienceId', 'matched', 'unmet', 'complete'],
+                },
+              },
+            },
+          },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
   },
 } as const;

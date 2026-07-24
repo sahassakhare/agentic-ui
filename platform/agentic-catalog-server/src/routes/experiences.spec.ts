@@ -23,7 +23,7 @@ describe('experiences routes (AEP Seam F)', () => {
     const auth = await h.authHeader();
     const res = await h.fetch(new Request(BASE, { headers: { Authorization: auth } }));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ items: [], total: 0 });
+    expect(await res.json()).toEqual({ items: [], total: 0, limit: 100, offset: 0 });
   });
 
   it('POST + GET round-trip with requires body', async () => {
@@ -98,6 +98,38 @@ describe('experiences routes (AEP Seam F)', () => {
     expect(body.matched).toEqual([{ kind: 'form', name: 'customerSearch' }]);
     expect(body.unmet).toEqual([{ kind: 'tool', name: 'missingTool' }]);
     expect(body.complete).toBe(false);
+  });
+
+  it('/plan matches on kind, not just name (no false cross-kind match)', async () => {
+    const auth = await h.authHeader();
+    // A form named "sharedName" exists, but NOT a component with that name.
+    await h.fetch(json(auth, { kind: 'form', name: 'sharedName', body: {} }, 'POST', CAPS));
+
+    const created = await (await h.fetch(json(auth, {
+      name: 'kindExp', title: 'x', goal: 'g',
+      body: { requires: [{ kind: 'component', name: 'sharedName' }] },
+    }))).json();
+
+    const plan = await h.fetch(new Request(`${BASE}/${created.id}/plan`, { method: 'POST', headers: { Authorization: auth } }));
+    const body = await plan.json();
+    // Must NOT match the same-named form; the component requirement is unmet.
+    expect(body.matched).toEqual([]);
+    expect(body.unmet).toEqual([{ kind: 'component', name: 'sharedName' }]);
+  });
+
+  it('/plan matches runtime camelCase kind against lowercase catalog kind', async () => {
+    const auth = await h.authHeader();
+    await h.fetch(json(auth, { kind: 'datasource', name: 'customerEntity', body: {} }, 'POST', CAPS));
+
+    const created = await (await h.fetch(json(auth, {
+      name: 'caseExp', title: 'x', goal: 'g',
+      body: { requires: [{ kind: 'dataSource', name: 'customerEntity' }] },
+    }))).json();
+
+    const plan = await h.fetch(new Request(`${BASE}/${created.id}/plan`, { method: 'POST', headers: { Authorization: auth } }));
+    const body = await plan.json();
+    expect(body.matched).toEqual([{ kind: 'dataSource', name: 'customerEntity' }]);
+    expect(body.complete).toBe(true);
   });
 
   it('PATCH updates and DELETE soft-deletes', async () => {

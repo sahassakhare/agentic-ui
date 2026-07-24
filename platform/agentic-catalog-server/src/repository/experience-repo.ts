@@ -187,10 +187,12 @@ export async function softDeleteExperience(client: pg.PoolClient, id: string): P
 }
 
 /**
- * Server-side direct-requirement resolution (the `/plan` dry-run). Checks
- * each declared requirement against the tenant's non-deleted capabilities by
- * name (kind advisory — the runtime planner owns full transitive graph
- * traversal). Returns matched + unmet (non-optional misses).
+ * Server-side direct-requirement resolution (the `/plan` dry-run). Checks each
+ * declared requirement against the tenant's non-deleted capabilities, matching
+ * on BOTH kind and name/tag (the runtime planner owns full transitive graph
+ * traversal). Kind is compared case-insensitively so runtime camelCase kinds
+ * (`dataSource`) match the catalog's lowercase storage (`datasource`). Returns
+ * matched + unmet (non-optional misses).
  */
 export async function resolveExperienceRequirements(
   client: pg.PoolClient,
@@ -203,15 +205,17 @@ export async function resolveExperienceRequirements(
   for (const req of requires) {
     if (req.name) {
       const hit = await client.query<{ name: string }>(
-        `SELECT name FROM capabilities WHERE name = $1 AND soft_deleted_at IS NULL LIMIT 1`,
-        [req.name],
+        `SELECT name FROM capabilities
+          WHERE lower(kind) = lower($1) AND name = $2 AND soft_deleted_at IS NULL LIMIT 1`,
+        [req.kind, req.name],
       );
       if (hit.rows[0]) matched.push({ kind: req.kind, name: req.name });
       else if (!req.optional) unmet.push({ kind: req.kind, name: req.name });
     } else if (req.tag) {
       const hit = await client.query<{ name: string }>(
-        `SELECT name FROM capabilities WHERE $1 = ANY(tags) AND soft_deleted_at IS NULL`,
-        [req.tag],
+        `SELECT name FROM capabilities
+          WHERE lower(kind) = lower($1) AND $2 = ANY(tags) AND soft_deleted_at IS NULL`,
+        [req.kind, req.tag],
       );
       if (hit.rows.length > 0) hit.rows.forEach((r) => matched.push({ kind: req.kind, name: r.name }));
       else if (!req.optional) unmet.push({ kind: req.kind, tag: req.tag });

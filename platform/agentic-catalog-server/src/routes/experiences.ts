@@ -53,7 +53,12 @@ export function experiencesRoutes(pool: CatalogPool): Hono {
     const { items, total } = await withTenantScope(pool, principal, (client) =>
       listExperiences(client, query),
     );
-    return c.json({ items: items.map((e) => ExperienceSchema.parse(e)), total });
+    return c.json({
+      items: items.map((e) => ExperienceSchema.parse(e)),
+      total,
+      limit: query.limit,
+      offset: query.offset,
+    });
   });
 
   app.get('/:id', async (c) => {
