@@ -15,6 +15,7 @@
 export * from './lib/types';
 export * from './lib/telemetry';
 export * from './lib/registries';
+export * from './lib/experience';
 export * from './lib/validation';
 export * from './lib/composition';
 export * from './lib/factories';
