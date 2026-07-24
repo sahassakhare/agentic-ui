@@ -39,17 +39,17 @@ proposes rebuilding subsystems that already ship. Scorecard:
 | 6 | "Experience Registry" resolving business intent → capabilities | ❌ **Net-new** (partial substrate) | No Experience concept. `IntentRegistry` is the nearest (naive 1:1 substring router). Legitimately new. |
 | 7 | **"Spring Boot backend architecture"** as a deliverable | ❌ **Factually wrong** | There is **zero Java** in the repo. The backend is `agentic-catalog-server`: **Hono + Postgres (RLS) + jose JWT/JWKS + pgvector + optional OPA sidecar**. "Spring Boot" exists only as an *optional client-side* `SpringBootMfeRegistrySource` adapter that consumes an adopter's external Spring registry. Replace this deliverable with "Node/Hono control-plane architecture + Spring Boot adapter parity." |
 | 8 | "Semantic capability discovery" as future work | ✅ **Already shipped** | pgvector + `EmbeddingProvider` (openai/cohere/ollama/noop), `GET /v1/catalogs/:tenant/capabilities/search?q=` cosine search (ADR-038). |
-| 9 | Replace Self Serve → "Experience Studio"; Formly JSON in DB → registry composition | ⚠️ **Right direction, wrong baseline** | This repo has no Formly. It ships `FormRegistry` + runtime-composed forms (F1, closed-AST `if` DSL). "Self-serve" is existing vocabulary (ADR-047 = "closing the self-serve ↔ agent gap"). Migration applies to the *downstream enterprise app*, not the platform. |
+| 9 | "Self-serve"/Formly framing (proposal assumes Formly-JSON-in-DB as the baseline) | ⚠️ **Wrong baseline for this repo** | This platform repo has **no Formly** and no DB-form loader. It ships `FormRegistry` + runtime-composed forms (F1, closed-AST `if` DSL). "Self-serve" is existing vocabulary (ADR-047 = "closing the self-serve ↔ agent gap"). This is a verification note only — **no Self-Serve migration is in scope for this plan.** |
 | 10 | Dynamic dashboards, dynamic forms, user preferences separated from registry metadata | ✅ **Largely shipped** | `DashboardRegistry` + conversational/live/drillable dashboards (ADR-044); F1 composable forms; layered preference tiers (`user-saved`/`matter-default`/`org-default`) in `LayeredLayoutStore` (ADR-046). |
-| 11 | "Platform Studio" admin app (Registry Explorer, Experience/Prompt/Policy/Dashboard/Navigation Studio, Marketplace, Telemetry, Audit, Governance, Publishing) | ⚠️ **Partly exists** | `agentic-ops-console` ships topology, editors, realtime, audit. "Studio" is net-new framing; align it to the **control-plane tier** in platform-evolution-plan, don't spawn a parallel app. |
+| 11 | "Platform Studio" admin app (Registry Explorer, Experience/Prompt/Policy/Dashboard/Navigation Studio, Marketplace, Telemetry, Audit, Governance, Publishing) | ⚠️ **New app — kept out of ops-console** | `agentic-ops-console` ships topology, editors, realtime, audit — but it is **intentionally left untouched** here: it still needs to mature to enterprise grade and its UX needs rework, so we do **not** pile authoring surfaces onto it. The Studio/authoring surfaces land in a **new dedicated app** (`platform/agentic-experience-studio`), purpose-built for enterprise UX. |
 | 12 | Governance separation (registries dev-owned, experiences business-owned, prefs user-owned, data app-owned) | ✅ **Endorse** | Consistent with `owner`/`lifecycle`/`scopes` metadata + scope-policy gate + TSC governance model. Formalize, don't rebuild. |
 | 13 | Enterprise reqs: multi-tenant, MCP, A2A, OTel, OpenFeature, OPA, RBAC/ABAC, audit, streaming, caching, HA, versioning | ✅ **Mostly shipped/planned** | Multi-tenant RLS, MCP (3 sides), OTel sink, OPA (ADR-040), audit hash-chain, SSE streaming, `TileResultCache`, semver gating all exist. A2A + OpenFeature are Tier 3 "wait-and-see" in ROADMAP — keep them there. |
 
 **Net:** ~65% of the proposal is already built or explicitly planned. The valuable, genuinely-new core
 is **four seams**: (1) a **capability dependency graph**, (2) an **Experience Registry**, (3) an
 **Experience Planner** over existing primitives, and (4) a small set of **new capability registries**
-(Prompt, Skill, Knowledge, Memory, Workflow-as-registry, Navigation). Everything else is *governance,
-studio surfacing, and migration* on top of shipped infrastructure. The proposal's biggest risk is
+(Prompt, Skill, Knowledge, Memory, Workflow-as-registry, Navigation). Everything else is *governance
+and studio surfacing* (in a new dedicated app, not ops-console) on top of shipped infrastructure. The proposal's biggest risk is
 **greenfield framing** — it would have teams rebuild `LayoutResolver`, `DashboardRegistry`,
 `FormRegistry`, and the catalog server. This plan forbids that.
 
@@ -62,7 +62,7 @@ studio surfacing, and migration* on top of shipped infrastructure. The proposal'
 - **P1 embedded-first.** The default adopter wires three `provideX` calls and needs no server. Every
   new capability must degrade to in-memory with zero external deps.
 - **Bundle budget.** Runtime FESM is capped (~720 KB, low headroom). Graph/planner heavy code lands in
-  the **control plane / ops-console**, not the runtime bundle (cytoscape precedent, ADR-037).
+  the **control plane / the new experience-studio app**, not the runtime bundle (cytoscape-off-the-runtime precedent, ADR-037).
 - **Governance gate.** New public API / new registry shape = RFC + 7-day comment + TSC vote
   (GOVERNANCE.md). This document is the pre-RFC; each numbered seam below becomes its own RFC.
 
@@ -104,7 +104,7 @@ between goal and render.
 | Governance metadata + scope gate | `setScopePolicy`, `owner`, `lifecycle`, catalog authorizer deny-list | ADR-008, platform-seams.md |
 | MCP (consumer/server/WebMCP) + external surfaces | 3-sided MCP, Teams, Copilot Studio | ADR-049/050, 041/042 |
 
-**Consequence:** the AEP program is ~6 new seams + studio surfacing + a migration guide, **not** 30
+**Consequence:** the AEP program is ~6 new seams + a new dedicated authoring app, **not** 30
 greenfield deliverables.
 
 ---
@@ -140,8 +140,10 @@ export interface RegistryEntry {
   `resolveCapabilityGraph(root: RegistryEntry, registries: RegistrySet): CapabilityGraph` — a DAG of
   `{ nodes, edges, unmet, cycles }`. Late binding via `tag` matches the proposal's
   "multiple implementations of the same capability."
-- **Visualization** (dependency edges, not just containment) lands in **ops-console** by extending the
-  existing `buildGraphElements` to emit `source→target` edges from `requires`. Off the runtime bundle.
+- **Visualization** (dependency edges, not just containment) lands in the **new dedicated
+  experience-studio app** (§3.5), which renders `source→target` edges from `requires`. Off the runtime
+  bundle. (Ops-console keeps its own separate containment/topology view; it is not modified. The
+  `buildGraphElements` shape can be reused as prior art, but no ops-console code changes here.)
 - **Backwards compatible:** entries without `requires` are leaves — identical to today.
 - **Governance:** conflict/cycle detection reuses the existing `conflictPolicy` machinery on `RegistryBase`.
 
@@ -239,13 +241,23 @@ export interface ExperiencePlan {
 - **Bundle:** planner core is small (traversal + filtering). Heavy semantic matching (embedding the goal
   to rank experiences) calls the **existing** catalog `/capabilities/search` endpoint — no new runtime deps.
 
-### 3.5 — Seam E: Experience Studio (control-plane surface, not a new app)
+### 3.5 — Seam E: Experience Studio (new dedicated app — **not** ops-console)
 
-Extend `agentic-ops-console` with an Experience authoring surface: compose `ExperienceDef`s from
-registry capabilities, preview the resolved graph (Seam A viz), dry-run the planner, route through the
-approval state machine. This *is* the proposal's "replace Self Serve" — administrators compose
-experiences instead of building Formly pages. It reuses the ops-console's existing editor/realtime/audit
-infrastructure rather than spawning "Platform Studio" as a separate app.
+Ship a **new dedicated authoring app**, `platform/agentic-experience-studio`, purpose-built for
+enterprise-grade UX. It is the single home for all authoring/Studio surfaces:
+
+- **Experience Studio** — compose `ExperienceDef`s from registry capabilities, preview the resolved
+  capability graph (Seam A dependency-edge viz), dry-run the planner, route through the approval state
+  machine.
+- **Prompt / Skill / Navigation authoring** — CRUD over the new registries (§3.2) via the catalog API.
+- **Policy authoring** — edit OPA bundles through the existing catalog `/policy/bundles` API (no OPA in
+  the client bundle).
+
+**Ops-console (`agentic-ops-console`) is deliberately left untouched by this plan.** It still needs to
+mature to enterprise grade and its UX needs rework, so we do not build new authoring load onto it. It
+keeps its existing role (topology, realtime, audit) and evolves on its own track. The new studio app is
+independent: it talks to the same catalog server over HTTP/SSE and reuses no ops-console code (it may
+borrow patterns as prior art, but changes nothing there).
 
 ### 3.6 — Seam F: Persistence & API for Experiences (control plane)
 
@@ -270,16 +282,18 @@ Each proposal deliverable, corrected to the real codebase. "Ship" = build; "Reus
    adds Seams A–F, no fourth tier.
 3. **Registry architecture** — Reuse `RegistryBase`. Add 6 registries (§3.2) + `requires`/`produces`
    metadata (§3.1). Do **not** add the 12 that exist.
-4. **Registry Graph** — **Ship Seam A** (dependency edges + resolver; viz in ops-console). Genuine gap.
+4. **Registry Graph** — **Ship Seam A** (dependency edges + resolver in runtime; viz in the new studio app). Genuine gap.
 5. **Experience Registry** — **Ship Seam C.** Genuine gap.
 6. **Planner architecture** — **Ship Seam D** (hybrid deterministic + LLM). Genuine gap.
 7. **AG-UI runtime evolution** — Additive: `'experience'` layout source, `ExperiencePlanContextContributor`,
    plan-narrowed `TOOL_FILTER`. Run-loop (`runUntilSettled`) unchanged.
 8. **A2UI runtime evolution** — Reuse existing A2UI backend + `mcp-ui` inbound rendering (ADR-049). Add
    an A2UI mapping for `ExperiencePlan` → component tree. No rewrite.
-9. **Experience Studio** — **Ship Seam E** inside ops-console. Replaces "Self Serve."
-10. **Platform Studio** — Correct to "control-plane console." Ops-console already has topology/editors/
-    audit/realtime; add Experience/Prompt/Policy/Navigation modules as tabs. Not a new app.
+9. **Experience Studio** — **Ship Seam E** as a **new dedicated app** (`platform/agentic-experience-studio`).
+   Ops-console is untouched.
+10. **Platform Studio** — the **new dedicated authoring app** hosts all Studio modules
+    (Experience/Prompt/Policy/Navigation + graph viz). Ops-console (topology/audit/realtime) stays a
+    **separate, unchanged** app that matures on its own track — we do not add authoring tabs to it.
 11. **Dynamic dashboards** — **Reuse** `DashboardRegistry` (ADR-044). Wire dashboards as planner outputs.
 12. **Dynamic forms** — **Reuse** F1 composable forms + `FormRegistry`. Reusable blocks already the model.
 13. **User preference architecture** — **Reuse** `LayeredLayoutStore` tiers + `PersistenceRegistry`
@@ -312,9 +326,10 @@ Each proposal deliverable, corrected to the real codebase. "Ship" = build; "Reus
     embedding cache, tile cache (existing), CDN for MFE manifests.
 28. **Versioning strategy** — Reuse `requiredHostVersion` semver gate + template/dashboard/playbook
     version chains (`parentVersion`). Experiences reuse the same chain. §12.
-29. **Migration from Self Serve** — §13. Formly-JSON-in-DB → Experience composition, staged, with a
-    compatibility bridge. This targets the *downstream enterprise app*, not this platform repo.
-30. **Future roadmap** — §14. Slots into platform-evolution-plan M-milestones; A2A/OpenFeature stay Tier 3.
+29. **~~Migration from Self Serve~~** — **Out of scope.** Removed at the platform owner's direction.
+    This platform repo has no Formly/DB-form baseline to migrate; any Self-Serve migration is a concern
+    of a downstream enterprise app and is not part of this plan.
+30. **Future roadmap** — §13. Slots into platform-evolution-plan M-milestones; A2A/OpenFeature stay Tier 3.
 
 ---
 
@@ -330,11 +345,15 @@ Each proposal deliverable, corrected to the real codebase. "Ship" = build; "Reus
                                         #   resolver, ExperiencePlanner core, provideExperiencePlatform()
 @infra-tools/agentic-ui-server          # ADD: server-side experience plan handler (optional)
 platform/agentic-catalog-server         # ADD: /experiences routes + 010_experiences.sql (Hono)
-platform/agentic-ops-console            # ADD: Experience/Prompt/Policy/Navigation Studio modules
-                                        #   + dependency-edge graph view
+platform/agentic-experience-studio      # NEW app — Experience/Prompt/Policy/Navigation authoring
+                                        #   + dependency-edge graph view. Purpose-built for
+                                        #   enterprise UX; INDEPENDENT of ops-console.
+platform/agentic-ops-console            # UNCHANGED — explicitly out of scope. No AEP work lands
+                                        #   here; it matures its enterprise UX on its own track.
 @infra-tools/agentic-experience-planner # OPTIONAL new pkg — only if semantic planning + graph
                                         #   traversal exceed the runtime bundle budget; keeps
-                                        #   heavy deps out of the core FESM (mirrors ops-console/cytoscape)
+                                        #   heavy deps out of the core FESM (mirrors the
+                                        #   cytoscape-off-the-runtime precedent, ADR-037)
 ```
 
 Rationale: the runtime bundle budget (~720 KB) is the hard constraint. Registry subclasses are cheap;
@@ -440,7 +459,7 @@ filtering only).
 - **Reuse:** `TileResultCache` (dashboards), single-`computed()` `LayoutResolver`, capability prefetch +
   activation events, SSE fan-out via pg LISTEN/NOTIFY (multi-replica), embedding search topK.
 - **Graph traversal:** the Seam-A resolver is O(V+E) pure function; memoized per experience version.
-- **Bundle:** heavy code out of runtime FESM (optional package / ops-console), per ADR-037 precedent.
+- **Bundle:** heavy code out of runtime FESM (optional package / new experience-studio app), per ADR-037 precedent.
 
 ## 12. Versioning strategy
 
@@ -450,31 +469,13 @@ the **same** chain semantics and approval state machine (`draft→review→appro
 implementations of one capability resolve via Seam-A `tag`-based late binding + conflict policy. No new
 versioning machinery.
 
-## 13. Migration path from Self Serve
-
-Targets the **downstream enterprise app** (Formly-JSON-in-DB), not this platform repo (which has no
-Formly). Staged, reversible:
-
-1. **Catalog the blocks.** Register the app's recurring Formly fragments (customer search, address, doc
-   upload, date range, approval, comments) as `FormRegistry` / `ComponentRegistry` capabilities. No UI
-   change yet.
-2. **Bridge.** A `SchemaTransformerRegistry` transformer maps stored Formly JSON → `FormDef` at read
-   time, so existing DB forms render through the runtime unchanged (backward-compatible cutover).
-3. **Compose.** Re-express each intake form as an `ExperienceDef` referencing the catalogued blocks via
-   `requires`. Admins compose in Experience Studio; the DB stops being the UI source of truth.
-4. **Plan.** Enable the Experience Planner for migrated experiences; retire the static form loader.
-5. **Decommission.** Move workflows to the rule-engine/WorkflowRegistry; archive Formly JSON.
-
-At every step both paths run in parallel; rollback = flip the source flag. Preferences migrate into the
-layered tiers separately.
-
-## 14. Future roadmap (slots into platform-evolution-plan M1–M8)
+## 13. Future roadmap (slots into platform-evolution-plan M1–M8)
 
 | Milestone | AEP work |
 |---|---|
 | Near (with control-plane M-tier) | Seam A (graph metadata + resolver), Seam B (PromptRegistry, WorkflowRegistry, NavigationRegistry) |
-| Mid | Seam C (Experience Registry) + Seam F (catalog `/experiences` + migration `010`) |
-| Mid+ | Seam D (Experience Planner — deterministic, then hybrid), Seam E (Experience Studio in ops-console) |
+| Mid | Seam C (Experience Registry) + Seam F (catalog `/experiences` + schema migration `010`) |
+| Mid+ | Seam D (Experience Planner — deterministic, then hybrid), Seam E (Experience Studio — new dedicated app) |
 | Later | SkillRegistry, KnowledgeRegistry, MemoryRegistry (align to ROADMAP Tier 1.4), semantic experience ranking |
 | Tier 3 (unchanged — wait-and-see) | A2A protocol, OpenFeature flags, computer use, agent handoffs, external workflow engines |
 
@@ -482,13 +483,14 @@ Cadence follows GOVERNANCE.md: each seam = one RFC + 7-day comment + TSC vote be
 
 ---
 
-## 15. Risks & guardrails
+## 14. Risks & guardrails
 
 | Risk | Guardrail |
 |---|---|
 | Greenfield rebuild of shipped subsystems | This plan forbids re-implementing LayoutResolver/DashboardRegistry/FormRegistry/catalog server. Seams are additive only. |
 | Registry sprawl | Only 6 new registries, each with a clear no-home justification; ADR-guidance honored (governance hooks over new registries elsewhere). |
-| Bundle-budget breach | Graph viz + heavy planner deps live in ops-console / optional package, never the runtime FESM. |
+| Bundle-budget breach | Graph viz + heavy planner deps live in the new experience-studio app / an optional package, never the runtime FESM. |
+| Piling onto an immature admin app | Ops-console is explicitly out of scope; all authoring lands in the new dedicated studio app so ops-console can mature its enterprise UX independently. |
 | Runtime non-goal violation (OPA/OpenSearch in bundle) | Policy stays sidecar; knowledge/retrieval stay adapter-side; runtime holds metadata only. |
 | Planner opacity | Deterministic pre-plan + `rationale` in the audit chain; LLM only refines, never silently decides scope. |
 | Breaking change | Every field optional; every source additive; ADR-010 D4 verified per seam. |
@@ -496,7 +498,7 @@ Cadence follows GOVERNANCE.md: each seam = one RFC + 7-day comment + TSC vote be
 
 ---
 
-## 16. What to do next
+## 15. What to do next
 
 1. Socialize this verification + refinement; decide go/no-go on the AEP core (Seams A–F).
 2. If go: open RFC-A (capability dependency graph) first — it unblocks C, D, E.
