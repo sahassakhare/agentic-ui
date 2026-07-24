@@ -9,6 +9,7 @@ import type { SlotMap } from '../types';
  */
 export type LayoutInputSource =
   | 'agent'           // setWorkspaceLayout tool — volatile, highest priority
+  | 'experience'      // AEP ExperiencePlan seed — below agent, above user-saved
   | 'user-saved'      // user's personal pinned layout
   | 'matter-default'  // matter-lead pushed custom shape
   | 'alert'           // time-sensitive contextual switch (deadline approaching)
@@ -27,6 +28,7 @@ export type LayoutInputSource =
  */
 export const DEFAULT_LAYOUT_WEIGHTS: Readonly<Record<LayoutInputSource, number>> = {
   agent: 1000,
+  experience: 900,
   'user-saved': 800,
   'matter-default': 600,
   alert: 400,

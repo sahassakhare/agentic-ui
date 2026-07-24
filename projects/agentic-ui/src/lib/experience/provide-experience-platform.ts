@@ -1,6 +1,8 @@
 import { makeEnvironmentProviders, type EnvironmentProviders } from '@angular/core';
 import { CONTEXT_CONTRIBUTOR } from '../layout/agent-context/types';
+import { LAYOUT_INPUT } from '../layout/resolver/types';
 import { ExperiencePlanContextContributor } from './experience-plan-context-contributor';
+import { ExperienceLayoutInput } from './experience-layout-input';
 
 export interface ExperiencePlatformConfig {
   /**
@@ -10,6 +12,13 @@ export interface ExperiencePlatformConfig {
    * fragment to actually reach the model.
    */
   readonly includePlanContext?: boolean;
+  /**
+   * Register the `ExperienceLayoutInput` so the active plan's `layout`
+   * template seeds the workspace layout at the `experience` precedence source.
+   * Default `true`. Requires a `LayoutResolver` (root-provided) and an approved
+   * `LayoutTemplateRegistry` entry matching the plan's layout name.
+   */
+  readonly includeLayoutInput?: boolean;
 }
 
 /**
@@ -37,6 +46,13 @@ export function provideExperiencePlatform(config: ExperiencePlatformConfig = {})
     providers.push({
       provide: CONTEXT_CONTRIBUTOR,
       useExisting: ExperiencePlanContextContributor,
+      multi: true,
+    });
+  }
+  if (config.includeLayoutInput ?? true) {
+    providers.push({
+      provide: LAYOUT_INPUT,
+      useExisting: ExperienceLayoutInput,
       multi: true,
     });
   }
