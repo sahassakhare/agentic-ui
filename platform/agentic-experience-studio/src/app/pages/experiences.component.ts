@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../services/auth.service';
 import { ExperienceCatalogService, type Experience } from '../services/experience-catalog.service';
+import { parseRequirementLines } from '../experience-form';
 
 /**
  * Experience list — the studio's landing surface (AEP Seam E). Lists the
@@ -21,6 +22,22 @@ import { ExperienceCatalogService, type Experience } from '../services/experienc
     </section>
 
     <h1>Experiences</h1>
+
+    <details class="create" [open]="createOpen()">
+      <summary (click)="toggleCreate($event)">+ New experience</summary>
+      <div class="form">
+        <label>Name (id) <input [(ngModel)]="newName" placeholder="legalIntake" /></label>
+        <label>Title <input [(ngModel)]="newTitle" placeholder="Legal Intake" /></label>
+        <label>Goal <input [(ngModel)]="newGoal" placeholder="Create Legal Matter" /></label>
+        <label class="wide">Requirements — one per line: <code>kind selector [optional]</code>
+          <textarea rows="4" [(ngModel)]="newRequires"
+            placeholder="form customerSearch&#10;tool conflictCheck&#10;component #result-card&#10;tool aiSummary optional"></textarea>
+        </label>
+        <button [disabled]="!canCreate() || saving()" (click)="create()">
+          {{ saving() ? 'Creating…' : 'Create (draft)' }}
+        </button>
+      </div>
+    </details>
 
     @if (error()) { <p class="error">{{ error() }}</p> }
     @if (loading()) { <p>Loading…</p> }
@@ -44,7 +61,12 @@ import { ExperienceCatalogService, type Experience } from '../services/experienc
     .conn { display: flex; gap: 1rem; align-items: end; flex-wrap: wrap; margin-bottom: 1rem;
       padding: .75rem; border: 1px solid color-mix(in srgb, currentColor 15%, transparent); border-radius: 8px; }
     label { display: flex; flex-direction: column; font-size: .75rem; gap: .25rem; }
-    input { padding: .35rem .5rem; }
+    input, textarea { padding: .35rem .5rem; font: inherit; }
+    .create { margin-bottom: 1rem; }
+    .create summary { cursor: pointer; padding: .4rem 0; font-weight: 600; }
+    .create .form { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; padding: .5rem 0; }
+    .create .form .wide { grid-column: 1 / -1; }
+    .create button { grid-column: 1 / -1; justify-self: start; padding: .4rem 1rem; }
     .list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
     .list li { display: flex; gap: .75rem; align-items: center; padding: .6rem .75rem;
       border: 1px solid color-mix(in srgb, currentColor 12%, transparent); border-radius: 8px; }
@@ -68,6 +90,45 @@ export class ExperiencesComponent {
 
   tenant = this.auth.tenant() ?? '';
   token = '';
+
+  // Create form state.
+  readonly createOpen = signal(false);
+  readonly saving = signal(false);
+  newName = '';
+  newTitle = '';
+  newGoal = '';
+  newRequires = '';
+
+  canCreate(): boolean {
+    return this.newName.trim() !== '' && this.newTitle.trim() !== '' && this.newGoal.trim() !== '';
+  }
+
+  toggleCreate(ev: Event): void {
+    ev.preventDefault();
+    this.createOpen.update((v) => !v);
+  }
+
+  create(): void {
+    if (!this.canCreate()) return;
+    this.saving.set(true);
+    this.error.set(null);
+    this.catalog
+      .create({
+        name: this.newName.trim(),
+        title: this.newTitle.trim(),
+        goal: this.newGoal.trim(),
+        body: { requires: parseRequirementLines(this.newRequires) },
+      })
+      .subscribe({
+        next: (created) => {
+          this.saving.set(false);
+          this.createOpen.set(false);
+          this.newName = this.newTitle = this.newGoal = this.newRequires = '';
+          this.items.update((cur) => [created, ...cur]);
+        },
+        error: (err) => { this.error.set(describe(err)); this.saving.set(false); },
+      });
+  }
 
   constructor() {
     if (this.auth.tenant()) this.refresh();
