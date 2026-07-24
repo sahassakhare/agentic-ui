@@ -70,6 +70,7 @@ export function createPgMemPool(options: PgMemPoolOptions = {}): PgMemHandle {
     '006_capability_embeddings.sql',
     '007_agents.sql',
     '008_policy_bundles.sql',
+    '010_experiences.sql',
     // 009_agents_policy_safety.sql intentionally skipped in tests:
     // it's an idempotent re-declaration of 007/008 (CREATE TABLE
     // IF NOT EXISTS) for production deployments where the

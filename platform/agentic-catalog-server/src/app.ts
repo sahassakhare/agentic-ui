@@ -8,6 +8,7 @@ import { healthRoutes } from './routes/health.js';
 import { capabilitiesRoutes } from './routes/capabilities.js';
 import { mfesRoutes } from './routes/mfes.js';
 import { agentsRoutes } from './routes/agents.js';
+import { experiencesRoutes } from './routes/experiences.js';
 import { policyRoutes } from './routes/policy.js';
 import { roleMappingsRoutes } from './routes/role-mappings.js';
 import { auditRoutes } from './routes/audit.js';
@@ -128,6 +129,7 @@ export function buildApp(deps: AppDeps): Hono {
   v1.route('/catalogs/:tenant/capabilities', capabilitiesRoutes(deps.pool, deps.embeddings));
   v1.route('/catalogs/:tenant/mfes', mfesRoutes(deps.pool));
   v1.route('/catalogs/:tenant/agents', agentsRoutes(deps.pool));
+  v1.route('/catalogs/:tenant/experiences', experiencesRoutes(deps.pool));
   v1.route('/catalogs/:tenant/policy', policyRoutes(deps.pool, deps.opa ?? makeOpaClient(null)));
   v1.route('/catalogs/:tenant/role-mappings', roleMappingsRoutes(deps.pool));
   v1.route('/catalogs/:tenant/audit', auditRoutes(deps.pool));
