@@ -1,124 +1,214 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ExperienceCatalogService, type Experience } from '../services/experience-catalog.service';
 import { parseRequirementLines } from '../experience-form';
+import { ToastService } from '../services/toast.service';
+
+type StateFilter = 'all' | 'draft' | 'review' | 'approved' | 'rejected' | 'deprecated';
+const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', 'rejected', 'deprecated'];
 
 /**
  * Experience list — the studio's landing surface (AEP Seam E). Lists the
- * tenant's experiences with their approval state, and a minimal connection
- * bar to set the tenant + token (the studio talks to the same catalog server
- * as the ops console, independently).
+ * tenant's experiences with approval state, a state-filter segmented control,
+ * live search, and an inline authoring form. Product-quality states throughout.
  */
 @Component({
   selector: 'aes-experiences',
   imports: [RouterLink, FormsModule],
   template: `
-    <h1>Experiences</h1>
-
-    <details class="create" [open]="createOpen()">
-      <summary (click)="toggleCreate($event)">+ New experience</summary>
-      <div class="form">
-        <label>Name (id) <input [(ngModel)]="newName" placeholder="legalIntake" /></label>
-        <label>Title <input [(ngModel)]="newTitle" placeholder="Legal Intake" /></label>
-        <label>Goal <input [(ngModel)]="newGoal" placeholder="Create Legal Matter" /></label>
-        <label class="wide">Requirements — one per line: <code>kind selector [optional]</code>
-          <textarea rows="4" [(ngModel)]="newRequires"
-            placeholder="form customerSearch&#10;tool conflictCheck&#10;component #result-card&#10;tool aiSummary optional"></textarea>
-        </label>
-        <button [disabled]="!canCreate() || saving()" (click)="create()">
-          {{ saving() ? 'Creating…' : 'Create (draft)' }}
+    <div class="page">
+      <div class="page-header">
+        <div class="titles">
+          <span class="eyebrow">Seam C · Experience registry</span>
+          <h1>Experiences</h1>
+          <p class="subtitle">A business goal plus the capabilities it needs. Author it here, resolve its
+            plan, and walk it through approval before the runtime will serve it.</p>
+        </div>
+        <button class="btn btn-primary" type="button" (click)="toggleCreate()" [attr.aria-expanded]="createOpen()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          New experience
         </button>
       </div>
-    </details>
 
-    @if (error()) { <p class="error">{{ error() }}</p> }
-    @if (loading()) { <p>Loading…</p> }
-
-    @if (!loading() && items().length === 0) {
-      <p class="muted">No experiences yet for this tenant.</p>
-    }
-
-    <ul class="list">
-      @for (e of items(); track e.id) {
-        <li>
-          <a [routerLink]="['/experiences', e.id]"><strong>{{ e.title }}</strong></a>
-          <code>{{ e.name }}</code>
-          <span class="badge" [class]="e.approvalState">{{ e.approvalState }}</span>
-          <span class="goal">{{ e.goal }}</span>
-        </li>
+      @if (createOpen()) {
+        <form class="card card-pad create" (ngSubmit)="create()">
+          <div class="grid-2">
+            <div class="field">
+              <label class="label" for="e-name">Name (id) <span class="req" aria-hidden="true">*</span></label>
+              <input class="input" id="e-name" name="name" [(ngModel)]="newName" placeholder="legalIntake"
+                     [attr.aria-invalid]="touched() && !newName.trim()" autocomplete="off" spellcheck="false" />
+              @if (touched() && !newName.trim()) { <span class="err">A unique name is required.</span> }
+            </div>
+            <div class="field">
+              <label class="label" for="e-title">Title <span class="req" aria-hidden="true">*</span></label>
+              <input class="input" id="e-title" name="title" [(ngModel)]="newTitle" placeholder="Legal Intake"
+                     [attr.aria-invalid]="touched() && !newTitle.trim()" autocomplete="off" />
+              @if (touched() && !newTitle.trim()) { <span class="err">A title is required.</span> }
+            </div>
+            <div class="field" style="grid-column:1 / -1">
+              <label class="label" for="e-goal">Goal <span class="req" aria-hidden="true">*</span></label>
+              <input class="input" id="e-goal" name="goal" [(ngModel)]="newGoal" placeholder="Create Legal Matter"
+                     [attr.aria-invalid]="touched() && !newGoal.trim()" />
+              @if (touched() && !newGoal.trim()) { <span class="err">A goal is required.</span> }
+            </div>
+            <div class="field" style="grid-column:1 / -1">
+              <label class="label" for="e-req">Requirements</label>
+              <textarea class="textarea" id="e-req" name="req" rows="4" [(ngModel)]="newRequires"
+                placeholder="form customerSearch&#10;tool conflictCheck&#10;component #result-card&#10;tool aiSummary optional"></textarea>
+              <span class="help">One per line: <code>kind selector [optional]</code>. These become the dependency graph.</span>
+            </div>
+          </div>
+          <div class="row" style="margin-top:var(--s5)">
+            <button class="btn btn-primary" type="submit" [disabled]="saving()">
+              @if (saving()) { <span class="spinner" aria-hidden="true"></span> Creating… } @else { Create as draft }
+            </button>
+            <button class="btn btn-ghost" type="button" (click)="cancelCreate()">Cancel</button>
+          </div>
+        </form>
       }
-    </ul>
+
+      <div class="toolbar">
+        <div class="segmented" role="tablist" aria-label="Filter by approval state">
+          @for (f of filters; track f) {
+            <button role="tab" [attr.aria-selected]="filter() === f" class="seg" [class.on]="filter() === f" (click)="filter.set(f)">
+              {{ f }}
+              @if (f !== 'all') { <span class="seg-count">{{ countOf(f) }}</span> }
+            </button>
+          }
+        </div>
+        <div class="search spacer" style="max-width:300px; flex:1">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <input class="input" type="search" [(ngModel)]="query" aria-label="Search experiences" placeholder="Search experiences…" />
+        </div>
+      </div>
+
+      @if (loading()) {
+        <ul class="rows" aria-hidden="true">
+          @for (i of [1,2,3]; track i) { <li class="skeleton skeleton-row"></li> }
+        </ul>
+      } @else if (error()) {
+        <div class="empty" role="alert">
+          <div class="empty-icon" style="background:var(--danger-soft);color:var(--danger)">!</div>
+          <h3>Couldn’t load experiences</h3>
+          <p class="muted">{{ error() }}</p>
+          <button class="btn" type="button" (click)="refresh()">Retry</button>
+        </div>
+      } @else if (items().length === 0) {
+        <div class="empty">
+          <div class="empty-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 3 3 8l9 5 9-5-9-5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m3 13 9 5 9-5M3 8v8" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" opacity=".5"/></svg>
+          </div>
+          <h3>No experiences yet</h3>
+          <p>Define your first goal — the platform will resolve which capabilities it needs.</p>
+          <button class="btn btn-primary" type="button" (click)="openCreate()">New experience</button>
+        </div>
+      } @else if (visible().length === 0) {
+        <div class="empty">
+          <h3>No matches</h3>
+          <p>Nothing matches the current filter{{ query() ? ' and search' : '' }}.</p>
+          <button class="btn btn-ghost" type="button" (click)="clearFilters()">Clear filters</button>
+        </div>
+      } @else {
+        <ul class="rows">
+          @for (e of visible(); track e.id) {
+            <li class="rowcard exp">
+              <a class="main" [routerLink]="['/experiences', e.id]">
+                <div class="row" style="gap:var(--s3)">
+                  <span class="name">{{ e.title }}</span>
+                  <span class="badge" [class]="badgeClass(e.approvalState)">{{ e.approvalState }}</span>
+                </div>
+                <div class="row" style="gap:var(--s3); margin-top:2px">
+                  <span class="mono-id">{{ e.name }}</span>
+                  <span class="desc" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ e.goal }}</span>
+                </div>
+              </a>
+              <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </li>
+          }
+        </ul>
+      }
+    </div>
   `,
   styles: [`
-    label { display: flex; flex-direction: column; font-size: .75rem; gap: .25rem; }
-    input, textarea { padding: .35rem .5rem; font: inherit; }
-    .create { margin-bottom: 1rem; }
-    .create summary { cursor: pointer; padding: .4rem 0; font-weight: 600; }
-    .create .form { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; padding: .5rem 0; }
-    .create .form .wide { grid-column: 1 / -1; }
-    .create button { grid-column: 1 / -1; justify-self: start; padding: .4rem 1rem; }
-    .list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
-    .list li { display: flex; gap: .75rem; align-items: center; padding: .6rem .75rem;
-      border: 1px solid color-mix(in srgb, currentColor 12%, transparent); border-radius: 8px; }
-    code { opacity: .7; font-size: .8rem; }
-    .goal { opacity: .6; margin-left: auto; font-size: .85rem; }
-    .badge { font-size: .7rem; text-transform: uppercase; padding: .1rem .4rem; border-radius: 4px;
-      background: color-mix(in srgb, currentColor 12%, transparent); }
-    .badge.approved { background: color-mix(in srgb, green 30%, transparent); }
-    .badge.review { background: color-mix(in srgb, orange 30%, transparent); }
-    .error { color: crimson; }
-    .muted { opacity: .6; }
+    .create { margin-bottom: var(--s5); }
+    .toolbar { display: flex; align-items: center; gap: var(--s4); margin: var(--s5) 0 var(--s4); flex-wrap: wrap; }
+    .segmented { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-sm); }
+    .seg { font: inherit; font-size: var(--fs-sm); text-transform: capitalize; color: var(--text-muted);
+      background: transparent; border: 0; border-radius: 5px; padding: .3rem .6rem; cursor: pointer; display: inline-flex; align-items: center; gap: var(--s2); }
+    .seg:hover { color: var(--text); }
+    .seg.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); font-weight: 600; }
+    .seg-count { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint); background: var(--surface-2); padding: 0 .35rem; border-radius: var(--r-full); }
+    .seg.on .seg-count { background: var(--brand-soft); color: var(--brand); }
+    .rowcard.exp { padding: 0; }
+    .rowcard.exp .main { flex: 1; display: block; padding: var(--s4); color: inherit; text-decoration: none; min-width: 0; }
+    .rowcard.exp .main:hover { text-decoration: none; }
+    .rowcard.exp .chev { color: var(--text-faint); margin-right: var(--s4); flex: none; }
+    .rowcard.exp:hover .chev { color: var(--brand); }
   `],
 })
 export class ExperiencesComponent {
   private readonly catalog = inject(ExperienceCatalogService);
+  private readonly toast = inject(ToastService);
 
   readonly items = signal<readonly Experience[]>([]);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly filters = FILTERS;
+  readonly filter = signal<StateFilter>('all');
+  readonly query = signal('');
 
-  // Create form state.
   readonly createOpen = signal(false);
   readonly saving = signal(false);
-  newName = '';
-  newTitle = '';
-  newGoal = '';
-  newRequires = '';
+  readonly touched = signal(false);
+  newName = ''; newTitle = ''; newGoal = ''; newRequires = '';
 
-  canCreate(): boolean {
-    return this.newName.trim() !== '' && this.newTitle.trim() !== '' && this.newGoal.trim() !== '';
+  readonly visible = computed(() => {
+    const f = this.filter();
+    const q = this.query().trim().toLowerCase();
+    return this.items().filter((e) => {
+      if (f !== 'all' && e.approvalState !== f) return false;
+      if (!q) return true;
+      return e.title.toLowerCase().includes(q) || e.name.toLowerCase().includes(q) || e.goal.toLowerCase().includes(q);
+    });
+  });
+
+  constructor() { this.refresh(); }
+
+  countOf(f: StateFilter): number { return this.items().filter((e) => e.approvalState === f).length; }
+  badgeClass(state: string): string {
+    return state === 'approved' ? 'badge-ok'
+      : state === 'review' ? 'badge-warn'
+      : state === 'rejected' || state === 'deprecated' ? 'badge-danger'
+      : 'badge-info';
   }
 
-  toggleCreate(ev: Event): void {
-    ev.preventDefault();
-    this.createOpen.update((v) => !v);
-  }
+  canCreate(): boolean { return !!this.newName.trim() && !!this.newTitle.trim() && !!this.newGoal.trim(); }
+  toggleCreate(): void { this.createOpen.update((v) => !v); if (!this.createOpen()) this.reset(); }
+  openCreate(): void { this.createOpen.set(true); }
+  cancelCreate(): void { this.createOpen.set(false); this.reset(); }
+  clearFilters(): void { this.filter.set('all'); this.query.set(''); }
+  private reset(): void { this.newName = this.newTitle = this.newGoal = this.newRequires = ''; this.touched.set(false); }
 
   create(): void {
+    this.touched.set(true);
     if (!this.canCreate()) return;
     this.saving.set(true);
-    this.error.set(null);
-    this.catalog
-      .create({
-        name: this.newName.trim(),
-        title: this.newTitle.trim(),
-        goal: this.newGoal.trim(),
-        body: { requires: parseRequirementLines(this.newRequires) },
-      })
-      .subscribe({
-        next: (created) => {
-          this.saving.set(false);
-          this.createOpen.set(false);
-          this.newName = this.newTitle = this.newGoal = this.newRequires = '';
-          this.items.update((cur) => [created, ...cur]);
-        },
-        error: (err) => { this.error.set(describe(err)); this.saving.set(false); },
-      });
-  }
-
-  constructor() {
-    this.refresh();
+    this.catalog.create({
+      name: this.newName.trim(),
+      title: this.newTitle.trim(),
+      goal: this.newGoal.trim(),
+      body: { requires: parseRequirementLines(this.newRequires) },
+    }).subscribe({
+      next: (created) => {
+        this.saving.set(false);
+        this.createOpen.set(false);
+        this.reset();
+        this.items.update((cur) => [created, ...cur]);
+        this.toast.success('Experience created', `“${created.title}” is a draft — resolve its plan next.`);
+      },
+      error: (err) => { this.saving.set(false); this.toast.error('Create failed', describe(err)); },
+    });
   }
 
   refresh(): void {
@@ -132,7 +222,9 @@ export class ExperiencesComponent {
 }
 
 function describe(err: unknown): string {
-  const e = err as { status?: number; error?: { message?: string } };
+  const e = err as { status?: number; error?: { message?: string; detail?: string } };
+  if (e?.status === 0) return 'Cannot reach the catalog server.';
   if (e?.status === 401) return 'Session expired — please sign in again.';
-  return e?.error?.message ?? 'Request failed. Check the catalog URL.';
+  if (e?.status === 409) return e.error?.message ?? 'An experience with that name already exists.';
+  return e?.error?.detail ?? e?.error?.message ?? 'Request failed. Check the catalog URL.';
 }

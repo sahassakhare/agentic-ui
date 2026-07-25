@@ -10,107 +10,157 @@ import {
 import { buildExperienceGraphElements, partitionGraph } from '../experience-graph';
 import { formatRequirementLines, parseRequirementLines } from '../experience-form';
 import { GraphViewComponent } from '../graph-view.component';
+import { ToastService } from '../services/toast.service';
 
 /**
- * Experience detail (AEP Seam E) — shows one experience, its capability
- * dependency graph (Seam A viz, dependency edges coloured matched/unmet from
- * a server `/plan` dry-run), and the approval-workflow actions.
+ * Experience detail (AEP Seam E) — one experience, its capability dependency
+ * graph (Seam A viz, edges coloured matched/unmet from a server `/plan`
+ * dry-run), and the approval-workflow actions. Product-quality: skeleton load,
+ * a graph legend, a plan stat strip, and toast feedback for every mutation.
  */
 @Component({
   selector: 'aes-experience-detail',
   imports: [RouterLink, FormsModule, GraphViewComponent],
   template: `
-    <a routerLink="/experiences" class="back">← Experiences</a>
+    <div class="page">
+      <a routerLink="/experiences" class="back">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Experiences
+      </a>
 
-    @if (error()) { <p class="error">{{ error() }}</p> }
+      @if (loading()) {
+        <div class="skeleton" style="height:40px; width:320px; margin:var(--s4) 0"></div>
+        <div class="skeleton" style="height:220px; margin-top:var(--s4)"></div>
+      } @else if (error() && !experience()) {
+        <div class="empty" role="alert" style="margin-top:var(--s5)">
+          <div class="empty-icon" style="background:var(--danger-soft);color:var(--danger)">!</div>
+          <h3>Couldn’t load this experience</h3>
+          <p class="muted">{{ error() }}</p>
+          <a class="btn" routerLink="/experiences">Back to list</a>
+        </div>
+      } @else if (experience(); as e) {
+        <div class="page-header" style="margin-top:var(--s4)">
+          <div class="titles">
+            <span class="eyebrow">Experience · {{ e.name }}</span>
+            <div class="row" style="gap:var(--s3)">
+              <h1>{{ e.title }}</h1>
+              <span class="badge" [class]="badgeClass(e.approvalState)">{{ e.approvalState }}</span>
+            </div>
+            @if (!editing()) { <p class="subtitle" style="font-size:var(--fs-lg); color:var(--text)">{{ e.goal }}</p> }
+          </div>
+          <button class="btn" type="button" (click)="startEdit(e)">{{ editing() ? 'Cancel' : 'Edit' }}</button>
+        </div>
 
-    @if (experience(); as e) {
-      <h1>
-        {{ e.title }}
-        <span class="badge" [class]="e.approvalState">{{ e.approvalState }}</span>
-        <button class="edit" (click)="startEdit(e)">{{ editing() ? 'Cancel' : 'Edit' }}</button>
-      </h1>
-
-      @if (editing()) {
-        <section class="editform">
-          <label>Title <input [(ngModel)]="editTitle" /></label>
-          <label>Goal <input [(ngModel)]="editGoal" /></label>
-          <label class="wide">Requirements — <code>kind selector [optional]</code>
-            <textarea rows="4" [(ngModel)]="editRequires"></textarea>
-          </label>
-          <button [disabled]="saving()" (click)="save()">{{ saving() ? 'Saving…' : 'Save' }}</button>
-        </section>
-      } @else {
-        <p class="goal">{{ e.goal }}</p>
-      }
-      <code>{{ e.name }}</code>
-
-      <section class="actions">
-        <strong>Approval:</strong>
-        @for (a of actions(); track a) {
-          <button (click)="transition(a)">{{ a }}</button>
+        @if (editing()) {
+          <form class="card card-pad" (ngSubmit)="save()" style="margin-bottom:var(--s5)">
+            <div class="grid-2">
+              <div class="field"><label class="label" for="ed-title">Title</label>
+                <input class="input" id="ed-title" name="title" [(ngModel)]="editTitle" /></div>
+              <div class="field"><label class="label" for="ed-goal">Goal</label>
+                <input class="input" id="ed-goal" name="goal" [(ngModel)]="editGoal" /></div>
+              <div class="field" style="grid-column:1 / -1"><label class="label" for="ed-req">Requirements</label>
+                <textarea class="textarea" id="ed-req" name="req" rows="4" [(ngModel)]="editRequires"></textarea>
+                <span class="help">One per line: <code>kind selector [optional]</code>.</span></div>
+            </div>
+            <div class="row" style="margin-top:var(--s5)">
+              <button class="btn btn-primary" type="submit" [disabled]="saving()">
+                @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… } @else { Save changes }
+              </button>
+              <button class="btn btn-ghost" type="button" (click)="editing.set(false)">Cancel</button>
+            </div>
+          </form>
         }
-        <button class="plan" (click)="runPlan()">Resolve plan</button>
-      </section>
 
-      <section class="graph">
-        <h2>Capability dependency graph</h2>
-        @if (graph().nodes.length <= 1) {
-          <p class="muted">No declared requirements.</p>
-        } @else {
-          <aes-graph-view [elements]="graphElements()" />
-        }
-        <ul class="nodes">
-          @for (n of graph().nodes; track n.id) {
-            <li class="node" [class]="n.state">
-              <span class="kind">{{ n.kind }}</span>
-              <span class="label">{{ n.label }}</span>
-              <span class="state">{{ n.state }}</span>
-            </li>
-          }
-        </ul>
+        <!-- Approval + plan action bar -->
+        <div class="card card-pad actionbar">
+          <div class="stack" style="gap:2px">
+            <span class="eyebrow">Approval workflow</span>
+            <span class="muted" style="font-size:var(--fs-sm)">Only approved experiences are served by the runtime.</span>
+          </div>
+          <div class="row spacer" style="gap:var(--s2); flex-wrap:wrap; justify-content:flex-end">
+            @for (a of actions(); track a) {
+              <button class="btn btn-sm" type="button" [class.btn-primary]="a === 'approve'" [class.btn-danger]="a === 'reject' || a === 'revoke'"
+                [disabled]="transitioning()" (click)="transition(a)" style="text-transform:capitalize">{{ a }}</button>
+            }
+            <button class="btn btn-primary btn-sm" type="button" (click)="runPlan()" [disabled]="planning()">
+              @if (planning()) { <span class="spinner" aria-hidden="true"></span> Resolving… } @else { Resolve plan }
+            </button>
+          </div>
+        </div>
+
+        <!-- Plan stat strip -->
         @if (plan(); as p) {
-          <p class="summary" [class.ok]="p.complete">
-            {{ p.matched.length }} matched · {{ p.unmet.length }} unmet
-            {{ p.complete ? '· ✓ all requirements resolvable' : '' }}
-          </p>
+          <div class="stats">
+            <div class="stat"><span class="v">{{ p.matched.length }}</span><span class="k">matched</span></div>
+            <div class="stat" [class.warn]="p.unmet.length > 0"><span class="v">{{ p.unmet.length }}</span><span class="k">unmet</span></div>
+            <div class="stat" [class.ok]="p.complete" [class.bad]="!p.complete">
+              <span class="v">{{ p.complete ? '✓' : '—' }}</span><span class="k">{{ p.complete ? 'resolvable' : 'incomplete' }}</span>
+            </div>
+          </div>
         }
-      </section>
-    }
+
+        <!-- Dependency graph -->
+        <section class="card" style="margin-top:var(--s5); overflow:hidden">
+          <div class="card-pad" style="padding-bottom:var(--s3); display:flex; align-items:center; justify-content:space-between; gap:var(--s3); flex-wrap:wrap">
+            <div class="stack" style="gap:2px">
+              <h2 style="font-size:var(--fs-lg)">Capability dependency graph</h2>
+              <span class="muted" style="font-size:var(--fs-sm)">Seam A — what this goal needs, and whether it resolves.</span>
+            </div>
+            <div class="legend">
+              <span><i class="dot root"></i>goal</span>
+              <span><i class="dot matched"></i>matched</span>
+              <span><i class="dot unmet"></i>unmet</span>
+            </div>
+          </div>
+          @if (graph().nodes.length <= 1) {
+            <div class="empty" style="margin:0 var(--s5) var(--s5); border:0; padding:var(--s6)">
+              <p>No declared requirements yet. <button class="btn btn-ghost btn-sm" (click)="startEdit(e)">Add some</button></p>
+            </div>
+          } @else {
+            <div style="padding:0 var(--s5)"><aes-graph-view [elements]="graphElements()" /></div>
+            <ul class="nodes">
+              @for (n of graph().nodes; track n.id) {
+                <li class="node" [class]="n.state">
+                  <span class="badge plain" [class.badge-info]="n.state==='root'" [class.badge-ok]="n.state==='matched'" [class.badge-danger]="n.state==='unmet'">{{ n.kind }}</span>
+                  <span class="nlabel">{{ n.label }}</span>
+                  <span class="nstate spacer">{{ n.state }}</span>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+    </div>
   `,
   styles: [`
-    .back { text-decoration: none; opacity: .7; }
-    h1 { display: flex; align-items: center; gap: .75rem; }
-    .edit { margin-left: auto; padding: .25rem .7rem; font-size: .8rem; }
-    .editform { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin: .5rem 0 1rem;
-      padding: .75rem; border: 1px solid color-mix(in srgb, currentColor 15%, transparent); border-radius: 8px; }
-    .editform label { display: flex; flex-direction: column; font-size: .75rem; gap: .25rem; }
-    .editform .wide { grid-column: 1 / -1; }
-    .editform input, .editform textarea { padding: .35rem .5rem; font: inherit; }
-    .editform button { grid-column: 1 / -1; justify-self: start; padding: .35rem 1rem; }
-    .goal { font-size: 1.05rem; }
-    code { opacity: .7; }
-    .badge { font-size: .7rem; text-transform: uppercase; padding: .1rem .4rem; border-radius: 4px;
-      background: color-mix(in srgb, currentColor 12%, transparent); }
-    .badge.approved { background: color-mix(in srgb, green 30%, transparent); }
-    .badge.review { background: color-mix(in srgb, orange 30%, transparent); }
-    .actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: 1rem 0; }
-    .actions button { padding: .3rem .7rem; text-transform: capitalize; }
-    .actions .plan { margin-left: auto; }
-    .nodes { list-style: none; padding: 0; display: flex; flex-direction: column; gap: .35rem; }
-    .node { display: flex; gap: .75rem; align-items: center; padding: .4rem .6rem; border-radius: 6px;
-      border-left: 3px solid transparent; background: color-mix(in srgb, currentColor 6%, transparent); }
-    .node.root { border-left-color: steelblue; font-weight: 600; }
-    .node.matched { border-left-color: seagreen; }
-    .node.unmet { border-left-color: crimson; }
-    .kind { font-size: .7rem; text-transform: uppercase; opacity: .6; min-width: 90px; }
-    .state { margin-left: auto; font-size: .7rem; opacity: .6; }
-    .summary { opacity: .8; } .summary.ok { color: seagreen; }
-    .error { color: crimson; } .muted { opacity: .6; }
+    .back { display: inline-flex; align-items: center; gap: var(--s1); color: var(--text-muted); font-size: var(--fs-sm); text-decoration: none; }
+    .back:hover { color: var(--text); text-decoration: none; }
+    .actionbar { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s3); margin-top: var(--s3); }
+    .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s4);
+      display: flex; flex-direction: column; gap: 2px; }
+    .stat .v { font-size: var(--fs-xl); font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1; }
+    .stat .k { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; font-family: var(--font-mono); }
+    .stat.ok { border-color: var(--ok-border); background: var(--ok-soft); } .stat.ok .v { color: var(--ok); }
+    .stat.bad .v { color: var(--text-faint); }
+    .stat.warn .v { color: var(--warn); }
+    .legend { display: flex; gap: var(--s4); font-size: var(--fs-xs); color: var(--text-muted); }
+    .legend span { display: inline-flex; align-items: center; gap: var(--s1); }
+    .legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .dot.root { background: var(--info); } .dot.matched { background: var(--ok); } .dot.unmet { background: var(--danger); }
+    .nodes { list-style: none; margin: 0; padding: var(--s3) var(--s5) var(--s5); display: flex; flex-direction: column; gap: var(--s2); }
+    .node { display: flex; align-items: center; gap: var(--s3); padding: var(--s3); border-radius: var(--r-sm);
+      border: 1px solid var(--border); background: var(--surface); border-left: 3px solid var(--border-strong); }
+    .node.root { border-left-color: var(--info); }
+    .node.matched { border-left-color: var(--ok); }
+    .node.unmet { border-left-color: var(--danger); background: var(--danger-soft); }
+    .nlabel { font-weight: 550; }
+    .nstate { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; font-family: var(--font-mono); }
   `],
 })
 export class ExperienceDetailComponent {
   private readonly catalog = inject(ExperienceCatalogService);
+  private readonly toast = inject(ToastService);
 
   /** Bound from the route param via withComponentInputBinding(). */
   readonly id = input.required<string>();
@@ -118,24 +168,20 @@ export class ExperienceDetailComponent {
   readonly experience = signal<Experience | null>(null);
   readonly plan = signal<ExperiencePlanResult | null>(null);
   readonly error = signal<string | null>(null);
+  readonly loading = signal(true);
+  readonly planning = signal(false);
+  readonly transitioning = signal(false);
 
-  // Edit form state.
   readonly editing = signal(false);
   readonly saving = signal(false);
-  editTitle = '';
-  editGoal = '';
-  editRequires = '';
+  editTitle = ''; editGoal = ''; editRequires = '';
 
-  /** Raw cytoscape elements for the graph view. */
   readonly graphElements = computed(() => {
     const e = this.experience();
     return e ? buildExperienceGraphElements(e, this.plan() ?? undefined) : [];
   });
-
-  /** Partitioned nodes/edges for the accessible text list. */
   readonly graph = computed(() => partitionGraph(this.graphElements()));
 
-  /** Legal approval actions from the current state (mirrors the server machine). */
   readonly actions = computed<ApprovalAction[]>(() => {
     switch (this.experience()?.approvalState) {
       case 'draft': return ['submit', 'deprecate'];
@@ -146,15 +192,20 @@ export class ExperienceDetailComponent {
     }
   });
 
-  constructor() {
-    // Load once the id input is available.
-    queueMicrotask(() => this.load());
+  constructor() { queueMicrotask(() => this.load()); }
+
+  badgeClass(state: string): string {
+    return state === 'approved' ? 'badge-ok'
+      : state === 'review' ? 'badge-warn'
+      : state === 'rejected' || state === 'deprecated' ? 'badge-danger'
+      : 'badge-info';
   }
 
   private load(): void {
+    this.loading.set(true);
     this.catalog.get(this.id()).subscribe({
-      next: (e) => this.experience.set(e),
-      error: (err) => this.error.set(message(err)),
+      next: (e) => { this.experience.set(e); this.loading.set(false); },
+      error: (err) => { this.error.set(message(err)); this.loading.set(false); },
     });
   }
 
@@ -168,45 +219,53 @@ export class ExperienceDetailComponent {
 
   save(): void {
     this.saving.set(true);
-    this.error.set(null);
     const current = this.experience();
-    this.catalog
-      .update(this.id(), {
-        title: this.editTitle.trim(),
-        goal: this.editGoal.trim(),
-        body: { ...(current?.body ?? {}), requires: parseRequirementLines(this.editRequires) },
-      })
-      .subscribe({
-        next: (updated) => {
-          this.experience.set(updated);
-          this.plan.set(null); // stale after a requirements change
-          this.saving.set(false);
-          this.editing.set(false);
-        },
-        error: (err) => { this.error.set(message(err)); this.saving.set(false); },
-      });
+    this.catalog.update(this.id(), {
+      title: this.editTitle.trim(),
+      goal: this.editGoal.trim(),
+      body: { ...(current?.body ?? {}), requires: parseRequirementLines(this.editRequires) },
+    }).subscribe({
+      next: (updated) => {
+        this.experience.set(updated);
+        this.plan.set(null); // stale after a requirements change
+        this.saving.set(false);
+        this.editing.set(false);
+        this.toast.success('Saved', 'Re-resolve the plan to re-check requirements.');
+      },
+      error: (err) => { this.saving.set(false); this.toast.error('Save failed', message(err)); },
+    });
   }
 
   transition(action: ApprovalAction): void {
-    this.error.set(null);
+    this.transitioning.set(true);
     this.catalog.transition(this.id(), action).subscribe({
-      next: (e) => this.experience.set(e),
-      error: (err) => this.error.set(message(err)),
+      next: (e) => {
+        this.transitioning.set(false);
+        this.experience.set(e);
+        this.toast.success('Approval updated', `Now “${e.approvalState}”.`);
+      },
+      error: (err) => { this.transitioning.set(false); this.toast.error('Transition blocked', message(err)); },
     });
   }
 
   runPlan(): void {
-    this.error.set(null);
+    this.planning.set(true);
     this.catalog.plan(this.id()).subscribe({
-      next: (p) => this.plan.set(p),
-      error: (err) => this.error.set(message(err)),
+      next: (p) => {
+        this.planning.set(false);
+        this.plan.set(p);
+        if (p.complete) this.toast.success('Plan resolved', `${p.matched.length} matched · all requirements resolvable.`);
+        else this.toast.info('Plan resolved', `${p.unmet.length} unmet requirement${p.unmet.length === 1 ? '' : 's'}.`);
+      },
+      error: (err) => { this.planning.set(false); this.toast.error('Plan failed', message(err)); },
     });
   }
 }
 
 function message(err: unknown): string {
-  const e = err as { status?: number; error?: { message?: string } };
+  const e = err as { status?: number; error?: { message?: string; detail?: string } };
+  if (e?.status === 0) return 'Cannot reach the catalog server.';
   if (e?.status === 409) return e.error?.message ?? 'Illegal transition for this state.';
   if (e?.status === 401) return 'Unauthorized — reconnect with a valid token.';
-  return e?.error?.message ?? 'Request failed.';
+  return e?.error?.detail ?? e?.error?.message ?? 'Request failed.';
 }

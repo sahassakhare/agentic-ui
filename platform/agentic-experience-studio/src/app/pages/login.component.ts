@@ -6,33 +6,65 @@ import { AuthService, decodeTenant } from '../services/auth.service';
 /**
  * Login screen (AEP Seam E). In `oidc` mode the user pastes a JWT and the
  * tenant is decoded from its claims; in `disabled` mode the user types a
- * tenant id (ADR-022). Mirrors the ops-console login contract.
+ * tenant id (ADR-022). Mirrors the ops-console login contract. Product-grade
+ * centered auth card using the design-system tokens.
  */
 @Component({
   selector: 'aes-login',
   imports: [FormsModule],
   template: `
-    <div class="card">
-      <h1>Experience Studio</h1>
-      @if (auth.authMode === 'oidc') {
-        <p class="muted">Paste a catalog JWT to sign in. The tenant is read from the token.</p>
-        <textarea rows="4" [(ngModel)]="token" placeholder="eyJhbGciOi…"></textarea>
-        @if (previewTenant()) { <p class="hint">tenant: <code>{{ previewTenant() }}</code></p> }
-        <button [disabled]="!token.trim()" (click)="signInOidc()">Sign in</button>
-      } @else {
-        <p class="muted">Auth is disabled on this catalog. Enter a tenant id.</p>
-        <input [(ngModel)]="tenant" placeholder="test-tenant" />
-        <button [disabled]="!tenant.trim()" (click)="signInDisabled()">Continue</button>
-      }
-      @if (error()) { <p class="error">{{ error() }}</p> }
+    <div class="wrap">
+      <div class="card card-pad auth">
+        <div class="brand">
+          <span class="mark" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2 3 7v10l9 5 9-5V7l-9-5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+              <path d="M12 12 3 7m9 5 9-5m-9 5v10" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" opacity=".55"/>
+            </svg>
+          </span>
+          <div class="stack" style="gap:0">
+            <strong>Experience Studio</strong>
+            <span class="faint" style="font-size:var(--fs-xs)">Agentic Experience Platform · Seam E</span>
+          </div>
+        </div>
+
+        @if (auth.authMode === 'oidc') {
+          <form class="stack" (ngSubmit)="signInOidc()">
+            <div class="field">
+              <label class="label" for="tok">Catalog token</label>
+              <textarea class="textarea mono" id="tok" name="tok" rows="4" [(ngModel)]="token" placeholder="eyJhbGciOi…" spellcheck="false"
+                [attr.aria-invalid]="!!error()"></textarea>
+              @if (previewTenant()) { <span class="help">Tenant: <code>{{ previewTenant() }}</code></span> }
+            </div>
+            @if (error()) { <p class="err" role="alert">{{ error() }}</p> }
+            <button class="btn btn-primary" type="submit" [disabled]="!token.trim()">Sign in</button>
+            <p class="faint" style="font-size:var(--fs-xs); margin:0">The tenant is read from the token’s <code>tenant_id</code> claim.</p>
+          </form>
+        } @else {
+          <form class="stack" (ngSubmit)="signInDisabled()">
+            <div class="notice">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.9 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+              Auth is disabled on this catalog — demo / trusted-network only.
+            </div>
+            <div class="field">
+              <label class="label" for="tenant">Tenant</label>
+              <input class="input" id="tenant" name="tenant" [(ngModel)]="tenant" placeholder="acme" autocomplete="off" spellcheck="false" />
+            </div>
+            <button class="btn btn-primary" type="submit" [disabled]="!tenant.trim()">Open tenant</button>
+          </form>
+        }
+      </div>
     </div>
   `,
   styles: [`
-    .card { max-width: 460px; margin: 4rem auto; display: flex; flex-direction: column; gap: .75rem;
-      padding: 1.5rem; border: 1px solid color-mix(in srgb, currentColor 15%, transparent); border-radius: 12px; }
-    textarea, input { padding: .5rem; font: inherit; }
-    button { padding: .5rem 1rem; justify-self: start; }
-    .muted { opacity: .7; } .hint { font-size: .8rem; opacity: .8; } .error { color: crimson; }
+    .wrap { min-height: calc(100vh - 58px); display: grid; place-items: center; padding: var(--s5); }
+    .auth { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: var(--s5); }
+    .brand { display: flex; align-items: center; gap: var(--s3); }
+    .mark { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; background: var(--brand); color: var(--on-brand); box-shadow: var(--shadow-1); }
+    .brand strong { font-size: var(--fs-lg); letter-spacing: -.01em; }
+    .notice { display: flex; align-items: flex-start; gap: var(--s2); font-size: var(--fs-sm); color: var(--warn);
+      background: var(--warn-soft); border: 1px solid var(--warn-border); border-radius: var(--r-sm); padding: var(--s3); }
+    .err { color: var(--danger); font-size: var(--fs-sm); margin: 0; }
   `],
 })
 export class LoginComponent {
