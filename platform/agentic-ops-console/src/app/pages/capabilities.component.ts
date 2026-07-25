@@ -14,6 +14,8 @@ const CAPABILITY_KINDS = [
   'tool', 'component', 'capability', 'backend', 'mfe', 'action', 'intent',
   'form', 'datasource', 'validation', 'persistence', 'layout',
   'schema-transformer', 'approval', 'operation',
+  // AEP Seam B kinds (catalog migration 011) — parity with the Experience Studio.
+  'prompt', 'skill', 'knowledge', 'memory', 'workflow', 'navigation',
 ] as const;
 type CapabilityKind = (typeof CAPABILITY_KINDS)[number];
 
@@ -24,8 +26,12 @@ type Lifecycle = (typeof LIFECYCLES)[number];
   selector: 'ops-capabilities',
   imports: [DatePipe, DecimalPipe, FormsModule, ConfirmDialogComponent],
   template: `
-    <div class="header">
-      <h1>Capabilities</h1>
+    <div class="page-header">
+      <div>
+        <span class="eyebrow">Catalog · registry</span>
+        <h1>Capabilities</h1>
+        <p class="subtitle">Every building block available to this tenant’s experiences — the 15 core kinds plus the six AEP kinds.</p>
+      </div>
       <button class="btn primary" type="button" (click)="openCreate()">+ Register capability</button>
     </div>
 

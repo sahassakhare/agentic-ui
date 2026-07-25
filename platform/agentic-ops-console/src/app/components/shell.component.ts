@@ -12,8 +12,20 @@ import { CatalogStreamService } from '../services/catalog-stream.service';
     <div class="layout">
       <aside>
         <div class="brand">
-          <strong>Agentic</strong>
-          <span class="dim">ops console</span>
+          <span class="mark" aria-hidden="true">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2 3 7v10l9 5 9-5V7l-9-5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+              <path d="M12 12 3 7m9 5 9-5m-9 5v10" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" opacity=".55"/>
+            </svg>
+          </span>
+          <span class="wordmark"><strong>Agentic</strong><span class="dim">ops console</span></span>
+          <button class="theme" type="button" [attr.aria-label]="'Switch to ' + (dark() ? 'light' : 'dark') + ' theme'" (click)="toggleTheme()">
+            @if (dark()) {
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.7"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            } @else {
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 14.3A8 8 0 1 1 9.7 4a6.4 6.4 0 0 0 10.3 10.3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+            }
+          </button>
         </div>
         @if (authMode === 'disabled') {
           <div class="warn-banner">
@@ -91,14 +103,23 @@ import { CatalogStreamService } from '../services/catalog-stream.service';
       flex-direction: column;
     }
     .brand {
-      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
       margin-bottom: 16px;
       padding-bottom: 16px;
       border-bottom: 1px solid var(--border);
     }
-    .brand strong { font-weight: 600; }
+    .brand .mark { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+      background: var(--accent); color: var(--accent-fg); flex: none; box-shadow: var(--shadow-1); }
+    .brand .wordmark { display: flex; flex-direction: column; line-height: 1.15; }
+    .brand strong { font-weight: 650; }
+    .brand .wordmark .dim { font-size: 11px; }
     .dim { color: var(--fg-muted); }
-    .brand span { margin-left: 6px; font-size: 12px; }
+    .brand .theme { margin-left: auto; background: transparent; border: 1px solid var(--border); color: var(--fg-muted);
+      width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; cursor: pointer; }
+    .brand .theme:hover { color: var(--fg); border-color: var(--border-strong); }
     .warn-banner {
       background: rgba(210, 153, 34, 0.12);
       border: 1px solid var(--warn);
@@ -190,6 +211,24 @@ export class ShellComponent {
   readonly principal = this.auth.principal;
   readonly isAdmin = this.auth.isPlatformAdmin;
   readonly tenantInput = signal('');
+  readonly dark = signal(this.initialDark());
+
+  private initialDark(): boolean {
+    const saved = localStorage.getItem('ops-theme');
+    if (saved === 'dark') { document.documentElement.setAttribute('data-theme', 'dark'); return true; }
+    if (saved === 'light') { document.documentElement.setAttribute('data-theme', 'light'); return false; }
+    // Ops console defaults to dark (its heritage look) when nothing is saved.
+    document.documentElement.setAttribute('data-theme', 'dark');
+    return true;
+  }
+
+  toggleTheme(): void {
+    const next = !this.dark();
+    this.dark.set(next);
+    const mode = next ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', mode);
+    localStorage.setItem('ops-theme', mode);
+  }
 
   liveLabel(): string {
     if (this.stream.isLive()) return 'live (SSE)';
