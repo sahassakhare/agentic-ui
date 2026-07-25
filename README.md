@@ -81,7 +81,7 @@ It's the **plumbing between your app code and the agentic protocols**. You write
 ┌─────────────────────────────────▼────────────────────────────────────┐
 │  @infra-tools/agentic-ui                                                │
 │    · Chat shell + widget container + form renderer                   │  ← this library
-│    · 18 registries (tool, component, action, form, trigger, …) all uniform │
+│    · 24 registries (tool, component, action, form, prompt, skill, …) uniform │
 │    · Orchestration loop · runUntilSettled · abort signals            │
 └─────────────────────────────────┬────────────────────────────────────┘
                                   │  AgenticBackend abstraction
@@ -102,7 +102,7 @@ It's the **plumbing between your app code and the agentic protocols**. You write
 
 - **Vendor-agnostic.** AG-UI looks like the leader today; Hashbrown and A2UI are gaining traction. The library treats agent transports as pluggable adapters so you swap backends with a one-line config change, not a chat-shell rewrite.
 - **Microfrontend native.** Multiple teams ship Angular remotes that contribute tools and widgets at runtime via Native Federation (or webpack Module Federation). The host's chat shell discovers them dynamically — no compile-time imports required. An MFE shipped today shows up in tomorrow's chat without redeploying the host.
-- **Registry-uniform.** Eighteen registries — tools, components, actions, intents, forms, validation, persistence, layout, approval (F4), operation (F5), trigger (ADR-045), dashboard (ADR-044), playbook (post-chat-surfaces P5), … — share one `Registry<TDef>` shape. Same `register / list / signal / removeBySource` semantics. Same per-persona `setScopePolicy` filter. Add a new registry for your domain in ~30 LOC of base-class extension.
+- **Registry-uniform.** Twenty-four registries — tools, components, actions, intents, forms, validation, persistence, layout, approval (F4), operation (F5), trigger (ADR-045), dashboard (ADR-044), playbook (post-chat-surfaces P5), prompt / skill / knowledge / memory / workflow / navigation (AEP, ADR-051), … — share one `Registry<TDef>` shape. Same `register / list / signal / removeBySource` semantics. Same per-persona `setScopePolicy` filter. Add a new registry for your domain in ~30 LOC of base-class extension.
 
 If you've ever shipped a chat box where rendering "the flight card" required a `switch` statement on an LLM-emitted string and a separate fetch chain, this library replaces all of that with one `<mvk-chat-shell />` and a typed registry.
 
@@ -117,7 +117,7 @@ The design separates a **framework-agnostic core** from the **UI binding** that 
 | Layer | Package | Status |
 |---|---|---|
 | Framework-agnostic core — types, Zod schemas, protocol contracts, backend adapters, pure orchestration logic | folded into `@infra-tools/agentic-ui` today; extraction to `@infra-tools/agentic-core` is a pending [RFC](./docs/plans/agentic-core-split-plan.md) | ⏳ Planned (RFC) |
-| **Angular 21 binding** — `<mvk-chat-shell>`, 18 registries, widgets, 13 schematics | `@infra-tools/agentic-ui` | ✅ **Production** |
+| **Angular 21 binding** — `<mvk-chat-shell>`, 24 registries, widgets, 13 schematics | `@infra-tools/agentic-ui` | ✅ **Production** |
 | React binding | `@infra-tools/agentic-react` (proposed) | 🗺 Roadmap |
 | Vue / vanilla-web bindings | proposed | 🗺 Roadmap |
 
@@ -126,7 +126,9 @@ The contracts are *already* framework-agnostic — a non-Angular backend can con
 ## Features
 
 - **Pluggable agent backends.** A single `AgenticBackend` interface; ship adapters for AG-UI (`@ag-ui/client` HttpAgent + SSE), Hashbrown (`@hashbrownai/core` length-prefixed frames), and A2UI (`ui-action` event class routed through `ActionRegistry`). All three pass the `runConformance` harness per [ADR-048](./docs/adr/0048-backend-adapter-parity-contract.md). See the [Backend support matrix](#backend-support-matrix) for what's tested end-to-end vs adopter-supplied.
-- **Layered registry system.** Eighteen registries grouped into Core, Extended, and Seam tiers, all sharing one `Registry<TDef>` shape — uniform `register / list / signal / removeBySource` semantics.
+- **Layered registry system.** Twenty-four registries grouped into Core, Extended, and Seam tiers, all sharing one `Registry<TDef>` shape — uniform `register / list / signal / removeBySource` semantics.
+
+- **Agentic Experience Platform (AEP).** Compose a complete enterprise experience from a business goal: a capability dependency graph (`requires`/`produces`), an `ExperienceRegistry`, and a deterministic, access-gated `ExperiencePlanner` that resolves a goal into a concrete, audited capability bundle and seeds the workspace layout — with a dedicated authoring app ([`agentic-experience-studio`](./platform/agentic-experience-studio/)) and catalog persistence. See [ADR-051](./docs/adr/0051-agentic-experience-platform.md), the [AEP plan](./docs/plans/agentic-experience-platform-plan.md), and the [compose-an-experience cookbook](./docs/cookbook/compose-an-experience.md).
 - **Generative UI.** Tool results carrying a `components: [{ name, props }]` field cause the chat shell to render registered Angular components by name through `*ngComponentOutlet`, with Zod-validated props.
 - **MFE federation.** `defineCapabilityModule` packages a remote's tools and widgets; `loadRemoteCapabilities` (Native Federation) and `loadRemoteCapabilitiesMF` (webpack Module Federation) push them into the host's runtime registries. Remote discovery happens through a pluggable `MfeRegistrySource`.
 - **Schematics.** Thirteen generators: `ng-add`, `tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `action`, `intent`, `form`, plus the post-chat-surfaces scaffolds `trigger`, `dashboard`, `playbook`. All snapshot-tested.
@@ -281,7 +283,7 @@ Each feature switch is independently opt-in; the app stays embedded-first when n
 | [Swap the backend](./docs/cookbook/swap-backend.md) | AG-UI ↔ Hashbrown ↔ A2UI; runtime selection via `BackendRegistry`. |
 | [Observability](./docs/cookbook/observability.md) | `provideAgenticTelemetry` wiring; OpenTelemetry SDK integration. |
 | [Platform seams](./docs/architecture/platform-seams.md) | The definitive map of every platform contract — **read first** if integrating or reviewing a PR. |
-| [Registries vs. industry](./docs/architecture/registries-vs-industry.md) | Our 18 registries vs CopilotKit / LangChain / Vercel AI and VS Code / Backstage. |
+| [Registries vs. industry](./docs/architecture/registries-vs-industry.md) | Our 24 registries vs CopilotKit / LangChain / Vercel AI and VS Code / Backstage. |
 | [CHANGELOG](./projects/agentic-ui/CHANGELOG.md) | Release notes. |
 
 The full set of ADRs lives in [`docs/adr/`](./docs/adr/), cookbook entries in [`docs/cookbook/`](./docs/cookbook/), and program plans in [`docs/plans/`](./docs/plans/).

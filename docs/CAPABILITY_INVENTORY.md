@@ -47,6 +47,16 @@ For the surface-by-surface enterprise-readiness analysis (what's wired vs protot
 - **`MatterPhaseLayoutInput`** + **`ACTIVE_MATTER_PHASE_SIGNAL`** — phase-driven layouts (collection / review / production / closed). Generic `string` taxonomy — adopters define their own.
 - **`AlertLayoutInput`** + **`ACTIVE_ALERTS_SIGNAL`** — alert-driven layout pivots (deadlines, SLA breaches, policy violations) with severity gates.
 
+## Agentic Experience Platform tier (ADR-051)
+
+Registry-driven composition of a complete experience from a business goal. Six additive seams — see [ADR-051](./adr/0051-agentic-experience-platform.md) and the [AEP plan](./plans/agentic-experience-platform-plan.md); adopter walkthrough in [compose-an-experience](./cookbook/compose-an-experience.md).
+
+- **Capability dependency graph** — `RegistryEntry.requires?` (`CapabilityRequirement[]`, select by `name` or late-binding `tag`) + `produces?`. Pure **`resolveCapabilityGraph(root, lookup)`** → `{ nodes, edges, unmet, cycles, truncated, order }` (cycle-safe, `maxDepth`-bounded, order-independent completeness). **`createCapabilityLookup(sources)`** builds a lookup over the live registries. No Angular/deps — bundle-cheap.
+- **Six new capability registries** — **`PromptRegistry`**, **`SkillRegistry`**, **`KnowledgeRegistry`** (`byKind`), **`MemoryRegistry`** (`byKind`), **`WorkflowRegistry`**, **`NavigationRegistry`** (`ordered`/`roots`/`childrenOf`) — trivial `RegistryBase<TDef>` subclasses. Validating factories **`agenticPrompt` / `agenticSkill` / `agenticKnowledge` / `agenticMemory` / `agenticNavigation`** (throw at author time).
+- **`ExperienceRegistry`** + **`ExperienceDef`** + **`agenticExperience()`** — business intent (goal + `requires` + `personas`/`requiredPermissions` + `defaultLayout` + advisory `policies`) as a first-class capability. `draft → review → approved` approval state machine (`transition` / `approved` / `pendingReview` / `stateOf` / `approvalChain`) via a lazy overlay that survives conflict policies and prunes on `removeBySource`.
+- **`ExperiencePlanner`** — deterministic `plan(input)` beside the LLM loop: resolve (by id/intent/goal) → **access gate** (approval + persona + `requiredPermissions`, before resolution) → graph traversal into a concrete bundle (`components` / `forms` / `tools` / `dataSources` / `prompts` / `knowledge` / `memory` / `skills` / `workflow` / `layout`) with `unmet` + audit `rationale`. Emits `agentic.experience.plan` / `access_denied` / `unresolved`.
+- **`ExperiencePlanStore`** + **`ExperiencePlanContextContributor`** + **`ExperienceLayoutInput`** + **`provideExperiencePlatform({...})`** — the plan flows into the agent context as `<experience-plan>` and seeds `LayoutResolver` at the new **`experience`** precedence source (weight 900, between `agent` and `user-saved`).
+
 ## Federation + MFE tier
 
 - **`MfeRegistryClient`** + three discovery patterns: **`provideStaticJsonMfeRegistry`** (URL → JSON), *`provideRestMfeRegistry`* (REST endpoint with auth), *`provideSpringBootMfeRegistry`* (Spring Boot catalog adapter).

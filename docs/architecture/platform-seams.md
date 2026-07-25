@@ -34,8 +34,13 @@ Adopters, contributors, and reviewers should read this as the load-bearing docum
 | `provideAgenticTelemetry(config)` | Factory | n/a | n/a | OTel-backed telemetry sink |
 | `provideAgenticTelemetryConsole()` | Factory | n/a | n/a | Pretty-print console sink |
 | `provideTeamsContext(config)` | Factory | n/a | n/a | Teams Tab context bridge (ADR-041 D4) |
+| `provideExperiencePlatform(config)` | Factory | n/a | n/a | AEP experience layer — wires the plan into the agent context + the `experience` layout source (ADR-051 D) |
+| `LAYOUT_INPUT` source `'experience'` | Precedence source | weight 900 (between `agent` 1000 and `user-saved` 800) | (read-only, fed by `ExperienceLayoutInput`) | Seeds the workspace layout from the active `ExperiencePlan` (ADR-051 D) |
+| `ExperiencePlanStore` | Signal service | `null` until a plan is set | `set(plan)` / `clear()` | Holds the active `ExperiencePlan`; the context contributor + layout input read it |
 
-13 injection tokens · 2 method-shaped contracts on every registry (`setScopePolicy` + `setProviderHook`) · 13 `provideX` factories · 4 audit/telemetry hooks · 1 server-side store interface with 3 adapters. **No other contract is platform-level.** Anything else is internal.
+14 injection tokens · 2 method-shaped contracts on every registry (`setScopePolicy` + `setProviderHook`) · 14 `provideX` factories · 4 audit/telemetry hooks · 1 server-side store interface with 3 adapters. **No other contract is platform-level.** Anything else is internal.
+
+> **AEP telemetry (ADR-051 D).** The Experience Planner + registry emit through the existing `AGENTIC_TELEMETRY_SINK`: `agentic.experience.plan`, `agentic.experience.access_denied`, `agentic.experience.unresolved`, `agentic.experience.approval_transition`. Access-control decisions are never silent.
 
 ---
 
