@@ -112,42 +112,62 @@ import { JourneyFlowComponent, type JourneyFlowStep } from '../journey-flow.comp
           </div>
         </div>
 
-        <!-- Plan stat strip -->
-        @if (plan(); as p) {
-          <div class="stats">
-            <div class="stat"><span class="v">{{ p.matched.length }}</span><span class="k">matched</span></div>
-            <div class="stat" [class.warn]="p.unmet.length > 0"><span class="v">{{ p.unmet.length }}</span><span class="k">unmet</span></div>
-            <div class="stat" [class.ok]="p.complete" [class.bad]="!p.complete">
-              <span class="v">{{ p.complete ? '✓' : '—' }}</span><span class="k">{{ p.complete ? 'resolvable' : 'incomplete' }}</span>
-            </div>
-          </div>
-        }
-
-        <!-- Dependency graph -->
+        <!-- Composition & health -->
         <section class="card" style="margin-top:var(--s5); overflow:hidden">
-          <div class="card-pad" style="padding-bottom:var(--s3); display:flex; align-items:center; justify-content:space-between; gap:var(--s3); flex-wrap:wrap">
+          <div class="card-pad comp-head">
             <div class="stack" style="gap:2px">
               <h2 style="font-size:var(--fs-lg)">Composition &amp; health</h2>
               <span class="muted" style="font-size:var(--fs-sm)">What this experience is <em>made of</em> and whether it resolves — the parts list, not the journey.</span>
             </div>
-            <div class="legend">
-              <span><i class="dot root"></i>goal</span>
-              <span><i class="dot matched"></i>matched</span>
-              <span><i class="dot unmet"></i>unmet</span>
-            </div>
+            @if (health(); as h) {
+              <span class="health-pill" [class.ok]="h.complete" [class.warn]="!h.complete">
+                <i class="hdot"></i>{{ h.complete ? 'Resolvable' : h.unmet + ' unmet' }}
+              </span>
+            } @else {
+              <button class="btn btn-primary btn-sm" type="button" (click)="runPlan()" [disabled]="planning()">
+                @if (planning()) { <span class="spinner" aria-hidden="true"></span> Resolving… } @else { Resolve plan }
+              </button>
+            }
           </div>
+
+          @if (health(); as h) {
+            <div class="card-pad health">
+              <div class="cov">
+                <div class="cov-row"><span>Requirement coverage</span><span class="mono">{{ h.matched }}/{{ h.total }} met</span></div>
+                <div class="cov-bar"><span [class.full]="h.complete" [style.width.%]="h.pct"></span></div>
+              </div>
+              <div class="hstats">
+                <div class="hstat ok"><span class="v">{{ h.matched }}</span><span class="k">matched</span></div>
+                <div class="hstat" [class.bad]="h.unmet"><span class="v">{{ h.unmet }}</span><span class="k">unmet</span></div>
+                <div class="hstat"><span class="v">{{ h.total }}</span><span class="k">required</span></div>
+              </div>
+            </div>
+          }
+
           @if (graph().nodes.length <= 1) {
             <div class="empty" style="margin:0 var(--s5) var(--s5); border:0; padding:var(--s6)">
               <p>No declared requirements yet. <button class="btn btn-ghost btn-sm" (click)="startEdit(e)">Add some</button></p>
             </div>
           } @else {
             <div style="padding:0 var(--s5)"><aes-graph-view [elements]="graphElements()" /></div>
+            <div class="legend card-pad" style="padding-block:var(--s3)">
+              <span><i class="dot root"></i>goal</span>
+              <span><i class="dot matched"></i>matched</span>
+              <span><i class="dot unmet"></i>unmet</span>
+              <span><i class="dot optional"></i>optional</span>
+            </div>
             <ul class="nodes">
-              @for (n of graph().nodes; track n.id) {
-                <li class="node" [class]="n.state">
-                  <span class="badge plain" [class.badge-info]="n.state==='root'" [class.badge-ok]="n.state==='matched'" [class.badge-danger]="n.state==='unmet'">{{ n.kind }}</span>
+              @for (n of parts(); track n.id) {
+                <li class="node" [class]="n.optional && n.state === 'unmet' ? 'optional' : n.state">
+                  <span class="badge plain"
+                        [class.badge-info]="n.state === 'root'"
+                        [class.badge-ok]="n.state === 'matched'"
+                        [class.badge-danger]="n.state === 'unmet' && !n.optional"
+                        [class.badge-warn]="n.state === 'unmet' && n.optional">{{ n.kind }}</span>
                   <span class="nlabel">{{ n.label }}</span>
-                  <span class="nstate spacer">{{ n.state }}</span>
+                  @if (n.state === 'unmet' && !n.optional) { <span class="hint">not found in the catalog</span> }
+                  @else if (n.state === 'unmet' && n.optional) { <span class="hint muted-hint">optional · not present</span> }
+                  <span class="nstate spacer">{{ n.optional && n.state === 'unmet' ? 'optional' : n.state }}</span>
                 </li>
               }
             </ul>
@@ -168,17 +188,42 @@ import { JourneyFlowComponent, type JourneyFlowStep } from '../journey-flow.comp
     .stat.ok { border-color: var(--ok-border); background: var(--ok-soft); } .stat.ok .v { color: var(--ok); }
     .stat.bad .v { color: var(--text-faint); }
     .stat.warn .v { color: var(--warn); }
+    .comp-head { padding-bottom: var(--s3); display: flex; align-items: center; justify-content: space-between; gap: var(--s3); flex-wrap: wrap; }
+    .health-pill { display: inline-flex; align-items: center; gap: var(--s2); font-size: var(--fs-sm); font-weight: 600;
+      padding: 4px 12px; border-radius: var(--r-full); border: 1px solid var(--border); }
+    .health-pill .hdot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
+    .health-pill.ok { color: var(--ok); background: var(--ok-soft); border-color: var(--ok-border); }
+    .health-pill.ok .hdot { background: var(--ok); }
+    .health-pill.warn { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-border); }
+    .health-pill.warn .hdot { background: var(--warn); }
+    .health { display: grid; grid-template-columns: 1fr auto; gap: var(--s5); align-items: center; padding-top: 0;
+      padding-bottom: var(--s4); border-bottom: 1px solid var(--border); }
+    .cov { min-width: 0; }
+    .cov-row { display: flex; justify-content: space-between; font-size: var(--fs-sm); color: var(--text-muted); margin-bottom: 6px; }
+    .cov-row .mono { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text); }
+    .cov-bar { height: 8px; border-radius: var(--r-full); background: var(--surface-2); overflow: hidden; }
+    .cov-bar span { display: block; height: 100%; background: var(--warn); border-radius: var(--r-full); transition: width .3s ease; }
+    .cov-bar span.full { background: var(--ok); }
+    .hstats { display: flex; gap: var(--s4); }
+    .hstat { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 52px; }
+    .hstat .v { font-size: var(--fs-lg); font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1; }
+    .hstat .k { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; font-family: var(--font-mono); }
+    .hstat.ok .v { color: var(--ok); }
+    .hstat.bad .v { color: var(--danger); }
     .legend { display: flex; gap: var(--s4); font-size: var(--fs-xs); color: var(--text-muted); }
     .legend span { display: inline-flex; align-items: center; gap: var(--s1); }
     .legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-    .dot.root { background: var(--info); } .dot.matched { background: var(--ok); } .dot.unmet { background: var(--danger); }
+    .dot.root { background: var(--info); } .dot.matched { background: var(--ok); } .dot.unmet { background: var(--danger); } .dot.optional { background: var(--warn); }
     .nodes { list-style: none; margin: 0; padding: var(--s3) var(--s5) var(--s5); display: flex; flex-direction: column; gap: var(--s2); }
     .node { display: flex; align-items: center; gap: var(--s3); padding: var(--s3); border-radius: var(--r-sm);
       border: 1px solid var(--border); background: var(--surface); border-left: 3px solid var(--border-strong); }
     .node.root { border-left-color: var(--info); }
     .node.matched { border-left-color: var(--ok); }
     .node.unmet { border-left-color: var(--danger); background: var(--danger-soft); }
+    .node.optional { border-left-color: var(--warn); }
     .nlabel { font-weight: 550; }
+    .hint { font-size: var(--fs-xs); color: var(--danger); font-family: var(--font-mono); }
+    .hint.muted-hint { color: var(--text-muted); }
     .nstate { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; font-family: var(--font-mono); }
     /* Journey (workflow) — the primary view */
     .journey { border-left: 3px solid var(--brand); }
@@ -228,6 +273,34 @@ export class ExperienceDetailComponent {
   });
   readonly graph = computed(() => partitionGraph(this.graphElements()));
 
+  /** Requirement-coverage health, derived from the server `/plan` resolution. */
+  readonly health = computed(() => {
+    const p = this.plan();
+    if (!p) return null;
+    const total = p.matched.length + p.unmet.length;
+    const pct = total ? Math.round((p.matched.length / total) * 100) : 100;
+    return { total, matched: p.matched.length, unmet: p.unmet.length, pct, complete: p.complete };
+  });
+
+  /** Node ids that correspond to an OPTIONAL requirement (unmet ≠ blocking). */
+  private readonly optionalIds = computed(() => {
+    const set = new Set<string>();
+    for (const r of this.experience()?.body.requires ?? []) {
+      if (r.optional) set.add(`${r.kind}:${r.name ?? (r.tag ? `#${r.tag}` : '*')}`);
+    }
+    return set;
+  });
+
+  /** Parts list: root first, then blocking-unmet, optional-unmet, matched. */
+  readonly parts = computed(() => {
+    const opt = this.optionalIds();
+    const rank = (n: { state: string; optional: boolean }) =>
+      n.state === 'root' ? 0 : n.state === 'unmet' && !n.optional ? 1 : n.state === 'unmet' ? 2 : 3;
+    return this.graph().nodes
+      .map((n) => ({ ...n, optional: opt.has(n.id) }))
+      .sort((a, b) => rank(a) - rank(b));
+  });
+
   readonly actions = computed<ApprovalAction[]>(() => {
     switch (this.experience()?.approvalState) {
       case 'draft': return ['submit', 'deprecate'];
@@ -250,9 +323,17 @@ export class ExperienceDetailComponent {
   private load(): void {
     this.loading.set(true);
     this.catalog.get(this.id()).subscribe({
-      next: (e) => { this.experience.set(e); this.loading.set(false); this.loadJourney(e); },
+      next: (e) => { this.experience.set(e); this.loading.set(false); this.loadJourney(e); this.autoResolve(e); },
       error: (err) => { this.error.set(message(err)); this.loading.set(false); },
     });
+  }
+
+  /** Silently resolve the plan on load so Composition & health is accurate
+   *  immediately (no all-unmet default). The action-bar button re-runs it with
+   *  toast feedback. Skipped when there's nothing to resolve. */
+  private autoResolve(e: Experience): void {
+    if (!(e.body.requires ?? []).length) return;
+    this.catalog.plan(this.id()).subscribe({ next: (p) => this.plan.set(p), error: () => { /* keep manual button */ } });
   }
 
   /** Fetch the required workflow capability and expose its steps as the journey. */
