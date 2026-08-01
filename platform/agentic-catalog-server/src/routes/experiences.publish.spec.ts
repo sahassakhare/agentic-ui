@@ -87,6 +87,28 @@ describe('experience publishing + headless embed read', () => {
     expect((await h.fetch(new Request(embedUrl(TENANT, 'matrix-exp'), { headers: { 'x-embed-key': embedKey } }))).status).toBe(404);
   });
 
+  it('GET /:id/publication reflects publish/unpublish status', async () => {
+    const auth = await h.authHeader();
+    const id = await seedApproved(auth, 'status-exp');
+    const pubUrl = `${EXP}/${id}/publication`;
+
+    // Unpublished → { publication: null }
+    let res = await h.fetch(new Request(pubUrl, { headers: { Authorization: auth } }));
+    expect(res.status).toBe(200);
+    expect((await res.json()).publication).toBeNull();
+
+    await post(auth, `${EXP}/${id}/publish`, { allowedOrigins: ['https://portal.acme.com'] });
+    res = await h.fetch(new Request(pubUrl, { headers: { Authorization: auth } }));
+    const { publication } = await res.json();
+    expect(publication.status).toBe('active');
+    expect(publication.allowedOrigins).toEqual(['https://portal.acme.com']);
+    expect(publication).not.toHaveProperty('keyHash'); // never leaks the hash
+
+    await post(auth, `${EXP}/${id}/unpublish`, {});
+    res = await h.fetch(new Request(pubUrl, { headers: { Authorization: auth } }));
+    expect((await res.json()).publication).toBeNull();
+  });
+
   it('rotate-key invalidates the old key and issues a new one', async () => {
     const auth = await h.authHeader();
     const id = await seedApproved(auth, 'rotate-exp');

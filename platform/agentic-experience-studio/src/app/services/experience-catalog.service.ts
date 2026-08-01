@@ -58,6 +58,22 @@ export interface ExperiencePlanResult {
   readonly complete: boolean;
 }
 
+/** An active publication of an approved experience (headless embed). */
+export interface Publication {
+  readonly id: string;
+  readonly experienceId: string;
+  readonly experienceName: string;
+  readonly publishedVersionNo: number;
+  readonly keyPrefix: string;
+  readonly allowedOrigins: readonly string[];
+  readonly status: 'active' | 'revoked';
+  readonly publishedAt: string;
+  readonly publishedBy: string;
+}
+/** Publish/rotate responses carry the RAW embed key exactly once. */
+export interface PublishResult { readonly publication: Publication; readonly embedKey: string; }
+export interface RotateKeyResult { readonly embedKey: string; readonly keyPrefix: string; readonly publication: Publication; }
+
 /**
  * Typed client for the catalog `/experiences` API (AEP Seam F). The studio's
  * only backend dependency — it talks to the same catalog server as the ops
@@ -103,5 +119,19 @@ export class ExperienceCatalogService {
 
   remove(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base()}/${id}`);
+  }
+
+  // ── Publishing (headless embed) ────────────────────────────────────────────
+  getPublication(id: string): Observable<{ publication: Publication | null }> {
+    return this.http.get<{ publication: Publication | null }>(`${this.base()}/${id}/publication`);
+  }
+  publish(id: string, allowedOrigins: string[]): Observable<PublishResult> {
+    return this.http.post<PublishResult>(`${this.base()}/${id}/publish`, { allowedOrigins });
+  }
+  unpublish(id: string): Observable<{ status: string; publication: Publication }> {
+    return this.http.post<{ status: string; publication: Publication }>(`${this.base()}/${id}/unpublish`, {});
+  }
+  rotateKey(id: string): Observable<RotateKeyResult> {
+    return this.http.post<RotateKeyResult>(`${this.base()}/${id}/publish/rotate-key`, {});
   }
 }

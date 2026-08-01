@@ -35,6 +35,7 @@ import {
 import { hashEmbedKey, mintEmbedKey } from '../auth/embed-key.js';
 import { buildPublishedBundle } from '../publication/bundle.js';
 import {
+  findActivePublicationByExperienceId,
   getLatestExperienceVersionNo,
   insertPublication,
   resolveCapabilityBodiesForExperience,
@@ -374,6 +375,20 @@ export function experiencesRoutes(pool: CatalogPool): Hono {
     });
     c.status(201);
     return c.json({ publication: PublicationSchema.parse(toPublication(result)), embedKey: raw });
+  });
+
+  // Current publication status (read; any tenant member). Null when unpublished.
+  app.get('/:id/publication', async (c) => {
+    const principal = c.get('principal');
+    const id = c.req.param('id');
+    if (!isUuid(id)) throw new HTTPException(404, { message: 'Experience not found' });
+    const rec = await withTenantScope(pool, principal, async (client) => {
+      const experience = await findExperienceById(client, id);
+      if (!experience) return undefined;
+      return findActivePublicationByExperienceId(client, id);
+    });
+    if (rec === undefined) throw new HTTPException(404, { message: 'Experience not found' });
+    return c.json({ publication: rec ? PublicationSchema.parse(toPublication(rec)) : null });
   });
 
   // Revoke the active publication — the embed key stops resolving immediately.

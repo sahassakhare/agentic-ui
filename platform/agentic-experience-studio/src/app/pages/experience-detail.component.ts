@@ -7,7 +7,9 @@ import {
   type CapabilityRequirement,
   type Experience,
   type ExperiencePlanResult,
+  type Publication,
 } from '../services/experience-catalog.service';
+import { environment } from '../../environments/environment';
 import { buildExperienceGraphElements, partitionGraph } from '../experience-graph';
 import { GraphViewComponent } from '../graph-view.component';
 import { ToastService } from '../services/toast.service';
@@ -110,6 +112,55 @@ import { RequirementsBuilderComponent } from '../requirements-builder.component'
               @if (planning()) { <span class="spinner" aria-hidden="true"></span> Resolving… } @else { Resolve plan }
             </button>
           </div>
+        </div>
+
+        <!-- Publish · headless embed -->
+        <div class="card card-pad publish">
+          <div class="stack" style="gap:2px; margin-bottom:var(--s3)">
+            <span class="eyebrow">Publish · headless embed</span>
+            <span class="muted" style="font-size:var(--fs-sm)">Publish an approved experience so external portals can render it with the embed SDK — no platform login.</span>
+          </div>
+
+          @if (e.approvalState !== 'approved') {
+            <p class="muted" style="margin:0">Approve this experience first — only approved experiences can be published.</p>
+          } @else if (publication(); as pub) {
+            <div class="pubstate">
+              <span class="badge badge-ok">● published</span>
+              <span class="mono-id">version {{ pub.publishedVersionNo }}</span>
+              <span class="mono-id">key {{ pub.keyPrefix }}</span>
+            </div>
+            <div class="field" style="margin-top:var(--s3)">
+              <span class="label">Allowed origins</span>
+              @if (pub.allowedOrigins.length) {
+                <div class="chips">@for (o of pub.allowedOrigins; track o) { <span class="tag">{{ o }}</span> }</div>
+              } @else { <span class="muted" style="font-size:var(--fs-sm)">none — server-side callers only</span> }
+            </div>
+            <div class="row" style="gap:var(--s2); margin-top:var(--s4)">
+              <button class="btn btn-sm" type="button" (click)="rotateKey()" [disabled]="publishing()">Rotate key</button>
+              <button class="btn btn-sm btn-danger" type="button" (click)="unpublish()" [disabled]="publishing()">Unpublish</button>
+            </div>
+          } @else {
+            <div class="field">
+              <label class="label" for="pub-origins">Allowed origins <span class="help">— comma-separated portal origins that may embed this</span></label>
+              <input class="input" id="pub-origins" name="origins" [(ngModel)]="publishOrigins"
+                     placeholder="https://portal.acme.com, https://intranet.acme.com" autocomplete="off" spellcheck="false" />
+            </div>
+            <button class="btn btn-primary btn-sm" type="button" style="margin-top:var(--s3)" (click)="publish()" [disabled]="publishing()">
+              @if (publishing()) { <span class="spinner" aria-hidden="true"></span> Publishing… } @else { Publish for embedding }
+            </button>
+          }
+
+          @if (revealedKey(); as key) {
+            <div class="keybox">
+              <div class="row" style="justify-content:space-between; align-items:center">
+                <span class="eyebrow" style="color:var(--ok); margin:0">Embed key — shown once</span>
+                <button class="btn btn-ghost btn-sm" type="button" (click)="copyKey(key)">Copy</button>
+              </div>
+              <code class="key">{{ key }}</code>
+              <span class="muted" style="font-size:var(--fs-sm)">Hand this to the portal. It's stored hashed — you won't see it again (rotate to replace).</span>
+              <div class="urlline"><span class="muted" style="font-size:var(--fs-sm)">Manifest URL</span><code>{{ manifestUrl(e) }}</code></div>
+            </div>
+          }
         </div>
 
         <!-- Composition & health -->
@@ -225,6 +276,15 @@ import { RequirementsBuilderComponent } from '../requirements-builder.component'
     .hint { font-size: var(--fs-xs); color: var(--danger); font-family: var(--font-mono); }
     .hint.muted-hint { color: var(--text-muted); }
     .nstate { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; font-family: var(--font-mono); }
+    /* Publish · headless embed */
+    .publish { margin-top: var(--s5); }
+    .pubstate { display: flex; align-items: center; gap: var(--s3); flex-wrap: wrap; }
+    .pubstate .mono-id { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .keybox { margin-top: var(--s4); border: 1px solid var(--ok-border); background: var(--ok-soft); border-radius: var(--r-md); padding: var(--s4); display: flex; flex-direction: column; gap: var(--s2); }
+    .keybox .key { font-family: var(--font-mono); font-size: var(--fs-sm); word-break: break-all; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); padding: var(--s2) var(--s3); color: var(--text); }
+    .keybox .urlline { display: flex; flex-direction: column; gap: 3px; }
+    .keybox .urlline code { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text); word-break: break-all; }
     /* Journey (workflow) — the primary view */
     .journey { border-left: 3px solid var(--brand); }
     .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
@@ -252,6 +312,12 @@ export class ExperienceDetailComponent {
   readonly loading = signal(true);
   readonly planning = signal(false);
   readonly transitioning = signal(false);
+
+  // Publishing (headless embed).
+  readonly publication = signal<Publication | null>(null);
+  readonly publishing = signal(false);
+  readonly revealedKey = signal<string | null>(null);
+  publishOrigins = '';
 
   readonly editing = signal(false);
   readonly saving = signal(false);
@@ -326,8 +392,15 @@ export class ExperienceDetailComponent {
   private load(): void {
     this.loading.set(true);
     this.catalog.get(this.id()).subscribe({
-      next: (e) => { this.experience.set(e); this.loading.set(false); this.loadJourney(e); this.autoResolve(e); },
+      next: (e) => { this.experience.set(e); this.loading.set(false); this.loadJourney(e); this.autoResolve(e); this.loadPublication(); },
       error: (err) => { this.error.set(message(err)); this.loading.set(false); },
+    });
+  }
+
+  private loadPublication(): void {
+    this.catalog.getPublication(this.id()).subscribe({
+      next: (res) => this.publication.set(res.publication),
+      error: () => this.publication.set(null),
     });
   }
 
@@ -408,6 +481,62 @@ export class ExperienceDetailComponent {
       },
       error: (err) => { this.planning.set(false); this.toast.error('Plan failed', message(err)); },
     });
+  }
+
+  // ── Publishing ─────────────────────────────────────────────────────────────
+  private parseOrigins(): string[] {
+    return this.publishOrigins.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+
+  publish(): void {
+    this.publishing.set(true);
+    this.catalog.publish(this.id(), this.parseOrigins()).subscribe({
+      next: (res) => {
+        this.publishing.set(false);
+        this.publication.set(res.publication);
+        this.revealedKey.set(res.embedKey);
+        this.publishOrigins = '';
+        this.toast.success('Published', 'Copy the embed key now — it is shown only once.');
+      },
+      error: (err) => { this.publishing.set(false); this.toast.error('Publish failed', message(err)); },
+    });
+  }
+
+  rotateKey(): void {
+    this.publishing.set(true);
+    this.catalog.rotateKey(this.id()).subscribe({
+      next: (res) => {
+        this.publishing.set(false);
+        this.publication.set(res.publication);
+        this.revealedKey.set(res.embedKey);
+        this.toast.success('Key rotated', 'The previous key stops working immediately.');
+      },
+      error: (err) => { this.publishing.set(false); this.toast.error('Rotate failed', message(err)); },
+    });
+  }
+
+  unpublish(): void {
+    this.publishing.set(true);
+    this.catalog.unpublish(this.id()).subscribe({
+      next: () => {
+        this.publishing.set(false);
+        this.publication.set(null);
+        this.revealedKey.set(null);
+        this.toast.success('Unpublished', 'The embed key no longer resolves.');
+      },
+      error: (err) => { this.publishing.set(false); this.toast.error('Unpublish failed', message(err)); },
+    });
+  }
+
+  copyKey(key: string): void {
+    navigator.clipboard?.writeText(key).then(
+      () => this.toast.success('Copied', 'Embed key copied to the clipboard.'),
+      () => this.toast.info('Copy manually', 'Select the key and copy it.'),
+    );
+  }
+
+  manifestUrl(e: Experience): string {
+    return `${environment.catalogBaseUrl}/v1/embed/${encodeURIComponent(e.tenantId)}/experiences/${encodeURIComponent(e.name)}/manifest`;
   }
 }
 
