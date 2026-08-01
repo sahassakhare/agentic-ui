@@ -65,7 +65,9 @@ describe('role-mappings routes', () => {
 
   // ── PRIVILEGE-ESCALATION GUARD ──────────────────────────────────
   it('non-admin cannot create a mapping to a protected persona (403)', async () => {
-    const auth = await h.authHeader({ roles: ['member'] });
+    // A writer that is NOT platform-admin: passes the per-verb RBAC guard, then
+    // the protected-persona escalation guard must still reject it.
+    const auth = await h.authHeader({ roles: ['editor'] });
     const res = await h.fetch(new Request(BASE, {
       method: 'POST',
       headers: { Authorization: auth, 'Content-Type': 'application/json' },

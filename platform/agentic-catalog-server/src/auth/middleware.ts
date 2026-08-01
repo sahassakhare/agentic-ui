@@ -98,6 +98,52 @@ export function bearerAuth(
   };
 }
 
+/** HTTP methods that mutate state and therefore require write authorization. */
+const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+/** Path suffixes that are POSTs but read-only (no mutation) → exempt from the write guard. */
+const READ_ONLY_POST_SUFFIXES = ['/plan'];
+
+/**
+ * Roles permitted to perform writes under `/v1/catalogs/:tenant/*`.
+ * Override via `CATALOG_WRITER_ROLES` (CSV). `platform-admin` is always
+ * included. Any authenticated principal may still READ; only unsafe methods
+ * (POST/PUT/PATCH/DELETE) are gated — closing the gap where any tenant
+ * `member` could create/update/delete governance-relevant catalog entries.
+ */
+export function writerRolesFromEnv(): readonly string[] {
+  const raw = process.env['CATALOG_WRITER_ROLES'];
+  const parsed = (raw ?? 'catalog-admin,editor').split(',').map((s) => s.trim()).filter(Boolean);
+  return Array.from(new Set(['platform-admin', ...parsed]));
+}
+
+/**
+ * Per-verb RBAC guard. For unsafe methods, requires the principal to hold at
+ * least one writer role; reads pass for any authenticated principal. Read-only
+ * POSTs (e.g. `…/plan` dry-runs) are exempt. Use AFTER `requireTenantScope`.
+ */
+export function requireWriteAccess(writerRoles: readonly string[]): MiddlewareHandler {
+  const roleSet = new Set(writerRoles);
+  return async (c: Context, next) => {
+    if (UNSAFE_METHODS.has(c.req.method.toUpperCase())) {
+      const path = c.req.path;
+      const readOnly = READ_ONLY_POST_SUFFIXES.some((s) => path.endsWith(s));
+      if (!readOnly) {
+        const principal = c.get('principal');
+        if (!principal) {
+          throw new HTTPException(500, { message: 'requireWriteAccess used without bearerAuth ahead of it' });
+        }
+        const hasWrite = principal.roles.some((r) => roleSet.has(r));
+        if (!hasWrite) {
+          throw new HTTPException(403, {
+            message: `Write access denied: a writer role is required (one of: ${writerRoles.join(', ')}). Principal roles: [${principal.roles.join(', ') || 'none'}].`,
+          });
+        }
+      }
+    }
+    await next();
+  };
+}
+
 /**
  * Tenant-scope guard: ensures the path's `:tenant` parameter matches
  * the principal's `tenantId` claim. Platform admins (`platform-admin`

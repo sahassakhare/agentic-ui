@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { CatalogPool } from './db/pool.js';
 import { JwtVerifier, type JwtVerifierConfig } from './auth/jwt.js';
-import { bearerAuth, requireTenantScope } from './auth/middleware.js';
+import { bearerAuth, requireTenantScope, requireWriteAccess, writerRolesFromEnv } from './auth/middleware.js';
 import { globalErrorHandler, requestIdMiddleware } from './errors.js';
 import { healthRoutes } from './routes/health.js';
 import { capabilitiesRoutes } from './routes/capabilities.js';
@@ -126,6 +126,11 @@ export function buildApp(deps: AppDeps): Hono {
   // doesn't fire for /v1/tenants/*.
   v1.route('/tenants', tenantsRoutes(deps.pool));
   v1.use('/catalogs/:tenant/*', requireTenantScope());
+  // Per-verb RBAC: writes under a tenant require a writer role (reads stay
+  // open to any authenticated member). Closes the "any member can mutate
+  // governance entries" gap. In AUTH_MODE=disabled the synthetic principal is
+  // platform-admin, so demo/trusted-network deployments are unaffected.
+  v1.use('/catalogs/:tenant/*', requireWriteAccess(writerRolesFromEnv()));
   v1.route('/catalogs/:tenant/capabilities', capabilitiesRoutes(deps.pool, deps.embeddings));
   v1.route('/catalogs/:tenant/mfes', mfesRoutes(deps.pool));
   v1.route('/catalogs/:tenant/agents', agentsRoutes(deps.pool));
