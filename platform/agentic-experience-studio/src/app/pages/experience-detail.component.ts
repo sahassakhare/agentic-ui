@@ -4,15 +4,16 @@ import { FormsModule } from '@angular/forms';
 import {
   ExperienceCatalogService,
   type ApprovalAction,
+  type CapabilityRequirement,
   type Experience,
   type ExperiencePlanResult,
 } from '../services/experience-catalog.service';
 import { buildExperienceGraphElements, partitionGraph } from '../experience-graph';
-import { formatRequirementLines, parseRequirementLines } from '../experience-form';
 import { GraphViewComponent } from '../graph-view.component';
 import { ToastService } from '../services/toast.service';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { JourneyFlowComponent, type JourneyFlowStep } from '../journey-flow.component';
+import { RequirementsBuilderComponent } from '../requirements-builder.component';
 
 /**
  * Experience detail (AEP Seam E) — one experience, its capability dependency
@@ -22,7 +23,7 @@ import { JourneyFlowComponent, type JourneyFlowStep } from '../journey-flow.comp
  */
 @Component({
   selector: 'aes-experience-detail',
-  imports: [RouterLink, FormsModule, GraphViewComponent, JourneyFlowComponent],
+  imports: [RouterLink, FormsModule, GraphViewComponent, JourneyFlowComponent, RequirementsBuilderComponent],
   template: `
     <div class="page">
       <a routerLink="/experiences" class="back">
@@ -60,9 +61,8 @@ import { JourneyFlowComponent, type JourneyFlowStep } from '../journey-flow.comp
                 <input class="input" id="ed-title" name="title" [(ngModel)]="editTitle" /></div>
               <div class="field"><label class="label" for="ed-goal">Goal</label>
                 <input class="input" id="ed-goal" name="goal" [(ngModel)]="editGoal" /></div>
-              <div class="field" style="grid-column:1 / -1"><label class="label" for="ed-req">Requirements</label>
-                <textarea class="textarea" id="ed-req" name="req" rows="4" [(ngModel)]="editRequires"></textarea>
-                <span class="help">One per line: <code>kind selector [optional]</code>.</span></div>
+              <div class="field" style="grid-column:1 / -1"><label class="label">Requirements <span class="help">— pick a kind, then a registry entry of that kind</span></label>
+                <aes-requirements-builder [initial]="editInitial()" (requirementsChange)="editRequires = $event" /></div>
             </div>
             <div class="row" style="margin-top:var(--s5)">
               <button class="btn btn-primary" type="submit" [disabled]="saving()">
@@ -255,7 +255,10 @@ export class ExperienceDetailComponent {
 
   readonly editing = signal(false);
   readonly saving = signal(false);
-  editTitle = ''; editGoal = ''; editRequires = '';
+  editTitle = ''; editGoal = '';
+  /** Requirements from the shared builder + the value it was seeded with. */
+  editRequires: CapabilityRequirement[] = [];
+  readonly editInitial = signal<readonly CapabilityRequirement[]>([]);
 
   private readonly caps = inject(CapabilityCatalogService);
   /** The user journey — the steps of the workflow this experience requires. */
@@ -357,7 +360,9 @@ export class ExperienceDetailComponent {
     if (this.editing()) { this.editing.set(false); return; }
     this.editTitle = e.title;
     this.editGoal = e.goal;
-    this.editRequires = formatRequirementLines(e.body.requires);
+    const requires = [...(e.body.requires ?? [])];
+    this.editRequires = requires;          // unchanged unless the builder emits
+    this.editInitial.set(requires);        // seeds the builder rows
     this.editing.set(true);
   }
 
@@ -367,7 +372,7 @@ export class ExperienceDetailComponent {
     this.catalog.update(this.id(), {
       title: this.editTitle.trim(),
       goal: this.editGoal.trim(),
-      body: { ...(current?.body ?? {}), requires: parseRequirementLines(this.editRequires) },
+      body: { ...(current?.body ?? {}), requires: this.editRequires },
     }).subscribe({
       next: (updated) => {
         this.experience.set(updated);
