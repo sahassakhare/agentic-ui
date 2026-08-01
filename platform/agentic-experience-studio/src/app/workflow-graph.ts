@@ -6,12 +6,26 @@ import type { GraphElement } from './experience-graph';
  * function-of-state `next`; that isn't authorable in a form, so the studio
  * covers the common string/terminal case.
  */
+/** One authored conditional branch: when `field op value` → go to `goto`. */
+export interface WorkflowBranchDraft {
+  field: string;
+  op: '==' | '!=' | 'in' | 'truthy' | 'falsy';
+  /** Comparison value (CSV for `in`); ignored for truthy/falsy. */
+  value: string;
+  goto: string;
+}
+
 export interface WorkflowStepDraft {
   id: string;
   widget: string;
   section?: string;
-  /** Target step id, or '' for terminal. */
+  /** Simple target step id, or '' for terminal. Used when not conditional. */
   next: string;
+  /** When true, the step branches on state via {@link branches} + {@link defaultNext}. */
+  conditional?: boolean;
+  branches?: WorkflowBranchDraft[];
+  /** Fallback target when no branch matches; '' → terminal. */
+  defaultNext?: string;
 }
 
 /**
@@ -73,8 +87,39 @@ export function stepsToWorkflowBody(steps: readonly WorkflowStepDraft[]): Record
           id: s.id,
           widget: s.widget,
           ...(s.section ? { section: s.section } : {}),
-          next: s.next || null,
+          next: encodeNext(s),
         })),
     },
   };
+}
+
+/** Encode a step's transition: a declarative ConditionalNext when it branches, else a string/null. */
+function encodeNext(s: WorkflowStepDraft): unknown {
+  const branches = (s.branches ?? []).filter((b) => b.goto && (b.op === 'truthy' || b.op === 'falsy' || b.field));
+  if (s.conditional && branches.length) {
+    return {
+      branches: branches.map((b) => ({
+        when: {
+          field: b.field,
+          op: b.op,
+          ...(b.op === 'in'
+            ? { value: b.value.split(',').map((v) => v.trim()).filter(Boolean) }
+            : b.op === 'truthy' || b.op === 'falsy'
+              ? {}
+              : { value: coerce(b.value) }),
+        },
+        goto: b.goto,
+      })),
+      default: s.defaultNext || null,
+    };
+  }
+  return s.next || null;
+}
+
+/** Best-effort scalar coercion so `== true` / `== 3` compare correctly at runtime. */
+function coerce(v: string): unknown {
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  if (v !== '' && !Number.isNaN(Number(v))) return Number(v);
+  return v;
 }

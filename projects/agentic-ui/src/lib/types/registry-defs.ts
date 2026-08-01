@@ -527,6 +527,26 @@ export interface FormDef<TValues = unknown> extends RegistryEntry {
  *   - function → branch on the workflow's aggregated state (e.g. jump
  *                to `'matter-setup'` when zero custodians selected)
  */
+/** A serializable condition evaluated against the workflow's aggregated state. */
+export interface WorkflowCondition {
+  /** State-snapshot key to read (typically the step id that captured the value). */
+  readonly field: string;
+  readonly op: '==' | '!=' | 'in' | 'truthy' | 'falsy';
+  /** Comparison value for `==` / `!=` / `in` (array for `in`). Unused for truthy/falsy. */
+  readonly value?: unknown;
+}
+
+/**
+ * Serializable conditional transition — the data form of a branching `next`.
+ * Branches are evaluated in order; the first matching `when` picks its `goto`,
+ * else `default`. Unlike a `(state)=>string` function, this JSON shape persists
+ * in the catalog and is authorable in the Studio (conditional-branch editor).
+ */
+export interface ConditionalNext {
+  readonly branches: ReadonlyArray<{ readonly when: WorkflowCondition; readonly goto: string }>;
+  readonly default: string | null;
+}
+
 export interface WorkflowStep {
   /** Unique step id within this workflow. */
   readonly id: string;
@@ -534,10 +554,15 @@ export interface WorkflowStep {
   readonly widget: string;
   /** Optional heading rendered above the widget + in the breadcrumb. */
   readonly section?: string;
-  /** Transition target — `null` is terminal; a function branches on state. */
+  /**
+   * Transition target. `string` advances unconditionally; `null` is terminal;
+   * a `(state)=>string|null` function branches in code; a {@link ConditionalNext}
+   * object branches declaratively (serializable + Studio-authorable).
+   */
   readonly next:
     | string
     | null
+    | ConditionalNext
     | ((state: Readonly<Record<string, unknown>>) => string | null);
 }
 

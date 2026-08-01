@@ -19,6 +19,7 @@ import {
   type FormDef,
   type WorkflowStep,
 } from '../internal';
+import { resolveNext } from '../workflow/resolve-next';
 
 /**
  * Renders a multi-step workflow form by name (Capability F3 — provisional,
@@ -195,17 +196,15 @@ export class WorkflowRendererComponent {
     const step = this.currentStep();
     if (!step) return false;
     if (step.next === null) return true;
-    if (typeof step.next === 'function') {
-      // Treat as potentially terminal — function may return null. Surface
-      // 'Submit' if the current state evaluates to null right now; the
-      // label updates as the user fills the form.
-      try {
-        return step.next(this.store.snapshot()) === null;
-      } catch {
-        return false;
-      }
+    if (typeof step.next === 'string') return false;
+    // Function or ConditionalNext — potentially terminal depending on current
+    // state; surface 'Submit' when it resolves to null right now. The label
+    // updates as the user fills the form / picks a branch.
+    try {
+      return resolveNext(step.next, this.store.snapshot()) === null;
+    } catch {
+      return false;
     }
-    return false;
   });
 
   protected isVisited(id: string): boolean {
@@ -222,7 +221,7 @@ export class WorkflowRendererComponent {
 
     let target: string | null;
     try {
-      target = typeof step.next === 'function' ? step.next(state) : step.next;
+      target = resolveNext(step.next, state);
     } catch (err) {
       this.errorMessage.set(`Transition failed: ${describeError(err)}`);
       return;

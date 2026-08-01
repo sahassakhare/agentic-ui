@@ -43,4 +43,24 @@ describe('stepsToWorkflowBody', () => {
     const body = stepsToWorkflowBody([{ id: 's1', widget: '', next: '' }, { id: '', widget: 'w', next: '' }]);
     expect((body['workflow'] as { steps: unknown[] }).steps).toEqual([]);
   });
+
+  it('encodes a conditional step as a ConditionalNext (gap B3)', () => {
+    const body = stepsToWorkflowBody([{
+      id: 'priority', widget: 'priority-picker', next: 'review',
+      conditional: true,
+      branches: [
+        { field: 'priority', op: '==', value: 'high', goto: 'escalation' },
+        { field: 'category', op: 'in', value: 'fraud, legal', goto: 'compliance' },
+      ],
+      defaultNext: 'review',
+    }]);
+    const step = (body['workflow'] as { steps: Array<{ next: unknown }> }).steps[0];
+    expect(step.next).toEqual({
+      branches: [
+        { when: { field: 'priority', op: '==', value: 'high' }, goto: 'escalation' },
+        { when: { field: 'category', op: 'in', value: ['fraud', 'legal'] }, goto: 'compliance' },
+      ],
+      default: 'review',
+    });
+  });
 });
