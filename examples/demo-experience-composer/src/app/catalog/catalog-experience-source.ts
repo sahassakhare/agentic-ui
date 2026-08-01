@@ -34,6 +34,7 @@ interface CatalogExperienceRow {
     defaultLayout?: string;
     policies?: string[];
     personas?: string[];
+    scopes?: string[];
   };
 }
 
@@ -92,6 +93,10 @@ export class CatalogExperienceSource {
       defaultLayout: b.defaultLayout,
       policies: b.policies,
       personas: b.personas,
+      // Authored `scopes` are the experience's required permissions — the
+      // runtime access gate checks these against the user's held permissions
+      // (the composer's permissions multibox defines what the user holds).
+      requiredPermissions: b.scopes,
       version: row.version ?? undefined,
       approvalState: 'approved',
       tags: [...(row.tags ?? [])],

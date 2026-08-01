@@ -62,3 +62,15 @@ aside .card { position:relative; }
 .empty { text-align:center; padding:56px 28px; }
 .empty .mk { width:56px; height:56px; border-radius:14px; background:var(--brand-soft); color:var(--brand); display:grid; place-items:center; margin:0 auto 14px; }
 .empty h2 { margin:0 0 6px; font-size:20px; }
+
+/* Requirement builder — select-and-define form (task: requirements as a form) */
+aside .card .input { margin-bottom:14px; }
+aside .card .input:last-of-type { margin-bottom:10px; }
+.multibox { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.chk { display:inline-flex; align-items:center; gap:7px; font-size:13px; padding:6px 11px; border-radius:8px;
+  border:1px solid var(--line); background:var(--surface-2); color:var(--muted); cursor:pointer; user-select:none; }
+.chk input { accent-color:var(--brand); margin:0; }
+.chk.on { border-color:var(--brand); color:var(--brand); background:var(--brand-soft); }
+select.input { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center; padding-right:34px; cursor:pointer; }
+.input:disabled { opacity:.55; cursor:not-allowed; }

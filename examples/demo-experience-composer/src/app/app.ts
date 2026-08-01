@@ -38,10 +38,35 @@ const EXAMPLES = [
       <aside>
         <section class="card">
           <div class="eyebrow">1 · Your requirement</div>
-          <label class="lbl" for="req">What do you want the end user to be able to do?</label>
-          <input id="req" class="input" [(ngModel)]="goal" (keyup.enter)="compose()" placeholder="e.g. onboard a new employee" />
+          <p class="muted sm">Select from what the platform offers, or describe your own — then compose.</p>
+
+          <label class="lbl" for="exp">Experience</label>
+          <select id="exp" class="input" [(ngModel)]="selectedExperience">
+            <option value="">— describe a goal below —</option>
+            @for (e of experienceOptions(); track e.name) { <option [value]="e.name">{{ e.title }}</option> }
+          </select>
+
+          <label class="lbl" for="persona">Persona</label>
+          <select id="persona" class="input" [(ngModel)]="persona">
+            @for (p of personaOptions(); track p) { <option [value]="p">{{ p }}</option> }
+          </select>
+
+          @if (permissionOptions().length) {
+            <label class="lbl">Permissions the user holds <span class="muted sm">— defines the access gate</span></label>
+            <div class="multibox">
+              @for (perm of permissionOptions(); track perm) {
+                <label class="chk" [class.on]="hasPermission(perm)">
+                  <input type="checkbox" [checked]="hasPermission(perm)" (change)="togglePermission(perm)" /> {{ perm }}
+                </label>
+              }
+            </div>
+          }
+
+          <label class="lbl" for="req">Or describe a goal</label>
+          <input id="req" class="input" [(ngModel)]="goal" (keyup.enter)="compose()"
+                 [disabled]="!!selectedExperience()" placeholder="e.g. onboard a new employee" />
           <div class="ex">
-            @for (e of examples; track e) { <button class="chip" (click)="goal.set(e); compose()">{{ e }}</button> }
+            @for (e of examples; track e) { <button class="chip" (click)="pickGoal(e)">{{ e }}</button> }
           </div>
           <button class="btn primary" (click)="compose()">Compose experience →</button>
         </section>
@@ -124,8 +149,35 @@ export class App {
 
   protected readonly examples = EXAMPLES;
   protected readonly goal = signal('');
+  protected readonly selectedExperience = signal('');
+  protected readonly persona = signal('admin');
+  protected readonly selectedPermissions = signal<string[]>([]);
   protected readonly missed = signal<string | null>(null);
   protected readonly plan = computed(() => this.store.plan());
+
+  /** Options discovered from the registered experiences (recompute on re-hydrate). */
+  protected readonly experienceOptions = computed(() => {
+    this.catalog.count();
+    return this.experiences.list().map((e) => ({ name: e.name, title: (e as { title?: string }).title ?? e.name }));
+  });
+  protected readonly personaOptions = computed(() => {
+    this.catalog.count();
+    const set = new Set<string>(['admin', 'end-user']);
+    for (const e of this.experiences.list()) for (const p of ((e as { personas?: string[] }).personas ?? [])) set.add(p);
+    return [...set];
+  });
+  protected readonly permissionOptions = computed(() => {
+    this.catalog.count();
+    const set = new Set<string>();
+    for (const e of this.experiences.list()) for (const p of ((e as { requiredPermissions?: string[] }).requiredPermissions ?? [])) set.add(p);
+    return [...set];
+  });
+
+  hasPermission(p: string): boolean { return this.selectedPermissions().includes(p); }
+  togglePermission(p: string): void {
+    this.selectedPermissions.update((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
+  }
+  pickGoal(g: string): void { this.selectedExperience.set(''); this.goal.set(g); this.compose(); }
 
   // `catalog.count()` makes these recompute whenever the catalog re-hydrates.
   protected readonly counts = computed(() => {
@@ -154,10 +206,15 @@ export class App {
   });
 
   compose(): void {
+    const user = { id: 'demo-user', persona: this.persona(), permissions: this.selectedPermissions() };
+    const expId = this.selectedExperience();
     const goal = this.goal().trim();
-    if (!goal) return;
-    const p = this.planner.plan({ goal, user: { id: 'demo-user', persona: 'admin', permissions: [] } });
-    if (!p) { this.missed.set(goal); this.store.clear(); return; }
+    // Selecting an Experience plans it directly; otherwise the free-text goal is
+    // resolved against the registries (both feed the same deterministic planner).
+    const input = expId ? { experienceId: expId, user } : goal ? { goal, user } : null;
+    if (!input) return;
+    const p = this.planner.plan(input);
+    if (!p) { this.missed.set(goal || expId); this.store.clear(); return; }
     this.missed.set(null);
     this.store.set(p);
   }
