@@ -2,6 +2,7 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { JwtVerifier } from './jwt.js';
 import { isPlatformAdmin, type Principal } from '../domain/principal.js';
+import type { OpaClient } from '../policy/opa-client.js';
 
 declare module 'hono' {
   interface ContextVariableMap {
@@ -139,6 +140,40 @@ export function requireWriteAccess(writerRoles: readonly string[]): MiddlewareHa
           });
         }
       }
+    }
+    await next();
+  };
+}
+
+/**
+ * Policy-enforcement guard (audit finding A3). When an OPA client is enabled,
+ * every governance-relevant WRITE is submitted to OPA for a decision; an
+ * explicit deny (or an unreachable engine) blocks the request. This is the
+ * layer that makes `policies` actually enforced rather than advisory — OPA can
+ * express rules RBAC cannot (e.g. "editors may write, but not policy bundles").
+ * No-ops when OPA is not configured. Use AFTER `requireWriteAccess`.
+ */
+export function requirePolicyDecision(opa: OpaClient, rulePath: string): MiddlewareHandler {
+  return async (c: Context, next) => {
+    if (!opa.enabled || !UNSAFE_METHODS.has(c.req.method.toUpperCase())) { await next(); return; }
+    const path = c.req.path;
+    if (READ_ONLY_POST_SUFFIXES.some((s) => path.endsWith(s))) { await next(); return; }
+    const principal = c.get('principal');
+    const input = {
+      principal: { sub: principal.subject, tenant: principal.tenantId, roles: principal.roles },
+      method: c.req.method.toUpperCase(),
+      path,
+    };
+    let decision;
+    try {
+      decision = await opa.evaluate(rulePath, input, null);
+    } catch {
+      // Fail closed: a governance write must not proceed if the policy engine
+      // can't be reached.
+      throw new HTTPException(403, { message: 'Policy engine unavailable — governance write denied (fail-closed).' });
+    }
+    if (!decision.allow) {
+      throw new HTTPException(403, { message: `Denied by policy: ${decision.reason ?? rulePath}` });
     }
     await next();
   };

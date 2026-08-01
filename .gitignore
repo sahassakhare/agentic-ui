@@ -84,3 +84,4 @@ docs/assets/*.webm
 /test-results/
 /playwright-report/
 /e2e/results/
+platform/agentic-catalog-server/.bin/

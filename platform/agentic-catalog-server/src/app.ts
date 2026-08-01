@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { CatalogPool } from './db/pool.js';
 import { JwtVerifier, type JwtVerifierConfig } from './auth/jwt.js';
-import { bearerAuth, requireTenantScope, requireWriteAccess, writerRolesFromEnv } from './auth/middleware.js';
+import { bearerAuth, requireTenantScope, requireWriteAccess, writerRolesFromEnv, requirePolicyDecision } from './auth/middleware.js';
 import { globalErrorHandler, requestIdMiddleware } from './errors.js';
 import { healthRoutes } from './routes/health.js';
 import { capabilitiesRoutes } from './routes/capabilities.js';
@@ -131,6 +131,9 @@ export function buildApp(deps: AppDeps): Hono {
   // governance entries" gap. In AUTH_MODE=disabled the synthetic principal is
   // platform-admin, so demo/trusted-network deployments are unaffected.
   v1.use('/catalogs/:tenant/*', requireWriteAccess(writerRolesFromEnv()));
+  // Policy enforcement: when OPA is configured, governance writes are gated by
+  // an OPA decision (fine-grained rules on top of RBAC). No-ops when unset.
+  v1.use('/catalogs/:tenant/*', requirePolicyDecision(deps.opa ?? makeOpaClient(null), 'catalog/allow'));
   v1.route('/catalogs/:tenant/capabilities', capabilitiesRoutes(deps.pool, deps.embeddings));
   v1.route('/catalogs/:tenant/mfes', mfesRoutes(deps.pool));
   v1.route('/catalogs/:tenant/agents', agentsRoutes(deps.pool));
