@@ -192,6 +192,86 @@ export async function softDeleteExperience(client: pg.PoolClient, id: string): P
   return result.rows[0] ? rowToExperience(result.rows[0]) : null;
 }
 
+// ── Version history (change management, ADR gap A4) ─────────────────────────
+
+export interface ExperienceVersion {
+  readonly versionNo: number;
+  readonly snapshot: Record<string, unknown>;
+  readonly reason: string;
+  readonly createdAt: string;
+  readonly createdBy: string;
+}
+
+/** The mutable, roll-back-able shape of an experience captured per version. */
+function snapshotOf(e: Experience): Record<string, unknown> {
+  return {
+    title: e.title, goal: e.goal, body: e.body, tags: e.tags,
+    owner: e.owner, version: e.version, approvalState: e.approvalState,
+  };
+}
+
+/**
+ * Append an immutable version snapshot. The per-experience version counter is
+ * serialised with a transaction-scoped advisory lock (same pattern as the audit
+ * chain) so concurrent writers never collide on `version_no`. Guarded so the
+ * pg-mem unit harness (no advisory locks) no-ops the lock.
+ */
+export async function appendExperienceVersion(
+  client: pg.PoolClient,
+  tenantId: string,
+  experienceId: string,
+  experience: Experience,
+  reason: string,
+  actor: string,
+): Promise<number> {
+  try {
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`exp-ver:${experienceId}`]);
+  } catch (err) {
+    const msg = (err as Error)?.message ?? '';
+    if (!/does not exist|not supported|advisory|hashtextextended|function/i.test(msg)) throw err;
+  }
+  const next = await client.query<{ n: string }>(
+    `SELECT COALESCE(MAX(version_no), 0) + 1 AS n FROM experience_versions WHERE experience_id = $1`,
+    [experienceId],
+  );
+  const versionNo = Number(next.rows[0]?.n ?? 1);
+  await client.query(
+    `INSERT INTO experience_versions (tenant_id, experience_id, version_no, snapshot, reason, created_by)
+     VALUES ($1, $2, $3, $4::JSONB, $5, $6)`,
+    [tenantId, experienceId, versionNo, JSON.stringify(snapshotOf(experience)), reason, actor],
+  );
+  return versionNo;
+}
+
+export async function listExperienceVersions(
+  client: pg.PoolClient,
+  experienceId: string,
+): Promise<ExperienceVersion[]> {
+  const r = await client.query<{ version_no: number; snapshot: Record<string, unknown>; reason: string; created_at: Date; created_by: string }>(
+    `SELECT version_no, snapshot, reason, created_at, created_by
+       FROM experience_versions WHERE experience_id = $1 ORDER BY version_no DESC`,
+    [experienceId],
+  );
+  return r.rows.map((x) => ({
+    versionNo: x.version_no, snapshot: x.snapshot, reason: x.reason,
+    createdAt: x.created_at.toISOString(), createdBy: x.created_by,
+  }));
+}
+
+export async function getExperienceVersion(
+  client: pg.PoolClient,
+  experienceId: string,
+  versionNo: number,
+): Promise<ExperienceVersion | null> {
+  const r = await client.query<{ version_no: number; snapshot: Record<string, unknown>; reason: string; created_at: Date; created_by: string }>(
+    `SELECT version_no, snapshot, reason, created_at, created_by
+       FROM experience_versions WHERE experience_id = $1 AND version_no = $2`,
+    [experienceId, versionNo],
+  );
+  const x = r.rows[0];
+  return x ? { versionNo: x.version_no, snapshot: x.snapshot, reason: x.reason, createdAt: x.created_at.toISOString(), createdBy: x.created_by } : null;
+}
+
 /**
  * Server-side direct-requirement resolution (the `/plan` dry-run). Checks each
  * declared requirement against the tenant's non-deleted capabilities, matching

@@ -14,10 +14,13 @@ import { auditActor } from '../domain/principal.js';
 import { withTenantScope, type CatalogPool } from '../db/pool.js';
 import {
   applyExperienceTransition,
+  appendExperienceVersion,
   createExperience,
   findExperienceById,
   findExperienceByName,
+  getExperienceVersion,
   listExperiences,
+  listExperienceVersions,
   resolveExperienceRequirements,
   softDeleteExperience,
   updateExperience,
@@ -98,6 +101,7 @@ export function experiencesRoutes(pool: CatalogPool): Hono {
         entityId: row.id,
         diff: { after: row },
       });
+      await appendExperienceVersion(client, tenantId, row.id, row, 'create', auditActor(principal));
       return row;
     });
 
@@ -135,6 +139,7 @@ export function experiencesRoutes(pool: CatalogPool): Hono {
         entityId: id,
         diff: { before, after },
       });
+      await appendExperienceVersion(client, principal.tenantId, id, after, 'update', auditActor(principal));
       return after;
     });
     if (!updated) throw new HTTPException(404, { message: 'Experience not found' });
@@ -193,6 +198,7 @@ export function experiencesRoutes(pool: CatalogPool): Hono {
         entityId: id,
         diff: { before: { approvalState: before.approvalState }, after: { approvalState: after.approvalState }, action },
       });
+      await appendExperienceVersion(client, principal.tenantId, id, after, `transition:${action}`, auditActor(principal));
       return after;
     });
     if (!updated) throw new HTTPException(404, { message: 'Experience not found' });
@@ -205,6 +211,64 @@ export function experiencesRoutes(pool: CatalogPool): Hono {
       summary: { name: updated.name, approvalState: updated.approvalState },
     });
     return c.json(ExperienceSchema.parse(updated));
+  });
+
+  // Version history — immutable snapshots appended on every create/update/
+  // transition (change management, ADR gap A4).
+  app.get('/:id/versions', async (c) => {
+    const principal = c.get('principal');
+    const id = c.req.param('id');
+    if (!isUuid(id)) throw new HTTPException(404, { message: 'Experience not found' });
+    const versions = await withTenantScope(pool, principal, async (client) => {
+      const exists = await findExperienceById(client, id);
+      if (!exists) return null;
+      return listExperienceVersions(client, id);
+    });
+    if (versions === null) throw new HTTPException(404, { message: 'Experience not found' });
+    return c.json({ items: versions });
+  });
+
+  // Roll an experience's content back to a prior version. This is itself an
+  // update — it re-applies the snapshot and records a NEW version, so history
+  // stays append-only. Approval state is workflow-managed and NOT rolled back.
+  app.post('/:id/rollback/:versionNo', async (c) => {
+    const principal = c.get('principal');
+    const requestId = c.get('requestId');
+    const id = c.req.param('id');
+    const versionNo = Number(c.req.param('versionNo'));
+    if (!isUuid(id)) throw new HTTPException(404, { message: 'Experience not found' });
+    if (!Number.isInteger(versionNo) || versionNo < 1) throw new HTTPException(400, { message: 'versionNo must be a positive integer' });
+
+    const restored = await withTenantScope(pool, principal, async (client) => {
+      const current = await findExperienceById(client, id);
+      if (!current) return null;
+      const version = await getExperienceVersion(client, id, versionNo);
+      if (!version) throw new HTTPException(404, { message: `Version ${versionNo} not found` });
+      const s = version.snapshot as { title?: string; goal?: string; body?: unknown; tags?: string[]; owner?: string | null; version?: string | null };
+      const after = await updateExperience(client, id, {
+        title: s.title, goal: s.goal, body: s.body as never,
+        tags: s.tags, owner: s.owner ?? null, version: s.version ?? null,
+      });
+      if (!after) return null;
+      await appendAudit(client, {
+        tenantId: principal.tenantId,
+        actor: auditActor(principal),
+        requestId: requestId ?? null,
+        operation: 'update',
+        entityType: 'experience',
+        entityId: id,
+        diff: { rollbackTo: versionNo, before: { title: current.title, goal: current.goal }, after: { title: after.title, goal: after.goal } },
+      });
+      await appendExperienceVersion(client, principal.tenantId, id, after, `rollback:v${versionNo}`, auditActor(principal));
+      return after;
+    });
+    if (!restored) throw new HTTPException(404, { message: 'Experience not found' });
+    publishCatalogEvent({
+      tenantId: restored.tenantId, entityType: 'experience', operation: 'update',
+      entityId: restored.id, occurredAt: new Date().toISOString(),
+      summary: { name: restored.name, rolledBackTo: versionNo },
+    });
+    return c.json(ExperienceSchema.parse(restored));
   });
 
   // Server-side plan dry-run: resolve the experience's DIRECT requirements
