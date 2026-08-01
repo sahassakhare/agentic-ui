@@ -25,6 +25,15 @@ export const REQ_KINDS: readonly string[] = [
     <div class="reqs">
       @for (r of rows; track $index) {
         <div class="reqrow">
+          <span class="seq" [attr.title]="'Precedence ' + ($index + 1)">{{ $index + 1 }}</span>
+          <div class="move">
+            <button type="button" class="mv" (click)="moveUp($index)" [disabled]="$index === 0" aria-label="Move earlier">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="m6 15 6-6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button type="button" class="mv" (click)="moveDown($index)" [disabled]="$index === rows.length - 1" aria-label="Move later">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
           <select class="input rk" [ngModel]="r.kind" (ngModelChange)="setKind($index, $event)" [name]="'rk'+$index" aria-label="Capability kind">
             @for (k of kinds; track k) { <option [value]="k">{{ k }}</option> }
           </select>
@@ -45,14 +54,22 @@ export const REQ_KINDS: readonly string[] = [
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       Add requirement
     </button>
-    <span class="help">Each requirement is a registry entry of the chosen kind. These become the experience's dependency graph.</span>
+    <span class="help">Each requirement is a registry entry of the chosen kind. Order (top → bottom) sets precedence — reorder with the arrows. These become the experience's dependency graph.</span>
   `,
   styles: [`
     :host { display: block; }
     .reqs { display: flex; flex-direction: column; gap: var(--s2); }
-    .reqrow { display: grid; grid-template-columns: 150px 1fr auto auto; gap: var(--s2); align-items: center; }
+    .reqrow { display: grid; grid-template-columns: 22px 26px 150px 1fr auto auto; gap: var(--s2); align-items: center; }
+    .reqrow .seq { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint); text-align: center; font-variant-numeric: tabular-nums; }
     .reqrow .rk { text-transform: capitalize; }
     .reqrow .opt { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--text-muted); white-space: nowrap; }
+    .move { display: inline-flex; flex-direction: column; gap: 1px; }
+    .move .mv { display: grid; place-items: center; width: 24px; height: 15px; border: 1px solid var(--border); background: var(--surface);
+      color: var(--text-muted); cursor: pointer; padding: 0; }
+    .move .mv:first-child { border-radius: var(--r-sm) var(--r-sm) 0 0; border-bottom: 0; }
+    .move .mv:last-child { border-radius: 0 0 var(--r-sm) var(--r-sm); }
+    .move .mv:not(:disabled):hover { border-color: var(--brand); color: var(--brand); }
+    .move .mv:disabled { opacity: .35; cursor: default; }
     .reqrow .rrm { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--border); border-radius: var(--r-sm);
       background: var(--surface); color: var(--text-muted); cursor: pointer; }
     .reqrow .rrm:hover { border-color: var(--danger); color: var(--danger); }
@@ -118,6 +135,15 @@ export class RequirementsBuilderComponent {
   }
   addReq(): void { this.rows = [...this.rows, { kind: 'workflow', selector: '', optional: false }]; this.emit(); }
   removeReq(i: number): void { this.rows = this.rows.filter((_, idx) => idx !== i); this.emit(); }
+  /** Reorder precedence — the requires[] array order is preserved on save. */
+  moveUp(i: number): void { if (i > 0) this.swap(i, i - 1); }
+  moveDown(i: number): void { if (i < this.rows.length - 1) this.swap(i, i + 1); }
+  private swap(a: number, b: number): void {
+    const next = [...this.rows];
+    [next[a], next[b]] = [next[b]!, next[a]!];
+    this.rows = next;
+    this.emit();
+  }
 
   /** Build catalog requirements from the rows; `#tag` → tag, else name. */
   private emit(): void {
