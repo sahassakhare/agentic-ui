@@ -15,6 +15,10 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/login.component').then((m) => m.LoginComponent),
   },
   {
+    path: 'callback',
+    loadComponent: () => import('./pages/callback.component').then((m) => m.CallbackComponent),
+  },
+  {
     path: 'experiences',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/experiences.component').then((m) => m.ExperiencesComponent),

@@ -45,6 +45,47 @@ export class AuthService {
     safeSet(TENANT_KEY, tenant);
   }
 
+  /**
+   * oidc mode: begin a real OIDC authorization-code + PKCE login (P3 / gap A2 —
+   * replaces pasting a JWT). Generates a PKCE verifier + S256 challenge, stashes
+   * the verifier + state, and redirects to the IdP's authorization endpoint.
+   */
+  async loginWithSso(): Promise<void> {
+    const verifier = randomString(64);
+    const challenge = await s256(verifier);
+    const state = randomString(24);
+    sessionStorage.setItem('aes.pkce', verifier);
+    sessionStorage.setItem('aes.state', state);
+    const url = new URL((environment as { ssoAuthorizeUrl?: string }).ssoAuthorizeUrl ?? '');
+    url.searchParams.set('client_id', 'studio');
+    url.searchParams.set('redirect_uri', `${location.origin}/callback`);
+    url.searchParams.set('response_type', 'code');
+    url.searchParams.set('scope', 'openid');
+    url.searchParams.set('code_challenge', challenge);
+    url.searchParams.set('code_challenge_method', 'S256');
+    url.searchParams.set('state', state);
+    location.href = url.toString();
+  }
+
+  /** Handle the IdP redirect back: verify state, exchange the code (+PKCE) for a token. */
+  async handleSsoCallback(code: string, state: string): Promise<void> {
+    const verifier = sessionStorage.getItem('aes.pkce');
+    if (!verifier || state !== sessionStorage.getItem('aes.state')) throw new Error('Invalid SSO state — restart the login.');
+    const res = await fetch((environment as { ssoTokenUrl?: string }).ssoTokenUrl ?? '', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code', code, code_verifier: verifier,
+        redirect_uri: `${location.origin}/callback`,
+      }),
+    });
+    if (!res.ok) throw new Error(`Token exchange failed (${res.status})`);
+    const { access_token } = await res.json() as { access_token: string };
+    sessionStorage.removeItem('aes.pkce');
+    sessionStorage.removeItem('aes.state');
+    this.setToken(access_token);
+  }
+
   logout(): void {
     this._token.set(null);
     this._tenant.set(null);
@@ -63,6 +104,20 @@ export function decodeTenant(token: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** URL-safe random string for the PKCE verifier + state. */
+function randomString(n: number): string {
+  const a = new Uint8Array(n);
+  crypto.getRandomValues(a);
+  return Array.from(a, (b) => (b % 36).toString(36)).join('').slice(0, n);
+}
+/** base64url(SHA-256(input)) — the PKCE S256 challenge. */
+async function s256(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  let s = '';
+  for (const b of new Uint8Array(digest)) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 function safeGet(k: string): string | null {

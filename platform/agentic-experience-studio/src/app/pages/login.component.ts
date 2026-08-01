@@ -29,16 +29,20 @@ import { AuthService, decodeTenant } from '../services/auth.service';
         </div>
 
         @if (auth.authMode === 'oidc') {
+          <button class="btn btn-primary" type="button" (click)="auth.loginWithSso()" style="width:100%; justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Sign in with SSO
+          </button>
+          <div class="or"><span>or paste a token (dev)</span></div>
           <form class="stack" (ngSubmit)="signInOidc()">
             <div class="field">
               <label class="label" for="tok">Catalog token</label>
-              <textarea class="textarea mono" id="tok" name="tok" rows="4" [(ngModel)]="token" placeholder="eyJhbGciOi…" spellcheck="false"
+              <textarea class="textarea mono" id="tok" name="tok" rows="3" [(ngModel)]="token" placeholder="eyJhbGciOi…" spellcheck="false"
                 [attr.aria-invalid]="!!error()"></textarea>
               @if (previewTenant()) { <span class="help">Tenant: <code>{{ previewTenant() }}</code></span> }
             </div>
             @if (error()) { <p class="err" role="alert">{{ error() }}</p> }
-            <button class="btn btn-primary" type="submit" [disabled]="!token.trim()">Sign in</button>
-            <p class="faint" style="font-size:var(--fs-xs); margin:0">The tenant is read from the token’s <code>tenant_id</code> claim.</p>
+            <button class="btn" type="submit" [disabled]="!token.trim()">Use token</button>
           </form>
         } @else {
           <form class="stack" (ngSubmit)="signInDisabled()">
@@ -65,6 +69,8 @@ import { AuthService, decodeTenant } from '../services/auth.service';
     .notice { display: flex; align-items: flex-start; gap: var(--s2); font-size: var(--fs-sm); color: var(--warn);
       background: var(--warn-soft); border: 1px solid var(--warn-border); border-radius: var(--r-sm); padding: var(--s3); }
     .err { color: var(--danger); font-size: var(--fs-sm); margin: 0; }
+    .or { display: flex; align-items: center; gap: 10px; color: var(--text-faint); font-size: var(--fs-xs); }
+    .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--border); }
   `],
 })
 export class LoginComponent {
