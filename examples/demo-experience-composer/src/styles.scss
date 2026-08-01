@@ -1,0 +1,20 @@
+/* Experience Composer — global design tokens (control-plane aesthetic). */
+:root {
+  color-scheme: light dark;
+  --bg:#f5f7fa; --surface:#fff; --surface-2:#f0f3f8; --line:#dde3ec;
+  --ink:#131720; --muted:#5a6473;
+  --brand:#4f46e5; --brand-hover:#4338ca; --brand-soft:#eef0fe;
+  --ok:#0f8a4f; --ok-soft:#e6f4ec; --bad:#c23934; --warn:#a5680a;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:#0c0f16; --surface:#141924; --surface-2:#1b2130; --line:#28303f;
+    --ink:#e7ebf3; --muted:#9aa4b6;
+    --brand:#818cf8; --brand-hover:#a5b0ff; --brand-soft:#1a2036;
+    --ok:#4ecb86; --ok-soft:#12271c; --bad:#f0817a; --warn:#e0b25a;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin:0; height:100%; }
+body { background:var(--bg); color:var(--ink); font-family:var(--font); font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased; }
