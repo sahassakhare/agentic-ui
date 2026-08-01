@@ -1,0 +1,42 @@
+{
+  "name": "@infra-tools/aep-embed-sdk",
+  "version": "0.1.0",
+  "description": "Framework-agnostic SDK for consuming published Agentic Experience Platform experiences headlessly — fetch a render manifest with an embed key and drive it with your own components.",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
+  "bugs": {
+    "url": "https://github.com/sahassakhare/agentic-ui/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sahassakhare/agentic-ui",
+    "directory": "platform/aep-embed-sdk"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "~5.9.0",
+    "vitest": "^4.1.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

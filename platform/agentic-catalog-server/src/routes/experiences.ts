@@ -27,6 +27,21 @@ import {
 } from '../repository/experience-repo.js';
 import { appendAudit } from '../repository/audit-repo.js';
 import { publishCatalogEvent } from '../events/publisher.js';
+import {
+  PublicationSchema,
+  PublishRequestSchema,
+  PublishedManifestSchema,
+} from '../domain/publication.js';
+import { hashEmbedKey, mintEmbedKey } from '../auth/embed-key.js';
+import { buildPublishedBundle } from '../publication/bundle.js';
+import {
+  getLatestExperienceVersionNo,
+  insertPublication,
+  resolveCapabilityBodiesForExperience,
+  revokeActivePublication,
+  rotatePublicationKey,
+  toPublication,
+} from '../repository/publication-repo.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (s: string): boolean => UUID_RE.test(s);
@@ -298,6 +313,138 @@ export function experiencesRoutes(pool: CatalogPool): Hono {
       unmet: result.resolution.unmet,
       complete: result.resolution.unmet.length === 0,
     });
+  });
+
+  // ── Publishing (headless consumption) ────────────────────────────────────
+  // Publish an APPROVED experience for external portals: pin its current version,
+  // freeze a self-contained render manifest, and mint an origin-pinned embed key
+  // (returned ONCE). Orthogonal to approval — publishing never mutates
+  // approval_state. A writer role is required (this is a genuine write, not a
+  // read-only dry-run like /plan).
+  app.post('/:id/publish', async (c) => {
+    const principal = c.get('principal');
+    const requestId = c.get('requestId');
+    const id = c.req.param('id');
+    if (!isUuid(id)) throw new HTTPException(404, { message: 'Experience not found' });
+    const { allowedOrigins } = PublishRequestSchema.parse(await readJson(c));
+    const { raw, prefix } = mintEmbedKey();
+
+    const result = await withTenantScope(pool, principal, async (client) => {
+      const experience = await findExperienceById(client, id);
+      if (!experience || experience.softDeletedAt !== null) return null;
+      if (experience.approvalState !== 'approved') {
+        throw new HTTPException(409, {
+          message: `Only approved experiences can be published (current state: ${experience.approvalState})`,
+        });
+      }
+      const versionNo = await getLatestExperienceVersionNo(client, id);
+      const sources = await resolveCapabilityBodiesForExperience(client, experience);
+      const bundle = PublishedManifestSchema.parse(
+        buildPublishedBundle(sources, versionNo, new Date().toISOString()),
+      );
+      const rec = await insertPublication(client, principal.tenantId, {
+        experienceId: id,
+        experienceName: experience.name,
+        publishedVersionNo: versionNo,
+        keyHash: hashEmbedKey(raw),
+        keyPrefix: prefix,
+        allowedOrigins,
+        bundle,
+        publishedBy: auditActor(principal),
+      });
+      await appendAudit(client, {
+        tenantId: principal.tenantId,
+        actor: auditActor(principal),
+        requestId: requestId ?? null,
+        operation: 'update',
+        entityType: 'experience',
+        entityId: id,
+        diff: { action: 'publish', publishedVersionNo: versionNo, allowedOrigins, keyPrefix: prefix },
+      });
+      return rec;
+    });
+    if (!result) throw new HTTPException(404, { message: 'Experience not found' });
+    publishCatalogEvent({
+      tenantId: result.tenantId,
+      entityType: 'experience',
+      operation: 'update',
+      entityId: id,
+      occurredAt: new Date().toISOString(),
+      summary: { name: result.experienceName, action: 'publish' },
+    });
+    c.status(201);
+    return c.json({ publication: PublicationSchema.parse(toPublication(result)), embedKey: raw });
+  });
+
+  // Revoke the active publication — the embed key stops resolving immediately.
+  app.post('/:id/unpublish', async (c) => {
+    const principal = c.get('principal');
+    const requestId = c.get('requestId');
+    const id = c.req.param('id');
+    if (!isUuid(id)) throw new HTTPException(404, { message: 'Experience not found' });
+
+    const result = await withTenantScope(pool, principal, async (client) => {
+      const experience = await findExperienceById(client, id);
+      if (!experience) return null;
+      const rec = await revokeActivePublication(client, id);
+      if (!rec) throw new HTTPException(409, { message: 'No active publication to unpublish' });
+      await appendAudit(client, {
+        tenantId: principal.tenantId,
+        actor: auditActor(principal),
+        requestId: requestId ?? null,
+        operation: 'update',
+        entityType: 'experience',
+        entityId: id,
+        diff: { action: 'unpublish' },
+      });
+      return rec;
+    });
+    if (!result) throw new HTTPException(404, { message: 'Experience not found' });
+    publishCatalogEvent({
+      tenantId: result.tenantId,
+      entityType: 'experience',
+      operation: 'update',
+      entityId: id,
+      occurredAt: new Date().toISOString(),
+      summary: { name: result.experienceName, action: 'unpublish' },
+    });
+    return c.json({ status: 'revoked', publication: PublicationSchema.parse(toPublication(result)) });
+  });
+
+  // Rotate the embed key on the active publication (old key stops working).
+  app.post('/:id/publish/rotate-key', async (c) => {
+    const principal = c.get('principal');
+    const requestId = c.get('requestId');
+    const id = c.req.param('id');
+    if (!isUuid(id)) throw new HTTPException(404, { message: 'Experience not found' });
+    const { raw, prefix } = mintEmbedKey();
+
+    const result = await withTenantScope(pool, principal, async (client) => {
+      const experience = await findExperienceById(client, id);
+      if (!experience) return null;
+      const rec = await rotatePublicationKey(client, id, hashEmbedKey(raw), prefix);
+      if (!rec) throw new HTTPException(409, { message: 'No active publication to rotate' });
+      await appendAudit(client, {
+        tenantId: principal.tenantId,
+        actor: auditActor(principal),
+        requestId: requestId ?? null,
+        operation: 'update',
+        entityType: 'experience',
+        entityId: id,
+        diff: { action: 'rotate-key', keyPrefix: prefix },
+      });
+      return rec;
+    });
+    if (!result) throw new HTTPException(404, { message: 'Experience not found' });
+    publishCatalogEvent({
+      tenantId: result.tenantId,
+      entityType: 'experience',
+      operation: 'update',
+      entityId: id,
+      occurredAt: new Date().toISOString(),
+      summary: { name: result.experienceName, action: 'rotate-key' },
+    });
+    return c.json({ embedKey: raw, keyPrefix: prefix, publication: PublicationSchema.parse(toPublication(result)) });
   });
 
   app.delete('/:id', async (c) => {

@@ -72,6 +72,7 @@ export function createPgMemPool(options: PgMemPoolOptions = {}): PgMemHandle {
     '008_policy_bundles.sql',
     '010_experiences.sql',
     '013_experience_versions.sql',
+    '014_experience_publications.sql',
     // 011_capability_kinds.sql intentionally skipped in tests (like 009):
     // it widens the capabilities.kind CHECK via ALTER TABLE ... DROP/ADD
     // CONSTRAINT, which pg-mem doesn't implement. The Zod-level kind enum
@@ -163,6 +164,16 @@ export function createPgMemPool(options: PgMemPoolOptions = {}): PgMemHandle {
           throw new Error(`pg-mem migration failed at:\n${stmt}\n→ ${(err as Error).message}`);
         }
       }
+      // Migration 011 (AEP Seam B) widens the capabilities.kind CHECK to admit
+      // prompt/skill/knowledge/memory/workflow/navigation. It's skipped above
+      // (ALTER … ADD CONSTRAINT is unsupported on pg-mem), so drop the inline
+      // CHECK entirely — otherwise AEP-kind capabilities can't be seeded in
+      // tests. The Zod-level CAPABILITY_KINDS enum still guards the API boundary.
+      // Mirrors src/scripts/demo-server.ts.
+      try {
+        await client.query('ALTER TABLE capabilities DROP CONSTRAINT capabilities_constraint_1');
+      } catch { /* constraint name differs / already absent — safe to ignore */ }
+
       // Seed the test tenant.
       await client.query(
         `INSERT INTO tenants (id, display_name) VALUES ($1, $2)
