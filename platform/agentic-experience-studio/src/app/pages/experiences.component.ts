@@ -1,9 +1,16 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { ExperienceCatalogService, type Experience } from '../services/experience-catalog.service';
-import { parseRequirementLines } from '../experience-form';
+import { ExperienceCatalogService, type CapabilityRequirement, type Experience } from '../services/experience-catalog.service';
+import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
+
+/** One editable requirement row in the select-and-define builder. */
+interface RequirementRow { kind: string; selector: string; optional: boolean; }
+/** Capability kinds a requirement can target (mirror the catalog CAPABILITY_KINDS). */
+const REQ_KINDS: readonly string[] = [
+  'component', 'form', 'workflow', 'tool', 'prompt', 'skill', 'knowledge', 'memory', 'navigation', 'datasource',
+];
 
 type StateFilter = 'all' | 'draft' | 'review' | 'approved' | 'rejected' | 'deprecated';
 const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', 'rejected', 'deprecated'];
@@ -53,10 +60,33 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
               @if (touched() && !newGoal.trim()) { <span class="err">A goal is required.</span> }
             </div>
             <div class="field" style="grid-column:1 / -1">
-              <label class="label" for="e-req">Requirements</label>
-              <textarea class="textarea" id="e-req" name="req" rows="4" [(ngModel)]="newRequires"
-                placeholder="form customerSearch&#10;tool conflictCheck&#10;component #result-card&#10;tool aiSummary optional"></textarea>
-              <span class="help">One per line: <code>kind selector [optional]</code>. These become the dependency graph.</span>
+              <label class="label">Requirements <span class="help">— pick a kind, then a registry entry of that kind</span></label>
+              <div class="reqs">
+                @for (r of reqRows; track $index) {
+                  <div class="reqrow">
+                    <select class="input rk" [ngModel]="r.kind" (ngModelChange)="setRowKind($index, $event)" [name]="'rk'+$index" aria-label="Capability kind">
+                      @for (k of kinds; track k) { <option [value]="k">{{ k }}</option> }
+                    </select>
+                    <select class="input rn" [(ngModel)]="r.selector" [name]="'rn'+$index" aria-label="Registry entry" [disabled]="!capsFor(r.kind).length">
+                      @if (capsFor(r.kind).length) {
+                        <option value="" disabled>select a {{ r.kind }}…</option>
+                        @for (n of capsFor(r.kind); track n) { <option [value]="n">{{ n }}</option> }
+                      } @else {
+                        <option value="" disabled>no {{ r.kind }} in the registry</option>
+                      }
+                    </select>
+                    <label class="opt"><input type="checkbox" [(ngModel)]="r.optional" [name]="'ro'+$index" /> optional</label>
+                    <button type="button" class="rrm" (click)="removeReq($index)" aria-label="Remove requirement">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    </button>
+                  </div>
+                }
+              </div>
+              <button type="button" class="btn btn-ghost btn-add" (click)="addReq()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                Add requirement
+              </button>
+              <span class="help">Each requirement is a registry entry of the chosen kind. These become the experience's dependency graph.</span>
             </div>
           </div>
           <div class="row" style="margin-top:var(--s5)">
@@ -145,10 +175,19 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
     .rowcard.exp .main:hover { text-decoration: none; }
     .rowcard.exp .chev { color: var(--text-faint); margin-right: var(--s4); flex: none; }
     .rowcard.exp:hover .chev { color: var(--brand); }
+    .reqs { display: flex; flex-direction: column; gap: var(--s2); }
+    .reqrow { display: grid; grid-template-columns: 150px 1fr auto auto; gap: var(--s2); align-items: center; }
+    .reqrow .rk { text-transform: capitalize; }
+    .reqrow .opt { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--text-muted); white-space: nowrap; }
+    .reqrow .rrm { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--border); border-radius: var(--r-sm);
+      background: var(--surface); color: var(--text-muted); cursor: pointer; }
+    .reqrow .rrm:hover { border-color: var(--danger); color: var(--danger); }
+    .btn-add { margin-top: var(--s2); font-size: var(--fs-sm); padding: .35rem .7rem; }
   `],
 })
 export class ExperiencesComponent {
   private readonly catalog = inject(ExperienceCatalogService);
+  private readonly capCatalog = inject(CapabilityCatalogService);
   private readonly toast = inject(ToastService);
 
   readonly items = signal<readonly Experience[]>([]);
@@ -161,7 +200,20 @@ export class ExperiencesComponent {
   readonly createOpen = signal(false);
   readonly saving = signal(false);
   readonly touched = signal(false);
-  newName = ''; newTitle = ''; newGoal = ''; newRequires = '';
+  newName = ''; newTitle = ''; newGoal = '';
+
+  // Select-and-define requirements builder.
+  readonly kinds = REQ_KINDS;
+  reqRows: RequirementRow[] = [{ kind: 'workflow', selector: '', optional: false }];
+  /** Capability names per kind, for the dependent "registry entry" dropdown. */
+  private readonly capsByKind = signal<Record<string, readonly string[]>>({});
+  capsFor(kind: string): readonly string[] { return this.capsByKind()[kind] ?? []; }
+  addReq(): void { this.reqRows = [...this.reqRows, { kind: 'workflow', selector: '', optional: false }]; }
+  removeReq(i: number): void { this.reqRows = this.reqRows.filter((_, idx) => idx !== i); }
+  /** Changing the kind resets the entry — the registry options for it differ. */
+  setRowKind(i: number, kind: string): void {
+    this.reqRows = this.reqRows.map((r, idx) => (idx === i ? { ...r, kind, selector: '' } : r));
+  }
 
   readonly visible = computed(() => {
     const f = this.filter();
@@ -173,7 +225,29 @@ export class ExperiencesComponent {
     });
   });
 
-  constructor() { this.refresh(); }
+  constructor() { this.refresh(); this.loadCapabilities(); }
+
+  /** Populate the requirement typeahead from the tenant's catalog capabilities. */
+  private loadCapabilities(): void {
+    for (const kind of this.kinds) {
+      this.capCatalog.listByKind(kind).subscribe({
+        next: (res) => this.capsByKind.update((m) => ({ ...m, [kind]: res.items.map((c) => c.name) })),
+        error: () => { /* typeahead is best-effort; the field still accepts free input */ },
+      });
+    }
+  }
+
+  /** Build catalog requirements from the row builder; `#tag` → tag, else name. */
+  private buildRequires(): CapabilityRequirement[] {
+    return this.reqRows
+      .filter((r) => r.selector.trim())
+      .map((r) => {
+        const sel = r.selector.trim();
+        return sel.startsWith('#')
+          ? { kind: r.kind, tag: sel.slice(1), ...(r.optional ? { optional: true } : {}) }
+          : { kind: r.kind, name: sel, ...(r.optional ? { optional: true } : {}) };
+      });
+  }
 
   countOf(f: StateFilter): number { return this.items().filter((e) => e.approvalState === f).length; }
   badgeClass(state: string): string {
@@ -188,7 +262,11 @@ export class ExperiencesComponent {
   openCreate(): void { this.createOpen.set(true); }
   cancelCreate(): void { this.createOpen.set(false); this.reset(); }
   clearFilters(): void { this.filter.set('all'); this.query.set(''); }
-  private reset(): void { this.newName = this.newTitle = this.newGoal = this.newRequires = ''; this.touched.set(false); }
+  private reset(): void {
+    this.newName = this.newTitle = this.newGoal = '';
+    this.reqRows = [{ kind: 'workflow', selector: '', optional: false }];
+    this.touched.set(false);
+  }
 
   create(): void {
     this.touched.set(true);
@@ -198,7 +276,7 @@ export class ExperiencesComponent {
       name: this.newName.trim(),
       title: this.newTitle.trim(),
       goal: this.newGoal.trim(),
-      body: { requires: parseRequirementLines(this.newRequires) },
+      body: { requires: this.buildRequires() },
     }).subscribe({
       next: (created) => {
         this.saving.set(false);
