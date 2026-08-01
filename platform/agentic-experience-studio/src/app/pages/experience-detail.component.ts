@@ -11,6 +11,15 @@ import { buildExperienceGraphElements, partitionGraph } from '../experience-grap
 import { formatRequirementLines, parseRequirementLines } from '../experience-form';
 import { GraphViewComponent } from '../graph-view.component';
 import { ToastService } from '../services/toast.service';
+import { CapabilityCatalogService } from '../services/capability-catalog.service';
+
+/** One step of the user journey (from the required workflow capability's body). */
+interface JourneyStep {
+  readonly id: string;
+  readonly widget: string;
+  readonly section?: string;
+  readonly next: string | null;
+}
 
 /**
  * Experience detail (AEP Seam E) — one experience, its capability dependency
@@ -71,6 +80,38 @@ import { ToastService } from '../services/toast.service';
           </form>
         }
 
+        <!-- The journey (workflow) — the primary "what the end user experiences" view -->
+        <section class="card card-pad journey">
+          <div class="stack" style="gap:2px; margin-bottom:var(--s4)">
+            <span class="eyebrow">The journey · end-user UX</span>
+            <div class="row" style="gap:var(--s2)">
+              <h2 style="font-size:var(--fs-lg)">{{ journeyWorkflow() ?? 'No journey defined' }}</h2>
+              @if (journeyWorkflow()) { <span class="badge plain badge-warn">workflow</span> }
+            </div>
+            <span class="muted" style="font-size:var(--fs-sm)">The step-by-step path the end user takes — authored as a workflow, not the dependency graph.</span>
+          </div>
+          @if (journey().length) {
+            <ol class="steps">
+              @for (s of journey(); track s.id; let i = $index; let last = $last) {
+                <li class="jstep" [class.terminal]="!s.next">
+                  <span class="jnum">{{ i + 1 }}</span>
+                  <div class="jbody">
+                    <div class="jhead">{{ s.section ?? s.id }}</div>
+                    <div class="jmeta">renders <code>{{ s.widget }}</code> &nbsp;·&nbsp; then → <strong>{{ nextLabel(s) }}</strong></div>
+                  </div>
+                </li>
+              }
+            </ol>
+          } @else if (journeyWorkflow()) {
+            <p class="muted">Workflow “{{ journeyWorkflow() }}” isn’t in the catalog (or has no steps).</p>
+          } @else {
+            <div class="empty" style="border:0; padding:var(--s5)">
+              <p>No user journey yet — add a <code>workflow</code> requirement to define the steps the end user walks through.</p>
+              <button class="btn btn-ghost btn-sm" (click)="startEdit(e)">Edit requirements</button>
+            </div>
+          }
+        </section>
+
         <!-- Approval + plan action bar -->
         <div class="card card-pad actionbar">
           <div class="stack" style="gap:2px">
@@ -103,8 +144,8 @@ import { ToastService } from '../services/toast.service';
         <section class="card" style="margin-top:var(--s5); overflow:hidden">
           <div class="card-pad" style="padding-bottom:var(--s3); display:flex; align-items:center; justify-content:space-between; gap:var(--s3); flex-wrap:wrap">
             <div class="stack" style="gap:2px">
-              <h2 style="font-size:var(--fs-lg)">Capability dependency graph</h2>
-              <span class="muted" style="font-size:var(--fs-sm)">Seam A — what this goal needs, and whether it resolves.</span>
+              <h2 style="font-size:var(--fs-lg)">Composition &amp; health</h2>
+              <span class="muted" style="font-size:var(--fs-sm)">What this experience is <em>made of</em> and whether it resolves — the parts list, not the journey.</span>
             </div>
             <div class="legend">
               <span><i class="dot root"></i>goal</span>
@@ -156,6 +197,18 @@ import { ToastService } from '../services/toast.service';
     .node.unmet { border-left-color: var(--danger); background: var(--danger-soft); }
     .nlabel { font-weight: 550; }
     .nstate { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; font-family: var(--font-mono); }
+    /* Journey (workflow) — the primary view */
+    .journey { border-left: 3px solid var(--brand); }
+    .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+    .jstep { position: relative; display: flex; align-items: flex-start; gap: var(--s3); padding: var(--s3) 0; }
+    .jstep:not(.terminal)::after { content: ""; position: absolute; left: 15px; top: 34px; bottom: -6px; width: 2px; background: var(--border-strong); }
+    .jnum { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+      background: var(--brand-soft); color: var(--brand); font-weight: 650; font-size: var(--fs-sm); z-index: 1; }
+    .jstep.terminal .jnum { background: var(--ok-soft); color: var(--ok); }
+    .jbody { padding-top: 3px; }
+    .jhead { font-weight: 600; }
+    .jmeta { font-size: var(--fs-sm); color: var(--text-muted); }
+    .jmeta code { color: var(--text); background: var(--surface-2); padding: 1px 6px; border-radius: 5px; font-size: .92em; }
   `],
 })
 export class ExperienceDetailComponent {
@@ -175,6 +228,16 @@ export class ExperienceDetailComponent {
   readonly editing = signal(false);
   readonly saving = signal(false);
   editTitle = ''; editGoal = ''; editRequires = '';
+
+  private readonly caps = inject(CapabilityCatalogService);
+  /** The user journey — the steps of the workflow this experience requires. */
+  readonly journey = signal<JourneyStep[]>([]);
+  readonly journeyWorkflow = signal<string | null>(null);
+  /** Name of the workflow capability this experience requires (the journey). */
+  private workflowRequirement(e: Experience): string | null {
+    const req = (e.body.requires ?? []).find((r) => r.kind === 'workflow' && r.name);
+    return req?.name ?? null;
+  }
 
   readonly graphElements = computed(() => {
     const e = this.experience();
@@ -204,9 +267,32 @@ export class ExperienceDetailComponent {
   private load(): void {
     this.loading.set(true);
     this.catalog.get(this.id()).subscribe({
-      next: (e) => { this.experience.set(e); this.loading.set(false); },
+      next: (e) => { this.experience.set(e); this.loading.set(false); this.loadJourney(e); },
       error: (err) => { this.error.set(message(err)); this.loading.set(false); },
     });
+  }
+
+  /** Fetch the required workflow capability and expose its steps as the journey. */
+  private loadJourney(e: Experience): void {
+    const name = this.workflowRequirement(e);
+    this.journeyWorkflow.set(name);
+    this.journey.set([]);
+    if (!name) return;
+    this.caps.listByKind('workflow').subscribe({
+      next: (res) => {
+        const wf = res.items.find((c) => c.name === name);
+        const steps = (wf?.body?.['steps'] as JourneyStep[] | undefined) ?? [];
+        this.journey.set(steps);
+      },
+      error: () => this.journey.set([]),
+    });
+  }
+
+  /** Human label for a step's transition target. */
+  nextLabel(step: JourneyStep): string {
+    if (!step.next) return 'End';
+    const target = this.journey().find((s) => s.id === step.next);
+    return target?.section ?? step.next;
   }
 
   startEdit(e: Experience): void {
