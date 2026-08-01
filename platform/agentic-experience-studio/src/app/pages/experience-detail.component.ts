@@ -12,14 +12,7 @@ import { formatRequirementLines, parseRequirementLines } from '../experience-for
 import { GraphViewComponent } from '../graph-view.component';
 import { ToastService } from '../services/toast.service';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
-
-/** One step of the user journey (from the required workflow capability's body). */
-interface JourneyStep {
-  readonly id: string;
-  readonly widget: string;
-  readonly section?: string;
-  readonly next: string | null;
-}
+import { JourneyFlowComponent, type JourneyFlowStep } from '../journey-flow.component';
 
 /**
  * Experience detail (AEP Seam E) — one experience, its capability dependency
@@ -29,7 +22,7 @@ interface JourneyStep {
  */
 @Component({
   selector: 'aes-experience-detail',
-  imports: [RouterLink, FormsModule, GraphViewComponent],
+  imports: [RouterLink, FormsModule, GraphViewComponent, JourneyFlowComponent],
   template: `
     <div class="page">
       <a routerLink="/experiences" class="back">
@@ -91,17 +84,7 @@ interface JourneyStep {
             <span class="muted" style="font-size:var(--fs-sm)">The step-by-step path the end user takes — authored as a workflow, not the dependency graph.</span>
           </div>
           @if (journey().length) {
-            <ol class="steps">
-              @for (s of journey(); track s.id; let i = $index; let last = $last) {
-                <li class="jstep" [class.terminal]="!s.next">
-                  <span class="jnum">{{ i + 1 }}</span>
-                  <div class="jbody">
-                    <div class="jhead">{{ s.section ?? s.id }}</div>
-                    <div class="jmeta">renders <code>{{ s.widget }}</code> &nbsp;·&nbsp; then → <strong>{{ nextLabel(s) }}</strong></div>
-                  </div>
-                </li>
-              }
-            </ol>
+            <aes-journey-flow [steps]="journey()" />
           } @else if (journeyWorkflow()) {
             <p class="muted">Workflow “{{ journeyWorkflow() }}” isn’t in the catalog (or has no steps).</p>
           } @else {
@@ -231,7 +214,7 @@ export class ExperienceDetailComponent {
 
   private readonly caps = inject(CapabilityCatalogService);
   /** The user journey — the steps of the workflow this experience requires. */
-  readonly journey = signal<JourneyStep[]>([]);
+  readonly journey = signal<JourneyFlowStep[]>([]);
   readonly journeyWorkflow = signal<string | null>(null);
   /** Name of the workflow capability this experience requires (the journey). */
   private workflowRequirement(e: Experience): string | null {
@@ -281,19 +264,13 @@ export class ExperienceDetailComponent {
     this.caps.listByKind('workflow').subscribe({
       next: (res) => {
         const wf = res.items.find((c) => c.name === name);
-        const steps = (wf?.body?.['steps'] as JourneyStep[] | undefined) ?? [];
+        const steps = (wf?.body?.['steps'] as JourneyFlowStep[] | undefined) ?? [];
         this.journey.set(steps);
       },
       error: () => this.journey.set([]),
     });
   }
 
-  /** Human label for a step's transition target. */
-  nextLabel(step: JourneyStep): string {
-    if (!step.next) return 'End';
-    const target = this.journey().find((s) => s.id === step.next);
-    return target?.section ?? step.next;
-  }
 
   startEdit(e: Experience): void {
     if (this.editing()) { this.editing.set(false); return; }
