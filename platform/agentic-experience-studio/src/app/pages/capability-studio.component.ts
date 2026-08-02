@@ -92,6 +92,24 @@ export interface StudioConfig {
               </div>
             }
           </div>
+
+          @if (editTarget(); as et) {
+            <div class="lifebar">
+              <div class="stack" style="gap:3px">
+                <span class="eyebrow">Lifecycle</span>
+                <span class="muted" style="font-size:var(--fs-sm)">Move this {{ cfg().noun }} through its lifecycle. Experiences resolve against <strong>published</strong> entries.</span>
+              </div>
+              <div class="row spacer" style="gap:var(--s2); flex-wrap:wrap; justify-content:flex-end; align-items:center">
+                <span class="badge" [class.badge-ok]="et.lifecycle === 'published'" [class.badge-warn]="et.lifecycle === 'draft'" [class.badge-danger]="et.lifecycle === 'deprecated' || et.lifecycle === 'disabled'">{{ et.lifecycle }}</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="var(--text-faint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                @for (t of lifecycleTransitions(et.lifecycle); track t.to) {
+                  <button class="btn btn-sm" type="button" [class.btn-primary]="t.to === 'published'" [class.btn-danger]="t.to === 'disabled' || t.to === 'deprecated'"
+                          [disabled]="transitioning()" (click)="transitionLifecycle(t.to)">{{ t.label }}</button>
+                }
+              </div>
+            </div>
+          }
+
           <div class="row" style="margin-top:var(--s5)">
             <button class="btn btn-primary" type="submit" [disabled]="saving()">
               @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… }
@@ -211,6 +229,8 @@ export interface StudioConfig {
     .toolbar { display: flex; align-items: center; gap: var(--s4); margin: var(--s5) 0 var(--s4); }
     .toolbar .search { flex: 1; max-width: 380px; }
     .toolbar .count { font-size: var(--fs-sm); white-space: nowrap; }
+    .lifebar { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; margin-top: var(--s5);
+      padding: var(--s4); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
     .dialog.preview { max-width: 560px; width: 100%; }
     .pvfields { display: grid; grid-template-columns: max-content 1fr; gap: var(--s2) var(--s4); margin: var(--s4) 0 0; }
     .pvfields dt { font-size: var(--fs-sm); color: var(--text-muted); }
@@ -234,6 +254,7 @@ export class CapabilityStudioComponent {
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly deleting = signal(false);
+  readonly transitioning = signal(false);
   readonly error = signal<string | null>(null);
   readonly createOpen = signal(false);
   readonly editTarget = signal<Capability | null>(null);
@@ -297,6 +318,32 @@ export class CapabilityStudioComponent {
     }
     this.values = v;
     this.touched.set(false);
+  }
+
+  /** Valid lifecycle transitions from a state (governed, e2e: draft → published → deprecated → disabled). */
+  lifecycleTransitions(state: string): ReadonlyArray<{ to: string; label: string }> {
+    switch (state) {
+      case 'draft': return [{ to: 'published', label: 'Publish' }];
+      case 'published': return [{ to: 'deprecated', label: 'Deprecate' }, { to: 'disabled', label: 'Disable' }];
+      case 'deprecated': return [{ to: 'published', label: 'Restore' }, { to: 'disabled', label: 'Disable' }];
+      case 'disabled': return [{ to: 'published', label: 'Restore' }];
+      default: return [];
+    }
+  }
+
+  transitionLifecycle(to: string): void {
+    const et = this.editTarget();
+    if (!et) return;
+    this.transitioning.set(true);
+    this.catalog.update(et.id, { lifecycle: to }).subscribe({
+      next: (updated) => {
+        this.transitioning.set(false);
+        this.editTarget.set(updated);
+        this.items.update((cur) => cur.map((x) => (x.id === updated.id ? updated : x)));
+        this.toast.success('Lifecycle updated', `“${updated.name}” is now ${updated.lifecycle}.`);
+      },
+      error: (err) => { this.transitioning.set(false); this.toast.error('Transition failed', msg(err)); },
+    });
   }
 
   preview(c: Capability): void { this.previewTarget.set(c); }
