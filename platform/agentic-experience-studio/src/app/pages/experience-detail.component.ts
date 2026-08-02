@@ -13,9 +13,10 @@ import { environment } from '../../environments/environment';
 import { buildExperienceGraphElements, partitionGraph } from '../experience-graph';
 import { GraphViewComponent } from '../graph-view.component';
 import { ToastService } from '../services/toast.service';
-import { CapabilityCatalogService } from '../services/capability-catalog.service';
+import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { JourneyFlowComponent, type JourneyFlowStep } from '../journey-flow.component';
 import { RequirementsBuilderComponent } from '../requirements-builder.component';
+import { PreviewHostComponent } from '../preview-host.component';
 
 /**
  * Experience detail (AEP Seam E) — one experience, its capability dependency
@@ -25,7 +26,7 @@ import { RequirementsBuilderComponent } from '../requirements-builder.component'
  */
 @Component({
   selector: 'aes-experience-detail',
-  imports: [RouterLink, FormsModule, GraphViewComponent, JourneyFlowComponent, RequirementsBuilderComponent],
+  imports: [RouterLink, FormsModule, GraphViewComponent, JourneyFlowComponent, RequirementsBuilderComponent, PreviewHostComponent],
   template: `
     <div class="page">
       <a routerLink="/experiences" class="back">
@@ -96,6 +97,25 @@ import { RequirementsBuilderComponent } from '../requirements-builder.component'
             </div>
           }
         </section>
+
+        <!-- Experience preview — the composed end-user UI, step by step -->
+        @if (storyboard().length) {
+          <section class="card card-pad">
+            <div class="stack" style="gap:2px; margin-bottom:var(--s4)">
+              <span class="eyebrow">Experience preview · what the end user sees</span>
+              <span class="muted" style="font-size:var(--fs-sm)">The composed UI — each journey step rendered with its widget's preview.</span>
+            </div>
+            <div class="storyboard">
+              @for (s of storyboard(); track s.step.id; let i = $index) {
+                <div class="sb-step">
+                  <div class="sb-h"><span class="sb-n">{{ i + 1 }}</span><div class="stack" style="gap:0"><span class="sb-t">{{ s.step.section ?? s.step.id }}</span><span class="sb-w">{{ s.step.widget }}</span></div></div>
+                  @if (s.cap) { <aes-preview-host [capability]="s.cap" /> }
+                  @else { <div class="sb-none">No preview for <code>{{ s.step.widget }}</code>. Add a <code>preview</code> to its component entry.</div> }
+                </div>
+              }
+            </div>
+          </section>
+        }
 
         <!-- Approval + plan action bar -->
         <div class="card card-pad actionbar">
@@ -285,6 +305,15 @@ import { RequirementsBuilderComponent } from '../requirements-builder.component'
     .keybox .key { font-family: var(--font-mono); font-size: var(--fs-sm); word-break: break-all; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); padding: var(--s2) var(--s3); color: var(--text); }
     .keybox .urlline { display: flex; flex-direction: column; gap: 3px; }
     .keybox .urlline code { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text); word-break: break-all; }
+    /* Experience preview storyboard */
+    .storyboard { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s4); }
+    .sb-step { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s3); background: var(--surface); display: flex; flex-direction: column; gap: var(--s3); }
+    .sb-h { display: flex; align-items: center; gap: var(--s2); }
+    .sb-n { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 650; }
+    .sb-t { font-weight: 600; font-size: var(--fs-sm); }
+    .sb-w { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-muted); }
+    .sb-none { font-size: var(--fs-xs); color: var(--text-muted); border: 1px dashed var(--border); border-radius: var(--r-sm); padding: var(--s4); text-align: center; }
+    .sb-none code { font-family: var(--font-mono); }
     /* Journey (workflow) — the primary view */
     .journey { border-left: 3px solid var(--brand); }
     .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
@@ -330,6 +359,12 @@ export class ExperienceDetailComponent {
   /** The user journey — the steps of the workflow this experience requires. */
   readonly journey = signal<JourneyFlowStep[]>([]);
   readonly journeyWorkflow = signal<string | null>(null);
+  /** Widget/form capabilities by name — supplies each journey step's preview. */
+  private readonly widgetCaps = signal<Record<string, Capability>>({});
+  /** The composed end-user UI: each journey step paired with its widget capability. */
+  readonly storyboard = computed(() =>
+    this.journey().map((step) => ({ step, cap: this.widgetCaps()[step.widget] ?? null })),
+  );
   /** Name of the workflow capability this experience requires (the journey). */
   private workflowRequirement(e: Experience): string | null {
     const req = (e.body.requires ?? []).find((r) => r.kind === 'workflow' && r.name);
@@ -423,9 +458,22 @@ export class ExperienceDetailComponent {
         const wf = res.items.find((c) => c.name === name);
         const steps = (wf?.body?.['steps'] as JourneyFlowStep[] | undefined) ?? [];
         this.journey.set(steps);
+        this.loadWidgets();
       },
       error: () => this.journey.set([]),
     });
+  }
+
+  /** Index the tenant's component + form capabilities by name for the storyboard. */
+  private loadWidgets(): void {
+    const merge = (items: readonly Capability[]) =>
+      this.widgetCaps.update((m) => {
+        const next = { ...m };
+        for (const c of items) next[c.name] = c;
+        return next;
+      });
+    this.caps.listByKind('component').subscribe({ next: (r) => merge(r.items), error: () => { /* storyboard falls back to placeholders */ } });
+    this.caps.listByKind('form').subscribe({ next: (r) => merge(r.items), error: () => { /* non-fatal */ } });
   }
 
 
