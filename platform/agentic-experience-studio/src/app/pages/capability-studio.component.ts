@@ -49,15 +49,17 @@ export interface StudioConfig {
         </button>
       </div>
 
-      @if (createOpen()) {
-        <form class="card card-pad create" (ngSubmit)="create()">
+      @if (formOpen()) {
+        <form class="card card-pad create" (ngSubmit)="save()">
+          @if (editTarget()) { <div class="eyebrow" style="margin-bottom:var(--s3)">Editing · {{ editTarget()!.name }}</div> }
           <div class="grid-2">
             <div class="field" [class.wide]="false">
-              <label class="label" [attr.for]="fid('name')">Name (id) <span class="req" aria-hidden="true">*</span></label>
-              <input class="input" [id]="fid('name')" name="name" [(ngModel)]="values['name']"
-                     [attr.aria-invalid]="touched() && !nameValid()" [placeholder]="cfg().noun + 'Name'"
+              <label class="label" [attr.for]="fid('name')">Name (id) @if (!editTarget()) { <span class="req" aria-hidden="true">*</span> }</label>
+              <input class="input" [id]="fid('name')" name="name" [(ngModel)]="values['name']" [disabled]="!!editTarget()"
+                     [attr.aria-invalid]="touched() && !editTarget() && !nameValid()" [placeholder]="cfg().noun + 'Name'"
                      autocomplete="off" spellcheck="false" />
-              @if (touched() && !nameValid()) { <span class="err">A unique name is required.</span> }
+              @if (editTarget()) { <span class="help">Name and kind are immutable.</span> }
+              @else if (touched() && !nameValid()) { <span class="err">A unique name is required.</span> }
             </div>
             @for (f of cfg().bodyFields; track f.key) {
               <div class="field" [style.grid-column]="isWide(f) ? '1 / -1' : null">
@@ -91,9 +93,10 @@ export interface StudioConfig {
           </div>
           <div class="row" style="margin-top:var(--s5)">
             <button class="btn btn-primary" type="submit" [disabled]="saving()">
-              @if (saving()) { <span class="spinner" aria-hidden="true"></span> Creating… } @else { Create {{ cfg().noun }} }
+              @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… }
+              @else if (editTarget()) { Save changes } @else { Create {{ cfg().noun }} }
             </button>
-            <button class="btn btn-ghost" type="button" (click)="cancelCreate()">Cancel</button>
+            <button class="btn btn-ghost" type="button" (click)="cancelForm()">Cancel</button>
           </div>
         </form>
       }
@@ -144,12 +147,47 @@ export interface StudioConfig {
                 @if (summarize(c)) { <span class="desc" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ summarize(c) }}</span> }
               </div>
               @for (t of c.tags; track t) { <span class="badge plain badge-brand">{{ t }}</span> }
-              <button class="btn btn-danger btn-sm" type="button" (click)="askDelete(c)">Delete</button>
+              <div class="row" style="gap:var(--s2)">
+                <button class="btn btn-ghost btn-sm" type="button" (click)="preview(c)">Preview</button>
+                <button class="btn btn-sm" type="button" (click)="startEdit(c)">Edit</button>
+                <button class="btn btn-danger btn-sm" type="button" (click)="askDelete(c)">Delete</button>
+              </div>
             </li>
           }
         </ul>
       }
     </div>
+
+    @if (previewTarget(); as pv) {
+      <div class="scrim" (click)="previewTarget.set(null)">
+        <div class="dialog preview" role="dialog" aria-modal="true" aria-labelledby="pv-title" (click)="$event.stopPropagation()">
+          <div class="row" style="justify-content:space-between; align-items:flex-start; gap:var(--s3)">
+            <div class="stack" style="gap:2px; min-width:0">
+              <span class="eyebrow">{{ cfg().kind }} · preview</span>
+              <h3 id="pv-title" style="word-break:break-all">{{ pv.name }}</h3>
+            </div>
+            <span class="badge" [class.badge-ok]="pv.lifecycle === 'published'" [class.badge-warn]="pv.lifecycle === 'draft'" [class.badge-danger]="pv.lifecycle === 'deprecated' || pv.lifecycle === 'disabled'">{{ pv.lifecycle }}</span>
+          </div>
+          @if (pv.tags.length) { <div class="row" style="gap:6px; flex-wrap:wrap; margin-top:var(--s2)">@for (t of pv.tags; track t) { <span class="badge plain badge-brand">{{ t }}</span> }</div> }
+          <dl class="pvfields">
+            @for (f of cfg().bodyFields; track f.key) {
+              @if (previewValue(pv, f.key); as val) {
+                <dt>{{ f.label }}</dt>
+                <dd [class.mono]="f.type === 'textarea' || f.type === 'list'">{{ val }}</dd>
+              }
+            }
+          </dl>
+          <details class="pvraw">
+            <summary>Raw JSON</summary>
+            <pre>{{ pretty(pv.body) }}</pre>
+          </details>
+          <div class="actions">
+            <button class="btn btn-ghost" type="button" (click)="previewTarget.set(null)">Close</button>
+            <button class="btn btn-primary" type="button" (click)="editFromPreview(pv)">Edit</button>
+          </div>
+        </div>
+      </div>
+    }
 
     @if (pendingDelete(); as target) {
       <div class="scrim" (click)="pendingDelete.set(null)">
@@ -171,6 +209,15 @@ export interface StudioConfig {
     .toolbar { display: flex; align-items: center; gap: var(--s4); margin: var(--s5) 0 var(--s4); }
     .toolbar .search { flex: 1; max-width: 380px; }
     .toolbar .count { font-size: var(--fs-sm); white-space: nowrap; }
+    .dialog.preview { max-width: 560px; width: 100%; }
+    .pvfields { display: grid; grid-template-columns: max-content 1fr; gap: var(--s2) var(--s4); margin: var(--s4) 0 0; }
+    .pvfields dt { font-size: var(--fs-sm); color: var(--text-muted); }
+    .pvfields dd { margin: 0; font-size: var(--fs-sm); word-break: break-word; }
+    .pvfields dd.mono { font-family: var(--font-mono); white-space: pre-wrap; }
+    .pvraw { margin-top: var(--s4); }
+    .pvraw summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-muted); }
+    .pvraw pre { margin-top: var(--s2); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-sm);
+      padding: var(--s3); font-size: var(--fs-xs); overflow-x: auto; max-height: 260px; }
   `],
 })
 export class CapabilityStudioComponent {
@@ -187,9 +234,13 @@ export class CapabilityStudioComponent {
   readonly deleting = signal(false);
   readonly error = signal<string | null>(null);
   readonly createOpen = signal(false);
+  readonly editTarget = signal<Capability | null>(null);
+  readonly previewTarget = signal<Capability | null>(null);
   readonly touched = signal(false);
   readonly query = signal('');
   readonly pendingDelete = signal<Capability | null>(null);
+  /** The authoring form is shown for either a create or an edit. */
+  readonly formOpen = computed(() => this.createOpen() || this.editTarget() !== null);
 
   values: Record<string, unknown> = {};
 
@@ -204,7 +255,14 @@ export class CapabilityStudioComponent {
 
   constructor() {
     // Reload whenever the kind changes (navigating Prompt → Navigation).
-    effect(() => { this.config(); this.resetForm(); this.refresh(); });
+    effect(() => {
+      this.config();
+      this.createOpen.set(false);
+      this.editTarget.set(null);
+      this.previewTarget.set(null);
+      this.resetForm();
+      this.refresh();
+    });
   }
 
   fid(key: string): string { return `f-${this.cfg().kind}-${key}`; }
@@ -217,10 +275,36 @@ export class CapabilityStudioComponent {
     return this.cfg().bodyFields.filter((f) => f.required).every((f) => this.filled(f.key));
   }
 
-  toggleCreate(): void { this.createOpen.update((v) => !v); if (!this.createOpen()) this.resetForm(); }
-  openCreate(): void { this.createOpen.set(true); }
-  cancelCreate(): void { this.createOpen.set(false); this.resetForm(); }
+  toggleCreate(): void {
+    if (this.formOpen()) { this.cancelForm(); return; }
+    this.createOpen.set(true);
+  }
+  openCreate(): void { this.editTarget.set(null); this.resetForm(); this.createOpen.set(true); }
+  cancelForm(): void { this.createOpen.set(false); this.editTarget.set(null); this.resetForm(); }
   private resetForm(): void { this.values = {}; this.touched.set(false); }
+
+  /** Open the form in EDIT mode, pre-filled from the capability's body. */
+  startEdit(c: Capability): void {
+    this.createOpen.set(false);
+    this.editTarget.set(c);
+    const v: Record<string, unknown> = { name: c.name };
+    for (const f of this.cfg().bodyFields) {
+      const raw = c.body[f.key];
+      if (raw === undefined || raw === null) continue;
+      v[f.key] = f.type === 'list' && Array.isArray(raw) ? raw.join(' ') : raw;
+    }
+    this.values = v;
+    this.touched.set(false);
+  }
+
+  preview(c: Capability): void { this.previewTarget.set(c); }
+  editFromPreview(c: Capability): void { this.previewTarget.set(null); this.startEdit(c); }
+  previewValue(c: Capability, key: string): string {
+    const v = c.body[key];
+    if (v == null || v === '') return '';
+    return Array.isArray(v) ? v.join(', ') : String(v);
+  }
+  pretty(body: Record<string, unknown>): string { return JSON.stringify(body, null, 2); }
 
   refresh(): void {
     this.loading.set(true);
@@ -231,8 +315,11 @@ export class CapabilityStudioComponent {
     });
   }
 
-  create(): void {
+  /** Create or update depending on whether the form is in edit mode. */
+  save(): void {
     this.touched.set(true);
+    const target = this.editTarget();
+    if (target) { this.saveEdit(target); return; }
     if (!this.canCreate()) return;
     this.saving.set(true);
     const name = String(this.values['name']).trim();
@@ -246,6 +333,21 @@ export class CapabilityStudioComponent {
         this.toast.success(`${cap(this.cfg().noun)} created`, `“${created.name}” is now published.`);
       },
       error: (err) => { this.saving.set(false); this.toast.error('Create failed', msg(err)); },
+    });
+  }
+
+  private saveEdit(target: Capability): void {
+    if (!this.canCreate()) return; // required body fields still apply on edit
+    this.saving.set(true);
+    this.catalog.update(target.id, { body: this.buildBody() }).subscribe({
+      next: (updated) => {
+        this.saving.set(false);
+        this.editTarget.set(null);
+        this.resetForm();
+        this.items.update((cur) => cur.map((x) => (x.id === updated.id ? updated : x)));
+        this.toast.success(`${cap(this.cfg().noun)} updated`, `“${updated.name}” saved.`);
+      },
+      error: (err) => { this.saving.set(false); this.toast.error('Update failed', msg(err)); },
     });
   }
 

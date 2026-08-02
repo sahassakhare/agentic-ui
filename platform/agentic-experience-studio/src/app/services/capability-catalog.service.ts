@@ -47,6 +47,11 @@ export class CapabilityCatalogService {
     return this.http.post<Capability>(this.base(), input);
   }
 
+  /** Update a capability's body/lifecycle/tags (name + kind are immutable). */
+  update(id: string, patch: { body?: Record<string, unknown>; lifecycle?: string; tags?: string[] }): Observable<Capability> {
+    return this.http.patch<Capability>(`${this.base()}/${id}`, patch);
+  }
+
   remove(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base()}/${id}`);
   }
