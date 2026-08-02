@@ -54,6 +54,44 @@ export const KNOWLEDGE_STUDIO: StudioConfig = {
   ],
 };
 
+/** Component Registry — `component`-kind capabilities (UI widgets; Angular class
+ *  stays host-local, the catalog stores the metadata + optional federation ptr). */
+export const COMPONENT_STUDIO: StudioConfig = {
+  kind: 'component',
+  title: 'Component Registry',
+  noun: 'component',
+  bodyFields: [
+    { key: 'description', label: 'Description', type: 'text' },
+    { key: 'manifestUrl', label: 'MFE manifest URL (federation)', type: 'text', placeholder: 'https://…/remoteEntry.json' },
+    { key: 'exposedModule', label: 'Exposed module', type: 'text', placeholder: './PriorityPicker' },
+    { key: 'version', label: 'Version', type: 'text' },
+  ],
+};
+
+/** Form Registry — `form`-kind capabilities (rendered by <mvk-form-renderer>). */
+export const FORM_STUDIO: StudioConfig = {
+  kind: 'form',
+  title: 'Form Registry',
+  noun: 'form',
+  bodyFields: [
+    { key: 'description', label: 'Description', type: 'text' },
+    { key: 'submit', label: 'Submit target', type: 'text', placeholder: 'usage-event / backend name' },
+    { key: 'version', label: 'Version', type: 'text' },
+  ],
+};
+
+/** Tool Registry — `tool`-kind capabilities (agent tools). */
+export const TOOL_STUDIO: StudioConfig = {
+  kind: 'tool',
+  title: 'Tool Registry',
+  noun: 'tool',
+  bodyFields: [
+    { key: 'description', label: 'Description', type: 'text', required: true },
+    { key: 'inputs', label: 'Inputs (comma separated)', type: 'list' },
+    { key: 'version', label: 'Version', type: 'text' },
+  ],
+};
+
 /** Memory Studio — authors `memory`-kind capabilities (AEP Seam B). */
 export const MEMORY_STUDIO: StudioConfig = {
   kind: 'memory',

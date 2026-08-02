@@ -1,11 +1,14 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 import {
+  COMPONENT_STUDIO,
+  FORM_STUDIO,
   KNOWLEDGE_STUDIO,
   MEMORY_STUDIO,
   NAVIGATION_STUDIO,
   PROMPT_STUDIO,
   SKILL_STUDIO,
+  TOOL_STUDIO,
 } from './studio-configs';
 
 export const routes: Routes = [
@@ -62,6 +65,24 @@ export const routes: Routes = [
     path: 'workflows',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/workflow.component').then((m) => m.WorkflowComponent),
+  },
+  {
+    path: 'components',
+    canActivate: [authGuard],
+    data: { config: COMPONENT_STUDIO },
+    loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
+  },
+  {
+    path: 'forms',
+    canActivate: [authGuard],
+    data: { config: FORM_STUDIO },
+    loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
+  },
+  {
+    path: 'tools',
+    canActivate: [authGuard],
+    data: { config: TOOL_STUDIO },
+    loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
   },
   {
     path: 'policy',
