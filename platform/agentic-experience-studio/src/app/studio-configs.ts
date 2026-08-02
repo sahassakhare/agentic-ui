@@ -68,13 +68,17 @@ export const COMPONENT_STUDIO: StudioConfig = {
   ],
 };
 
-/** Form Registry — `form`-kind capabilities (rendered by <mvk-form-renderer>). */
+/** Form Registry — `form`-kind capabilities (rendered by <mvk-form-renderer>).
+ *  The form is composed declaratively as JSON in `schema`; the same JSON drives
+ *  the renderer, an agent's tool-input schema, and cross-registry composition
+ *  (a field may `widget`-reference a Component entry). */
 export const FORM_STUDIO: StudioConfig = {
   kind: 'form',
   title: 'Form Registry',
   noun: 'form',
   bodyFields: [
     { key: 'description', label: 'Description', type: 'text' },
+    { key: 'schema', label: 'Form schema (JSON)', type: 'json', placeholder: '{\n  "fields": [\n    { "name": "email", "type": "text", "label": "Email", "required": true }\n  ],\n  "submit": "usage-event"\n}' },
     { key: 'submit', label: 'Submit target', type: 'text', placeholder: 'usage-event / backend name' },
     { key: 'version', label: 'Version', type: 'text' },
   ],

@@ -3,13 +3,15 @@ import { FormsModule } from '@angular/forms';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
 import { PreviewHostComponent } from '../preview-host.component';
+import { SchemaFormComponent } from '../schema-form.component';
 
 /** A field in a capability authoring form. */
 export interface StudioField {
   readonly key: string;
   readonly label: string;
-  /** `list` splits whitespace/commas into a string[] stored in body. */
-  readonly type: 'text' | 'textarea' | 'number' | 'checkbox' | 'list';
+  /** `list` splits whitespace/commas into a string[] stored in body; `json`
+   *  parses to an object (compose an entry declaratively). */
+  readonly type: 'text' | 'textarea' | 'number' | 'checkbox' | 'list' | 'json';
   readonly required?: boolean;
   readonly placeholder?: string;
 }
@@ -34,7 +36,7 @@ export interface StudioConfig {
  */
 @Component({
   selector: 'aes-capability-studio',
-  imports: [FormsModule, PreviewHostComponent],
+  imports: [FormsModule, PreviewHostComponent, SchemaFormComponent],
   template: `
     <div class="page">
       <div class="page-header">
@@ -76,6 +78,12 @@ export interface StudioConfig {
                     <textarea class="textarea" rows="2" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]"
                       [attr.aria-invalid]="touched() && f.required && !filled(f.key)" [placeholder]="f.placeholder ?? ''"></textarea>
                     <span class="help">Separate with spaces or commas.</span>
+                  }
+                  @case ('json') {
+                    <textarea class="textarea mono" rows="10" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]"
+                      [attr.aria-invalid]="!jsonOk(f.key)" [placeholder]="f.placeholder ?? '{ }'" spellcheck="false" autocomplete="off"></textarea>
+                    @if (!jsonOk(f.key)) { <span class="err">Invalid JSON.</span> }
+                    @else { <span class="help">Declarative JSON — the same shape the renderer, agents, and cross-registry composition consume.</span> }
                   }
                   @case ('checkbox') {
                     <label class="checkbox"><input type="checkbox" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]" /> Enabled</label>
@@ -188,7 +196,10 @@ export interface StudioConfig {
             <span class="badge" [class.badge-ok]="pv.lifecycle === 'published'" [class.badge-warn]="pv.lifecycle === 'draft'" [class.badge-danger]="pv.lifecycle === 'deprecated' || pv.lifecycle === 'disabled'">{{ pv.lifecycle }}</span>
           </div>
           @if (pv.tags.length) { <div class="row" style="gap:6px; flex-wrap:wrap; margin-top:var(--s2)">@for (t of pv.tags; track t) { <span class="badge plain badge-brand">{{ t }}</span> }</div> }
-          <div style="margin-top:var(--s4)"><aes-preview-host [capability]="pv" /></div>
+          <div style="margin-top:var(--s4)">
+            @if (hasSchema(pv)) { <aes-schema-form [body]="pv.body" /> }
+            @else { <aes-preview-host [capability]="pv" /> }
+          </div>
           <dl class="pvfields">
             @for (f of cfg().bodyFields; track f.key) {
               @if (previewValue(pv, f.key); as val) {
@@ -229,6 +240,7 @@ export interface StudioConfig {
     .toolbar { display: flex; align-items: center; gap: var(--s4); margin: var(--s5) 0 var(--s4); }
     .toolbar .search { flex: 1; max-width: 380px; }
     .toolbar .count { font-size: var(--fs-sm); white-space: nowrap; }
+    .textarea.mono { font-family: var(--font-mono); font-size: var(--fs-sm); line-height: 1.5; }
     .lifebar { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; margin-top: var(--s5);
       padding: var(--s4); border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
     .dialog.preview { max-width: 560px; width: 100%; }
@@ -289,12 +301,25 @@ export class CapabilityStudioComponent {
   }
 
   fid(key: string): string { return `f-${this.cfg().kind}-${key}`; }
-  isWide(f: StudioField): boolean { return f.type === 'textarea' || f.type === 'list'; }
+  isWide(f: StudioField): boolean { return f.type === 'textarea' || f.type === 'list' || f.type === 'json'; }
   filled(key: string): boolean { return String(this.values[key] ?? '').trim() !== ''; }
   nameValid(): boolean { return this.filled('name'); }
 
+  /** A JSON field is OK when empty or when it parses. */
+  jsonOk(key: string): boolean {
+    const raw = this.values[key];
+    if (raw == null || String(raw).trim() === '') return true;
+    try { JSON.parse(String(raw)); return true; } catch { return false; }
+  }
+  /** True when a capability carries a form schema to render live. */
+  hasSchema(c: Capability): boolean {
+    const s = (c.body?.['schema'] ?? c.body) as { fields?: unknown } | undefined;
+    return !!s && Array.isArray(s.fields) && (s.fields as unknown[]).length > 0;
+  }
+
   canCreate(): boolean {
     if (!this.nameValid()) return false;
+    if (this.cfg().bodyFields.some((f) => f.type === 'json' && !this.jsonOk(f.key))) return false;
     return this.cfg().bodyFields.filter((f) => f.required).every((f) => this.filled(f.key));
   }
 
@@ -314,7 +339,9 @@ export class CapabilityStudioComponent {
     for (const f of this.cfg().bodyFields) {
       const raw = c.body[f.key];
       if (raw === undefined || raw === null) continue;
-      v[f.key] = f.type === 'list' && Array.isArray(raw) ? raw.join(' ') : raw;
+      v[f.key] = f.type === 'list' && Array.isArray(raw) ? raw.join(' ')
+        : f.type === 'json' ? JSON.stringify(raw, null, 2)
+        : raw;
     }
     this.values = v;
     this.touched.set(false);
@@ -351,7 +378,9 @@ export class CapabilityStudioComponent {
   previewValue(c: Capability, key: string): string {
     const v = c.body[key];
     if (v == null || v === '') return '';
-    return Array.isArray(v) ? v.join(', ') : String(v);
+    // Objects (e.g. a form `schema`) are shown as the live render + in Raw JSON.
+    if (Array.isArray(v)) return v.some((x) => x && typeof x === 'object') ? '' : v.join(', ');
+    return typeof v === 'object' ? '' : String(v);
   }
   pretty(body: Record<string, unknown>): string { return JSON.stringify(body, null, 2); }
 
@@ -432,6 +461,8 @@ export class CapabilityStudioComponent {
       else if (f.type === 'list') {
         const arr = String(raw).split(/[\s,]+/).filter(Boolean);
         if (arr.length) body[f.key] = arr;
+      } else if (f.type === 'json') {
+        try { body[f.key] = JSON.parse(String(raw)); } catch { /* blocked by canCreate */ }
       } else body[f.key] = raw;
     }
     return body;
@@ -453,6 +484,8 @@ export class CapabilityStudioComponent {
       else if (f.type === 'list') {
         const arr = String(raw).split(/[\s,]+/).filter(Boolean);
         if (arr.length) body[f.key] = arr; else delete body[f.key];
+      } else if (f.type === 'json') {
+        try { body[f.key] = JSON.parse(String(raw)); } catch { /* blocked by canCreate */ }
       } else body[f.key] = raw;
     }
     return body;
