@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { GraphViewComponent } from '../graph-view.component';
 import { buildWorkflowGraphElements, stepsToWorkflowBody, type WorkflowStepDraft } from '../workflow-graph';
@@ -12,7 +13,7 @@ import { ToastService } from '../services/toast.service';
  */
 @Component({
   selector: 'aes-workflow',
-  imports: [FormsModule, GraphViewComponent],
+  imports: [FormsModule, RouterLink, GraphViewComponent],
   template: `
     <div class="page">
       <div class="page-header">
@@ -124,6 +125,7 @@ import { ToastService } from '../services/toast.service';
                 <span class="desc">{{ stepCount(w) }} step{{ stepCount(w) === 1 ? '' : 's' }}</span>
               </div>
               <span class="badge" [class.badge-ok]="w.lifecycle === 'published'">{{ w.lifecycle }}</span>
+              <a class="btn btn-sm" [routerLink]="['/workflows', w.id, 'design']">Design</a>
               <button class="btn btn-danger btn-sm" type="button" (click)="remove(w)">Delete</button>
             </li>
           }

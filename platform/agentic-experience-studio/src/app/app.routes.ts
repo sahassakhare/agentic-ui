@@ -67,6 +67,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/workflow.component').then((m) => m.WorkflowComponent),
   },
   {
+    path: 'workflows/:id/design',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/workflow-designer.component').then((m) => m.WorkflowDesignerComponent),
+  },
+  {
     path: 'components',
     canActivate: [authGuard],
     data: { config: COMPONENT_STUDIO },
