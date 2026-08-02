@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 import {
   COMPONENT_STUDIO,
+  DATASOURCE_STUDIO,
   FORM_STUDIO,
   KNOWLEDGE_STUDIO,
   MEMORY_STUDIO,
@@ -92,6 +93,12 @@ export const routes: Routes = [
     path: 'tools',
     canActivate: [authGuard],
     data: { config: TOOL_STUDIO },
+    loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
+  },
+  {
+    path: 'datasources',
+    canActivate: [authGuard],
+    data: { config: DATASOURCE_STUDIO },
     loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
   },
   {

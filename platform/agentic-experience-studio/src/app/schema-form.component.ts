@@ -16,6 +16,9 @@ export interface SchemaField {
   readonly options?: readonly string[];
   /** Optional Component-registry entry that renders this field (composition). */
   readonly widget?: string;
+  /** Optional dataSource/tool registry entry that provides this field's data
+   *  (governed reference — the platform resolves it; never a raw URL). */
+  readonly source?: string;
 }
 export interface FormSchema { readonly fields?: readonly SchemaField[]; readonly submit?: string; }
 
@@ -33,12 +36,13 @@ export interface FormSchema { readonly fields?: readonly SchemaField[]; readonly
             <label class="sf-lbl" [attr.for]="'sf-'+f.name">
               {{ f.label ?? f.name }} @if (f.required) { <span class="sf-req">*</span> }
               @if (f.widget) { <span class="sf-widget" title="Rendered by the ‘{{ f.widget }}’ component">⛃ {{ f.widget }}</span> }
+              @if (f.source) { <span class="sf-source" title="Data from the ‘{{ f.source }}’ source (resolved by the platform)">⇄ {{ f.source }}</span> }
             </label>
             @switch (f.type) {
               @case ('textarea') { <textarea class="sf-in" [id]="'sf-'+f.name" rows="3" [placeholder]="f.placeholder ?? ''"></textarea> }
               @case ('select') {
                 <select class="sf-in" [id]="'sf-'+f.name">
-                  <option value="" disabled selected>Choose…</option>
+                  <option value="" disabled selected>{{ f.source && !(f.options?.length) ? 'from ' + f.source + '…' : 'Choose…' }}</option>
                   @for (o of f.options ?? []; track o) { <option [value]="o">{{ o }}</option> }
                 </select>
               }
@@ -70,6 +74,7 @@ export interface FormSchema { readonly fields?: readonly SchemaField[]; readonly
     .sf-lbl { font-size: var(--fs-sm); font-weight: 500; display: flex; align-items: center; gap: var(--s2); }
     .sf-req { color: var(--danger); }
     .sf-widget { font-family: var(--font-mono); font-size: 10px; color: var(--brand); background: var(--brand-soft); padding: 1px 6px; border-radius: var(--r-full); }
+    .sf-source { font-family: var(--font-mono); font-size: 10px; color: var(--ok); background: var(--ok-soft); padding: 1px 6px; border-radius: var(--r-full); }
     .sf-in { font: inherit; font-size: var(--fs-sm); padding: 9px 11px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text); }
     .sf-in:focus { outline: none; border-color: var(--brand); }
     .sf-check, .sf-radio { display: inline-flex; align-items: center; gap: 7px; font-size: var(--fs-sm); }

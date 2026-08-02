@@ -38,6 +38,15 @@ const FIELD_TYPES = ['text', 'email', 'number', 'date', 'textarea', 'select', 'c
         </div>
       </div>
 
+      <div class="row" style="gap:var(--s2); align-items:center; margin-bottom:var(--s4)">
+        <span class="muted" style="font-size:var(--fs-sm)">On submit →</span>
+        <select class="input" style="width:auto" [(ngModel)]="submitTarget" aria-label="Submit target">
+          <option value="usage-event">usage-event · log</option>
+          @for (t of toolSources(); track t.name) { <option [value]="t.name">{{ t.name }} · tool</option> }
+        </select>
+        <span class="muted" style="font-size:var(--fs-xs)">a governed tool/backend — not a URL</span>
+      </div>
+
       <div class="designer">
         <!-- Palette: the Component registry -->
         <aside class="palette card card-pad">
@@ -72,6 +81,10 @@ const FIELD_TYPES = ['text', 'email', 'number', 'date', 'textarea', 'select', 'c
                   @for (t of fieldTypes; track t) { <option [value]="t">{{ t }}</option> }
                 </select>
                 <label class="req"><input type="checkbox" [ngModel]="f.required" (ngModelChange)="patch($index, { required: $event })" /> req</label>
+                <select class="input src" [ngModel]="f.source ?? ''" (ngModelChange)="patch($index, { source: $event || undefined })" title="Bind this field's data to a governed source">
+                  <option value="">no source</option>
+                  @for (s of sources(); track s.name) { <option [value]="s.name">⇄ {{ s.name }}</option> }
+                </select>
                 @if (f.widget) { <span class="wchip" title="Composed from the ‘{{ f.widget }}’ component">⛃ {{ f.widget }}</span> }
               }
               <button class="rm" type="button" (click)="remove($index)" aria-label="Remove">✕</button>
@@ -101,7 +114,7 @@ const FIELD_TYPES = ['text', 'email', 'number', 'date', 'textarea', 'select', 'c
     .drop-empty { border:2px dashed var(--border); border-radius:var(--r-md); padding:var(--s6); text-align:center; color:var(--text-muted); font-size:var(--fs-sm); }
     .frow { display:flex; align-items:center; gap:var(--s2); padding:8px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface); }
     .frow.section { background:var(--surface-2); border-style:dashed; }
-    .frow .flex { flex:1; min-width:0; } .frow .sec { flex:1; font-weight:600; } .frow .ty { width:110px; } .frow .input { padding:7px 9px; font-size:var(--fs-sm); }
+    .frow .flex { flex:1; min-width:0; } .frow .sec { flex:1; font-weight:600; } .frow .ty { width:110px; } .frow .src { width:130px; } .frow .input { padding:7px 9px; font-size:var(--fs-sm); }
     .req { display:inline-flex; align-items:center; gap:5px; font-size:var(--fs-xs); color:var(--text-muted); white-space:nowrap; }
     .wchip { font-family:var(--font-mono); font-size:10px; color:var(--brand); background:var(--brand-soft); padding:2px 7px; border-radius:var(--r-full); white-space:nowrap; }
     .rm { border:1px solid var(--border); background:var(--surface); border-radius:var(--r-sm); width:28px; height:28px; cursor:pointer; color:var(--text-muted); }
@@ -118,16 +131,20 @@ export class FormDesignerComponent {
   readonly form = signal<Capability | null>(null);
   readonly fields = signal<SchemaField[]>([]);
   readonly components = signal<readonly Capability[]>([]);
+  /** dataSource + tool registry entries a field can bind to (governed data refs). */
+  readonly sources = signal<readonly Capability[]>([]);
   readonly saving = signal(false);
   readonly drag = signal<DragSrc>(null);
   q = '';
+  /** Form-level submit target — a `tool` capability or the built-in usage-event. */
+  submitTarget = 'usage-event';
 
   readonly palette = computed(() => {
     const query = this.q.trim().toLowerCase();
     return this.components().filter((c) => !query || c.name.toLowerCase().includes(query));
   });
-  readonly previewBody = computed(() => ({ schema: { fields: this.fields(), submit: this.submit } }));
-  private submit = 'usage-event';
+  readonly toolSources = computed(() => this.sources().filter((c) => c.kind === 'tool'));
+  readonly previewBody = computed(() => ({ schema: { fields: this.fields(), submit: this.submitTarget } }));
 
   constructor() { queueMicrotask(() => this.load()); }
 
@@ -137,11 +154,14 @@ export class FormDesignerComponent {
         this.form.set(c);
         const schema = (c.body?.['schema'] ?? {}) as { fields?: SchemaField[]; submit?: string };
         this.fields.set([...(schema.fields ?? [])]);
-        this.submit = schema.submit ?? 'usage-event';
+        this.submitTarget = schema.submit ?? 'usage-event';
       },
       error: () => this.toast.error('Load failed', 'Could not load the form.'),
     });
     this.catalog.listByKind('component').subscribe({ next: (r) => this.components.set(r.items), error: () => {} });
+    // Governed data sources: dataSource + tool capabilities (never raw URLs).
+    this.catalog.listByKind('datasource').subscribe({ next: (r) => this.sources.update((s) => [...s, ...r.items]), error: () => {} });
+    this.catalog.listByKind('tool').subscribe({ next: (r) => this.sources.update((s) => [...s, ...r.items]), error: () => {} });
   }
 
   // ── drag + drop (native HTML5) ──────────────────────────────────────────────
@@ -189,7 +209,7 @@ export class FormDesignerComponent {
     const form = this.form();
     if (!form) return;
     this.saving.set(true);
-    const body = { ...form.body, schema: { fields: this.fields(), submit: this.submit } };
+    const body = { ...form.body, schema: { fields: this.fields(), submit: this.submitTarget } };
     this.catalog.update(form.id, { body }).subscribe({
       next: () => { this.saving.set(false); this.toast.success('Form saved', `“${form.name}” schema updated.`); },
       error: () => { this.saving.set(false); this.toast.error('Save failed', 'Could not save the form.'); },

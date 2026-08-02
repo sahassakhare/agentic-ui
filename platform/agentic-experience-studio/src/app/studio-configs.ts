@@ -84,6 +84,20 @@ export const FORM_STUDIO: StudioConfig = {
   ],
 };
 
+/** Data Source Registry — `datasource`-kind capabilities. A form field or submit
+ *  references one by name (governed); the platform resolves it — never a raw URL. */
+export const DATASOURCE_STUDIO: StudioConfig = {
+  kind: 'datasource',
+  title: 'Data Source Registry',
+  noun: 'data source',
+  bodyFields: [
+    { key: 'kind', label: 'Type (sql/api/document/vector)', type: 'text', required: true, placeholder: 'sql' },
+    { key: 'description', label: 'Description', type: 'text' },
+    { key: 'connector', label: 'Connector', type: 'text', placeholder: 'postgres / scim / s3' },
+    { key: 'uri', label: 'URI / table / index', type: 'text' },
+  ],
+};
+
 /** Tool Registry — `tool`-kind capabilities (agent tools). */
 export const TOOL_STUDIO: StudioConfig = {
   kind: 'tool',

@@ -14,6 +14,7 @@ const NAV = [
   { path: '/memory', label: 'Memory' },
   { path: '/navigation', label: 'Navigation' },
   { path: '/tools', label: 'Tools' },
+  { path: '/datasources', label: 'Data Sources' },
   { path: '/policy', label: 'Policy' },
 ] as const;
 
