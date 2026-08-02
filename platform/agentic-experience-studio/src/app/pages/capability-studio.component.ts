@@ -341,7 +341,7 @@ export class CapabilityStudioComponent {
   private saveEdit(target: Capability): void {
     if (!this.canCreate()) return; // required body fields still apply on edit
     this.saving.set(true);
-    this.catalog.update(target.id, { body: this.buildBody() }).subscribe({
+    this.catalog.update(target.id, { body: this.buildEditBody(target) }).subscribe({
       next: (updated) => {
         this.saving.set(false);
         this.editTarget.set(null);
@@ -385,6 +385,27 @@ export class CapabilityStudioComponent {
       else if (f.type === 'list') {
         const arr = String(raw).split(/[\s,]+/).filter(Boolean);
         if (arr.length) body[f.key] = arr;
+      } else body[f.key] = raw;
+    }
+    return body;
+  }
+
+  /**
+   * Body for an EDIT: start from the existing body so keys the form doesn't
+   * manage (e.g. `preview`, `library`, federation pointers) survive, then apply
+   * the managed fields — an empty managed field clears its key.
+   */
+  private buildEditBody(target: Capability): Record<string, unknown> {
+    const body: Record<string, unknown> = { ...target.body };
+    for (const f of this.cfg().bodyFields) {
+      const raw = this.values[f.key];
+      const empty = raw === undefined || raw === null || String(raw).trim() === '';
+      if (empty) { delete body[f.key]; continue; }
+      if (f.type === 'number') body[f.key] = Number(raw);
+      else if (f.type === 'checkbox') body[f.key] = Boolean(raw);
+      else if (f.type === 'list') {
+        const arr = String(raw).split(/[\s,]+/).filter(Boolean);
+        if (arr.length) body[f.key] = arr; else delete body[f.key];
       } else body[f.key] = raw;
     }
     return body;
