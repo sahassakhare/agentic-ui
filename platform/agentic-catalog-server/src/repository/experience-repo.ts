@@ -272,35 +272,62 @@ export async function getExperienceVersion(
   return x ? { versionNo: x.version_no, snapshot: x.snapshot, reason: x.reason, createdAt: x.created_at.toISOString(), createdBy: x.created_by } : null;
 }
 
+interface MatchedRef { kind: string; name: string; via?: string }
+interface UnmetRef { kind: string; name?: string; tag?: string; via?: string }
+
 /**
- * Server-side direct-requirement resolution (the `/plan` dry-run). Checks each
- * declared requirement against the tenant's non-deleted capabilities, matching
- * on BOTH kind and name/tag (the runtime planner owns full transitive graph
- * traversal). Kind is compared case-insensitively so runtime camelCase kinds
- * (`dataSource`) match the catalog's lowercase storage (`datasource`). Returns
- * matched + unmet (non-optional misses).
+ * Server-side requirement resolution (the `/plan` dry-run). Resolves each
+ * declared requirement against the tenant's non-deleted capabilities (kind
+ * compared case-insensitively so runtime `dataSource` matches stored
+ * `datasource`), THEN traverses one level of transitive references so an
+ * experience's forms/workflows surface their field bindings as dependencies:
+ *   form   → schema.fields[].widget / .source / .validators[]
+ *   workflow → steps[].widget
+ * Transitive refs carry `via` (the form/workflow that introduced them) and are
+ * de-duped against the direct requires. The runtime planner owns the full graph;
+ * this is the governance-time bill of materials.
  */
 export async function resolveExperienceRequirements(
   client: pg.PoolClient,
   experience: Experience,
-): Promise<{ matched: { kind: string; name: string }[]; unmet: { kind: string; name?: string; tag?: string }[] }> {
+): Promise<{ matched: MatchedRef[]; unmet: UnmetRef[] }> {
   const requires = experience.body.requires ?? [];
-  const matched: { kind: string; name: string }[] = [];
-  const unmet: { kind: string; name?: string; tag?: string }[] = [];
+  const matched: MatchedRef[] = [];
+  const unmet: UnmetRef[] = [];
+  const seen = new Set<string>();
+  const key = (kind: string, name: string) => `${kind.toLowerCase()}:${name}`;
 
+  const existsInKinds = async (kinds: string[], name: string): Promise<string | null> => {
+    const r = await client.query<{ kind: string }>(
+      `SELECT kind FROM capabilities WHERE lower(kind) = ANY($1) AND name = $2 AND soft_deleted_at IS NULL LIMIT 1`,
+      [kinds.map((k) => k.toLowerCase()), name],
+    );
+    return r.rows[0]?.kind ?? null;
+  };
+  /** Resolve a single transitive ref (of one of `kinds`), de-duped, tagged `via`. */
+  const addRef = async (kinds: string[], name: string | undefined, via: string): Promise<void> => {
+    if (!name) return;
+    const k = key(kinds[0]!, name);
+    if (seen.has(k) || seen.has(`${name}`) || [...seen].some((s) => s.endsWith(`:${name}`))) return;
+    seen.add(k);
+    const found = await existsInKinds(kinds, name);
+    if (found) matched.push({ kind: found, name, via });
+    else unmet.push({ kind: kinds[0]!, name, via });
+  };
+
+  // ── direct requires ─────────────────────────────────────────────────────────
   for (const req of requires) {
     if (req.name) {
+      seen.add(key(req.kind, req.name));
       const hit = await client.query<{ name: string }>(
-        `SELECT name FROM capabilities
-          WHERE lower(kind) = lower($1) AND name = $2 AND soft_deleted_at IS NULL LIMIT 1`,
+        `SELECT name FROM capabilities WHERE lower(kind) = lower($1) AND name = $2 AND soft_deleted_at IS NULL LIMIT 1`,
         [req.kind, req.name],
       );
       if (hit.rows[0]) matched.push({ kind: req.kind, name: req.name });
       else if (!req.optional) unmet.push({ kind: req.kind, name: req.name });
     } else if (req.tag) {
       const hit = await client.query<{ name: string }>(
-        `SELECT name FROM capabilities
-          WHERE lower(kind) = lower($1) AND $2 = ANY(tags) AND soft_deleted_at IS NULL`,
+        `SELECT name FROM capabilities WHERE lower(kind) = lower($1) AND $2 = ANY(tags) AND soft_deleted_at IS NULL`,
         [req.kind, req.tag],
       );
       if (hit.rows.length > 0) hit.rows.forEach((r) => matched.push({ kind: req.kind, name: r.name }));
@@ -309,5 +336,30 @@ export async function resolveExperienceRequirements(
       unmet.push({ kind: req.kind });
     }
   }
+
+  // ── one level of transitive refs (form fields + workflow steps) ──────────────
+  for (const req of requires) {
+    if (!req.name) continue;
+    const kind = req.kind.toLowerCase();
+    if (kind === 'form') {
+      const cap = await client.query<{ body: { schema?: { fields?: Array<{ widget?: string; source?: string; validators?: string[] }> } } }>(
+        `SELECT body FROM capabilities WHERE lower(kind) = 'form' AND name = $1 AND soft_deleted_at IS NULL LIMIT 1`,
+        [req.name],
+      );
+      for (const f of cap.rows[0]?.body?.schema?.fields ?? []) {
+        await addRef(['component'], f.widget, req.name);
+        await addRef(['datasource', 'tool'], f.source, req.name);
+        for (const v of f.validators ?? []) await addRef(['validation'], v, req.name);
+      }
+    } else if (kind === 'workflow') {
+      const cap = await client.query<{ body: { workflow?: { steps?: Array<{ widget?: string }> }; steps?: Array<{ widget?: string }> } }>(
+        `SELECT body FROM capabilities WHERE lower(kind) = 'workflow' AND name = $1 AND soft_deleted_at IS NULL LIMIT 1`,
+        [req.name],
+      );
+      const steps = cap.rows[0]?.body?.workflow?.steps ?? cap.rows[0]?.body?.steps ?? [];
+      for (const s of steps) await addRef(['component'], s.widget, req.name);
+    }
+  }
+
   return { matched, unmet };
 }

@@ -242,6 +242,24 @@ import { PreviewHostComponent } from '../preview-host.component';
                 </li>
               }
             </ul>
+            @if (bindings().length) {
+              <div style="padding:0 var(--s5) var(--s5)">
+                <div class="eyebrow" style="margin-bottom:var(--s2)">Field &amp; step bindings
+                  <span class="muted" style="text-transform:none; letter-spacing:normal; font-weight:400; font-family:inherit"> — transitive refs from forms &amp; workflows</span>
+                </div>
+                <ul class="nodes" style="padding:0">
+                  @for (b of bindings(); track b.kind + b.name + b.via) {
+                    <li class="node" [class]="b.matched ? 'matched' : 'unmet'">
+                      <span class="badge plain" [class.badge-ok]="b.matched" [class.badge-danger]="!b.matched">{{ b.kind }}</span>
+                      <span class="nlabel">{{ b.name }}</span>
+                      <span class="hint muted-hint">via {{ b.via }}</span>
+                      @if (!b.matched) { <span class="hint">not found</span> }
+                      <span class="nstate spacer">{{ b.matched ? 'matched' : 'unmet' }}</span>
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
           }
         </section>
       }
@@ -393,6 +411,17 @@ export class ExperienceDetailComponent {
       if (r.optional) set.add(`${r.kind}:${r.name ?? (r.tag ? `#${r.tag}` : '*')}`);
     }
     return set;
+  });
+
+  /** Transitive field/step references surfaced by the plan (carry a `via`). */
+  readonly bindings = computed(() => {
+    const p = this.plan();
+    if (!p) return [] as Array<{ kind: string; name: string; via: string; matched: boolean }>;
+    const rows = [
+      ...p.matched.map((m) => ({ kind: m.kind, name: m.name, via: m.via, matched: true })),
+      ...p.unmet.map((u) => ({ kind: u.kind, name: u.name ?? (u.tag ? `#${u.tag}` : '*'), via: u.via, matched: false })),
+    ];
+    return rows.filter((r): r is { kind: string; name: string; via: string; matched: boolean } => !!r.via);
   });
 
   /** Parts list: root first, then blocking-unmet, optional-unmet, matched. */

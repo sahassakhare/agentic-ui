@@ -53,8 +53,8 @@ export interface ExperiencePlanResult {
   readonly experienceId: string;
   readonly goal: string;
   readonly approvalState: ApprovalState;
-  readonly matched: readonly { kind: string; name: string }[];
-  readonly unmet: readonly { kind: string; name?: string; tag?: string }[];
+  readonly matched: readonly { kind: string; name: string; via?: string }[];
+  readonly unmet: readonly { kind: string; name?: string; tag?: string; via?: string }[];
   readonly complete: boolean;
 }
 
