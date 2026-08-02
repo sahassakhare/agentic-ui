@@ -20,7 +20,7 @@ const FIELD_TYPES = ['text', 'email', 'number', 'date', 'textarea', 'select', 'c
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, RouterLink, SchemaFormComponent],
   template: `
-    <div class="page">
+    <div class="page wide">
       <a routerLink="/forms" class="back">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg> Forms
       </a>
@@ -107,8 +107,10 @@ const FIELD_TYPES = ['text', 'email', 'number', 'date', 'textarea', 'select', 'c
   styles: [`
     .back { display:inline-flex; align-items:center; gap:var(--s1); color:var(--text-muted); font-size:var(--fs-sm); text-decoration:none; }
     .back:hover { color:var(--text); }
-    .designer { display:grid; grid-template-columns: 240px 1fr 320px; gap:var(--s4); align-items:start; }
-    @media (max-width: 1100px){ .designer { grid-template-columns: 1fr; } }
+    .designer { display:grid; grid-template-columns: 260px minmax(0, 1fr) minmax(360px, 460px); gap:var(--s4); align-items:start; }
+    @media (max-width: 1000px){ .designer { grid-template-columns: 1fr; } }
+    .palette, .preview { position: sticky; top: var(--s4); max-height: calc(100vh - var(--s6)); overflow-y: auto; }
+    @media (max-width: 1000px){ .palette, .preview { position: static; max-height: none; } }
     .palette .pal-list { display:flex; flex-direction:column; gap:6px; margin-top:var(--s3); max-height:60vh; overflow-y:auto; }
     .pal-item { display:flex; align-items:center; gap:8px; padding:9px 11px; border:1px solid var(--border); border-radius:var(--r-sm);
       background:var(--surface-2); font-size:var(--fs-sm); font-family:var(--font-mono); cursor:grab; }

@@ -132,6 +132,10 @@ code, kbd, .mono { font-family: var(--font-mono); }
 
 /* ── Layout helpers ─────────────────────────────────────────────────── */
 .page { max-width: 1080px; margin: 0 auto; padding: var(--s6) var(--s5) var(--s8); }
+/* Wide workspace — for the 3-panel designers (palette · canvas · preview). Uses
+   the available width up to a comfortable enterprise cap instead of the narrow
+   reading column. */
+.page.wide { max-width: min(1720px, 100% - var(--s6)); }
 .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s4); margin-bottom: var(--s5); flex-wrap: wrap; }
 .page-header .titles { display: flex; flex-direction: column; gap: var(--s1); }
 .page-header .subtitle { color: var(--text-muted); font-size: var(--fs-sm); max-width: 60ch; }
