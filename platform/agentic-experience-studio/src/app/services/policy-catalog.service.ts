@@ -45,6 +45,11 @@ export class PolicyCatalogService {
     return this.http.patch<PolicyBundle>(`${this.base()}/${id}`, { isActive });
   }
 
+  /** Edit a bundle's rego/rulePath/description (name is immutable). */
+  update(id: string, patch: { regoSource?: string; rulePath?: string; description?: string }): Observable<PolicyBundle> {
+    return this.http.patch<PolicyBundle>(`${this.base()}/${id}`, patch);
+  }
+
   remove(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base()}/${id}`);
   }

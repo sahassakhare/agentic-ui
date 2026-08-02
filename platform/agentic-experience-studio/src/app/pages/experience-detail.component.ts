@@ -28,7 +28,7 @@ import { PreviewHostComponent } from '../preview-host.component';
   selector: 'aes-experience-detail',
   imports: [RouterLink, FormsModule, GraphViewComponent, JourneyFlowComponent, RequirementsBuilderComponent, PreviewHostComponent],
   template: `
-    <div class="page">
+    <div class="page wide">
       <a routerLink="/experiences" class="back">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m15 6-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Experiences
@@ -76,6 +76,8 @@ import { PreviewHostComponent } from '../preview-host.component';
           </form>
         }
 
+        <!-- 3-panel workspace: journey (structure) · preview (rendered) · inspector (govern) -->
+        <div class="exp-grid">
         <!-- The journey (workflow) — the primary "what the end user experiences" view -->
         <section class="card card-pad journey">
           <div class="stack" style="gap:2px; margin-bottom:var(--s4)">
@@ -117,6 +119,8 @@ import { PreviewHostComponent } from '../preview-host.component';
           </section>
         }
 
+        <!-- Inspector rail: governance actions -->
+        <aside class="inspector">
         <!-- Approval + plan action bar -->
         <div class="card card-pad actionbar">
           <div class="stack" style="gap:2px">
@@ -182,6 +186,9 @@ import { PreviewHostComponent } from '../preview-host.component';
             </div>
           }
         </div>
+
+        </aside>
+        </div><!-- /exp-grid -->
 
         <!-- Composition & health -->
         <section class="card" style="margin-top:var(--s5); overflow:hidden">
@@ -323,6 +330,13 @@ import { PreviewHostComponent } from '../preview-host.component';
     .keybox .key { font-family: var(--font-mono); font-size: var(--fs-sm); word-break: break-all; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm); padding: var(--s2) var(--s3); color: var(--text); }
     .keybox .urlline { display: flex; flex-direction: column; gap: 3px; }
     .keybox .urlline code { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text); word-break: break-all; }
+    /* 3-panel workspace: journey · preview · inspector */
+    .exp-grid { display: grid; grid-template-columns: minmax(300px, 360px) minmax(0, 1fr) minmax(320px, 380px); gap: var(--s4); align-items: start; margin-bottom: var(--s5); }
+    @media (max-width: 1200px) { .exp-grid { grid-template-columns: 1fr; } }
+    .exp-grid > * { margin: 0; min-width: 0; }
+    .inspector { display: flex; flex-direction: column; gap: var(--s4); position: sticky; top: var(--s4); }
+    .inspector > * { margin: 0 !important; }
+    @media (max-width: 1200px) { .inspector { position: static; } }
     /* Experience preview storyboard */
     .storyboard { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--s4); }
     .sb-step { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s3); background: var(--surface); display: flex; flex-direction: column; gap: var(--s3); }

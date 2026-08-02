@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PolicyCatalogService, type PolicyBundle } from '../services/policy-catalog.service';
 import { ToastService } from '../services/toast.service';
@@ -27,23 +27,26 @@ import { ToastService } from '../services/toast.service';
         </button>
       </div>
 
-      @if (createOpen()) {
-        <form class="card card-pad create" (ngSubmit)="create()">
+      @if (formOpen()) {
+        <form class="card card-pad create" (ngSubmit)="save()">
+          @if (editTarget()) { <div class="eyebrow" style="margin-bottom:var(--s3)">Editing · {{ editTarget()!.name }}</div> }
           <div class="grid-2">
-            <div class="field"><label class="label" for="p-name">Name <span class="req" aria-hidden="true">*</span></label>
-              <input class="input" id="p-name" name="name" [(ngModel)]="name" placeholder="matter-access" autocomplete="off" spellcheck="false" /></div>
+            <div class="field"><label class="label" for="p-name">Name @if (!editTarget()) { <span class="req" aria-hidden="true">*</span> }</label>
+              <input class="input" id="p-name" name="name" [(ngModel)]="name" [disabled]="!!editTarget()" placeholder="matter-access" autocomplete="off" spellcheck="false" />
+              @if (editTarget()) { <span class="help">Name is immutable.</span> }</div>
             <div class="field"><label class="label" for="p-path">Rule path</label>
               <input class="input mono" id="p-path" name="path" [(ngModel)]="rulePath" placeholder="maverick/allow" autocomplete="off" spellcheck="false" /></div>
             <div class="field" style="grid-column:1 / -1"><label class="label" for="p-rego">Rego source <span class="req" aria-hidden="true">*</span></label>
               <textarea class="textarea mono" id="p-rego" name="rego" rows="9" [(ngModel)]="rego" spellcheck="false"
                 placeholder="package maverick&#10;&#10;default allow = false&#10;allow { input.subject.roles[_] == &quot;lead-counsel&quot; }"></textarea></div>
           </div>
-          <label class="checkbox" style="margin-top:var(--s4)"><input type="checkbox" name="act" [(ngModel)]="activateNow" /> Activate on create (replaces the current active bundle)</label>
+          @if (!editTarget()) { <label class="checkbox" style="margin-top:var(--s4)"><input type="checkbox" name="act" [(ngModel)]="activateNow" /> Activate on create (replaces the current active bundle)</label> }
           <div class="row" style="margin-top:var(--s5)">
-            <button class="btn btn-primary" type="submit" [disabled]="!canCreate() || saving()">
-              @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… } @else { Create bundle }
+            <button class="btn btn-primary" type="submit" [disabled]="!canSave() || saving()">
+              @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… }
+              @else if (editTarget()) { Save changes } @else { Create bundle }
             </button>
-            <button class="btn btn-ghost" type="button" (click)="cancelCreate()">Cancel</button>
+            <button class="btn btn-ghost" type="button" (click)="cancelForm()">Cancel</button>
           </div>
         </form>
       }
@@ -71,6 +74,7 @@ import { ToastService } from '../services/toast.service';
                 <span class="mono-id">{{ b.rulePath }}</span>
               </div>
               @if (!b.isActive) { <button class="btn btn-sm" type="button" (click)="activate(b)">Activate</button> }
+              <button class="btn btn-sm" type="button" (click)="startEdit(b)">Edit</button>
               <button class="btn btn-danger btn-sm" type="button" (click)="remove(b)">Delete</button>
             </li>
           }
@@ -92,6 +96,8 @@ export class PolicyComponent {
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
   readonly createOpen = signal(false);
+  readonly editTarget = signal<PolicyBundle | null>(null);
+  readonly formOpen = computed(() => this.createOpen() || this.editTarget() !== null);
 
   name = '';
   rulePath = 'maverick/allow';
@@ -100,11 +106,40 @@ export class PolicyComponent {
 
   constructor() { this.refresh(); }
 
-  canCreate(): boolean { return this.name.trim() !== '' && this.rego.trim() !== ''; }
-  toggleCreate(): void { this.createOpen.update((v) => !v); if (!this.createOpen()) this.reset(); }
-  openCreate(): void { this.createOpen.set(true); }
-  cancelCreate(): void { this.createOpen.set(false); this.reset(); }
+  canSave(): boolean { return (!!this.editTarget() || this.name.trim() !== '') && this.rego.trim() !== ''; }
+  toggleCreate(): void { if (this.formOpen()) { this.cancelForm(); return; } this.createOpen.set(true); }
+  openCreate(): void { this.editTarget.set(null); this.reset(); this.createOpen.set(true); }
+  cancelForm(): void { this.createOpen.set(false); this.editTarget.set(null); this.reset(); }
   private reset(): void { this.name = ''; this.rego = ''; this.rulePath = 'maverick/allow'; this.activateNow = false; }
+
+  startEdit(b: PolicyBundle): void {
+    this.createOpen.set(false);
+    this.editTarget.set(b);
+    this.name = b.name;
+    this.rulePath = b.rulePath;
+    this.rego = b.regoSource;
+  }
+
+  save(): void {
+    const target = this.editTarget();
+    if (target) { this.saveEdit(target); return; }
+    this.create();
+  }
+
+  private saveEdit(target: PolicyBundle): void {
+    if (!this.canSave()) return;
+    this.saving.set(true);
+    this.policy.update(target.id, { regoSource: this.rego, rulePath: this.rulePath.trim() || undefined }).subscribe({
+      next: (updated) => {
+        this.saving.set(false);
+        this.editTarget.set(null);
+        this.reset();
+        this.items.update((cur) => cur.map((x) => (x.id === updated.id ? updated : x)));
+        this.toast.success('Bundle updated', `“${updated.name}” saved.`);
+      },
+      error: (err) => { this.saving.set(false); this.toast.error('Update failed', msg(err)); },
+    });
+  }
 
   refresh(): void {
     this.loading.set(true);
@@ -116,7 +151,7 @@ export class PolicyComponent {
   }
 
   create(): void {
-    if (!this.canCreate()) return;
+    if (!this.canSave()) return;
     this.saving.set(true);
     this.policy.create({ name: this.name.trim(), regoSource: this.rego, rulePath: this.rulePath.trim() || undefined, isActive: this.activateNow })
       .subscribe({
