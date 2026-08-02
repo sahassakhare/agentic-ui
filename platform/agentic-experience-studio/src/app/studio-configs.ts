@@ -98,6 +98,20 @@ export const DATASOURCE_STUDIO: StudioConfig = {
   ],
 };
 
+/** Validation Registry — `validation`-kind capabilities. A form field references
+ *  one by name (`validators`); inline constraints live in the field schema. */
+export const VALIDATION_STUDIO: StudioConfig = {
+  kind: 'validation',
+  title: 'Validation Registry',
+  noun: 'validation rule',
+  bodyFields: [
+    { key: 'description', label: 'Description', type: 'text', required: true },
+    { key: 'rule', label: 'Rule (expression or service ref)', type: 'text', placeholder: 'value != null && value.length <= 500' },
+    { key: 'message', label: 'Error message', type: 'text', placeholder: 'Please enter a value' },
+    { key: 'async', label: 'Async (calls a service)', type: 'checkbox' },
+  ],
+};
+
 /** Tool Registry — `tool`-kind capabilities (agent tools). */
 export const TOOL_STUDIO: StudioConfig = {
   kind: 'tool',

@@ -15,6 +15,7 @@ const NAV = [
   { path: '/navigation', label: 'Navigation' },
   { path: '/tools', label: 'Tools' },
   { path: '/datasources', label: 'Data Sources' },
+  { path: '/validations', label: 'Validation' },
   { path: '/policy', label: 'Policy' },
 ] as const;
 

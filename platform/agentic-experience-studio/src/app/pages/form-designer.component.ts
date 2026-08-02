@@ -85,6 +85,10 @@ const FIELD_TYPES = ['text', 'email', 'number', 'date', 'textarea', 'select', 'c
                   <option value="">no source</option>
                   @for (s of sources(); track s.name) { <option [value]="s.name">⇄ {{ s.name }}</option> }
                 </select>
+                <select class="input val" [ngModel]="firstValidator(f)" (ngModelChange)="patch($index, { validators: $event ? [$event] : [] })" title="Attach a governed validation rule">
+                  <option value="">no rule</option>
+                  @for (v of validators(); track v.name) { <option [value]="v.name">⛨ {{ v.name }}</option> }
+                </select>
                 @if (f.widget) { <span class="wchip" title="Composed from the ‘{{ f.widget }}’ component">⛃ {{ f.widget }}</span> }
               }
               <button class="rm" type="button" (click)="remove($index)" aria-label="Remove">✕</button>
@@ -114,7 +118,8 @@ const FIELD_TYPES = ['text', 'email', 'number', 'date', 'textarea', 'select', 'c
     .drop-empty { border:2px dashed var(--border); border-radius:var(--r-md); padding:var(--s6); text-align:center; color:var(--text-muted); font-size:var(--fs-sm); }
     .frow { display:flex; align-items:center; gap:var(--s2); padding:8px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface); }
     .frow.section { background:var(--surface-2); border-style:dashed; }
-    .frow .flex { flex:1; min-width:0; } .frow .sec { flex:1; font-weight:600; } .frow .ty { width:110px; } .frow .src { width:130px; } .frow .input { padding:7px 9px; font-size:var(--fs-sm); }
+    .frow .flex { flex:1; min-width:0; } .frow .sec { flex:1; font-weight:600; } .frow .ty { width:100px; } .frow .src { width:120px; } .frow .val { width:110px; } .frow .input { padding:7px 9px; font-size:var(--fs-sm); }
+    .frow { flex-wrap: wrap; }
     .req { display:inline-flex; align-items:center; gap:5px; font-size:var(--fs-xs); color:var(--text-muted); white-space:nowrap; }
     .wchip { font-family:var(--font-mono); font-size:10px; color:var(--brand); background:var(--brand-soft); padding:2px 7px; border-radius:var(--r-full); white-space:nowrap; }
     .rm { border:1px solid var(--border); background:var(--surface); border-radius:var(--r-sm); width:28px; height:28px; cursor:pointer; color:var(--text-muted); }
@@ -133,6 +138,8 @@ export class FormDesignerComponent {
   readonly components = signal<readonly Capability[]>([]);
   /** dataSource + tool registry entries a field can bind to (governed data refs). */
   readonly sources = signal<readonly Capability[]>([]);
+  /** validation-registry entries a field can attach as a governed rule. */
+  readonly validators = signal<readonly Capability[]>([]);
   readonly saving = signal(false);
   readonly drag = signal<DragSrc>(null);
   q = '';
@@ -162,7 +169,10 @@ export class FormDesignerComponent {
     // Governed data sources: dataSource + tool capabilities (never raw URLs).
     this.catalog.listByKind('datasource').subscribe({ next: (r) => this.sources.update((s) => [...s, ...r.items]), error: () => {} });
     this.catalog.listByKind('tool').subscribe({ next: (r) => this.sources.update((s) => [...s, ...r.items]), error: () => {} });
+    this.catalog.listByKind('validation').subscribe({ next: (r) => this.validators.set(r.items), error: () => {} });
   }
+
+  firstValidator(f: SchemaField): string { return f.validators?.[0] ?? ''; }
 
   // ── drag + drop (native HTML5) ──────────────────────────────────────────────
   allow(e: DragEvent): void { e.preventDefault(); }

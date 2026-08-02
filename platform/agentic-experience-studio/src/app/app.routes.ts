@@ -10,6 +10,7 @@ import {
   PROMPT_STUDIO,
   SKILL_STUDIO,
   TOOL_STUDIO,
+  VALIDATION_STUDIO,
 } from './studio-configs';
 
 export const routes: Routes = [
@@ -99,6 +100,12 @@ export const routes: Routes = [
     path: 'datasources',
     canActivate: [authGuard],
     data: { config: DATASOURCE_STUDIO },
+    loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
+  },
+  {
+    path: 'validations',
+    canActivate: [authGuard],
+    data: { config: VALIDATION_STUDIO },
     loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
   },
   {
