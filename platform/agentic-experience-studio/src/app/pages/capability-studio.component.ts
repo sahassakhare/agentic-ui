@@ -2,6 +2,7 @@ import { Component, computed, inject, input, signal, effect } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
+import { PreviewHostComponent } from '../preview-host.component';
 
 /** A field in a capability authoring form. */
 export interface StudioField {
@@ -33,7 +34,7 @@ export interface StudioConfig {
  */
 @Component({
   selector: 'aes-capability-studio',
-  imports: [FormsModule],
+  imports: [FormsModule, PreviewHostComponent],
   template: `
     <div class="page">
       <div class="page-header">
@@ -169,6 +170,7 @@ export interface StudioConfig {
             <span class="badge" [class.badge-ok]="pv.lifecycle === 'published'" [class.badge-warn]="pv.lifecycle === 'draft'" [class.badge-danger]="pv.lifecycle === 'deprecated' || pv.lifecycle === 'disabled'">{{ pv.lifecycle }}</span>
           </div>
           @if (pv.tags.length) { <div class="row" style="gap:6px; flex-wrap:wrap; margin-top:var(--s2)">@for (t of pv.tags; track t) { <span class="badge plain badge-brand">{{ t }}</span> }</div> }
+          <div style="margin-top:var(--s4)"><aes-preview-host [capability]="pv" /></div>
           <dl class="pvfields">
             @for (f of cfg().bodyFields; track f.key) {
               @if (previewValue(pv, f.key); as val) {
