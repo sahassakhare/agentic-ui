@@ -79,6 +79,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
   },
   {
+    path: 'forms/:id/design',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/form-designer.component').then((m) => m.FormDesignerComponent),
+  },
+  {
     path: 'tools',
     canActivate: [authGuard],
     data: { config: TOOL_STUDIO },

@@ -43,6 +43,10 @@ export class CapabilityCatalogService {
     return this.http.get<CapabilityListResponse>(this.base(), { params });
   }
 
+  get(id: string): Observable<Capability> {
+    return this.http.get<Capability>(`${this.base()}/${id}`);
+  }
+
   create(input: { kind: string; name: string; body: Record<string, unknown>; tags?: string[] }): Observable<Capability> {
     return this.http.post<Capability>(this.base(), input);
   }

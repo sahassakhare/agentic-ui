@@ -9,7 +9,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
  */
 export interface SchemaField {
   readonly name: string;
-  readonly type?: 'text' | 'email' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox' | 'radio';
+  readonly type?: 'text' | 'email' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'section';
   readonly label?: string;
   readonly required?: boolean;
   readonly placeholder?: string;
@@ -25,7 +25,10 @@ export interface FormSchema { readonly fields?: readonly SchemaField[]; readonly
   template: `
     @if (fields().length) {
       <form class="sf" (submit)="$event.preventDefault()">
-        @for (f of fields(); track f.name) {
+        @for (f of fields(); track $index) {
+          @if (f.type === 'section') {
+            <div class="sf-section">{{ f.label ?? f.name }}</div>
+          } @else {
           <div class="sf-field">
             <label class="sf-lbl" [attr.for]="'sf-'+f.name">
               {{ f.label ?? f.name }} @if (f.required) { <span class="sf-req">*</span> }
@@ -50,8 +53,9 @@ export interface FormSchema { readonly fields?: readonly SchemaField[]; readonly
               @default { <input class="sf-in" [type]="f.type ?? 'text'" [id]="'sf-'+f.name" [placeholder]="f.placeholder ?? ''" /> }
             }
           </div>
+          }
         }
-        <button class="sf-submit" type="submit">{{ schema()?.submit ? 'Submit' : 'Submit' }}</button>
+        <button class="sf-submit" type="submit">Submit</button>
       </form>
     } @else {
       <div class="sf-none">No <code>schema.fields</code> to render. Add fields to compose this form.</div>
@@ -61,6 +65,7 @@ export interface FormSchema { readonly fields?: readonly SchemaField[]; readonly
     :host { display: block; }
     .sf { display: flex; flex-direction: column; gap: var(--s3); padding: var(--s4); border: 1px solid var(--border);
       border-radius: var(--r-md); background: var(--surface); }
+    .sf-section { font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--brand); padding-top: var(--s2); border-top: 1px solid var(--border); }
     .sf-field { display: flex; flex-direction: column; gap: 5px; }
     .sf-lbl { font-size: var(--fs-sm); font-weight: 500; display: flex; align-items: center; gap: var(--s2); }
     .sf-req { color: var(--danger); }

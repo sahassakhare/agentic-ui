@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
 import { PreviewHostComponent } from '../preview-host.component';
@@ -36,7 +37,7 @@ export interface StudioConfig {
  */
 @Component({
   selector: 'aes-capability-studio',
-  imports: [FormsModule, PreviewHostComponent, SchemaFormComponent],
+  imports: [FormsModule, RouterLink, PreviewHostComponent, SchemaFormComponent],
   template: `
     <div class="page">
       <div class="page-header">
@@ -176,6 +177,7 @@ export interface StudioConfig {
               @for (t of c.tags; track t) { <span class="badge plain badge-brand">{{ t }}</span> }
               <div class="row" style="gap:var(--s2)">
                 <button class="btn btn-ghost btn-sm" type="button" (click)="preview(c)">Preview</button>
+                @if (cfg().kind === 'form') { <a class="btn btn-sm" [routerLink]="['/forms', c.id, 'design']">Design</a> }
                 <button class="btn btn-sm" type="button" (click)="startEdit(c)">Edit</button>
                 <button class="btn btn-danger btn-sm" type="button" (click)="askDelete(c)">Delete</button>
               </div>
