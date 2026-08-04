@@ -499,8 +499,8 @@ export class ExperienceDetailComponent {
     this.caps.listByKind('workflow').subscribe({
       next: (res) => {
         const wf = res.items.find((c) => c.name === name);
-        const steps = (wf?.body?.['steps'] as JourneyFlowStep[] | undefined) ?? [];
-        this.journey.set(steps);
+        const body = wf?.body as { workflow?: { steps?: JourneyFlowStep[] }; steps?: JourneyFlowStep[] } | undefined;
+        this.journey.set(body?.workflow?.steps ?? body?.steps ?? []);
         this.loadWidgets();
       },
       error: () => this.journey.set([]),
