@@ -1,0 +1,18 @@
+# Local dev — H2 FILE (persists across restarts), auth disabled, demo seed on.
+spring:
+  datasource:
+    url: jdbc:h2:file:./data/catalog;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  flyway:
+    locations: classpath:db/migration/h2
+  h2:
+    console:
+      enabled: true
+
+catalog:
+  auth:
+    mode: disabled
+  seed:
+    enabled: true

@@ -1,0 +1,92 @@
+{
+  "tenant": "acme",
+  "capabilities": [
+    { "kind": "component", "name": "role-picker",     "body": { "description": "Role selector", "propsSchema": { "type": "object", "additionalProperties": true } } },
+    { "kind": "component", "name": "profile-fields",  "body": { "description": "Employee profile fields", "propsSchema": { "type": "object", "additionalProperties": true } } },
+    { "kind": "component", "name": "access-picker",   "body": { "description": "Access-level picker", "propsSchema": { "type": "object", "additionalProperties": true } } },
+    { "kind": "component", "name": "category-picker", "body": { "description": "Category picker", "propsSchema": { "type": "object", "additionalProperties": true } } },
+    { "kind": "component", "name": "amount-entry",    "body": { "description": "Amount entry", "propsSchema": { "type": "object", "additionalProperties": true } } },
+    { "kind": "component", "name": "receipt-upload",  "body": { "description": "Receipt upload", "propsSchema": { "type": "object", "additionalProperties": true } } },
+    { "kind": "component", "name": "describe",        "body": { "description": "Free-text description", "propsSchema": { "type": "object", "additionalProperties": true } } },
+    { "kind": "component", "name": "priority-picker", "body": { "description": "Priority picker", "propsSchema": { "type": "object", "additionalProperties": true } } },
+    { "kind": "component", "name": "review-summary",  "body": { "description": "Review summary", "propsSchema": { "type": "object", "additionalProperties": true } } },
+
+    { "kind": "datasource", "name": "ticket-categories", "body": { "kind": "sql", "description": "Support ticket category taxonomy", "connector": "postgres", "uri": "ticket_categories" }, "tags": ["data"] },
+    { "kind": "datasource", "name": "user-directory",    "body": { "kind": "api", "description": "Employee & role directory", "connector": "scim", "uri": "/v1/users" }, "tags": ["data"] },
+    { "kind": "datasource", "name": "expense-policy",    "body": { "kind": "document", "description": "Expense categories and limits", "connector": "s3", "uri": "s3://acme-docs/finance/expense-policy" }, "tags": ["data"] },
+
+    { "kind": "validation", "name": "non-empty",      "body": { "description": "Value must not be blank", "rule": "value != null && String(value).trim().length > 0", "message": "This field is required.", "async": false }, "tags": ["validation"] },
+    { "kind": "validation", "name": "email-format",   "body": { "description": "Must be a valid email address", "rule": "/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(value)", "message": "Enter a valid email.", "async": false }, "tags": ["validation"] },
+    { "kind": "validation", "name": "amount-range",   "body": { "description": "Amount within the allowed range", "rule": "value >= 0 && value <= 10000", "message": "Amount must be between 0 and 10,000.", "async": false }, "tags": ["validation"] },
+    { "kind": "validation", "name": "conflict-check", "body": { "description": "Runs a conflict check", "rule": "matters.noConflict(value)", "message": "A conflict was found — review required.", "async": true }, "tags": ["validation"] },
+
+    { "kind": "form", "name": "support-form", "tags": ["form"], "body": {
+      "description": "Support request", "submit": "create-ticket",
+      "schema": { "submit": "create-ticket", "fields": [
+        { "name": "category", "type": "select", "label": "Category", "required": true, "options": ["Billing", "Technical", "Account"], "widget": "category-picker", "source": "ticket-categories" },
+        { "name": "description", "type": "textarea", "label": "Describe the issue", "required": true, "widget": "describe", "validators": ["non-empty"], "validation": { "minLength": 10, "maxLength": 500 } },
+        { "name": "priority", "type": "select", "label": "Priority", "options": ["low", "normal", "high"], "widget": "priority-picker" }
+      ] } } },
+    { "kind": "form", "name": "onboarding-form", "tags": ["form"], "body": {
+      "description": "New-hire profile", "submit": "lookup-user",
+      "schema": { "submit": "lookup-user", "fields": [
+        { "name": "fullName", "type": "text", "label": "Full name", "required": true, "widget": "profile-fields", "validators": ["conflict-check"] },
+        { "name": "team", "type": "select", "label": "Team", "options": ["Engineering", "Sales", "Support"], "required": true, "source": "user-directory" },
+        { "name": "startDate", "type": "date", "label": "Start date", "required": true, "validation": { "pattern": "\\d{4}-\\d{2}-\\d{2}" } },
+        { "name": "role", "type": "select", "label": "Role", "options": ["Admin", "Editor", "Viewer"], "widget": "role-picker", "source": "user-directory" }
+      ] } } },
+    { "kind": "form", "name": "expense-form", "tags": ["form"], "body": {
+      "description": "Expense details", "submit": "send-email",
+      "schema": { "submit": "send-email", "fields": [
+        { "name": "amount", "type": "number", "label": "Amount (USD)", "required": true, "widget": "amount-entry", "validators": ["amount-range"], "validation": { "min": 0, "max": 10000 } },
+        { "name": "category", "type": "select", "label": "Category", "options": ["Travel", "Meals", "Software"], "required": true, "source": "expense-policy" },
+        { "name": "receipt", "type": "text", "label": "Receipt", "widget": "receipt-upload" }
+      ] } } },
+
+    { "kind": "workflow", "name": "onboarding-flow", "tags": ["journey"], "body": { "description": "Guided new-hire onboarding", "steps": [
+      { "id": "role", "widget": "role-picker", "section": "Select role", "next": "profile" },
+      { "id": "profile", "widget": "profile-fields", "section": "Employee details", "next": "access" },
+      { "id": "access", "widget": "access-picker", "section": "Grant access", "next": "review" },
+      { "id": "review", "widget": "review-summary", "section": "Review & submit", "next": null }
+    ] } },
+    { "kind": "workflow", "name": "expense-flow", "tags": ["journey"], "body": { "description": "File an expense claim", "steps": [
+      { "id": "category", "widget": "category-picker", "section": "Expense category", "next": "amount" },
+      { "id": "amount", "widget": "amount-entry", "section": "Amount & date", "next": "receipt" },
+      { "id": "receipt", "widget": "receipt-upload", "section": "Attach receipt", "next": "review" },
+      { "id": "review", "widget": "review-summary", "section": "Review & submit", "next": null }
+    ] } },
+    { "kind": "workflow", "name": "support-flow", "tags": ["journey"], "body": { "description": "Open a support ticket", "steps": [
+      { "id": "type", "widget": "category-picker", "section": "Issue type", "next": "describe" },
+      { "id": "describe", "widget": "describe", "section": "Describe the issue", "next": "priority" },
+      { "id": "priority", "widget": "priority-picker", "section": "Set priority", "next": { "branches": [ { "when": { "field": "priority", "op": "==", "value": "high" }, "goto": "escalate" } ], "default": "review" } },
+      { "id": "escalate", "widget": "access-picker", "section": "Escalate to on-call", "next": "review" },
+      { "id": "review", "widget": "review-summary", "section": "Review & submit", "next": null }
+    ] } },
+
+    { "kind": "tool", "name": "create-ticket", "body": { "description": "Open a support ticket", "inputs": ["subject", "priority"] }, "tags": ["tool"] },
+    { "kind": "tool", "name": "lookup-user",   "body": { "description": "Fetch a user profile by id", "inputs": ["userId"] }, "tags": ["tool"] },
+    { "kind": "tool", "name": "send-email",    "body": { "description": "Send a templated email", "inputs": ["to", "template"] }, "tags": ["tool"] }
+  ],
+  "experiences": [
+    { "name": "employee-onboarding", "title": "Employee Onboarding", "goal": "onboard a new employee", "approve": true,
+      "body": { "intents": ["onboard employee", "new hire"], "requires": [
+        { "kind": "component", "name": "role-picker" }, { "kind": "component", "name": "profile-fields" },
+        { "kind": "component", "name": "access-picker" }, { "kind": "component", "name": "review-summary" },
+        { "kind": "form", "name": "onboarding-form" }, { "kind": "workflow", "name": "onboarding-flow" } ] } },
+    { "name": "expense-claim", "title": "Expense Claim", "goal": "file an expense claim", "approve": true,
+      "body": { "intents": ["file expense", "reimbursement"], "requires": [
+        { "kind": "component", "name": "category-picker" }, { "kind": "component", "name": "amount-entry" },
+        { "kind": "component", "name": "receipt-upload" }, { "kind": "component", "name": "review-summary" },
+        { "kind": "form", "name": "expense-form" }, { "kind": "workflow", "name": "expense-flow" } ] } },
+    { "name": "support-ticket", "title": "Support Ticket", "goal": "open a support ticket", "approve": true,
+      "body": { "intents": ["support ticket", "raise issue"], "requires": [
+        { "kind": "component", "name": "category-picker" }, { "kind": "component", "name": "describe" },
+        { "kind": "component", "name": "priority-picker" }, { "kind": "component", "name": "review-summary" },
+        { "kind": "form", "name": "support-form" }, { "kind": "workflow", "name": "support-flow" } ] } },
+    { "name": "vendor-onboarding", "title": "Vendor Onboarding", "goal": "onboard a new vendor", "approve": true,
+      "body": { "intents": ["onboard vendor", "supplier"], "requires": [
+        { "kind": "component", "name": "role-picker" }, { "kind": "component", "name": "profile-fields" },
+        { "kind": "component", "name": "review-summary" },
+        { "kind": "form", "name": "onboarding-form" }, { "kind": "workflow", "name": "onboarding-flow" } ] } }
+  ]
+}
