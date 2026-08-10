@@ -26,7 +26,7 @@ catalog:
   seed:
     enabled: false
   cors:
-    origins: http://localhost:4600,http://localhost:4210,http://127.0.0.1:4600,http://127.0.0.1:4210
+    origins: http://localhost:4600,http://localhost:4210,http://localhost:4700,http://127.0.0.1:4600,http://127.0.0.1:4210,http://127.0.0.1:4700
 
 logging:
   level:

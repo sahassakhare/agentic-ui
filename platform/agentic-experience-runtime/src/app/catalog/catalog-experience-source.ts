@@ -1,23 +1,25 @@
 /**
- * P1 — the runtime "load half" of the author→govern→load→compose loop.
+ * The runtime "load half" of the author→govern→load→compose loop.
  *
  * Product owners author Experiences in the Studio; the catalog server persists
- * them per-tenant (RLS, approval, audit). This service is the missing runtime
- * half: it GETs the tenant's **approved** experiences from the catalog, maps
- * each catalog row (nested `body.*`) to a flat runtime `ExperienceDef`, and
- * registers them into `ExperienceRegistry` — so the composer plans over
- * governed, catalog-sourced content instead of hardcoded TypeScript.
+ * them per-tenant (approval, audit, tenant-scope). This service GETs the
+ * tenant's **approved** experiences, maps each catalog row (nested `body.*`) to
+ * a flat runtime `ExperienceDef`, and registers them into `ExperienceRegistry`
+ * — so the Hub renders governed, catalog-sourced content, not hardcoded TS.
  *
  * Live updates: subscribes to the catalog SSE stream and re-hydrates on any
- * `experience` mutation. Modeled on the platform's `RestMfeRegistrySource`
- * (lib/mfe/rest-mfe-registry.ts); promote to `lib/catalog/` once stable.
+ * `experience` mutation, so a Studio approval appears in the Hub without reload.
+ *
+ * Adapted from the demo composer's source: URL/tenant come from `environment`,
+ * and in `oidc` mode the approved-experiences fetch forwards the bearer token.
  */
 import { Injectable, inject, signal } from '@angular/core';
 import { ExperienceRegistry } from '@infra-tools/agentic-ui';
+import { environment } from '../../environments/environment';
+import { AuthService } from '../auth/auth.service';
 
-/** Where the catalog server lives + which tenant to load. P3 adds a real token. */
-export const CATALOG_URL = 'http://127.0.0.1:8081';
-export const CATALOG_TENANT = 'acme';
+const CATALOG_URL = environment.catalogBaseUrl;
+export const CATALOG_TENANT = environment.tenant;
 const SOURCE = 'catalog'; // registry source tag → lets us removeBySource on refresh
 
 interface CatalogExperienceRow {
@@ -41,6 +43,7 @@ interface CatalogExperienceRow {
 @Injectable({ providedIn: 'root' })
 export class CatalogExperienceSource {
   private readonly registry = inject(ExperienceRegistry);
+  private readonly auth = inject(AuthService);
   private stream?: EventSource;
 
   /** How many experiences are currently loaded from the catalog. */
@@ -52,7 +55,10 @@ export class CatalogExperienceSource {
   async hydrate(): Promise<void> {
     try {
       const url = `${CATALOG_URL}/v1/catalogs/${encodeURIComponent(CATALOG_TENANT)}/experiences?approvalState=approved&limit=200`;
-      const res = await fetch(url, { headers: { accept: 'application/json' } });
+      const headers: Record<string, string> = { accept: 'application/json' };
+      const token = this.auth.token();
+      if (environment.authMode === 'oidc' && token) headers['authorization'] = `Bearer ${token}`;
+      const res = await fetch(url, { headers });
       if (!res.ok) throw new Error(`catalog returned ${res.status}`);
       const { items } = (await res.json()) as { items: CatalogExperienceRow[] };
       // Clear our previously-loaded set, then register the fresh catalog state.
@@ -78,7 +84,7 @@ export class CatalogExperienceSource {
         } catch { /* ignore non-JSON keepalives */ }
       };
       this.stream.onerror = () => { /* browser auto-reconnects; ignore */ };
-    } catch { /* SSE unavailable — the manual refresh + poll cover it */ }
+    } catch { /* SSE unavailable — the manual refresh covers it */ }
   }
 
   /** Map a catalog experience row (nested body) → flat runtime ExperienceDef. */
@@ -94,11 +100,11 @@ export class CatalogExperienceSource {
       policies: b.policies,
       personas: b.personas,
       // Authored `scopes` are the experience's required permissions — the
-      // runtime access gate checks these against the user's held permissions
-      // (the composer's permissions multibox defines what the user holds).
+      // runtime access gate checks these against the user's held permissions.
       requiredPermissions: b.scopes,
       version: row.version ?? undefined,
       approvalState: 'approved',
+      // Preserved so the render-mode resolver can key off `tags: ['dashboard']`.
       tags: [...(row.tags ?? [])],
       owner: row.owner ?? undefined,
       source: SOURCE,

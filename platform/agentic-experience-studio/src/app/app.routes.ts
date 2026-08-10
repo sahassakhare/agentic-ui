@@ -1,6 +1,9 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 import {
+  APPLICATION_STUDIO,
+  PAGE_STUDIO,
+  DECISION_STUDIO,
   COMPONENT_STUDIO,
   DATASOURCE_STUDIO,
   FORM_STUDIO,
@@ -32,6 +35,39 @@ export const routes: Routes = [
     path: 'experiences/:id',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/experience-detail.component').then((m) => m.ExperienceDetailComponent),
+  },
+  {
+    path: 'applications',
+    canActivate: [authGuard],
+    data: { config: APPLICATION_STUDIO },
+    loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
+  },
+  {
+    path: 'applications/:id/design',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/application-designer.component').then((m) => m.ApplicationDesignerComponent),
+  },
+  {
+    path: 'pages',
+    canActivate: [authGuard],
+    data: { config: PAGE_STUDIO },
+    loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
+  },
+  {
+    path: 'pages/:id/design',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/page-designer.component').then((m) => m.PageDesignerComponent),
+  },
+  {
+    path: 'decisions',
+    canActivate: [authGuard],
+    data: { config: DECISION_STUDIO },
+    loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
+  },
+  {
+    path: 'decisions/:id/design',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/decision-designer.component').then((m) => m.DecisionDesignerComponent),
   },
   {
     path: 'prompts',

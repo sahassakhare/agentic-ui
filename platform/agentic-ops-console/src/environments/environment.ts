@@ -1,6 +1,6 @@
 export const environment = {
   production: false,
-  catalogBaseUrl: 'http://localhost:8080',
+  catalogBaseUrl: 'http://localhost:8081',
   /**
    * Trust mode for the catalog the console talks to.
    * - `'oidc'` — login screen accepts a JWT; principal comes from
@@ -9,5 +9,5 @@ export const environment = {
    *   AuthService synthesises a platform-admin principal client-
    *   side. Must match the catalog's `AUTH_MODE`. See ADR-022.
    */
-  authMode: 'oidc' as 'oidc' | 'disabled',
+  authMode: 'disabled' as 'oidc' | 'disabled',
 };

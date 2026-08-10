@@ -10,6 +10,9 @@
     { "kind": "component", "name": "describe",        "body": { "description": "Free-text description", "propsSchema": { "type": "object", "additionalProperties": true } } },
     { "kind": "component", "name": "priority-picker", "body": { "description": "Priority picker", "propsSchema": { "type": "object", "additionalProperties": true } } },
     { "kind": "component", "name": "review-summary",  "body": { "description": "Review summary", "propsSchema": { "type": "object", "additionalProperties": true } } },
+    { "kind": "component", "name": "kpi-stat",        "body": { "description": "KPI stat tile", "propsSchema": { "type": "object", "additionalProperties": true } }, "tags": ["dashboard"] },
+    { "kind": "component", "name": "bar-chart",       "body": { "description": "Horizontal bar chart tile", "propsSchema": { "type": "object", "additionalProperties": true } }, "tags": ["dashboard"] },
+    { "kind": "component", "name": "data-table",      "body": { "description": "Data table tile", "propsSchema": { "type": "object", "additionalProperties": true } }, "tags": ["dashboard"] },
 
     { "kind": "datasource", "name": "ticket-categories", "body": { "kind": "sql", "description": "Support ticket category taxonomy", "connector": "postgres", "uri": "ticket_categories" }, "tags": ["data"] },
     { "kind": "datasource", "name": "user-directory",    "body": { "kind": "api", "description": "Employee & role directory", "connector": "scim", "uri": "/v1/users" }, "tags": ["data"] },
@@ -65,7 +68,130 @@
 
     { "kind": "tool", "name": "create-ticket", "body": { "description": "Open a support ticket", "inputs": ["subject", "priority"] }, "tags": ["tool"] },
     { "kind": "tool", "name": "lookup-user",   "body": { "description": "Fetch a user profile by id", "inputs": ["userId"] }, "tags": ["tool"] },
-    { "kind": "tool", "name": "send-email",    "body": { "description": "Send a templated email", "inputs": ["to", "template"] }, "tags": ["tool"] }
+    { "kind": "tool", "name": "send-email",    "body": { "description": "Send a templated email", "inputs": ["to", "template"] }, "tags": ["tool"] },
+
+    { "kind": "decision", "name": "priority-routing", "tags": ["decision"], "body": {
+      "description": "Route a support ticket by priority (DMN decision table).",
+      "hitPolicy": "first",
+      "inputs": [ { "name": "priority", "label": "Priority" } ],
+      "outputs": [ { "name": "route", "label": "Route to" } ],
+      "rules": [
+        { "when": { "priority": { "op": "==", "value": "high" } },   "then": { "route": "escalate" } },
+        { "when": { "priority": { "op": "==", "value": "urgent" } }, "then": { "route": "escalate" } },
+        { "when": { "priority": { "op": "any" } },                    "then": { "route": "review" } }
+      ] } },
+
+    { "kind": "page", "name": "home-page", "tags": ["page"], "body": {
+      "title": "Home", "layout": "sidebar-right",
+      "regions": {
+        "main":  [ { "kind": "dashboard", "name": "ops-overview" } ],
+        "aside": [ { "kind": "component", "name": "review-summary" } ]
+      } } },
+    { "kind": "page", "name": "cockpit-page", "tags": ["page"], "body": {
+      "title": "Ops Cockpit", "layout": "single",
+      "regions": { "main": [ { "kind": "layout", "name": "ops-cockpit" } ] } } },
+    { "kind": "page", "name": "onboarding-page", "tags": ["page"], "body": {
+      "title": "Onboarding", "layout": "two-column",
+      "regions": {
+        "left":  [ { "kind": "experience", "name": "employee-onboarding" } ],
+        "right": [ { "kind": "form", "name": "onboarding-form" } ]
+      } } },
+    { "kind": "page", "name": "expense-page", "tags": ["page"], "body": {
+      "title": "Expenses", "layout": "single",
+      "regions": { "main": [ { "kind": "experience", "name": "expense-claim" } ] } } },
+    { "kind": "page", "name": "support-page", "tags": ["page"], "body": {
+      "title": "Support", "layout": "sidebar-left",
+      "regions": {
+        "aside": [ { "kind": "component", "name": "review-summary" } ],
+        "main":  [ { "kind": "workflow", "name": "support-flow" } ]
+      } } },
+    { "kind": "page", "name": "admin-page", "tags": ["page"], "body": {
+      "title": "Admin Console", "layout": "single",
+      "access": { "personas": ["admin", "ops-manager"], "scopes": ["ops:read"] },
+      "regions": { "main": [ { "kind": "dashboard", "name": "ops-overview" } ] } } },
+    { "kind": "page", "name": "flights-page", "tags": ["page"], "body": {
+      "title": "Flights (Federated)", "layout": "single",
+      "regions": { "main": [ { "kind": "mfe", "name": "flightCard" } ] } } },
+
+    { "kind": "mfe", "name": "demo-remote-bookings", "tags": ["mfe"], "body": {
+      "remoteName": "demo-remote-bookings", "version": "1.0.0",
+      "remoteEntry": "http://localhost:4201/remoteEntry.json", "env": "dev",
+      "exposes": { "flightCard": "./Capability" } } },
+
+    { "kind": "mfe", "name": "matter-management", "tags": ["mfe", "ediscovery"], "body": {
+      "remoteName": "matter-management", "version": "1.0.0", "remoteEntry": "http://localhost:4300/remoteEntry.json", "env": "dev",
+      "exposes": { "matter-dashboard": "./Capability", "matter-list": "./Capability", "matter-report": "./Capability" } } },
+    { "kind": "component", "name": "matter-dashboard", "tags": ["ediscovery", "federated"], "body": { "description": "Matter KPIs + review progress", "propsSchema": { "type": "object", "additionalProperties": true } } },
+    { "kind": "component", "name": "matter-list",      "tags": ["ediscovery", "federated"], "body": { "description": "Filterable matter grid", "propsSchema": { "type": "object", "additionalProperties": true } } },
+    { "kind": "component", "name": "matter-report",    "tags": ["ediscovery", "federated"], "body": { "description": "Portfolio review report", "propsSchema": { "type": "object", "additionalProperties": true } } },
+    { "kind": "page", "name": "mm-dashboard", "tags": ["page"], "body": { "title": "Dashboard", "type": "content", "layout": "single", "regions": { "main": [ { "kind": "mfe", "name": "matter-dashboard" } ] } } },
+    { "kind": "page", "name": "mm-matters",   "tags": ["page"], "body": { "title": "Matters",   "type": "content", "layout": "single", "regions": { "main": [ { "kind": "mfe", "name": "matter-list" } ] } } },
+    { "kind": "page", "name": "mm-reports",   "tags": ["page"], "body": { "title": "Reports",   "type": "content", "layout": "single", "regions": { "main": [ { "kind": "mfe", "name": "matter-report" } ] } } },
+    { "kind": "page", "name": "mm-shell", "tags": ["page", "shell"], "body": { "title": "Matter Mgmt Shell", "type": "shell", "regions": {
+      "header": [
+        { "kind": "component", "name": "app-logo",   "props": { "text": "LexHold", "mark": "§" } },
+        { "kind": "component", "name": "app-header",  "props": { "title": "Matter Management", "subtitle": "eDiscovery", "showSearch": true, "searchPlaceholder": "Search matters, clients, custodians…", "showNotifications": true, "notificationCount": 3, "userName": "Sarah Patel" } }
+      ],
+      "sidenav": [ { "kind": "component", "name": "app-sidenav", "props": { "title": "Workspace" } } ],
+      "aside":   [ { "kind": "component", "name": "app-assistant", "props": { "title": "eDiscovery Assistant" } } ],
+      "footer":  [ { "kind": "component", "name": "app-footer", "props": { "text": "© LexHold · eDiscovery Matter Management", "links": [ { "label": "Support", "href": "https://lexhold.example/support" }, { "label": "Audit log", "href": "https://lexhold.example/audit" } ] } } ]
+    } } },
+
+    { "kind": "page", "name": "acme-shell", "tags": ["page", "shell"], "body": {
+      "title": "Acme Shell", "type": "shell",
+      "regions": {
+        "header": [
+          { "kind": "component", "name": "app-logo",   "props": { "text": "Acme", "mark": "◆" } },
+          { "kind": "component", "name": "app-header",  "props": { "title": "Operations" } }
+        ],
+        "sidenav": [ { "kind": "component", "name": "app-sidenav", "props": { "title": "Navigation" } } ],
+        "aside":   [ { "kind": "component", "name": "app-assistant" } ],
+        "footer":  [ { "kind": "component", "name": "app-footer", "props": {
+          "text": "© Acme Corp · Governed by the Agentic Experience Platform",
+          "links": [ { "label": "Support", "href": "https://acme.example/support" }, { "label": "Privacy", "href": "https://acme.example/privacy" } ] } } ]
+      }
+    } },
+
+    { "kind": "application", "name": "acme-workspace", "tags": ["application"], "body": {
+      "title": "Acme Operations Workspace",
+      "description": "The governed enterprise workspace — dashboards, journeys, and an AI assistant.",
+      "master": "acme-shell",
+      "assistant": { "backend": "ag-ui", "enabled": true, "greeting": "Hi — I can open apps, explain data, and run governed actions. What do you need?" },
+      "menu": [
+        { "id": "overview", "title": "Operations Overview", "order": 10, "target": { "kind": "experience", "name": "ops-overview" } },
+        { "id": "cockpit",  "title": "Ops Cockpit",          "order": 15, "target": { "kind": "layout", "name": "ops-cockpit" } },
+        { "id": "onboard",  "title": "Employee Onboarding",  "order": 20, "target": { "kind": "experience", "name": "employee-onboarding" } },
+        { "id": "expense",  "title": "Expense Claim",        "order": 30, "target": { "kind": "experience", "name": "expense-claim" } },
+        { "id": "support",  "title": "Support Ticket",       "order": 40, "target": { "kind": "experience", "name": "support-ticket" } },
+        { "id": "new-hire-form", "title": "New Hire Form",   "order": 50, "target": { "kind": "form", "name": "onboarding-form" } },
+        { "id": "support-flow",  "title": "Support Wizard",  "order": 60, "target": { "kind": "workflow", "name": "support-flow" } },
+        { "id": "summary-widget","title": "Review Summary",  "order": 70, "target": { "kind": "component", "name": "review-summary" } }
+      ],
+      "nav": [
+        { "title": "Home",        "path": "home",       "page": "home-page",       "order": 10, "icon": "▦" },
+        { "title": "Reports",     "path": "reports",    "page": "home-page",       "order": 20, "icon": "◧", "children": [
+          { "title": "Overview",  "path": "overview",   "page": "home-page" },
+          { "title": "Ops Cockpit","path": "cockpit",   "page": "cockpit-page" }
+        ] },
+        { "title": "Onboarding",  "path": "onboarding", "page": "onboarding-page", "order": 30, "icon": "›" },
+        { "title": "Expenses",    "path": "expenses",   "page": "expense-page",    "order": 40, "icon": "›" },
+        { "title": "Flights",     "path": "flights",    "page": "flights-page",    "order": 45, "icon": "⬡" },
+        { "title": "Support",     "path": "support",    "page": "support-page",    "order": 50, "icon": "⇉" },
+        { "title": "Admin",       "path": "admin",      "page": "admin-page",      "order": 60, "icon": "◫", "personas": ["admin", "ops-manager"] }
+      ],
+      "personas": ["admin", "ops-manager", "end-user"],
+      "scopes": []
+    } },
+
+    { "kind": "application", "name": "ediscovery-matters", "tags": ["application", "ediscovery"], "body": {
+      "title": "eDiscovery Matter Management",
+      "description": "Enterprise matter management, dashboards and reporting — a federated Angular app orchestrated by the platform.",
+      "master": "mm-shell", "assistant": { "backend": "ag-ui", "enabled": true },
+      "nav": [
+        { "title": "Dashboard", "path": "dashboard", "page": "mm-dashboard", "order": 10, "icon": "▦" },
+        { "title": "Matters",   "path": "matters",   "page": "mm-matters",   "order": 20, "icon": "▤" },
+        { "title": "Reports",   "path": "reports",   "page": "mm-reports",   "order": 30, "icon": "◧" }
+      ] } }
   ],
   "experiences": [
     { "name": "employee-onboarding", "title": "Employee Onboarding", "goal": "onboard a new employee", "approve": true,
@@ -87,6 +213,13 @@
       "body": { "intents": ["onboard vendor", "supplier"], "requires": [
         { "kind": "component", "name": "role-picker" }, { "kind": "component", "name": "profile-fields" },
         { "kind": "component", "name": "review-summary" },
-        { "kind": "form", "name": "onboarding-form" }, { "kind": "workflow", "name": "onboarding-flow" } ] } }
+        { "kind": "form", "name": "onboarding-form" }, { "kind": "workflow", "name": "onboarding-flow" } ] } },
+    { "name": "ops-overview", "title": "Operations Overview", "goal": "monitor tenant operations", "approve": true,
+      "tags": ["dashboard"],
+      "body": { "intents": ["ops dashboard", "operations overview"], "defaultLayout": "ops-overview-grid", "requires": [
+        { "kind": "component", "name": "kpi-stat" }, { "kind": "component", "name": "bar-chart" },
+        { "kind": "component", "name": "data-table" },
+        { "kind": "dataSource", "name": "user-directory" }, { "kind": "dataSource", "name": "expense-policy" } ],
+        "personas": ["admin", "ops-manager"], "scopes": ["ops:read"] } }
   ]
 }

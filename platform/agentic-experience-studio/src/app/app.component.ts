@@ -5,9 +5,12 @@ import { ToastHostComponent } from './components/toast-host.component';
 
 const NAV = [
   { path: '/experiences', label: 'Experiences' },
+  { path: '/applications', label: 'Applications' },
+  { path: '/pages', label: 'Pages' },
   { path: '/components', label: 'Components' },
   { path: '/forms', label: 'Forms' },
   { path: '/workflows', label: 'Workflows' },
+  { path: '/decisions', label: 'Decisions' },
   { path: '/prompts', label: 'Prompts' },
   { path: '/skills', label: 'Skills' },
   { path: '/knowledge', label: 'Knowledge' },

@@ -1,6 +1,6 @@
 import { Component, computed, inject, input, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
 import { PreviewHostComponent } from '../preview-host.component';
@@ -23,6 +23,8 @@ export interface StudioConfig {
   readonly title: string;       // "Prompt Studio"
   readonly noun: string;        // "prompt"
   readonly bodyFields: readonly StudioField[]; // fields stored in body
+  /** Optional sibling sections shown as sub-tabs (e.g. Pages ↔ Master Pages). */
+  readonly siblings?: readonly { readonly label: string; readonly path: string }[];
 }
 
 /**
@@ -37,7 +39,7 @@ export interface StudioConfig {
  */
 @Component({
   selector: 'aes-capability-studio',
-  imports: [FormsModule, RouterLink, PreviewHostComponent, SchemaFormComponent],
+  imports: [FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent],
   template: `
     <div class="page">
       <div class="page-header">
@@ -52,6 +54,14 @@ export interface StudioConfig {
           New {{ cfg().noun }}
         </button>
       </div>
+
+      @if (cfg().siblings; as sibs) {
+        <div class="subtabs">
+          @for (s of sibs; track s.path) {
+            <a [routerLink]="s.path" routerLinkActive="on">{{ s.label }}</a>
+          }
+        </div>
+      }
 
       @if (formOpen()) {
         <form class="card card-pad create" (ngSubmit)="save()">
@@ -178,6 +188,9 @@ export interface StudioConfig {
               <div class="row" style="gap:var(--s2)">
                 <button class="btn btn-ghost btn-sm" type="button" (click)="preview(c)">Preview</button>
                 @if (cfg().kind === 'form') { <a class="btn btn-sm" [routerLink]="['/forms', c.id, 'design']">Design</a> }
+                @if (cfg().kind === 'application') { <a class="btn btn-sm" [routerLink]="['/applications', c.id, 'design']">Design</a> }
+                @if (cfg().kind === 'page') { <a class="btn btn-sm" [routerLink]="['/pages', c.id, 'design']">Design</a> }
+                @if (cfg().kind === 'decision') { <a class="btn btn-sm" [routerLink]="['/decisions', c.id, 'design']">Design</a> }
                 <button class="btn btn-sm" type="button" (click)="startEdit(c)">Edit</button>
                 <button class="btn btn-danger btn-sm" type="button" (click)="askDelete(c)">Delete</button>
               </div>
@@ -238,6 +251,11 @@ export interface StudioConfig {
     }
   `,
   styles: [`
+    .subtabs { display: flex; gap: var(--s1); margin: var(--s3) 0 0; border-bottom: 1px solid var(--border); }
+    .subtabs a { font-size: var(--fs-sm); font-weight: 550; color: var(--text-muted); text-decoration: none;
+      padding: .5rem .8rem; border-bottom: 2px solid transparent; }
+    .subtabs a:hover { color: var(--text); }
+    .subtabs a.on { color: var(--brand); border-bottom-color: var(--brand); }
     .create { margin-bottom: var(--s5); }
     .toolbar { display: flex; align-items: center; gap: var(--s4); margin: var(--s5) 0 var(--s4); }
     .toolbar .search { flex: 1; max-width: 380px; }
