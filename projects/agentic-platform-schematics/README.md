@@ -1,4 +1,4 @@
-# @maverick/agentic-platform-schematics
+# @infra-tools/agentic-platform-schematics
 
 Angular schematics that scaffold the **entire Agentic Experience Platform monorepo**
 into a workspace â€” `projects/` (the `agentic-ui` library + this package),
@@ -27,8 +27,8 @@ npm run build        # populate templates from the repo, compile, copy assets â†
 schematics ./dist/collection.json:scaffold
 
 # or, once published:
-ng add @maverick/agentic-platform-schematics
-ng generate @maverick/agentic-platform-schematics:scaffold --directory=my-workspace --includeExamples=false
+ng add @infra-tools/agentic-platform-schematics
+ng generate @infra-tools/agentic-platform-schematics:scaffold --directory=my-workspace --includeExamples=false
 ```
 
 ## Options
