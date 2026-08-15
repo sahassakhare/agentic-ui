@@ -22,7 +22,8 @@ export async function ensureCriticalSchema(pool: CatalogPool): Promise<void> {
   try {
     await client.query(AGENTS_DDL);
     await client.query(POLICY_BUNDLES_DDL);
-    logger.info({}, 'critical schema verified (agents + policy_bundles)');
+    await client.query(EXPERIENCES_DDL);
+    logger.info({}, 'critical schema verified (agents + policy_bundles + experiences)');
   } catch (err) {
     // Don't crash the server on schema-ensure failures — log loudly
     // and continue. The relevant route handlers will surface 500s
@@ -32,6 +33,49 @@ export async function ensureCriticalSchema(pool: CatalogPool): Promise<void> {
     client.release();
   }
 }
+
+const EXPERIENCES_DDL = `
+DO $ensure_experiences$
+BEGIN
+  CREATE TABLE IF NOT EXISTS experiences (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name            TEXT NOT NULL,
+    title           TEXT NOT NULL,
+    goal            TEXT NOT NULL,
+    body            JSONB NOT NULL DEFAULT '{}'::JSONB,
+    approval_state  TEXT NOT NULL DEFAULT 'draft'
+                    CHECK (approval_state IN ('draft', 'review', 'approved', 'rejected', 'deprecated')),
+    approval_chain  JSONB NOT NULL DEFAULT '[]'::JSONB,
+    owner           TEXT NULL,
+    tags            TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    version         TEXT NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_by      TEXT NOT NULL,
+    soft_deleted_at TIMESTAMPTZ NULL,
+    CONSTRAINT experiences_tenant_name_unique UNIQUE (tenant_id, name)
+  );
+
+  CREATE INDEX IF NOT EXISTS experiences_tenant_idx ON experiences (tenant_id);
+  CREATE INDEX IF NOT EXISTS experiences_tenant_state_idx ON experiences (tenant_id, approval_state);
+
+  EXECUTE 'ALTER TABLE experiences ENABLE ROW LEVEL SECURITY';
+  EXECUTE 'ALTER TABLE experiences FORCE ROW LEVEL SECURITY';
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public'
+      AND tablename = 'experiences' AND policyname = 'experiences_tenant_isolation'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY experiences_tenant_isolation ON experiences
+      USING (tenant_id = current_setting('app.tenant_id', true)
+             OR current_setting('app.tenant_id', true) = '')
+    $policy$;
+  END IF;
+END
+$ensure_experiences$;
+`;
 
 const AGENTS_DDL = `
 DO $ensure_agents$

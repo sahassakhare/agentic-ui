@@ -15,6 +15,7 @@
 export * from './lib/types';
 export * from './lib/telemetry';
 export * from './lib/registries';
+export * from './lib/experience';
 export * from './lib/validation';
 export * from './lib/composition';
 export * from './lib/factories';
@@ -38,6 +39,7 @@ export * from './lib/platform';
 
 // Was @infra-tools/agentic-ui/components
 export * from './lib/components';
+export * from './lib/workflow/resolve-next';
 
 // Was @infra-tools/agentic-ui/ag-ui, /hashbrown, /a2ui
 export * from './lib/backends/ag-ui';

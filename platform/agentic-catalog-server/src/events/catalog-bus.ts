@@ -22,7 +22,8 @@ export type CatalogEntityType =
   | 'usage'
   | 'audit'
   | 'agent'
-  | 'policy_bundle';
+  | 'policy_bundle'
+  | 'experience';
 
 export type CatalogOperation = 'create' | 'update' | 'delete' | 'restore';
 

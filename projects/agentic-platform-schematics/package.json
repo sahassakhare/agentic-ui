@@ -1,0 +1,23 @@
+{
+  "name": "@infra-tools/agentic-platform-schematics",
+  "version": "0.1.0",
+  "description": "Angular schematics that scaffold the entire Agentic Experience Platform monorepo (projects/, platform/, examples/) into a new workspace — security-sensitive scripts excluded.",
+  "keywords": ["schematics", "angular", "scaffold", "monorepo", "agentic"],
+  "schematics": "./dist/collection.json",
+  "ng-add": { "save": "devDependencies" },
+  "files": ["dist", "README.md", "EXCLUDED.md"],
+  "publishConfig": { "access": "public" },
+  "scripts": {
+    "populate": "node scripts/populate-templates.mjs",
+    "build": "npm run populate && tsc -p tsconfig.json && node scripts/copy-assets.mjs",
+    "dry-run": "schematics ./dist/collection.json:scaffold --dry-run --directory=./_scaffold-out"
+  },
+  "dependencies": {
+    "@angular-devkit/core": "^20.0.0",
+    "@angular-devkit/schematics": "^20.0.0"
+  },
+  "devDependencies": {
+    "@angular-devkit/schematics-cli": "^20.0.0",
+    "typescript": "~5.6.0"
+  }
+}

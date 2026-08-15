@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../out-tsc/experience-studio-spec",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.spec.ts", "src/**/*.ts"]
+}

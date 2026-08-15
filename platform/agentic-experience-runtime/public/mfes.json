@@ -1,0 +1,10 @@
+{
+  "remotes": [
+    {
+      "remoteName": "matter-management",
+      "version": "1.0.0",
+      "remoteEntry": "http://localhost:4300/remoteEntry.json",
+      "env": "dev"
+    }
+  ]
+}

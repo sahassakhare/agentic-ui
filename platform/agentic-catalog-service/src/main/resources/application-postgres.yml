@@ -1,0 +1,17 @@
+# Production — PostgreSQL. Set DB env vars; auth on; seed off.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://127.0.0.1:5432/catalog}
+    username: ${DB_USER:catalog}
+    password: ${DB_PASSWORD:catalog}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    locations: classpath:db/migration/postgresql
+
+catalog:
+  auth:
+    mode: ${CATALOG_AUTH_MODE:oidc}
+    issuer: ${OIDC_ISSUER:http://127.0.0.1:9100}
+    audience: ${OIDC_AUDIENCE:agentic-catalog}
+  seed:
+    enabled: ${CATALOG_SEED:false}

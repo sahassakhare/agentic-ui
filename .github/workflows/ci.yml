@@ -127,8 +127,17 @@ jobs:
           npm ci --no-audit --fund=false
           npx tsc -p tsconfig.json
 
-      - name: Bundle-size guard (lib FESM under 800 KB)
+      - name: Bundle-size guard (lib FESM under 864 KB)
         run: |
+          # Cap raised 800 KB → 864 KB for the AEP Seam-D Experience Platform:
+          # ExperiencePlanner (deterministic pre-plan → capability graph → access
+          # gate → bundle), resolveCapabilityGraph, the Experience / Navigation /
+          # Memory / Knowledge registries, the agenticExperience + agenticCapabilities
+          # factories, the experience plan-context contributor / layout-input /
+          # plan-store, and workflow resolve-next branching. Pre-bump ~832 KB;
+          # ~32 KB headroom — same headroom convention as prior raises. Tree-shaking
+          # holds (sideEffects:false) — apps that don't import the experience
+          # surfaces don't pay for them.
           # Cap raised 768 KB → 800 KB for MCP-UI inbound rendering
           # (ADR-049 sandboxed-iframe renderer + action bridge) and the
           # Phase 3 component-tree renderer (server-driven UI as native
@@ -170,8 +179,8 @@ jobs:
           # Lower this back if a refactor materially shrinks the surface.
           size=$(wc -c < dist/agentic-ui/fesm2022/infra-tools-agentic-ui.mjs)
           echo "FESM size: $size bytes"
-          if [ "$size" -gt 819200 ]; then
-            echo "::error::Lib FESM exceeded 800 KB ($size B). Investigate before merging."
+          if [ "$size" -gt 884736 ]; then
+            echo "::error::Lib FESM exceeded 864 KB ($size B). Investigate before merging."
             exit 1
           fi
 

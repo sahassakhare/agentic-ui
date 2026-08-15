@@ -1181,6 +1181,361 @@
           }
         }
       }
+    },
+    "agentic-experience-studio": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
+      "root": "platform/agentic-experience-studio",
+      "sourceRoot": "platform/agentic-experience-studio/src",
+      "prefix": "aes",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "platform/agentic-experience-studio/src/main.ts",
+            "index": "platform/agentic-experience-studio/src/index.html",
+            "tsConfig": "platform/agentic-experience-studio/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "styles": [
+              "platform/agentic-experience-studio/src/styles.scss"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
+              ],
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "platform/agentic-experience-studio/src/environments/environment.ts",
+                  "with": "platform/agentic-experience-studio/src/environments/environment.prod.ts"
+                }
+              ]
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "agentic-experience-studio:build:production"
+            },
+            "development": {
+              "buildTarget": "agentic-experience-studio:build:development"
+            }
+          },
+          "defaultConfiguration": "development",
+          "options": {
+            "port": 4600,
+            "host": "0.0.0.0"
+          }
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "platform/agentic-experience-studio/tsconfig.spec.json",
+            "include": [
+              "**/*.spec.ts"
+            ]
+          }
+        }
+      }
+    },
+    "demo-experience-composer": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
+      "root": "examples/demo-experience-composer",
+      "sourceRoot": "examples/demo-experience-composer/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "examples/demo-experience-composer/src/main.ts",
+            "tsConfig": "examples/demo-experience-composer/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "examples/demo-experience-composer/public"
+              }
+            ],
+            "styles": [
+              "examples/demo-experience-composer/src/styles.scss"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "options": {
+            "port": 4210
+          },
+          "configurations": {
+            "production": {
+              "buildTarget": "demo-experience-composer:build:production"
+            },
+            "development": {
+              "buildTarget": "demo-experience-composer:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test"
+        }
+      }
+    },
+    "agentic-experience-runtime": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
+      "root": "platform/agentic-experience-runtime",
+      "sourceRoot": "platform/agentic-experience-runtime/src",
+      "prefix": "app",
+      "architect": {
+        "esbuild": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "platform/agentic-experience-runtime/src/main.ts",
+            "index": "platform/agentic-experience-runtime/src/index.html",
+            "tsConfig": "platform/agentic-experience-runtime/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "platform/agentic-experience-runtime/public"
+              }
+            ],
+            "styles": [
+              "platform/agentic-experience-runtime/src/styles.scss"
+            ],
+            "polyfills": [
+              "es-module-shims"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
+              ],
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "platform/agentic-experience-runtime/src/environments/environment.ts",
+                  "with": "platform/agentic-experience-runtime/src/environments/environment.prod.ts"
+                }
+              ]
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "build": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {},
+          "configurations": {
+            "production": {
+              "target": "agentic-experience-runtime:esbuild:production"
+            },
+            "development": {
+              "target": "agentic-experience-runtime:esbuild:development",
+              "dev": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve-original": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "agentic-experience-runtime:esbuild:production"
+            },
+            "development": {
+              "buildTarget": "agentic-experience-runtime:esbuild:development"
+            }
+          },
+          "defaultConfiguration": "development",
+          "options": {
+            "port": 4700,
+            "host": "0.0.0.0"
+          }
+        },
+        "serve": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "target": "agentic-experience-runtime:serve-original:development",
+            "rebuildDelay": 500,
+            "dev": true,
+            "cacheExternalArtifacts": false,
+            "port": 0
+          }
+        },
+        "test": {
+          "builder": "@angular/build:unit-test"
+        }
+      }
+    },
+    "matter-management-mfe": {
+      "projectType": "application",
+      "schematics": {
+        "@schematics/angular:component": {
+          "style": "scss"
+        }
+      },
+      "root": "platform/matter-management-mfe",
+      "sourceRoot": "platform/matter-management-mfe/src",
+      "prefix": "app",
+      "architect": {
+        "build": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {},
+          "configurations": {
+            "production": {
+              "target": "matter-management-mfe:esbuild:production"
+            },
+            "development": {
+              "target": "matter-management-mfe:esbuild:development",
+              "dev": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular-architects/native-federation:build",
+          "options": {
+            "target": "matter-management-mfe:serve-original:development",
+            "rebuildDelay": 500,
+            "dev": true,
+            "cacheExternalArtifacts": false,
+            "port": 4300
+          }
+        },
+        "test": {
+          "builder": "@angular/build:unit-test"
+        },
+        "esbuild": {
+          "builder": "@angular/build:application",
+          "options": {
+            "browser": "platform/matter-management-mfe/src/main.ts",
+            "tsConfig": "platform/matter-management-mfe/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "platform/matter-management-mfe/public"
+              }
+            ],
+            "styles": [
+              "platform/matter-management-mfe/src/styles.scss"
+            ],
+            "polyfills": [
+              "es-module-shims"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve-original": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "matter-management-mfe:esbuild:production"
+            },
+            "development": {
+              "buildTarget": "matter-management-mfe:esbuild:development"
+            }
+          },
+          "defaultConfiguration": "development",
+          "options": {
+            "port": 4300,
+            "host": "0.0.0.0"
+          }
+        }
+      }
     }
   }
 }

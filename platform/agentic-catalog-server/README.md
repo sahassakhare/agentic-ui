@@ -152,6 +152,22 @@ REST + JSON. Full OpenAPI 3.1 spec at `/v1/openapi.json`.
 | PATCH  | `/v1/catalogs/{tenant}/capabilities/{id}` | Update lifecycle / body / metadata |
 | DELETE | `/v1/catalogs/{tenant}/capabilities/{id}` | Soft-delete (sets `lifecycle='disabled'`) |
 
+### Experiences (auth + tenant scope) — AEP Seam F ([ADR-051](../../docs/adr/0051-agentic-experience-platform.md))
+
+Business-intent Experiences (a goal + declared capability requirements), decoupled from implementation. `body` holds the `ExperienceDef` payload; approval state moves through a `draft → review → approved` machine mirroring the runtime.
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET    | `/v1/catalogs/{tenant}/experiences` | List, filter by `approvalState` / `owner` / `tag` / free-text `q`; paginated (`limit`/`offset`) |
+| GET    | `/v1/catalogs/{tenant}/experiences/{id}` | Read one |
+| POST   | `/v1/catalogs/{tenant}/experiences` | Create (409 on duplicate name) |
+| PATCH  | `/v1/catalogs/{tenant}/experiences/{id}` | Update `title` / `goal` / `body` / metadata (name immutable) |
+| POST   | `/v1/catalogs/{tenant}/experiences/{id}/transition` | Apply an approval action (`submit`/`approve`/`reject`/`deprecate`/`revoke`); optimistic-concurrency guarded (409 on concurrent move / illegal transition) |
+| POST   | `/v1/catalogs/{tenant}/experiences/{id}/plan` | Direct-requirement dry-run — resolves the experience's declared `requires` (kind-aware) against the tenant catalog → `{ matched, unmet, complete }`. Full transitive planning is the runtime `ExperiencePlanner`'s job. |
+| DELETE | `/v1/catalogs/{tenant}/experiences/{id}` | Soft-delete |
+
+The `capabilities.kind` set is widened (migration 011) with the six AEP kinds — `prompt`, `skill`, `knowledge`, `memory`, `workflow`, `navigation` — so those capabilities can be catalogued alongside the original 15.
+
 ### MFE remotes (auth + tenant scope)
 
 | Method | Path | Purpose |

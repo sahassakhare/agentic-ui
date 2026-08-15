@@ -2,6 +2,7 @@ import type { Context, MiddlewareHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { JwtVerifier } from './jwt.js';
 import { isPlatformAdmin, type Principal } from '../domain/principal.js';
+import type { OpaClient } from '../policy/opa-client.js';
 
 declare module 'hono' {
   interface ContextVariableMap {
@@ -94,6 +95,86 @@ export function bearerAuth(
       throw new HTTPException(401, { message: `Token rejected: ${detail}` });
     }
     c.set('principal', principal);
+    await next();
+  };
+}
+
+/** HTTP methods that mutate state and therefore require write authorization. */
+const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+/** Path suffixes that are POSTs but read-only (no mutation) → exempt from the write guard. */
+const READ_ONLY_POST_SUFFIXES = ['/plan'];
+
+/**
+ * Roles permitted to perform writes under `/v1/catalogs/:tenant/*`.
+ * Override via `CATALOG_WRITER_ROLES` (CSV). `platform-admin` is always
+ * included. Any authenticated principal may still READ; only unsafe methods
+ * (POST/PUT/PATCH/DELETE) are gated — closing the gap where any tenant
+ * `member` could create/update/delete governance-relevant catalog entries.
+ */
+export function writerRolesFromEnv(): readonly string[] {
+  const raw = process.env['CATALOG_WRITER_ROLES'];
+  const parsed = (raw ?? 'catalog-admin,editor').split(',').map((s) => s.trim()).filter(Boolean);
+  return Array.from(new Set(['platform-admin', ...parsed]));
+}
+
+/**
+ * Per-verb RBAC guard. For unsafe methods, requires the principal to hold at
+ * least one writer role; reads pass for any authenticated principal. Read-only
+ * POSTs (e.g. `…/plan` dry-runs) are exempt. Use AFTER `requireTenantScope`.
+ */
+export function requireWriteAccess(writerRoles: readonly string[]): MiddlewareHandler {
+  const roleSet = new Set(writerRoles);
+  return async (c: Context, next) => {
+    if (UNSAFE_METHODS.has(c.req.method.toUpperCase())) {
+      const path = c.req.path;
+      const readOnly = READ_ONLY_POST_SUFFIXES.some((s) => path.endsWith(s));
+      if (!readOnly) {
+        const principal = c.get('principal');
+        if (!principal) {
+          throw new HTTPException(500, { message: 'requireWriteAccess used without bearerAuth ahead of it' });
+        }
+        const hasWrite = principal.roles.some((r) => roleSet.has(r));
+        if (!hasWrite) {
+          throw new HTTPException(403, {
+            message: `Write access denied: a writer role is required (one of: ${writerRoles.join(', ')}). Principal roles: [${principal.roles.join(', ') || 'none'}].`,
+          });
+        }
+      }
+    }
+    await next();
+  };
+}
+
+/**
+ * Policy-enforcement guard (audit finding A3). When an OPA client is enabled,
+ * every governance-relevant WRITE is submitted to OPA for a decision; an
+ * explicit deny (or an unreachable engine) blocks the request. This is the
+ * layer that makes `policies` actually enforced rather than advisory — OPA can
+ * express rules RBAC cannot (e.g. "editors may write, but not policy bundles").
+ * No-ops when OPA is not configured. Use AFTER `requireWriteAccess`.
+ */
+export function requirePolicyDecision(opa: OpaClient, rulePath: string): MiddlewareHandler {
+  return async (c: Context, next) => {
+    if (!opa.enabled || !UNSAFE_METHODS.has(c.req.method.toUpperCase())) { await next(); return; }
+    const path = c.req.path;
+    if (READ_ONLY_POST_SUFFIXES.some((s) => path.endsWith(s))) { await next(); return; }
+    const principal = c.get('principal');
+    const input = {
+      principal: { sub: principal.subject, tenant: principal.tenantId, roles: principal.roles },
+      method: c.req.method.toUpperCase(),
+      path,
+    };
+    let decision;
+    try {
+      decision = await opa.evaluate(rulePath, input, null);
+    } catch {
+      // Fail closed: a governance write must not proceed if the policy engine
+      // can't be reached.
+      throw new HTTPException(403, { message: 'Policy engine unavailable — governance write denied (fail-closed).' });
+    }
+    if (!decision.allow) {
+      throw new HTTPException(403, { message: `Denied by policy: ${decision.reason ?? rulePath}` });
+    }
     await next();
   };
 }

@@ -71,7 +71,10 @@ export async function buildIntegrationHarness(): Promise<IntegrationHarness> {
   async function mintToken(claims: Partial<TokenClaims> = {}): Promise<string> {
     const subject = claims.subject ?? 'u-001';
     const tenantId = claims.tenantId ?? DEFAULT_TENANT;
-    const roles = claims.roles ?? ['member'];
+    // Default test principal is a writer ('editor') so route specs can exercise
+    // create/update/delete. RBAC denial for non-writers is covered separately
+    // in auth/middleware.rbac.spec.ts. Tenant-scope still applies (non-admin).
+    const roles = claims.roles ?? ['editor'];
     const displayName = claims.displayName ?? 'Test User';
     const audience = claims.audience ?? DEFAULT_AUDIENCE;
     const expiresIn = claims.expiresIn ?? '1h';

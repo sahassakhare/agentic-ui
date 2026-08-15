@@ -1,0 +1,10 @@
+# Build output
+target/
+
+# Local H2 database file (created by the `local` profile; not source)
+data/
+
+# IDE / OS
+*.iml
+.idea/
+.DS_Store

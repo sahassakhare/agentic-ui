@@ -1,8 +1,27 @@
 # Agentic Experience Platform (AEP) plan — verified & refined
 
-**Status:** Draft for review · does **not** authorize implementation · refinement of an external
+**Status:** Refined & **implementation in progress** · refinement of an external
 "Enterprise Agentic Experience Platform" proposal, re-grounded against the real codebase.
 **Date:** 2026-07-24 · **Decider:** sahas
+
+> ## Implementation status (branch `claude/aep-architecture-plan-xisko5`)
+>
+> The AEP core is built and tested — all six seams landed additively (ADR-010 D4), each with vitest
+> coverage; the full agentic-ui suite (1069 tests) and catalog-server suite (215 tests) stay green.
+>
+> | Seam | Status | Where |
+> |---|---|---|
+> | **A** Capability dependency graph (`requires`/`produces` + `resolveCapabilityGraph`) | ✅ shipped | `lib/registries/capability-graph.ts` |
+> | **B** Prompt/Skill/Knowledge/Memory/Workflow/Navigation registries | ✅ shipped | `lib/registries/*` |
+> | **C** Experience Registry (approval-gated) | ✅ shipped | `lib/experience/experience-registry.ts` |
+> | **D** Experience Planner + agent-context + `experience` layout source | ✅ shipped | `lib/experience/*` |
+> | **F** Catalog `/experiences` API + `010`/`011` migrations | ✅ shipped | `platform/agentic-catalog-server/*` |
+> | **E** `agentic-experience-studio` app — experiences (list/create/edit/cytoscape graph/plan/approvals), login+guard, and authoring studios for **every** registry kind (Prompt/Skill/Knowledge/Memory/Workflow/Navigation) + Policy | ✅ shipped | `platform/agentic-experience-studio/*` |
+>
+> **Remaining (tracked in the app README, both need external infra):** a real OIDC **redirect** flow
+> against an identity provider (the login screen accepts a pasted JWT today, matching ops-console), and
+> function-of-state workflow branches (the editor covers string/terminal `next`). Ops-console remains
+> untouched by design.
 
 > **What this document is.** An external vision (drafted in a general-purpose assistant) proposed
 > turning `@infra-tools` into a "Registry-Driven Agentic Experience Platform." This document

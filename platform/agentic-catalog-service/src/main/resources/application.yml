@@ -1,0 +1,33 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: agentic-catalog-service
+  profiles:
+    active: local
+  jpa:
+    hibernate:
+      ddl-auto: none          # Flyway owns the schema
+    open-in-view: false
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  flyway:
+    enabled: true
+
+# Catalog-specific config
+catalog:
+  auth:
+    # 'oidc' = validate JWTs against the issuer; 'disabled' = trusted-network dev.
+    mode: oidc
+    issuer: http://127.0.0.1:9100
+    audience: agentic-catalog
+    writer-roles: platform-admin,catalog-admin,editor
+  seed:
+    enabled: false
+  cors:
+    origins: http://localhost:4600,http://localhost:4210,http://localhost:4700,http://127.0.0.1:4600,http://127.0.0.1:4210,http://127.0.0.1:4700
+
+logging:
+  level:
+    org.flywaydb: info
