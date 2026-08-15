@@ -100,3 +100,55 @@ jobs:
           else
             npm publish --access public
           fi
+
+      - name: Build + publish @infra-tools/agentic-ui-mcp
+        working-directory: projects/agentic-ui-mcp
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm run build
+          v=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-mcp@$v" version >/dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-mcp@$v already published — skipping"
+          else
+            npm publish --access public
+          fi
+
+      - name: Build + publish @infra-tools/agentic-ui-opa-authorizer
+        working-directory: projects/agentic-ui-opa-authorizer
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm run build
+          v=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-opa-authorizer@$v" version >/dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-opa-authorizer@$v already published — skipping"
+          else
+            npm publish --access public
+          fi
+
+      - name: Build + publish @infra-tools/aep-embed-sdk
+        working-directory: platform/aep-embed-sdk
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm run build
+          v=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/aep-embed-sdk@$v" version >/dev/null 2>&1; then
+            echo "::notice::@infra-tools/aep-embed-sdk@$v already published — skipping"
+          else
+            npm publish --access public
+          fi
+
+      - name: Build + publish @infra-tools/mvk (mvk-cli)
+        working-directory: platform/mvk-cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm run build
+          v=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/mvk@$v" version >/dev/null 2>&1; then
+            echo "::notice::@infra-tools/mvk@$v already published — skipping"
+          else
+            npm publish --access public
+          fi
