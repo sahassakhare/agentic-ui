@@ -46,6 +46,13 @@ jobs:
       - name: Build the library (primary entry + schematics)
         run: npm run build:lib
 
+      # Consumer packages import '@infra-tools/agentic-ui'; link the freshly
+      # built dist into node_modules so their tsc builds resolve it (mirrors
+      # the same step in ci.yml). Without this, agentic-ui-mcp et al. fail
+      # with TS2307 "Cannot find module '@infra-tools/agentic-ui'".
+      - name: Link the freshly built lib into node_modules
+        run: npm install ./dist/agentic-ui --no-save
+
       # --- publishes -------------------------------------------------------
       # Shared guard: skip if this exact version is already on npm, so the
       # workflow is safe to re-run.
