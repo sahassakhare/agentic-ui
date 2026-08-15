@@ -14,6 +14,7 @@
   },
   "type": "module",
   "main": "./dist/server.js",
+  "files": ["dist/**", "README.md", "LICENSE", "CHANGELOG.md"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node --enable-source-maps dist/server.js",
