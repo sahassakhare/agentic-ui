@@ -3,6 +3,9 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ExperienceCatalogService } from '../services/experience-catalog.service';
+import { LifecycleBarComponent } from '../lifecycle-bar.component';
+import type { Lifecycle } from '../lifecycle';
+import type { HasUnsavedChanges } from '../guards/unsaved-changes.guard';
 
 type PageType = 'content' | 'shell';
 type SurfaceKind = 'experience' | 'dashboard' | 'form' | 'workflow' | 'component' | 'layout';
@@ -49,7 +52,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 @Component({
   selector: 'aes-page-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent],
   template: `
     <div class="wrap">
       <header class="head">
@@ -60,6 +63,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
           <button [class.on]="type() === 'shell'" (click)="setType('shell')">Master (shell)</button>
         </div>
         <span class="sp"></span>
+        <aes-lifecycle-bar [lifecycle]="lifecycle()" [busy]="saving()" (transition)="setLifecycle($event)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
         <button class="btn primary" (click)="save()" [disabled]="saving()">Save page</button>
       </header>
@@ -97,23 +101,51 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 
             @if (selected(); as sel) {
               <section class="card">
-                <div class="eyebrow">Properties · {{ sel.name }}</div>
-                @if (!propFields(sel.name).length) { <p class="muted sm">This block has no configurable props.</p> }
-                @for (f of propFields(sel.name); track f.key) {
-                  @switch (f.type) {
-                    @case ('links') {
-                      <label class="lbl">{{ f.label }}</label>
-                      @for (l of asLinks(propVal(sel, f.key)); track $index) {
-                        <div class="linkrow">
-                          <input class="input sm" [ngModel]="l.label" (ngModelChange)="editLink($index, 'label', $event)" placeholder="Label" />
-                          <input class="input sm" [ngModel]="l.href" (ngModelChange)="editLink($index, 'href', $event)" placeholder="https://…" />
-                          <button class="x" (click)="removeLink($index)">✕</button>
-                        </div>
+                <div class="eyebrow">Properties · {{ sel.name }} <span class="muted sm">{{ sel.kind }}</span></div>
+
+                @if (regionNames().length > 1) {
+                  <label class="lbl">Region</label>
+                  <select class="input" [ngModel]="selection()?.region" (ngModelChange)="moveToRegion($event)" aria-label="Move to region">
+                    @for (r of regionNames(); track r) { <option [value]="r">{{ r }}</option> }
+                  </select>
+                }
+
+                @if (propFields(sel.name).length) {
+                  <!-- Typed editor for the built-in shell components. -->
+                  @for (f of propFields(sel.name); track f.key) {
+                    @switch (f.type) {
+                      @case ('links') {
+                        <label class="lbl">{{ f.label }}</label>
+                        @for (l of asLinks(propVal(sel, f.key)); track $index) {
+                          <div class="linkrow">
+                            <input class="input sm" [ngModel]="l.label" (ngModelChange)="editLink($index, 'label', $event)" placeholder="Label" />
+                            <input class="input sm" [ngModel]="l.href" (ngModelChange)="editLink($index, 'href', $event)" placeholder="https://…" />
+                            <button class="x" (click)="removeLink($index)">✕</button>
+                          </div>
+                        }
+                        <button class="btn ghost sm" (click)="addLink()">＋ Add link</button>
                       }
-                      <button class="btn ghost sm" (click)="addLink()">＋ Add link</button>
+                      @default { <label class="lbl">{{ f.label }}</label><input class="input" [ngModel]="propVal(sel, f.key)" (ngModelChange)="setProp(f.key, $event)" /> }
                     }
-                    @default { <label class="lbl">{{ f.label }}</label><input class="input" [ngModel]="propVal(sel, f.key)" (ngModelChange)="setProp(f.key, $event)" /> }
                   }
+                } @else {
+                  <!-- Universal props editor: any surface, any prop. Values are parsed
+                       as JSON when possible (numbers, booleans, objects, arrays) else kept
+                       as strings — so authors can configure a surface without limits. -->
+                  <label class="lbl">Properties <span class="muted sm">— passed to this {{ sel.kind }}</span></label>
+                  @for (row of propEntries(sel); track row.key) {
+                    <div class="proprow">
+                      <span class="pkey" [title]="row.key">{{ row.key }}</span>
+                      <input class="input sm" [ngModel]="displayVal(row.value)" (ngModelChange)="setPropRaw(row.key, $event)" [attr.aria-label]="row.key + ' value'" />
+                      <button class="x" (click)="removeProp(row.key)" aria-label="Remove property">✕</button>
+                    </div>
+                  }
+                  <div class="proprow add">
+                    <input class="input sm" [ngModel]="newPropKey()" (ngModelChange)="newPropKey.set($event)" placeholder="prop name" aria-label="New property name" />
+                    <input class="input sm" [ngModel]="newPropValue()" (ngModelChange)="newPropValue.set($event)" placeholder="value / JSON" aria-label="New property value" />
+                    <button class="btn ghost sm addp" (click)="addProp()" [disabled]="!newPropKey().trim()" aria-label="Add property">＋</button>
+                  </div>
+                  @if (sel.kind === 'form') { <p class="muted sm">Add <code>initialValues</code> or <code>context</code> (a JSON object) to prefill the form.</p> }
                 }
               </section>
             }
@@ -133,7 +165,11 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                       <div class="block" [class.sel]="isSelected(r, $index)" (click)="select(r, $index, $event)">
                         <span class="ic" [class.dash]="s.kind === 'dashboard'">{{ glyph(s.kind) }}</span>
                         <span class="bm"><span class="nm">{{ s.name }}</span><span class="gl">{{ s.kind }}</span></span>
-                        <button class="x" (click)="remove(r, $index, $event)">✕</button>
+                        <span class="ctrls">
+                          <button class="mv" (click)="moveSurface(r, $index, -1, $event)" [disabled]="$index === 0" title="Move up" aria-label="Move up">▲</button>
+                          <button class="mv" (click)="moveSurface(r, $index, 1, $event)" [disabled]="$index === (regions()[r] || []).length - 1" title="Move down" aria-label="Move down">▼</button>
+                          <button class="x" (click)="remove(r, $index, $event)" aria-label="Remove">✕</button>
+                        </span>
                       </div>
                     } @empty { <div class="drop">click, then add →</div> }
                   </div>
@@ -175,11 +211,19 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     .region.content { grid-column:1 / -1; background:rgba(120,120,140,.04); cursor:default; }
     .rhead { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; opacity:.7; margin-bottom:8px; }
     .block { display:flex; align-items:center; gap:9px; padding:8px 10px; margin-top:6px; border:1px solid rgba(120,120,140,.2); border-radius:9px; background:rgba(120,120,140,.03); } .block.sel { border-color:#6750a4; background:rgba(103,80,164,.08); }
-    .block .x { margin-left:auto; border:none; background:transparent; color:inherit; opacity:.5; cursor:pointer; }
+    .block .ctrls { margin-left:auto; display:inline-flex; gap:2px; }
+    .block .mv, .block .x, .proprow .x { border:none; background:transparent; color:inherit; opacity:.5; cursor:pointer; }
+    .block .mv, .block .x { padding:2px 4px; font-size:11px; line-height:1; }
+    .block .mv:hover:not([disabled]), .block .x:hover, .proprow .x:hover { opacity:1; }
+    .block .mv[disabled] { opacity:.18; cursor:default; }
+    .proprow { display:grid; grid-template-columns:auto 1fr auto; gap:6px; margin-top:6px; align-items:center; }
+    .proprow.add { grid-template-columns:1fr 1fr auto; }
+    .pkey { font-size:12px; opacity:.8; max-width:96px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .btn.ghost.sm.addp { margin-top:0; }
     .drop { font-size:12px; opacity:.45; padding:6px 2px; } .ph { border:1.5px dashed rgba(120,120,140,.25); border-radius:8px; padding:14px; text-align:center; font-size:12px; opacity:.5; }
   `],
 })
-export class PageDesignerComponent {
+export class PageDesignerComponent implements HasUnsavedChanges {
   private readonly caps = inject(CapabilityCatalogService);
   private readonly experiences = inject(ExperienceCatalogService);
 
@@ -194,10 +238,15 @@ export class PageDesignerComponent {
   protected readonly selection = signal<{ region: string; index: number } | null>(null);
   protected readonly personas = signal('');
   protected readonly scopes = signal('');
+  /** Draft row for the universal props editor (add-property sub-form). */
+  protected readonly newPropKey = signal('');
+  protected readonly newPropValue = signal('');
   protected readonly surfacePalette = signal<PaletteGroup[]>([]);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
+  protected readonly lifecycle = signal<Lifecycle>('draft');
+  private pristine = '';
 
   protected readonly regionNames = computed(() => this.type() === 'shell' ? SHELL_REGIONS : TEMPLATE_REGIONS[this.layout()]);
   /** Both page types share the SAME palette — every surface + shell components. */
@@ -243,8 +292,19 @@ export class PageDesignerComponent {
       this.activeRegion.set(keys[0]);
       this.personas.set((b.access?.personas ?? []).join(', '));
       this.scopes.set((b.access?.scopes ?? []).join(', '));
+      this.lifecycle.set((c.lifecycle as Lifecycle) ?? 'draft');
       this.loading.set(false);
+      this.pristine = this.snapshot();
     });
+  }
+
+  // ── governance + unsaved-changes guard ──────────────────────────────────────
+  private snapshot(): string {
+    return JSON.stringify({ type: this.type(), layout: this.layout(), regions: this.regions(), personas: this.personas(), scopes: this.scopes() });
+  }
+  hasUnsavedChanges(): boolean { return !this.loading() && this.snapshot() !== this.pristine; }
+  setLifecycle(next: Lifecycle): void {
+    this.caps.update(this.id(), { lifecycle: next }).subscribe({ next: () => this.lifecycle.set(next), error: () => {} });
   }
 
   protected setType(t: PageType): void {
@@ -276,6 +336,61 @@ export class PageDesignerComponent {
     this.saved.set(false);
   }
   protected setProp(key: string, v: unknown): void { this.updateSelected((p) => { p[key] = v; return p; }); }
+
+  // ── universal props editor (any surface) ──────────────────────────────────
+  protected propEntries(s: Surface): { key: string; value: unknown }[] {
+    return Object.entries(s.props).map(([key, value]) => ({ key, value }));
+  }
+  /** Render a value for editing: strings as-is, everything else as JSON. */
+  protected displayVal(v: unknown): string {
+    if (v === null || v === undefined) return '';
+    return typeof v === 'string' ? v : JSON.stringify(v);
+  }
+  /** Parse an edited value: JSON when it parses (number/bool/object/array), else string. */
+  private coerce(raw: string): unknown {
+    const t = raw.trim();
+    if (t === '') return '';
+    try { return JSON.parse(t); } catch { return raw; }
+  }
+  protected setPropRaw(key: string, raw: string): void { this.updateSelected((p) => { p[key] = this.coerce(raw); return p; }); }
+  protected removeProp(key: string): void { this.updateSelected((p) => { delete p[key]; return p; }); }
+  protected addProp(): void {
+    const k = this.newPropKey().trim();
+    if (!k) return;
+    const raw = this.newPropValue();
+    this.updateSelected((p) => { p[k] = this.coerce(raw); return p; });
+    this.newPropKey.set(''); this.newPropValue.set('');
+  }
+
+  // ── reorder + move across regions ─────────────────────────────────────────
+  protected moveSurface(r: string, i: number, dir: -1 | 1, e: Event): void {
+    e.stopPropagation();
+    const arr = this.regions()[r];
+    const j = i + dir;
+    if (!arr || j < 0 || j >= arr.length) return;
+    const next = [...arr];
+    const [x] = next.splice(i, 1);
+    next.splice(j, 0, x!);
+    this.regions.update((cur) => ({ ...cur, [r]: next }));
+    // Keep the selection following the moved (or displaced) block.
+    if (this.isSelected(r, i)) this.selection.set({ region: r, index: j });
+    else if (this.isSelected(r, j)) this.selection.set({ region: r, index: i });
+    this.saved.set(false);
+  }
+  protected moveToRegion(toR: string): void {
+    const s = this.selection();
+    if (!s || s.region === toR) return;
+    const from = this.regions()[s.region] ?? [];
+    const item = from[s.index];
+    if (!item) return;
+    const nextFrom = from.filter((_, idx) => idx !== s.index);
+    const nextTo = [...(this.regions()[toR] ?? []), item];
+    this.regions.update((cur) => ({ ...cur, [s.region]: nextFrom, [toR]: nextTo }));
+    this.selection.set({ region: toR, index: nextTo.length - 1 });
+    this.activeRegion.set(toR);
+    this.saved.set(false);
+  }
+
   protected addLink(): void { this.updateSelected((p) => { p['links'] = [...this.asLinks(p['links']), { label: '', href: '' }]; return p; }); }
   protected removeLink(i: number): void { this.updateSelected((p) => { p['links'] = this.asLinks(p['links']).filter((_, idx) => idx !== i); return p; }); }
   protected editLink(i: number, key: 'label' | 'href', v: string): void { this.updateSelected((p) => { p['links'] = this.asLinks(p['links']).map((l, idx) => (idx === i ? { ...l, [key]: v } : l)); return p; }); }
@@ -289,7 +404,7 @@ export class PageDesignerComponent {
       ? { title: this.name(), type: 'shell', regions }
       : { title: this.name(), type: 'content', layout: this.layout(), regions, access: { personas: list(this.personas()), scopes: list(this.scopes()) } };
     this.caps.update(this.id(), { body }).subscribe({
-      next: () => { this.saving.set(false); this.saved.set(true); },
+      next: () => { this.saving.set(false); this.saved.set(true); this.pristine = this.snapshot(); },
       error: () => { this.saving.set(false); },
     });
   }

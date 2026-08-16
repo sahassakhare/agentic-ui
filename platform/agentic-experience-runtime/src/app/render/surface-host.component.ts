@@ -40,7 +40,7 @@ export type { SurfaceKind, SurfaceTarget };
       @else { <div class="notice bad">Experience "{{ target().name }}" could not be resolved.</div> }
     } @else {
       @switch (target().kind) {
-        @case ('form')      { <div class="stagewrap"><mvk-form-renderer [formName]="target().name" /></div> }
+        @case ('form')      { <div class="stagewrap"><mvk-form-renderer [formName]="target().name" [initialValues]="formInitialValues()" [context]="formContext()" /></div> }
         @case ('workflow')  { <div class="stagewrap"><mvk-workflow-renderer [formName]="target().name" /></div> }
         @case ('component') { <div class="stagewrap"><mvk-widget-container [widget]="widgetInstance()" /></div> }
         @case ('layout') {
@@ -92,4 +92,15 @@ export class SurfaceHostComponent {
   }));
 
   protected readonly slotMap = computed(() => layouts[this.target().name]);
+
+  // Per-surface props for a form: an author sets `initialValues` (prefill) and/or
+  // `context` (composition context) in the Page Designer; thread them into the
+  // renderer, which already accepts both inputs.
+  protected readonly formInitialValues = computed(() => asRecord(this.target().props?.['initialValues']));
+  protected readonly formContext = computed(() => asRecord(this.target().props?.['context']));
+}
+
+/** Narrow an authored prop value to a plain record (else empty). */
+function asRecord(v: unknown): Record<string, unknown> {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 }

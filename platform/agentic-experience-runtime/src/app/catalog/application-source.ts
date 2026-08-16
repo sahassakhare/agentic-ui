@@ -48,14 +48,14 @@ export interface NavEntry {
 }
 
 /** A nav entry flattened to its full URL path (for routing + resolution). */
-export interface FlatNavEntry { readonly title: string; readonly fullPath: string; readonly page: string; readonly depth: number }
+export interface FlatNavEntry { readonly title: string; readonly fullPath: string; readonly page: string; readonly depth: number; readonly icon?: string }
 
 /** Flatten a nav tree into full-path entries: `/reports`, `/reports/monthly`, … */
 export function flattenNav(entries: readonly NavEntry[], base = '', depth = 0): FlatNavEntry[] {
   const out: FlatNavEntry[] = [];
   for (const e of entries) {
     const fullPath = base ? `${base}/${e.path}` : e.path;
-    out.push({ title: e.title, fullPath, page: e.page, depth });
+    out.push({ title: e.title, fullPath, page: e.page, depth, icon: e.icon });
     if (e.children?.length) out.push(...flattenNav(e.children, fullPath, depth + 1));
   }
   return out;

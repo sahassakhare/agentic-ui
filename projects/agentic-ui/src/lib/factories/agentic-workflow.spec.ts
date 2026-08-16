@@ -107,4 +107,53 @@ describe('agenticWorkflow — factory + registration-time validation (Capability
     expect(caught!.message).toContain('[workflowX]');
     expect(caught!.message).toContain("step 'first'");
   });
+
+  it('accepts a ConditionalNext (declarative branching) step', () => {
+    const def = agenticWorkflow({
+      name: 'branchy',
+      steps: [
+        {
+          id: 'triage',
+          widget: 'triageForm',
+          next: {
+            branches: [
+              { when: { field: 'priority', op: '==', value: 'high' }, goto: 'escalate' },
+              { when: { field: 'ok', op: 'truthy' }, goto: 'done' },
+            ],
+            default: 'done',
+          },
+        },
+        { id: 'escalate', widget: 'escalateForm', next: 'done' },
+        { id: 'done', widget: 'summary', next: null },
+      ],
+      onComplete: vi.fn(),
+    });
+    expect(def.workflow!.steps[0].next).toMatchObject({ default: 'done' });
+  });
+
+  it('rejects a branch goto that references an unknown step', () => {
+    expect(() =>
+      agenticWorkflow({
+        name: 'badgoto',
+        steps: [
+          { id: 'a', widget: 'wA', next: { branches: [{ when: { field: 'x', op: 'truthy' }, goto: 'ghost' }], default: null } },
+          { id: 'b', widget: 'wB', next: null },
+        ],
+        onComplete: vi.fn(),
+      }),
+    ).toThrow(/Branch `goto` references unknown step/);
+  });
+
+  it('rejects a branch default that references an unknown step', () => {
+    expect(() =>
+      agenticWorkflow({
+        name: 'baddefault',
+        steps: [
+          { id: 'a', widget: 'wA', next: { branches: [{ when: { field: 'x', op: 'truthy' }, goto: 'b' }], default: 'ghost' } },
+          { id: 'b', widget: 'wB', next: null },
+        ],
+        onComplete: vi.fn(),
+      }),
+    ).toThrow(/Branch `default` references unknown step/);
+  });
 });

@@ -47,7 +47,7 @@ export class LogoWidget {
       @for (n of nav(); track n.fullPath) {
         <a class="item" [class.child]="n.depth > 0" [style.paddingLeft.px]="11 + n.depth * 16"
            [routerLink]="'/' + n.fullPath" routerLinkActive="on" [routerLinkActiveOptions]="{ exact: true }">
-          <span class="ic">{{ n.depth > 0 ? '·' : '›' }}</span><span class="nm">{{ n.title }}</span>
+          <span class="ic">{{ n.icon || (n.depth > 0 ? '·' : '›') }}</span><span class="nm">{{ n.title }}</span>
         </a>
       } @empty { <p class="muted">No pages.</p> }
     </nav>

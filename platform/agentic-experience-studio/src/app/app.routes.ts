@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
+import { unsavedChangesGuard } from './guards/unsaved-changes.guard';
 import {
   APPLICATION_STUDIO,
   PAGE_STUDIO,
@@ -45,6 +46,7 @@ export const routes: Routes = [
   {
     path: 'applications/:id/design',
     canActivate: [authGuard],
+    canDeactivate: [unsavedChangesGuard],
     loadComponent: () => import('./pages/application-designer.component').then((m) => m.ApplicationDesignerComponent),
   },
   {
@@ -56,6 +58,7 @@ export const routes: Routes = [
   {
     path: 'pages/:id/design',
     canActivate: [authGuard],
+    canDeactivate: [unsavedChangesGuard],
     loadComponent: () => import('./pages/page-designer.component').then((m) => m.PageDesignerComponent),
   },
   {
@@ -67,6 +70,7 @@ export const routes: Routes = [
   {
     path: 'decisions/:id/design',
     canActivate: [authGuard],
+    canDeactivate: [unsavedChangesGuard],
     loadComponent: () => import('./pages/decision-designer.component').then((m) => m.DecisionDesignerComponent),
   },
   {
@@ -107,6 +111,7 @@ export const routes: Routes = [
   {
     path: 'workflows/:id/design',
     canActivate: [authGuard],
+    canDeactivate: [unsavedChangesGuard],
     loadComponent: () => import('./pages/workflow-designer.component').then((m) => m.WorkflowDesignerComponent),
   },
   {
@@ -124,6 +129,7 @@ export const routes: Routes = [
   {
     path: 'forms/:id/design',
     canActivate: [authGuard],
+    canDeactivate: [unsavedChangesGuard],
     loadComponent: () => import('./pages/form-designer.component').then((m) => m.FormDesignerComponent),
   },
   {

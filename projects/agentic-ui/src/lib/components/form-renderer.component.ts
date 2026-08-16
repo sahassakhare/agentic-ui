@@ -7,21 +7,28 @@ import {
   effect,
   inject,
   input,
+  output,
   signal,
   type Type,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import {
   AGENTIC_TELEMETRY_SINK,
+  ActionRegistry,
   COMPOSITION_SLOT,
   ComponentRegistry,
   CompositionStore,
   DataSourceRegistry,
   FormRegistry,
+  ToolRegistry,
   ValidationRegistry,
+  type ActionContext,
   type CompositionEntry,
+  type FormActionDef,
   type FormDef,
   type FormFieldUi,
+  type ToolContext,
 } from '../internal';
 
 interface FieldDescriptor {
@@ -109,7 +116,16 @@ interface ResolvedSection {
             </section>
           }
           <div class="form-actions">
-            <button type="submit" [disabled]="submitting()">{{ submitting() ? 'Submitting…' : 'Submit' }}</button>
+            @for (a of actions(); track $index) {
+              <button
+                [attr.type]="a.kind === 'submit' ? 'submit' : 'button'"
+                [class.secondary]="a.style === 'secondary'"
+                [class.danger]="a.style === 'danger'"
+                [disabled]="a.kind === 'submit' && submitting()"
+                (click)="a.kind !== 'submit' && runAction(a)">
+                {{ a.kind === 'submit' && submitting() ? 'Submitting…' : a.label }}
+              </button>
+            }
             <ng-content select="[formActions]" />
           </div>
         </form>
@@ -171,7 +187,16 @@ interface ResolvedSection {
             </label>
           }
           <div class="form-actions">
-            <button type="submit" [disabled]="submitting()">{{ submitting() ? 'Submitting…' : 'Submit' }}</button>
+            @for (a of actions(); track $index) {
+              <button
+                [attr.type]="a.kind === 'submit' ? 'submit' : 'button'"
+                [class.secondary]="a.style === 'secondary'"
+                [class.danger]="a.style === 'danger'"
+                [disabled]="a.kind === 'submit' && submitting()"
+                (click)="a.kind !== 'submit' && runAction(a)">
+                {{ a.kind === 'submit' && submitting() ? 'Submitting…' : a.label }}
+              </button>
+            }
             <ng-content select="[formActions]" />
           </div>
         </form>
@@ -193,6 +218,7 @@ interface ResolvedSection {
     button { padding: 0.5rem 1rem; background: #2563eb; color: white; border: 0; border-radius: 0.3rem; cursor: pointer; align-self: flex-start; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     button.danger { background: #dc2626; }
+    button.secondary { background: #4b5563; }
     .missing { padding: 0.4rem; background: #fef3c7; color: #92400e; border-radius: 0.3rem; font-size: 0.85rem; }
     .composition-section { display: flex; flex-direction: column; gap: 0.4rem; padding-bottom: 0.4rem; border-bottom: 1px solid #f3f4f6; }
     .composition-section:last-of-type { border-bottom: 0; }
@@ -210,13 +236,25 @@ export class FormRendererComponent {
   readonly initialValues = input<Readonly<Record<string, unknown>>>({});
   readonly context = input<Readonly<Record<string, unknown>>>({});
 
+  /**
+   * Emitted by `emit`- and `cancel`-kind action buttons so the host can react
+   * (e.g. close a drawer, route back). `event` is the action's `event` name
+   * (`'cancel'` for cancel buttons); `detail` carries the author's payload.
+   */
+  readonly formAction = output<{ readonly event: string; readonly detail?: Record<string, unknown> }>();
+
   private readonly forms = inject(FormRegistry);
   private readonly validators = inject(ValidationRegistry);
   private readonly components = inject(ComponentRegistry);
   private readonly dataSources = inject(DataSourceRegistry);
+  private readonly tools = inject(ToolRegistry);
+  private readonly actionsRegistry = inject(ActionRegistry);
+  // Optional so the renderer works in tests / SSR without a router.
+  private readonly router = inject(Router, { optional: true });
   private readonly store = inject(CompositionStore);
   private readonly hostInjector = inject(Injector);
   private readonly telemetry = inject(AGENTIC_TELEMETRY_SINK);
+  private actionSeq = 0;
 
   /**
    * Cached per-slot injectors keyed by slot name. Created lazily and
@@ -239,6 +277,16 @@ export class FormRendererComponent {
   }
 
   protected readonly form = computed<FormDef | undefined>(() => this.forms.get(this.formName()));
+
+  /**
+   * The action bar to render. Factory-built forms always carry `actions`;
+   * a hand-built `FormDef` that omits them falls back to a single Submit so
+   * the classic single-submit UI is preserved.
+   */
+  protected readonly actions = computed<readonly FormActionDef[]>(
+    () => this.form()?.actions ?? [{ kind: 'submit', label: 'Submit' }],
+  );
+
   private readonly values = signal<Record<string, unknown>>({});
   private readonly errors = signal<Record<string, string>>({});
   protected readonly submitting = signal(false);
@@ -436,6 +484,94 @@ export class FormRendererComponent {
       dup.add(slot);
       return dup;
     });
+  }
+
+  /**
+   * Dispatch a non-submit action button. Submit buttons keep `type="submit"`
+   * and go through the form's native submit → `onSubmit()`, so they never reach
+   * here (the template guards `a.kind !== 'submit'`), avoiding double dispatch.
+   */
+  protected async runAction(a: FormActionDef): Promise<void> {
+    switch (a.kind) {
+      case 'reset':
+        this.resetForm();
+        return;
+      case 'cancel':
+        this.formAction.emit({ event: 'cancel' });
+        return;
+      case 'navigate':
+        this.router?.navigateByUrl(a.to);
+        return;
+      case 'emit':
+        this.formAction.emit({ event: a.event, detail: a.detail ? { ...a.detail } : undefined });
+        return;
+      case 'tool': {
+        const tool = this.tools.get(a.tool);
+        if (!tool) return;
+        await tool.handler({ ...(a.args ?? {}), ...this.currentValues() }, this.buildToolCtx());
+        return;
+      }
+      case 'action': {
+        const def = this.actionsRegistry.byType(a.action);
+        if (!def) return;
+        const payload = { ...(a.payload ?? {}), values: this.currentValues() };
+        const result = this.validators.validate<Record<string, unknown>>(def.payloadSchema, payload);
+        if (!result.success) return;
+        await Promise.resolve(def.effect(result.data!, this.buildActionCtx()));
+        return;
+      }
+      // 'submit' never reaches here (guarded in the template).
+    }
+  }
+
+  /** Current values regardless of form mode. */
+  private currentValues(): Record<string, unknown> {
+    return this.form()?.composition
+      ? (this.store.snapshot() as Record<string, unknown>)
+      : this.values();
+  }
+
+  /** Reset the form back to its initial values (both modes). */
+  private resetForm(): void {
+    this.errors.set({});
+    const initial = this.initialValues();
+    if (this.form()?.composition) {
+      this.store.clear();
+      for (const [slot, value] of Object.entries(initial)) {
+        if (value !== undefined) this.store.write(slot, value);
+      }
+    } else {
+      this.values.set({ ...initial });
+    }
+  }
+
+  /**
+   * Minimal `ToolContext` for a form-triggered tool. Long-running operation
+   * methods are no-ops (form action buttons are simple governed calls; progress
+   * surfaces belong to the chat/orchestrator path). Ids are synthesized.
+   */
+  private buildToolCtx(): ToolContext {
+    const id = `form-${this.formName()}-${this.actionSeq++}`;
+    return {
+      threadId: id,
+      runId: id,
+      toolCallId: id,
+      signal: new AbortController().signal,
+      startOperation: () => id,
+      reportProgress: () => undefined,
+      completeOperation: () => undefined,
+      failOperation: () => undefined,
+    };
+  }
+
+  private buildActionCtx(): ActionContext {
+    const id = `form-${this.formName()}-${this.actionSeq++}`;
+    return {
+      threadId: id,
+      runId: id,
+      actionId: id,
+      signal: new AbortController().signal,
+    };
   }
 
   protected async onSubmit(): Promise<void> {

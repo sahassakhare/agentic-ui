@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { CompositionExpressionError } from '../composition/composition-expression';
-import { FormCompositionError, agenticForm } from './agentic-form';
+import { FormActionError, FormCompositionError, agenticForm } from './agentic-form';
 
 describe('agenticForm — schema mode (backwards compatibility)', () => {
   it('passes through fieldsSchema and wraps submit as a Promise', async () => {
@@ -260,5 +260,125 @@ describe('agenticForm — registration-time validation (AC-F1-3)', () => {
     expect(caught).toBeInstanceOf(FormCompositionError);
     expect(caught!.message).toContain('[helpful]');
     expect(caught!.message).toContain('composition[1]');
+  });
+});
+
+describe('agenticForm — action bar', () => {
+  it('synthesizes a single Submit when actions are omitted (back-compat)', () => {
+    const def = agenticForm({
+      name: 'noactions',
+      description: 'no actions',
+      fieldsSchema: z.object({ x: z.string() }),
+      submit: () => undefined,
+    });
+    expect(def.actions).toEqual([{ kind: 'submit', label: 'Submit' }]);
+  });
+
+  it('passes through and normalizes a multi-action bar', () => {
+    const def = agenticForm({
+      name: 'multi',
+      description: 'multi',
+      fieldsSchema: z.object({ x: z.string() }),
+      submit: () => undefined,
+      actions: [
+        { kind: 'submit', label: 'Save', style: 'primary' },
+        { kind: 'reset', label: 'Clear' },
+        { kind: 'tool', label: 'Export', tool: 'export-pdf', args: { fmt: 'a4' } },
+        { kind: 'navigate', label: 'Review', to: '/review' },
+        { kind: 'emit', label: 'Close', event: 'close' },
+      ],
+    });
+    expect(def.actions).toHaveLength(5);
+    expect(def.actions![0]).toEqual({ kind: 'submit', label: 'Save', style: 'primary' });
+    expect(def.actions![2]).toEqual({
+      kind: 'tool',
+      label: 'Export',
+      style: undefined,
+      tool: 'export-pdf',
+      args: { fmt: 'a4' },
+    });
+  });
+
+  it('accepts actions on composition-mode forms too', () => {
+    const def = agenticForm({
+      name: 'comp-actions',
+      description: 'comp',
+      composition: [{ widget: 'a' }],
+      submit: () => undefined,
+      actions: [{ kind: 'submit', label: 'Go' }],
+    });
+    expect(def.actions).toEqual([{ kind: 'submit', label: 'Go' }]);
+  });
+
+  it('strips unknown fields, keeping only the shape for the kind', () => {
+    const def = agenticForm({
+      name: 'strip',
+      description: 'strip',
+      fieldsSchema: z.object({}),
+      submit: () => undefined,
+      actions: [
+        { kind: 'navigate', label: 'Go', to: '/x', tool: 'evil' } as unknown as never,
+      ],
+    });
+    expect(def.actions![0]).toEqual({ kind: 'navigate', label: 'Go', style: undefined, to: '/x' });
+    expect((def.actions![0] as Record<string, unknown>)['tool']).toBeUndefined();
+  });
+
+  it('throws FormActionError on an unknown kind', () => {
+    expect(() =>
+      agenticForm({
+        name: 'badkind',
+        description: 'x',
+        fieldsSchema: z.object({}),
+        submit: () => undefined,
+        actions: [{ kind: 'destroy', label: 'Nuke' } as unknown as never],
+      }),
+    ).toThrow(FormActionError);
+  });
+
+  it('throws on an empty label', () => {
+    expect(() =>
+      agenticForm({
+        name: 'nolabel',
+        description: 'x',
+        fieldsSchema: z.object({}),
+        submit: () => undefined,
+        actions: [{ kind: 'submit', label: '  ' }],
+      }),
+    ).toThrow(/non-empty label/);
+  });
+
+  it('throws when a tool action names an invalid identifier, with index', () => {
+    let caught: FormActionError | undefined;
+    try {
+      agenticForm({
+        name: 'badtool',
+        description: 'x',
+        fieldsSchema: z.object({}),
+        submit: () => undefined,
+        actions: [
+          { kind: 'submit', label: 'Save' },
+          { kind: 'tool', label: 'Hack', tool: '../etc' },
+        ],
+      });
+    } catch (e) {
+      caught = e as FormActionError;
+    }
+    expect(caught).toBeInstanceOf(FormActionError);
+    expect(caught!.formName).toBe('badtool');
+    expect(caught!.actionIndex).toBe(1);
+    expect(caught!.message).toContain('actions[1]');
+  });
+
+  it('throws when navigate is missing a target', () => {
+    expect(() =>
+      agenticForm({
+        name: 'badnav',
+        description: 'x',
+        fieldsSchema: z.object({}),
+        submit: () => undefined,
+        actions: [{ kind: 'navigate', label: 'Go', to: '' }],
+      }),
+    ).toThrow(/'navigate' requires/);
   });
 });

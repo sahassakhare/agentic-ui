@@ -1,19 +1,18 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
-import { GraphViewComponent } from '../graph-view.component';
-import { buildWorkflowGraphElements, stepsToWorkflowBody, type WorkflowStepDraft } from '../workflow-graph';
 import { ToastService } from '../services/toast.service';
 
 /**
- * Workflow Studio (AEP Seam B/E) — authors `workflow`-kind capabilities with a
- * step-graph editor and a live cytoscape preview. Covers the string/terminal
- * `next` case (function-of-state transitions are wired by the runtime adopter).
+ * Workflow Studio — lists `workflow`-kind capabilities. Authoring is unified on
+ * the one canvas editor (`/workflows/:id/design`): "New workflow" creates an
+ * empty workflow here and routes straight into that designer, so there is a
+ * single place to build a step graph (no duplicate inline editor).
  */
 @Component({
   selector: 'aes-workflow',
-  imports: [FormsModule, RouterLink, GraphViewComponent],
+  imports: [FormsModule, RouterLink],
   template: `
     <div class="page">
       <div class="page-header">
@@ -31,74 +30,14 @@ import { ToastService } from '../services/toast.service';
 
       @if (createOpen()) {
         <form class="card card-pad create" (ngSubmit)="create()">
-          <div class="field" style="max-width:360px; margin-bottom:var(--s5)">
+          <div class="field" style="max-width:360px">
             <label class="label" for="wf-name">Name <span class="req" aria-hidden="true">*</span></label>
             <input class="input" id="wf-name" name="name" [(ngModel)]="name" placeholder="onboarding" autocomplete="off" spellcheck="false" />
+            <p class="muted" style="font-size:var(--fs-sm); margin-top:var(--s2)">Creates an empty workflow and opens the step-graph designer.</p>
           </div>
-
-          <div class="steps">
-            <div class="steprow head"><span>Step id</span><span>Widget</span><span>Section</span><span>Next</span><span></span></div>
-            @for (s of steps(); track $index) {
-              <div class="stepwrap">
-                <div class="steprow">
-                  <input class="input" [(ngModel)]="s.id" [name]="'id'+$index" placeholder="s1" (ngModelChange)="touch()" aria-label="Step id" />
-                  <input class="input" [(ngModel)]="s.widget" [name]="'w'+$index" placeholder="intakeForm" (ngModelChange)="touch()" aria-label="Widget" />
-                  <input class="input" [(ngModel)]="s.section" [name]="'sec'+$index" placeholder="(optional)" (ngModelChange)="touch()" aria-label="Section" />
-                  @if (!s.conditional) {
-                    <select class="select" [(ngModel)]="s.next" [name]="'n'+$index" (ngModelChange)="touch()" aria-label="Next step">
-                      <option value="">— terminal —</option>
-                      @for (t of stepIds(); track t) { @if (t !== s.id) { <option [value]="t">{{ t }}</option> } }
-                    </select>
-                  } @else { <span class="condtag">conditional ↓</span> }
-                  <span class="rowbtns">
-                    <button class="btn btn-ghost btn-icon" type="button" [class.on]="s.conditional" (click)="toggleConditional(s)" title="Branch on state" aria-label="Toggle conditional branching">⑃</button>
-                    <button class="btn btn-ghost btn-icon" type="button" (click)="removeStep($index)" aria-label="Remove step">✕</button>
-                  </span>
-                </div>
-                @if (s.conditional) {
-                  <div class="cond">
-                    <div class="condhead">Branch on state — first match wins</div>
-                    @for (br of s.branches ?? []; track $index) {
-                      <div class="brow">
-                        <span class="kw">if</span>
-                        <input class="input" [(ngModel)]="br.field" [name]="'bf'+$index+'_'+s.id" placeholder="field (e.g. priority)" (ngModelChange)="touch()" [disabled]="false" />
-                        <select class="select" [(ngModel)]="br.op" [name]="'bo'+$index+'_'+s.id" (ngModelChange)="touch()">
-                          <option value="==">is</option><option value="!=">is not</option><option value="in">in</option><option value="truthy">is set</option><option value="falsy">is empty</option>
-                        </select>
-                        <input class="input" [(ngModel)]="br.value" [name]="'bv'+$index+'_'+s.id" placeholder="value" (ngModelChange)="touch()" [disabled]="br.op === 'truthy' || br.op === 'falsy'" />
-                        <span class="kw">→</span>
-                        <select class="select" [(ngModel)]="br.goto" [name]="'bg'+$index+'_'+s.id" (ngModelChange)="touch()">
-                          <option value="">step…</option>
-                          @for (t of stepIds(); track t) { @if (t !== s.id) { <option [value]="t">{{ t }}</option> } }
-                        </select>
-                        <button class="btn btn-ghost btn-icon" type="button" (click)="removeBranch(s, $index)" aria-label="Remove branch">✕</button>
-                      </div>
-                    }
-                    <div class="brow default">
-                      <span class="kw">else →</span>
-                      <select class="select" [(ngModel)]="s.defaultNext" [name]="'dn'+s.id" (ngModelChange)="touch()">
-                        <option value="">terminal (submit)</option>
-                        @for (t of stepIds(); track t) { @if (t !== s.id) { <option [value]="t">{{ t }}</option> } }
-                      </select>
-                      <button class="btn btn-sm" type="button" (click)="addBranch(s)">+ branch</button>
-                    </div>
-                  </div>
-                }
-              </div>
-            }
-            <button class="btn btn-sm" type="button" (click)="addStep()" style="justify-self:start; margin-top:var(--s2)">+ Add step</button>
-          </div>
-
-          @if (previewElements().length > 0) {
-            <div class="preview">
-              <span class="eyebrow">Preview</span>
-              <div class="card" style="padding:var(--s3)"><aes-graph-view [elements]="previewElements()" /></div>
-            </div>
-          }
-
-          <div class="row" style="margin-top:var(--s5)">
+          <div class="row" style="margin-top:var(--s4)">
             <button class="btn btn-primary" type="submit" [disabled]="!canCreate() || saving()">
-              @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… } @else { Create workflow }
+              @if (saving()) { <span class="spinner" aria-hidden="true"></span> Creating… } @else { Create &amp; design → }
             </button>
             <button class="btn btn-ghost" type="button" (click)="cancelCreate()">Cancel</button>
           </div>
@@ -135,26 +74,12 @@ import { ToastService } from '../services/toast.service';
   `,
   styles: [`
     .create { margin-bottom: var(--s5); }
-    .steps { display: flex; flex-direction: column; gap: var(--s2); }
-    .steprow { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: var(--s2); align-items: center; }
-    .steprow.head { font-size: var(--fs-xs); color: var(--text-faint); text-transform: uppercase; letter-spacing: .05em; font-family: var(--font-mono); padding: 0 var(--s1); }
-    .stepwrap { display: flex; flex-direction: column; gap: var(--s2); }
-    .rowbtns { display: inline-flex; gap: 2px; }
-    .rowbtns .on { color: var(--brand); background: var(--brand-soft); }
-    .condtag { font-size: var(--fs-xs); color: var(--warn); font-family: var(--font-mono); align-self: center; }
-    .cond { margin: 0 0 var(--s3) 0; padding: var(--s3); border-left: 2px solid var(--warn); background: var(--surface-2); border-radius: var(--r-sm); display: flex; flex-direction: column; gap: var(--s2); }
-    .condhead { font-size: var(--fs-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; font-family: var(--font-mono); }
-    .brow { display: grid; grid-template-columns: auto 1fr auto 1fr auto 1fr auto; gap: var(--s2); align-items: center; }
-    .brow.default { grid-template-columns: auto 1fr auto; }
-    .brow .kw { font-size: var(--fs-sm); color: var(--text-muted); font-weight: 600; }
-    @media (max-width: 720px) { .brow, .brow.default { grid-template-columns: 1fr 1fr; } }
-    .preview { display: flex; flex-direction: column; gap: var(--s2); margin-top: var(--s5); }
-    @media (max-width: 720px) { .steprow { grid-template-columns: 1fr 1fr; } .steprow.head { display: none; } }
   `],
 })
 export class WorkflowComponent {
   private readonly catalog = inject(CapabilityCatalogService);
   private readonly toast = inject(ToastService);
+  private readonly router = inject(Router);
 
   readonly items = signal<readonly Capability[]>([]);
   readonly loading = signal(false);
@@ -163,35 +88,14 @@ export class WorkflowComponent {
   readonly createOpen = signal(false);
 
   name = '';
-  readonly steps = signal<WorkflowStepDraft[]>([{ id: 's1', widget: '', next: '' }]);
-  private readonly rev = signal(0);
-
-  readonly stepIds = computed(() => { this.rev(); return this.steps().map((s) => s.id).filter(Boolean); });
-  readonly previewElements = computed(() => { this.rev(); return buildWorkflowGraphElements(this.steps()); });
 
   constructor() { this.refresh(); }
 
-  touch(): void { this.rev.update((v) => v + 1); }
-  addStep(): void { this.steps.update((s) => [...s, { id: `s${s.length + 1}`, widget: '', next: '' }]); this.touch(); }
-  removeStep(i: number): void { this.steps.update((s) => s.filter((_, idx) => idx !== i)); this.touch(); }
-
-  // Conditional-branch authoring (gap B3): a step can branch on captured state.
-  toggleConditional(s: WorkflowStepDraft): void {
-    s.conditional = !s.conditional;
-    if (s.conditional && !(s.branches && s.branches.length)) {
-      s.branches = [{ field: '', op: '==', value: '', goto: '' }];
-      s.defaultNext = s.next;
-    }
-    this.touch();
-  }
-  addBranch(s: WorkflowStepDraft): void { (s.branches ??= []).push({ field: '', op: '==', value: '', goto: '' }); this.touch(); }
-  removeBranch(s: WorkflowStepDraft, i: number): void { s.branches?.splice(i, 1); this.touch(); }
-
-  canCreate(): boolean { return this.name.trim() !== '' && this.steps().some((s) => s.id && s.widget); }
+  canCreate(): boolean { return this.name.trim() !== ''; }
   toggleCreate(): void { this.createOpen.update((v) => !v); if (!this.createOpen()) this.reset(); }
   openCreate(): void { this.createOpen.set(true); }
   cancelCreate(): void { this.createOpen.set(false); this.reset(); }
-  private reset(): void { this.name = ''; this.steps.set([{ id: 's1', widget: '', next: '' }]); this.touch(); }
+  private reset(): void { this.name = ''; }
 
   refresh(): void {
     this.loading.set(true);
@@ -202,14 +106,15 @@ export class WorkflowComponent {
     });
   }
 
+  /** Create an empty workflow and jump straight into the one canvas designer. */
   create(): void {
     if (!this.canCreate()) return;
     this.saving.set(true);
-    this.catalog.create({ kind: 'workflow', name: this.name.trim(), body: stepsToWorkflowBody(this.steps()) }).subscribe({
+    this.catalog.create({ kind: 'workflow', name: this.name.trim(), body: { workflow: { steps: [] } } }).subscribe({
       next: (created) => {
         this.saving.set(false); this.createOpen.set(false); this.reset();
         this.items.update((cur) => [created, ...cur]);
-        this.toast.success('Workflow created', `“${created.name}” is published.`);
+        void this.router.navigate(['/workflows', created.id, 'design']);
       },
       error: (err) => { this.saving.set(false); this.toast.error('Create failed', msg(err)); },
     });
