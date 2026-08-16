@@ -188,6 +188,44 @@ All designers use `CapabilityCatalogService`
 Studio env: `catalogBaseUrl: 'http://localhost:8081'`, `authMode: 'oidc'` (SSO on
 `:9100`).
 
+### 2.6 Enterprise designer capabilities
+
+Each visual designer is built for real authoring, not toy demos:
+
+- **Forms** — a form has an **action bar**, not a fixed Submit. Add any number of
+  buttons, each bound to a *governed* capability: `submit` (validate + run),
+  `reset`, `cancel`, `tool` (dispatch a governed tool with the form values),
+  `action` (dispatch an `ActionDef`), `navigate`, or `emit`. A `kind:'form'`
+  capability is compiled into a live `FormDef` by the runtime and **renders in the
+  Hub** (fields → Zod schema; actions → the button bar).
+- **Pages** — every surface (dashboard/form/component/experience) has a **universal
+  props editor** (typed key/value, JSON-aware) — parameterize anything, not just the
+  shell chrome. Surfaces **reorder** (▲▼) and **move across regions**. A `form`
+  surface threads `initialValues` / `context` into the renderer.
+- **Decisions** — inputs/outputs are **typed** (string / number / date / boolean)
+  with type-correct comparison and type-aware operator menus; rules carry
+  **annotations**; the `unique` hit policy **flags overlaps**; the test panel uses
+  typed inputs.
+- **Applications** — the nav is a **route tree**: nest entries (← / → indent-outdent),
+  set a per-entry **icon**, and **scope entries to personas** (empty = everyone).
+  The Hub renders the tree (indented) and filters by the current persona.
+- **Workflows** — one **canvas editor** (the list's "New" creates an empty workflow
+  and opens it). Steps chain or **branch** (`ConditionalNext`); a
+  **validation panel** flags dead branch targets, unreachable steps, and
+  non-terminating loops before save. A `kind:'workflow'` capability compiles into a
+  `FormDef.workflow` and **renders in the Hub**.
+
+**Governance in every designer** — a **lifecycle bar** (draft → published →
+deprecated → disabled, with restore) is available directly in each designer, and an
+**unsaved-changes guard** warns before you navigate away from a designer with
+pending edits.
+
+> **The two render bridges.** Historically only *dashboards* and *experiences* were
+> compiled from the catalog into the Hub; catalog-authored *forms* and *workflows*
+> showed "not registered." Both now have a `CatalogFormSource` / `CatalogWorkflowSource`
+> compiler (mirroring `CatalogExperienceSource`) wired in the Hub's `app.config.ts`,
+> so a form or workflow you author in the Studio actually renders and dispatches.
+
 ---
 
 ## 3. Part 2 — Building a client app with the framework
