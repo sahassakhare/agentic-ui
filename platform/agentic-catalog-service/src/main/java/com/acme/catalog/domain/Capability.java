@@ -3,11 +3,12 @@ package com.acme.catalog.domain;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.time.Instant;
 
 /** A catalog capability of any kind (component, form, workflow, prompt, tool, …).
- *  JSON columns (body, tags) are stored as text; see the service/DTO mappers. */
+ *  JSON columns (body, tags, approvalChain) are stored as text; see the service/DTO mappers. */
 @Entity
 @Table(name = "capabilities")
 public class Capability {
@@ -24,4 +25,10 @@ public class Capability {
     public Instant updatedAt;
     public String createdBy;
     public Instant softDeletedAt;
+    /** Optimistic-concurrency token (Hibernate-managed); also the ETag. */
+    @Version public long version;
+    /** Approval workflow state: draft|review|approved|rejected|deprecated. */
+    public String approvalState;
+    /** JSON array of approval events (who/when/action/comment). */
+    public String approvalChain;
 }

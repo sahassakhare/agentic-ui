@@ -6,7 +6,12 @@ import {
   evaluateDecision, opsForType,
   type DecisionField, type DecisionRule, type DecisionOp, type DecisionType, type HitPolicy, type DecisionTable,
 } from '../decision/decision-eval';
-import { LifecycleBarComponent } from '../lifecycle-bar.component';
+import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
+import { HistoryPanelComponent } from '../history-panel.component';
+import { applyCapability, canApproveWith, handleBarAction, reportWriteError, type GovState } from '../governance-actions';
+import { AuthService } from '../services/auth.service';
+import { ToastService } from '../services/toast.service';
+import type { ApprovalState } from '../services/capability-catalog.service';
 import type { Lifecycle } from '../lifecycle';
 import type { HasUnsavedChanges } from '../guards/unsaved-changes.guard';
 
@@ -22,7 +27,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
 @Component({
   selector: 'aes-decision-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent],
   template: `
     <div class="wrap">
       <header class="head">
@@ -32,7 +37,8 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
           <select [(ngModel)]="hitPolicy">@for (h of hitPolicies; track h) { <option [value]="h">{{ h }}</option> }</select>
         </label>
         <span class="sp"></span>
-        <aes-lifecycle-bar [lifecycle]="lifecycle()" [busy]="saving()" (transition)="setLifecycle($event)" />
+        <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
+          [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
         <button class="btn primary" (click)="save()" [disabled]="saving()">Save decision</button>
       </header>
@@ -116,6 +122,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
           }
         </section>
       }
+      @if (showHistory()) { <aes-history-panel [capabilityId]="id()" (close)="showHistory.set(false)" (changed)="reload()" /> }
     </div>
   `,
   styles: [`
@@ -145,6 +152,8 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
 })
 export class DecisionDesignerComponent implements HasUnsavedChanges {
   private readonly caps = inject(CapabilityCatalogService);
+  private readonly toast = inject(ToastService);
+  private readonly auth = inject(AuthService);
   readonly id = input.required<string>();
 
   protected readonly hitPolicies = HIT_POLICIES;
@@ -161,6 +170,10 @@ export class DecisionDesignerComponent implements HasUnsavedChanges {
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
   protected readonly lifecycle = signal<Lifecycle>('draft');
+  protected readonly approvalState = signal<ApprovalState>('draft');
+  protected readonly capVersion = signal(0);
+  protected readonly showHistory = signal(false);
+  protected readonly canApprove = computed(() => canApproveWith(this.auth.roles()));
   private pristine = '';
 
   constructor() { queueMicrotask(() => this.load()); }
@@ -174,7 +187,7 @@ export class DecisionDesignerComponent implements HasUnsavedChanges {
       this.outputs.set([...(b.outputs ?? [])]);
       this.rules.set((b.rules ?? []).map((r) => ({ ...r, when: { ...r.when }, then: { ...r.then } })));
       this.hitPolicy.set(b.hitPolicy ?? 'first');
-      this.lifecycle.set((c.lifecycle as Lifecycle) ?? 'draft');
+      applyCapability(this.gov(), c);
       this.loading.set(false);
       this.pristine = this.snapshot();
     });
@@ -185,9 +198,9 @@ export class DecisionDesignerComponent implements HasUnsavedChanges {
     return JSON.stringify({ inputs: this.inputs(), outputs: this.outputs(), rules: this.rules(), hitPolicy: this.hitPolicy() });
   }
   hasUnsavedChanges(): boolean { return !this.loading() && this.snapshot() !== this.pristine; }
-  setLifecycle(next: Lifecycle): void {
-    this.caps.update(this.id(), { lifecycle: next }).subscribe({ next: () => this.lifecycle.set(next), error: () => {} });
-  }
+  private gov(): GovState { return { lifecycle: this.lifecycle, approvalState: this.approvalState, version: this.capVersion }; }
+  protected onBarAction(a: BarAction): void { handleBarAction(a, this.id(), this.gov(), this.caps, this.toast); }
+  protected reload(): void { this.load(); }
 
   protected json(o: unknown): string { return JSON.stringify(o); }
   protected cellOp(ri: number, name: string): DecisionOp { return this.rules()[ri].when[name]?.op ?? 'any'; }
@@ -227,9 +240,9 @@ export class DecisionDesignerComponent implements HasUnsavedChanges {
   protected save(): void {
     this.saving.set(true);
     const body = { description: this.description, hitPolicy: this.hitPolicy(), inputs: this.inputs(), outputs: this.outputs(), rules: this.rules() };
-    this.caps.update(this.id(), { body }).subscribe({
-      next: () => { this.saving.set(false); this.saved.set(true); this.pristine = this.snapshot(); },
-      error: () => { this.saving.set(false); },
+    this.caps.update(this.id(), { body }, this.capVersion()).subscribe({
+      next: (c) => { this.saving.set(false); this.saved.set(true); this.pristine = this.snapshot(); applyCapability(this.gov(), c); },
+      error: (e) => { this.saving.set(false); reportWriteError(this.toast, e); },
     });
   }
 }

@@ -2,6 +2,7 @@ package com.acme.catalog.web;
 
 import com.acme.catalog.service.CapabilityService;
 import com.acme.catalog.service.CatalogEvents;
+import com.acme.catalog.domain.Capability;
 import com.acme.catalog.tenant.CurrentActor;
 import tools.jackson.databind.JsonNode;
 import org.springframework.http.HttpStatus;
@@ -32,10 +33,11 @@ public class CapabilityController {
     }
 
     @GetMapping("/{id}")
-    public Map<String, Object> get(@PathVariable String tenant, @PathVariable String id) {
+    public ResponseEntity<Map<String, Object>> get(@PathVariable String tenant, @PathVariable String id) {
         current.requireTenant(tenant);
-        return views.capability(svc.get(tenant, id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Capability not found")));
+        Capability c = svc.get(tenant, id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Capability not found"));
+        return withEtag(c);
     }
 
     @PostMapping
@@ -43,22 +45,63 @@ public class CapabilityController {
         var actor = current.requireTenant(tenant);
         var c = svc.create(tenant, body, actor.id());
         events.publish(tenant, "capability", "create", c.id);
-        return ResponseEntity.status(HttpStatus.CREATED).body(views.capability(c));
+        return ResponseEntity.status(HttpStatus.CREATED).eTag(etag(c)).body(views.capability(c));
     }
 
     @PatchMapping("/{id}")
-    public Map<String, Object> update(@PathVariable String tenant, @PathVariable String id, @RequestBody JsonNode patch) {
-        current.requireTenant(tenant);
-        var c = svc.update(tenant, id, patch);
+    public ResponseEntity<Map<String, Object>> update(@PathVariable String tenant, @PathVariable String id,
+                                                      @RequestBody JsonNode patch,
+                                                      @RequestHeader(value = "If-Match", required = false) String ifMatch) {
+        var actor = current.requireTenant(tenant);
+        var c = svc.update(tenant, id, patch, parseVersion(ifMatch), actor.id());
         events.publish(tenant, "capability", "update", c.id);
-        return views.capability(c);
+        return withEtag(c);
+    }
+
+    @PostMapping("/{id}/transition")
+    public ResponseEntity<Map<String, Object>> transition(@PathVariable String tenant, @PathVariable String id,
+                                                          @RequestBody JsonNode body) {
+        var actor = current.requireTenant(tenant);
+        String action = body.path("action").asText(null);
+        if (action == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "action is required");
+        String comment = body.hasNonNull("comment") ? body.get("comment").asText() : null;
+        var c = svc.transition(tenant, id, action, comment, actor);
+        events.publish(tenant, "capability", "update", c.id);
+        return withEtag(c);
+    }
+
+    @GetMapping("/{id}/versions")
+    public Map<String, Object> versions(@PathVariable String tenant, @PathVariable String id) {
+        current.requireTenant(tenant);
+        return Map.of("items", svc.versions(tenant, id).stream().map(views::capabilityVersion).toList());
+    }
+
+    @PostMapping("/{id}/rollback/{versionNo}")
+    public ResponseEntity<Map<String, Object>> rollback(@PathVariable String tenant, @PathVariable String id,
+                                                        @PathVariable int versionNo) {
+        var actor = current.requireTenant(tenant);
+        var c = svc.rollback(tenant, id, versionNo, actor.id());
+        events.publish(tenant, "capability", "update", c.id);
+        return withEtag(c);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable String tenant, @PathVariable String id) {
+    public ResponseEntity<Void> delete(@PathVariable String tenant, @PathVariable String id,
+                                       @RequestHeader(value = "If-Match", required = false) String ifMatch) {
         current.requireTenant(tenant);
-        var c = svc.softDelete(tenant, id);
+        var c = svc.softDelete(tenant, id, parseVersion(ifMatch));
         events.publish(tenant, "capability", "delete", c.id);
         return ResponseEntity.noContent().build();
+    }
+
+    private ResponseEntity<Map<String, Object>> withEtag(Capability c) {
+        return ResponseEntity.ok().eTag(etag(c)).body(views.capability(c));
+    }
+    private static String etag(Capability c) { return "\"" + c.version + "\""; }
+    /** Parse an If-Match header (quoted/weak/plain) to the numeric version, or null. */
+    private static Long parseVersion(String ifMatch) {
+        if (ifMatch == null || ifMatch.isBlank() || "*".equals(ifMatch.trim())) return null;
+        String digits = ifMatch.replaceAll("[^0-9]", "");
+        return digits.isEmpty() ? null : Long.parseLong(digits);
     }
 }

@@ -24,8 +24,18 @@ public class Views {
         m.put("id", c.id); m.put("tenantId", c.tenantId); m.put("kind", c.kind); m.put("name", c.name);
         m.put("body", json.read(c.body)); m.put("lifecycle", c.lifecycle); m.put("owner", c.owner);
         m.put("tags", json.read(c.tags)); m.put("requiredHostVersion", c.requiredHostVersion);
+        m.put("version", c.version);
+        m.put("approvalState", c.approvalState);
+        m.put("approvalChain", json.read(c.approvalChain == null ? "[]" : c.approvalChain));
         m.put("createdAt", iso(c.createdAt)); m.put("updatedAt", iso(c.updatedAt));
         m.put("createdBy", c.createdBy); m.put("softDeletedAt", iso(c.softDeletedAt));
+        return m;
+    }
+
+    public Map<String, Object> capabilityVersion(com.acme.catalog.domain.CapabilityVersion v) {
+        var m = new LinkedHashMap<String, Object>();
+        m.put("versionNo", v.versionNo); m.put("snapshot", json.read(v.snapshot));
+        m.put("reason", v.reason); m.put("createdAt", iso(v.createdAt)); m.put("createdBy", v.createdBy);
         return m;
     }
 

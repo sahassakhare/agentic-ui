@@ -3,8 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
+import { AuthService } from '../services/auth.service';
 import { PreviewHostComponent } from '../preview-host.component';
 import { SchemaFormComponent } from '../schema-form.component';
+import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
+import { HistoryPanelComponent } from '../history-panel.component';
+import { canApproveWith, reportWriteError } from '../governance-actions';
 
 /** A field in a capability authoring form. */
 export interface StudioField {
@@ -39,7 +43,7 @@ export interface StudioConfig {
  */
 @Component({
   selector: 'aes-capability-studio',
-  imports: [FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent],
+  imports: [FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent],
   template: `
     <div class="page">
       <div class="page-header">
@@ -115,16 +119,12 @@ export interface StudioConfig {
           @if (editTarget(); as et) {
             <div class="lifebar">
               <div class="stack" style="gap:3px">
-                <span class="eyebrow">Lifecycle</span>
-                <span class="muted" style="font-size:var(--fs-sm)">Move this {{ cfg().noun }} through its lifecycle. Experiences resolve against <strong>published</strong> entries.</span>
+                <span class="eyebrow">Governance</span>
+                <span class="muted" style="font-size:var(--fs-sm)">Review chain: draft → submit → review → approve → publish. The Hub resolves <strong>published</strong> entries.</span>
               </div>
               <div class="row spacer" style="gap:var(--s2); flex-wrap:wrap; justify-content:flex-end; align-items:center">
-                <span class="badge" [class.badge-ok]="et.lifecycle === 'published'" [class.badge-warn]="et.lifecycle === 'draft'" [class.badge-danger]="et.lifecycle === 'deprecated' || et.lifecycle === 'disabled'">{{ et.lifecycle }}</span>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" stroke="var(--text-faint)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                @for (t of lifecycleTransitions(et.lifecycle); track t.to) {
-                  <button class="btn btn-sm" type="button" [class.btn-primary]="t.to === 'published'" [class.btn-danger]="t.to === 'disabled' || t.to === 'deprecated'"
-                          [disabled]="transitioning()" (click)="transitionLifecycle(t.to)">{{ t.label }}</button>
-                }
+                <aes-lifecycle-bar [lifecycle]="et.lifecycle" [approvalState]="et.approvalState" [canApprove]="canApprove()"
+                  [busy]="transitioning()" (action)="onBarAction(et, $event)" (history)="historyFor.set(et.id)" />
               </div>
             </div>
           }
@@ -249,6 +249,7 @@ export interface StudioConfig {
         </div>
       </div>
     }
+    @if (historyFor(); as hid) { <aes-history-panel [capabilityId]="hid" (close)="historyFor.set(null)" (changed)="onHistoryChanged(hid)" /> }
   `,
   styles: [`
     .subtabs { display: flex; gap: var(--s1); margin: var(--s3) 0 0; border-bottom: 1px solid var(--border); }
@@ -277,6 +278,9 @@ export interface StudioConfig {
 export class CapabilityStudioComponent {
   private readonly catalog = inject(CapabilityCatalogService);
   private readonly toast = inject(ToastService);
+  private readonly auth = inject(AuthService);
+  readonly canApprove = computed(() => canApproveWith(this.auth.roles()));
+  readonly historyFor = signal<string | null>(null);
 
   /** Bound from route `data.config` via withComponentInputBinding(). */
   readonly config = input.required<StudioConfig>();
@@ -367,29 +371,26 @@ export class CapabilityStudioComponent {
     this.touched.set(false);
   }
 
-  /** Valid lifecycle transitions from a state (governed, e2e: draft → published → deprecated → disabled). */
-  lifecycleTransitions(state: string): ReadonlyArray<{ to: string; label: string }> {
-    switch (state) {
-      case 'draft': return [{ to: 'published', label: 'Publish' }];
-      case 'published': return [{ to: 'deprecated', label: 'Deprecate' }, { to: 'disabled', label: 'Disable' }];
-      case 'deprecated': return [{ to: 'published', label: 'Restore' }, { to: 'disabled', label: 'Disable' }];
-      case 'disabled': return [{ to: 'published', label: 'Restore' }];
-      default: return [];
-    }
+
+  /** Governance bar action: an approval-chain transition or a lifecycle move. */
+  onBarAction(et: Capability, a: BarAction): void {
+    this.transitioning.set(true);
+    const done = (updated: Capability) => {
+      this.transitioning.set(false);
+      this.editTarget.set(updated);
+      this.items.update((cur) => cur.map((x) => (x.id === updated.id ? updated : x)));
+      this.toast.success('Updated', `“${updated.name}” is now ${updated.approvalState} · ${updated.lifecycle}.`);
+    };
+    const fail = (err: unknown) => { this.transitioning.set(false); reportWriteError(this.toast, err, 'Transition'); };
+    if (a.type === 'approval') this.catalog.transition(et.id, a.value).subscribe({ next: done, error: fail });
+    else this.catalog.update(et.id, { lifecycle: a.value }, et.version).subscribe({ next: done, error: fail });
   }
 
-  transitionLifecycle(to: string): void {
-    const et = this.editTarget();
-    if (!et) return;
-    this.transitioning.set(true);
-    this.catalog.update(et.id, { lifecycle: to }).subscribe({
-      next: (updated) => {
-        this.transitioning.set(false);
-        this.editTarget.set(updated);
-        this.items.update((cur) => cur.map((x) => (x.id === updated.id ? updated : x)));
-        this.toast.success('Lifecycle updated', `“${updated.name}” is now ${updated.lifecycle}.`);
-      },
-      error: (err) => { this.transitioning.set(false); this.toast.error('Transition failed', msg(err)); },
+  /** After a rollback in the history panel, refetch the edited capability + list. */
+  onHistoryChanged(id: string): void {
+    this.catalog.get(id).subscribe({
+      next: (c) => { this.editTarget.set(c); this.items.update((cur) => cur.map((x) => (x.id === c.id ? c : x))); },
+      error: () => this.refresh(),
     });
   }
 
