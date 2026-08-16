@@ -3,7 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ExperienceCatalogService } from '../services/experience-catalog.service';
-import { LifecycleBarComponent } from '../lifecycle-bar.component';
+import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
+import { HistoryPanelComponent } from '../history-panel.component';
+import { applyCapability, canApproveWith, handleBarAction, reportWriteError, type GovState } from '../governance-actions';
+import { AuthService } from '../services/auth.service';
+import { ToastService } from '../services/toast.service';
+import type { ApprovalState } from '../services/capability-catalog.service';
 import type { Lifecycle } from '../lifecycle';
 import type { HasUnsavedChanges } from '../guards/unsaved-changes.guard';
 
@@ -52,7 +57,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 @Component({
   selector: 'aes-page-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent],
   template: `
     <div class="wrap">
       <header class="head">
@@ -63,7 +68,8 @@ const PROP_FIELDS: Record<string, PropField[]> = {
           <button [class.on]="type() === 'shell'" (click)="setType('shell')">Master (shell)</button>
         </div>
         <span class="sp"></span>
-        <aes-lifecycle-bar [lifecycle]="lifecycle()" [busy]="saving()" (transition)="setLifecycle($event)" />
+        <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
+          [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
         <button class="btn primary" (click)="save()" [disabled]="saving()">Save page</button>
       </header>
@@ -180,6 +186,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
           </main>
         </div>
       }
+      @if (showHistory()) { <aes-history-panel [capabilityId]="id()" (close)="showHistory.set(false)" (changed)="reload()" /> }
     </div>
   `,
   styles: [`
@@ -226,6 +233,8 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 export class PageDesignerComponent implements HasUnsavedChanges {
   private readonly caps = inject(CapabilityCatalogService);
   private readonly experiences = inject(ExperienceCatalogService);
+  private readonly toast = inject(ToastService);
+  private readonly auth = inject(AuthService);
 
   readonly id = input.required<string>();
 
@@ -246,6 +255,10 @@ export class PageDesignerComponent implements HasUnsavedChanges {
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
   protected readonly lifecycle = signal<Lifecycle>('draft');
+  protected readonly approvalState = signal<ApprovalState>('draft');
+  protected readonly capVersion = signal(0);
+  protected readonly showHistory = signal(false);
+  protected readonly canApprove = computed(() => canApproveWith(this.auth.roles()));
   private pristine = '';
 
   protected readonly regionNames = computed(() => this.type() === 'shell' ? SHELL_REGIONS : TEMPLATE_REGIONS[this.layout()]);
@@ -292,7 +305,7 @@ export class PageDesignerComponent implements HasUnsavedChanges {
       this.activeRegion.set(keys[0]);
       this.personas.set((b.access?.personas ?? []).join(', '));
       this.scopes.set((b.access?.scopes ?? []).join(', '));
-      this.lifecycle.set((c.lifecycle as Lifecycle) ?? 'draft');
+      applyCapability(this.gov(), c);
       this.loading.set(false);
       this.pristine = this.snapshot();
     });
@@ -303,9 +316,9 @@ export class PageDesignerComponent implements HasUnsavedChanges {
     return JSON.stringify({ type: this.type(), layout: this.layout(), regions: this.regions(), personas: this.personas(), scopes: this.scopes() });
   }
   hasUnsavedChanges(): boolean { return !this.loading() && this.snapshot() !== this.pristine; }
-  setLifecycle(next: Lifecycle): void {
-    this.caps.update(this.id(), { lifecycle: next }).subscribe({ next: () => this.lifecycle.set(next), error: () => {} });
-  }
+  private gov(): GovState { return { lifecycle: this.lifecycle, approvalState: this.approvalState, version: this.capVersion }; }
+  protected onBarAction(a: BarAction): void { handleBarAction(a, this.id(), this.gov(), this.caps, this.toast); }
+  protected reload(): void { this.load(); }
 
   protected setType(t: PageType): void {
     if (t === this.type()) return;
@@ -403,9 +416,9 @@ export class PageDesignerComponent implements HasUnsavedChanges {
     const body: Record<string, unknown> = this.type() === 'shell'
       ? { title: this.name(), type: 'shell', regions }
       : { title: this.name(), type: 'content', layout: this.layout(), regions, access: { personas: list(this.personas()), scopes: list(this.scopes()) } };
-    this.caps.update(this.id(), { body }).subscribe({
-      next: () => { this.saving.set(false); this.saved.set(true); this.pristine = this.snapshot(); },
-      error: () => { this.saving.set(false); },
+    this.caps.update(this.id(), { body }, this.capVersion()).subscribe({
+      next: (c) => { this.saving.set(false); this.saved.set(true); this.pristine = this.snapshot(); applyCapability(this.gov(), c); },
+      error: (e) => { this.saving.set(false); reportWriteError(this.toast, e); },
     });
   }
 }

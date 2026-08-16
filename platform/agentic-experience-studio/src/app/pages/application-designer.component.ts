@@ -3,7 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { buildTree, flattenTree, normalizeDepths, type NavEntry, type NavRow } from './application-nav';
-import { LifecycleBarComponent } from '../lifecycle-bar.component';
+import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
+import { HistoryPanelComponent } from '../history-panel.component';
+import { applyCapability, canApproveWith, handleBarAction, reportWriteError, type GovState } from '../governance-actions';
+import { AuthService } from '../services/auth.service';
+import { ToastService } from '../services/toast.service';
+import type { ApprovalState } from '../services/capability-catalog.service';
 import type { Lifecycle } from '../lifecycle';
 import type { HasUnsavedChanges } from '../guards/unsaved-changes.guard';
 
@@ -20,14 +25,15 @@ interface PageItem { name: string; title: string }
 @Component({
   selector: 'aes-application-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent],
   template: `
     <div class="wrap">
       <header class="head">
         <a routerLink="/applications" class="back">← Applications</a>
         <h1>{{ name() || 'Application' }} · Designer</h1>
         <span class="sp"></span>
-        <aes-lifecycle-bar [lifecycle]="lifecycle()" [busy]="saving()" (transition)="setLifecycle($event)" />
+        <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
+          [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
         <button class="btn primary" (click)="save()" [disabled]="saving()">Save application</button>
       </header>
@@ -92,6 +98,7 @@ interface PageItem { name: string; title: string }
           </main>
         </div>
       }
+      @if (showHistory()) { <aes-history-panel [capabilityId]="id()" (close)="showHistory.set(false)" (changed)="reload()" /> }
     </div>
   `,
   styles: [`
@@ -129,6 +136,8 @@ interface PageItem { name: string; title: string }
 })
 export class ApplicationDesignerComponent implements HasUnsavedChanges {
   private readonly caps = inject(CapabilityCatalogService);
+  private readonly toast = inject(ToastService);
+  private readonly auth = inject(AuthService);
 
   readonly id = input.required<string>();
 
@@ -144,6 +153,10 @@ export class ApplicationDesignerComponent implements HasUnsavedChanges {
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
   protected readonly lifecycle = signal<Lifecycle>('draft');
+  protected readonly approvalState = signal<ApprovalState>('draft');
+  protected readonly capVersion = signal(0);
+  protected readonly showHistory = signal(false);
+  protected readonly canApprove = computed(() => canApproveWith(this.auth.roles()));
   private pristine = '';
   protected readonly drag = signal<number | null>(null);
   private assistantExtra: Record<string, unknown> = {};
@@ -175,7 +188,7 @@ export class ApplicationDesignerComponent implements HasUnsavedChanges {
       this.assistantExtra = asst;
       this.otherBody = { ...(c.body as Record<string, unknown>) };
       this.nav.set(flattenTree(b.nav ?? []));
-      this.lifecycle.set((c.lifecycle as Lifecycle) ?? 'draft');
+      applyCapability(this.gov(), c);
       this.loading.set(false);
       this.pristine = this.snapshot();
     });
@@ -186,9 +199,9 @@ export class ApplicationDesignerComponent implements HasUnsavedChanges {
     return JSON.stringify({ title: this.title(), description: this.description(), master: this.master(), assistant: this.assistantEnabled(), nav: this.nav() });
   }
   hasUnsavedChanges(): boolean { return !this.loading() && this.snapshot() !== this.pristine; }
-  setLifecycle(next: Lifecycle): void {
-    this.caps.update(this.id(), { lifecycle: next }).subscribe({ next: () => this.lifecycle.set(next), error: () => {} });
-  }
+  private gov(): GovState { return { lifecycle: this.lifecycle, approvalState: this.approvalState, version: this.capVersion }; }
+  protected onBarAction(a: BarAction): void { handleBarAction(a, this.id(), this.gov(), this.caps, this.toast); }
+  protected reload(): void { this.load(); }
 
   private slug(s: string): string { return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 
@@ -239,9 +252,9 @@ export class ApplicationDesignerComponent implements HasUnsavedChanges {
       assistant: { ...this.assistantExtra, enabled: this.assistantEnabled() },
       nav,
     };
-    this.caps.update(this.id(), { body }).subscribe({
-      next: () => { this.saving.set(false); this.saved.set(true); this.pristine = this.snapshot(); },
-      error: () => { this.saving.set(false); },
+    this.caps.update(this.id(), { body }, this.capVersion()).subscribe({
+      next: (c) => { this.saving.set(false); this.saved.set(true); this.pristine = this.snapshot(); applyCapability(this.gov(), c); },
+      error: (e) => { this.saving.set(false); reportWriteError(this.toast, e); },
     });
   }
 }

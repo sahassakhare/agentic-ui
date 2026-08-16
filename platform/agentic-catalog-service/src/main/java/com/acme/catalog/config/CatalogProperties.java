@@ -26,13 +26,19 @@ public class CatalogProperties {
         public String issuer = "http://127.0.0.1:9100";
         public String audience = "agentic-catalog";
         public String writerRoles = "platform-admin,catalog-admin,editor";
+        /** Roles allowed to approve/reject a capability in the review chain. */
+        public String approverRoles = "platform-admin,catalog-admin,approver";
         public List<String> writerRoleList() {
             return List.of(writerRoles.split("\\s*,\\s*"));
+        }
+        public List<String> approverRoleList() {
+            return List.of(approverRoles.split("\\s*,\\s*"));
         }
         public String getMode() { return mode; } public void setMode(String v) { mode = v; }
         public String getIssuer() { return issuer; } public void setIssuer(String v) { issuer = v; }
         public String getAudience() { return audience; } public void setAudience(String v) { audience = v; }
         public String getWriterRoles() { return writerRoles; } public void setWriterRoles(String v) { writerRoles = v; }
+        public String getApproverRoles() { return approverRoles; } public void setApproverRoles(String v) { approverRoles = v; }
     }
     public static class Seed {
         public boolean enabled = false;

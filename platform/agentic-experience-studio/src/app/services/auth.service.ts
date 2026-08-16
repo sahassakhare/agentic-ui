@@ -27,6 +27,13 @@ export class AuthService {
   /** Active tenant id (decoded from the JWT in oidc mode, typed in disabled mode). */
   readonly tenant = this._tenant.asReadonly();
 
+  /** Roles from the JWT `roles` claim. Auth-disabled dev acts as platform-admin. */
+  readonly roles = computed<readonly string[]>(() => {
+    if (this.authMode === 'disabled') return ['platform-admin'];
+    const t = this._token();
+    return t ? decodeRoles(t) : [];
+  });
+
   readonly isAuthenticated = computed(() =>
     this.authMode === 'disabled' ? this._tenant() !== null : this._token() !== null,
   );
@@ -103,6 +110,18 @@ export function decodeTenant(token: string): string | null {
     return json.tenant_id ?? json.tenantId ?? null;
   } catch {
     return null;
+  }
+}
+
+export function decodeRoles(token: string): readonly string[] {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return [];
+    const json = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    const roles = json.roles ?? json.role ?? [];
+    return Array.isArray(roles) ? roles.map(String) : [String(roles)];
+  } catch {
+    return [];
   }
 }
 

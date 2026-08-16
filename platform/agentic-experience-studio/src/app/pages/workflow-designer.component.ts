@@ -5,7 +5,11 @@ import { CapabilityCatalogService, type Capability } from '../services/capabilit
 import { ToastService } from '../services/toast.service';
 import { JourneyFlowComponent, type JourneyFlowStep } from '../journey-flow.component';
 import { validateWorkflow } from './workflow-validate';
-import { LifecycleBarComponent } from '../lifecycle-bar.component';
+import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
+import { HistoryPanelComponent } from '../history-panel.component';
+import { applyCapability, canApproveWith, handleBarAction, reportWriteError, type GovState } from '../governance-actions';
+import { AuthService } from '../services/auth.service';
+import type { ApprovalState } from '../services/capability-catalog.service';
 import type { Lifecycle } from '../lifecycle';
 import type { HasUnsavedChanges } from '../guards/unsaved-changes.guard';
 
@@ -24,7 +28,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
 @Component({
   selector: 'aes-workflow-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent],
+  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent],
   template: `
     <div class="page wide">
       <a routerLink="/workflows" class="back">
@@ -37,7 +41,8 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
           <p class="subtitle">The canvas is the workflow's <code>steps[]</code>. Steps chain in order; a ◇ decision branches (hierarchy).</p>
         </div>
         <div style="display:flex; gap:var(--s3); align-items:center">
-          <aes-lifecycle-bar [lifecycle]="lifecycle()" [busy]="saving()" (transition)="setLifecycle($event)" />
+          <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
+            [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
           <button class="btn btn-primary" type="button" (click)="save()" [disabled]="saving()">
             @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… } @else { Save workflow }
           </button>
@@ -123,6 +128,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
           @else { <div class="muted" style="font-size:var(--fs-sm)">Add steps to see the journey.</div> }
         </div>
       </div>
+      @if (showHistory()) { <aes-history-panel [capabilityId]="id()" (close)="showHistory.set(false)" (changed)="reload()" /> }
     </div>
   `,
   styles: [`
@@ -172,6 +178,11 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
   readonly widgets = signal<readonly Capability[]>([]);
   readonly saving = signal(false);
   readonly lifecycle = signal<Lifecycle>('draft');
+  readonly approvalState = signal<ApprovalState>('draft');
+  readonly capVersion = signal(0);
+  readonly showHistory = signal(false);
+  private readonly auth = inject(AuthService);
+  readonly canApprove = computed(() => canApproveWith(this.auth.roles()));
   private pristine = '';
   readonly drag = signal<{ kind: 'palette'; widget: string } | { kind: 'step'; index: number } | null>(null);
   q = '';
@@ -214,7 +225,7 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
         const body = c.body as { workflow?: { steps?: unknown[] }; steps?: unknown[] };
         const raw = (body.workflow?.steps ?? body.steps ?? []) as Array<Record<string, unknown>>;
         this.steps.set(raw.map((r, i) => this.fromRaw(r, i)));
-        this.lifecycle.set((c.lifecycle as Lifecycle) ?? 'draft');
+        applyCapability(this.gov(), c);
         this.pristine = this.snapshot();
       },
       error: () => this.toast.error('Load failed', 'Could not load the workflow.'),
@@ -266,14 +277,12 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
   // ── governance + unsaved-changes guard ──────────────────────────────────────
   private snapshot(): string { return JSON.stringify(this.steps()); }
   hasUnsavedChanges(): boolean { return !!this.wf() && this.snapshot() !== this.pristine; }
-  setLifecycle(next: Lifecycle): void {
+  private gov(): GovState { return { lifecycle: this.lifecycle, approvalState: this.approvalState, version: this.capVersion }; }
+  protected onBarAction(a: BarAction): void {
     const wf = this.wf();
-    if (!wf) return;
-    this.catalog.update(wf.id, { lifecycle: next }).subscribe({
-      next: () => { this.lifecycle.set(next); this.toast.success('Lifecycle updated', `“${wf.name}” is now ${next}.`); },
-      error: () => this.toast.error('Update failed', 'Could not change the lifecycle.'),
-    });
+    if (wf) handleBarAction(a, wf.id, this.gov(), this.catalog, this.toast);
   }
+  protected reload(): void { this.widgets.set([]); this.load(); }
 
   save(): void {
     const wf = this.wf();
@@ -281,9 +290,9 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
     this.saving.set(true);
     const body = { ...wf.body, workflow: { steps: this.resolved() } };
     delete (body as Record<string, unknown>)['steps']; // canonicalize on workflow.steps
-    this.catalog.update(wf.id, { body }).subscribe({
-      next: () => { this.saving.set(false); this.pristine = this.snapshot(); this.toast.success('Workflow saved', `“${wf.name}” updated.`); },
-      error: () => { this.saving.set(false); this.toast.error('Save failed', 'Could not save the workflow.'); },
+    this.catalog.update(wf.id, { body }, this.capVersion()).subscribe({
+      next: (c) => { this.saving.set(false); this.pristine = this.snapshot(); applyCapability(this.gov(), c); this.toast.success('Workflow saved', `“${wf.name}” updated.`); },
+      error: (e) => { this.saving.set(false); reportWriteError(this.toast, e); },
     });
   }
 }

@@ -53,6 +53,10 @@ public class CatalogSeeder implements ApplicationRunner {
             String kind = cap.path("kind").asText();
             String name = cap.path("name").asText();
             if (capRepo.existsByTenantIdAndKindIgnoreCaseAndNameAndSoftDeletedAtIsNull(tenant, kind, name)) continue;
+            // Seed data is delivered pre-approved + published so the Hub renders it.
+            // (Studio-authored capabilities default to draft and go through review.)
+            if (cap instanceof tools.jackson.databind.node.ObjectNode on && !on.hasNonNull("lifecycle"))
+                on.put("lifecycle", "published");
             capabilities.create(tenant, cap, "seed@local");
             caps++;
         }
