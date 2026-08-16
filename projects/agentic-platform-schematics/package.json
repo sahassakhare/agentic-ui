@@ -1,6 +1,6 @@
 {
   "name": "@infra-tools/agentic-platform-schematics",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Angular schematics that scaffold the entire Agentic Experience Platform monorepo (projects/, platform/, examples/) into a new workspace — security-sensitive scripts excluded.",
   "keywords": ["schematics", "angular", "scaffold", "monorepo", "agentic"],
   "schematics": "./dist/collection.json",
