@@ -2,8 +2,11 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, signal } f
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
+import { buildTree, flattenTree, normalizeDepths, type NavEntry, type NavRow } from './application-nav';
+import { LifecycleBarComponent } from '../lifecycle-bar.component';
+import type { Lifecycle } from '../lifecycle';
+import type { HasUnsavedChanges } from '../guards/unsaved-changes.guard';
 
-interface NavEntry { title: string; path: string; page: string; icon?: string; order?: number }
 interface PageItem { name: string; title: string }
 
 /**
@@ -17,13 +20,14 @@ interface PageItem { name: string; title: string }
 @Component({
   selector: 'aes-application-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent],
   template: `
     <div class="wrap">
       <header class="head">
         <a routerLink="/applications" class="back">← Applications</a>
         <h1>{{ name() || 'Application' }} · Designer</h1>
         <span class="sp"></span>
+        <aes-lifecycle-bar [lifecycle]="lifecycle()" [busy]="saving()" (transition)="setLifecycle($event)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
         <button class="btn primary" (click)="save()" [disabled]="saving()">Save application</button>
       </header>
@@ -63,18 +67,24 @@ interface PageItem { name: string; title: string }
 
           <main class="col">
             <section class="card">
-              <div class="eyebrow">Navigation (route tree) <span class="muted sm">— drag to reorder; each row is a URL</span></div>
+              <div class="eyebrow">Navigation (route tree) <span class="muted sm">— drag to reorder · ← → to nest · icon + personas per entry</span></div>
               @if (!nav().length) { <p class="muted">Add pages from the left to build the app's navigation.</p> }
               <ol class="menu">
-                @for (n of nav(); track n.page; let i = $index) {
-                  <li class="row" draggable="true" (dragstart)="drag.set(i)" (dragover)="allow($event)" (drop)="drop(i)">
+                @for (n of nav(); track $index; let i = $index) {
+                  <li class="row" [class.child]="n.depth > 0" [style.marginLeft.px]="n.depth * 22"
+                      draggable="true" (dragstart)="drag.set(i)" (dragover)="allow($event)" (drop)="drop(i)">
                     <span class="grip">⋮⋮</span>
-                    <span class="ic">▤</span>
+                    <input class="iconin" [ngModel]="n.icon ?? ''" (ngModelChange)="setIcon(i, $event)" placeholder="▤" title="Icon (emoji or glyph)" aria-label="Icon" maxlength="2" />
                     <span class="meta">
                       <input class="titlein" [ngModel]="n.title" (ngModelChange)="edit(i, 'title', $event)" placeholder="Label" />
                       <span class="pathline">/<input class="pathin" [ngModel]="n.path" (ngModelChange)="edit(i, 'path', $event)" placeholder="path" /> <span class="gl">→ {{ n.page }}</span></span>
                     </span>
-                    <button class="x" (click)="remove(i)">✕</button>
+                    <input class="personasin" [ngModel]="personasText(n)" (ngModelChange)="setPersonas(i, $event)" placeholder="all personas" title="Comma-separated personas; empty = visible to all" aria-label="Personas" />
+                    <span class="navctrls">
+                      <button class="mv" (click)="outdent(i)" [disabled]="n.depth === 0" title="Outdent" aria-label="Outdent">←</button>
+                      <button class="mv" (click)="indent(i)" [disabled]="!canIndent(i)" title="Indent (nest under previous)" aria-label="Indent">→</button>
+                      <button class="x" (click)="remove(i)" aria-label="Remove">✕</button>
+                    </span>
                   </li>
                 }
               </ol>
@@ -108,9 +118,16 @@ interface PageItem { name: string; title: string }
     .titlein { border:none; background:transparent; color:inherit; font:inherit; font-size:13.5px; font-weight:600; padding:0; width:100%; }
     .pathline { display:flex; align-items:center; gap:6px; font-size:11px; opacity:.7; }
     .pathin { border:none; border-bottom:1px solid rgba(120,120,140,.3); background:transparent; color:inherit; font:inherit; font-size:11px; width:90px; padding:0 0 1px; }
+    .row .meta { flex:1; }
+    .row.child { background:rgba(103,80,164,.04); border-left:2px solid rgba(103,80,164,.35); }
+    .iconin { width:28px; text-align:center; border:1px solid rgba(120,120,140,.25); border-radius:7px; background:transparent; color:inherit; font:inherit; font-size:14px; padding:4px 0; }
+    .personasin { width:120px; border:1px solid rgba(120,120,140,.25); border-radius:7px; background:transparent; color:inherit; font:inherit; font-size:11px; padding:5px 7px; }
+    .navctrls { display:inline-flex; align-items:center; gap:2px; margin-left:2px; }
+    .navctrls .mv, .navctrls .x { border:none; background:transparent; color:inherit; opacity:.5; cursor:pointer; padding:2px 5px; font-size:12px; }
+    .navctrls .mv:hover:not([disabled]), .navctrls .x:hover { opacity:1; } .navctrls .mv[disabled] { opacity:.18; cursor:default; }
   `],
 })
-export class ApplicationDesignerComponent {
+export class ApplicationDesignerComponent implements HasUnsavedChanges {
   private readonly caps = inject(CapabilityCatalogService);
 
   readonly id = input.required<string>();
@@ -120,12 +137,14 @@ export class ApplicationDesignerComponent {
   protected readonly description = signal('');
   protected readonly assistantEnabled = signal(true);
   protected readonly master = signal('');
-  protected readonly nav = signal<NavEntry[]>([]);
+  protected readonly nav = signal<NavRow[]>([]);
   protected readonly pages = signal<PageItem[]>([]);
   protected readonly masters = signal<PageItem[]>([]);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
+  protected readonly lifecycle = signal<Lifecycle>('draft');
+  private pristine = '';
   protected readonly drag = signal<number | null>(null);
   private assistantExtra: Record<string, unknown> = {};
   private otherBody: Record<string, unknown> = {};
@@ -155,35 +174,63 @@ export class ApplicationDesignerComponent {
       this.assistantEnabled.set(asst['enabled'] !== false);
       this.assistantExtra = asst;
       this.otherBody = { ...(c.body as Record<string, unknown>) };
-      this.nav.set([...(b.nav ?? [])]);
+      this.nav.set(flattenTree(b.nav ?? []));
+      this.lifecycle.set((c.lifecycle as Lifecycle) ?? 'draft');
       this.loading.set(false);
+      this.pristine = this.snapshot();
     });
+  }
+
+  // ── governance + unsaved-changes guard ──────────────────────────────────────
+  private snapshot(): string {
+    return JSON.stringify({ title: this.title(), description: this.description(), master: this.master(), assistant: this.assistantEnabled(), nav: this.nav() });
+  }
+  hasUnsavedChanges(): boolean { return !this.loading() && this.snapshot() !== this.pristine; }
+  setLifecycle(next: Lifecycle): void {
+    this.caps.update(this.id(), { lifecycle: next }).subscribe({ next: () => this.lifecycle.set(next), error: () => {} });
   }
 
   private slug(s: string): string { return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 
   protected add(p: PageItem): void {
     const path = this.slug(p.name.replace(/-page$/, '')) || this.slug(p.name);
-    this.nav.update((cur) => [...cur, { title: p.title, path, page: p.name }]);
+    this.nav.update((cur) => [...cur, { title: p.title, path, page: p.name, depth: 0 }]);
     this.saved.set(false);
   }
-  protected remove(i: number): void { this.nav.update((cur) => cur.filter((_, idx) => idx !== i)); this.saved.set(false); }
+  protected remove(i: number): void { this.mutNav((rows) => rows.splice(i, 1)); }
   protected edit(i: number, key: 'title' | 'path', v: string): void {
     this.nav.update((cur) => cur.map((n, idx) => (idx === i ? { ...n, [key]: key === 'path' ? this.slug(v) : v } : n)));
+    this.saved.set(false);
+  }
+  protected setIcon(i: number, v: string): void { this.nav.update((cur) => cur.map((n, idx) => (idx === i ? { ...n, icon: v || undefined } : n))); this.saved.set(false); }
+  protected personasText(n: NavRow): string { return (n.personas ?? []).join(', '); }
+  protected setPersonas(i: number, v: string): void {
+    const list = v.split(/[\s,]+/).filter(Boolean);
+    this.nav.update((cur) => cur.map((n, idx) => (idx === i ? { ...n, personas: list.length ? list : undefined } : n)));
+    this.saved.set(false);
+  }
+
+  /** Can this row nest under the previous one? (needs a previous row at >= its depth) */
+  protected canIndent(i: number): boolean { const rows = this.nav(); return i > 0 && rows[i].depth <= rows[i - 1].depth; }
+  protected indent(i: number): void { this.mutNav((rows) => { rows[i] = { ...rows[i], depth: rows[i].depth + 1 }; }); }
+  protected outdent(i: number): void { this.mutNav((rows) => { rows[i] = { ...rows[i], depth: Math.max(0, rows[i].depth - 1) }; }); }
+
+  private mutNav(fn: (rows: NavRow[]) => void): void {
+    this.nav.update((cur) => { const rows = cur.map((n) => ({ ...n })); fn(rows); normalizeDepths(rows); return rows; });
     this.saved.set(false);
   }
 
   protected allow(e: DragEvent): void { e.preventDefault(); }
   protected drop(to: number): void {
     const from = this.drag();
-    if (from === null || from === to) return;
-    this.nav.update((cur) => { const n = [...cur]; const [m] = n.splice(from, 1); n.splice(to, 0, m); return n; });
-    this.drag.set(null); this.saved.set(false);
+    if (from === null || from === to) { this.drag.set(null); return; }
+    this.mutNav((rows) => { const [m] = rows.splice(from, 1); rows.splice(to, 0, m!); });
+    this.drag.set(null);
   }
 
   protected save(): void {
     this.saving.set(true);
-    const nav = this.nav().map((n, i) => ({ ...n, order: (i + 1) * 10 }));
+    const nav = buildTree(this.nav());
     const body: Record<string, unknown> = {
       ...this.otherBody,          // preserve menu/personas/scopes etc.
       title: this.title(),
@@ -193,7 +240,7 @@ export class ApplicationDesignerComponent {
       nav,
     };
     this.caps.update(this.id(), { body }).subscribe({
-      next: () => { this.saving.set(false); this.saved.set(true); },
+      next: () => { this.saving.set(false); this.saved.set(true); this.pristine = this.snapshot(); },
       error: () => { this.saving.set(false); },
     });
   }

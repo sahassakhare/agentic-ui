@@ -4,6 +4,10 @@ import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
 import { JourneyFlowComponent, type JourneyFlowStep } from '../journey-flow.component';
+import { validateWorkflow } from './workflow-validate';
+import { LifecycleBarComponent } from '../lifecycle-bar.component';
+import type { Lifecycle } from '../lifecycle';
+import type { HasUnsavedChanges } from '../guards/unsaved-changes.guard';
 
 /**
  * Drag-and-drop Workflow / Experience designer — the HIERARCHY case. The
@@ -20,7 +24,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
 @Component({
   selector: 'aes-workflow-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, JourneyFlowComponent],
+  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent],
   template: `
     <div class="page wide">
       <a routerLink="/workflows" class="back">
@@ -32,10 +36,24 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
           <h1>{{ wf()?.name ?? 'Workflow' }}</h1>
           <p class="subtitle">The canvas is the workflow's <code>steps[]</code>. Steps chain in order; a ◇ decision branches (hierarchy).</p>
         </div>
-        <button class="btn btn-primary" type="button" (click)="save()" [disabled]="saving()">
-          @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… } @else { Save workflow }
-        </button>
+        <div style="display:flex; gap:var(--s3); align-items:center">
+          <aes-lifecycle-bar [lifecycle]="lifecycle()" [busy]="saving()" (transition)="setLifecycle($event)" />
+          <button class="btn btn-primary" type="button" (click)="save()" [disabled]="saving()">
+            @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… } @else { Save workflow }
+          </button>
+        </div>
       </div>
+
+      @if (issues().length) {
+        <div class="issues card card-pad" [class.has-err]="errorCount() > 0">
+          <div class="eyebrow">Validation · {{ errorCount() }} error{{ errorCount() === 1 ? '' : 's' }}, {{ warnCount() }} warning{{ warnCount() === 1 ? '' : 's' }}</div>
+          <ul>
+            @for (iss of issues(); track $index) {
+              <li [class.err]="iss.level === 'error'"><span class="dot">{{ iss.level === 'error' ? '✕' : '⚠' }}</span> {{ iss.message }}</li>
+            }
+          </ul>
+        </div>
+      }
 
       <div class="designer">
         <aside class="palette card card-pad">
@@ -135,9 +153,14 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
     .branch { display:flex; align-items:center; gap:5px; flex-wrap:wrap; font-size:var(--fs-sm); }
     .branch .input { padding:5px 7px; font-size:var(--fs-xs); } .branch .f{width:90px} .branch .o{width:64px} .branch .v{width:80px} .branch .g{width:130px}
     .when { font-size:var(--fs-xs); color:var(--text-muted); } .arr { color:var(--warn); }
+    .issues { margin:var(--s3) 0 0; border-left:3px solid var(--warn); }
+    .issues.has-err { border-left-color:var(--danger); }
+    .issues ul { list-style:none; margin:var(--s2) 0 0; padding:0; display:flex; flex-direction:column; gap:4px; }
+    .issues li { font-size:var(--fs-sm); color:var(--warn); display:flex; gap:7px; align-items:baseline; }
+    .issues li.err { color:var(--danger); } .issues .dot { font-size:11px; }
   `],
 })
-export class WorkflowDesignerComponent {
+export class WorkflowDesignerComponent implements HasUnsavedChanges {
   private readonly catalog = inject(CapabilityCatalogService);
   private readonly toast = inject(ToastService);
 
@@ -148,6 +171,8 @@ export class WorkflowDesignerComponent {
   readonly steps = signal<Step[]>([]);
   readonly widgets = signal<readonly Capability[]>([]);
   readonly saving = signal(false);
+  readonly lifecycle = signal<Lifecycle>('draft');
+  private pristine = '';
   readonly drag = signal<{ kind: 'palette'; widget: string } | { kind: 'step'; index: number } | null>(null);
   q = '';
 
@@ -155,6 +180,11 @@ export class WorkflowDesignerComponent {
     const query = this.q.trim().toLowerCase();
     return this.widgets().filter((c) => !query || c.name.toLowerCase().includes(query));
   });
+
+  /** Static validation of the resolved graph (dead targets, unreachable, loops). */
+  readonly issues = computed(() => validateWorkflow(this.resolved()));
+  readonly errorCount = computed(() => this.issues().filter((i) => i.level === 'error').length);
+  readonly warnCount = computed(() => this.issues().filter((i) => i.level === 'warn').length);
 
   /** Resolve drafts → JourneyFlowStep[] (next auto-chains, or encodes branches). */
   readonly resolved = computed<JourneyFlowStep[]>(() => {
@@ -184,6 +214,8 @@ export class WorkflowDesignerComponent {
         const body = c.body as { workflow?: { steps?: unknown[] }; steps?: unknown[] };
         const raw = (body.workflow?.steps ?? body.steps ?? []) as Array<Record<string, unknown>>;
         this.steps.set(raw.map((r, i) => this.fromRaw(r, i)));
+        this.lifecycle.set((c.lifecycle as Lifecycle) ?? 'draft');
+        this.pristine = this.snapshot();
       },
       error: () => this.toast.error('Load failed', 'Could not load the workflow.'),
     });
@@ -231,6 +263,18 @@ export class WorkflowDesignerComponent {
   }
   private newId(s: readonly Step[]): string { let n = s.length + 1; const ids = new Set(s.map((x) => x.id)); while (ids.has(`s${n}`)) n++; return `s${n}`; }
 
+  // ── governance + unsaved-changes guard ──────────────────────────────────────
+  private snapshot(): string { return JSON.stringify(this.steps()); }
+  hasUnsavedChanges(): boolean { return !!this.wf() && this.snapshot() !== this.pristine; }
+  setLifecycle(next: Lifecycle): void {
+    const wf = this.wf();
+    if (!wf) return;
+    this.catalog.update(wf.id, { lifecycle: next }).subscribe({
+      next: () => { this.lifecycle.set(next); this.toast.success('Lifecycle updated', `“${wf.name}” is now ${next}.`); },
+      error: () => this.toast.error('Update failed', 'Could not change the lifecycle.'),
+    });
+  }
+
   save(): void {
     const wf = this.wf();
     if (!wf) return;
@@ -238,7 +282,7 @@ export class WorkflowDesignerComponent {
     const body = { ...wf.body, workflow: { steps: this.resolved() } };
     delete (body as Record<string, unknown>)['steps']; // canonicalize on workflow.steps
     this.catalog.update(wf.id, { body }).subscribe({
-      next: () => { this.saving.set(false); this.toast.success('Workflow saved', `“${wf.name}” updated.`); },
+      next: () => { this.saving.set(false); this.pristine = this.snapshot(); this.toast.success('Workflow saved', `“${wf.name}” updated.`); },
       error: () => { this.saving.set(false); this.toast.error('Save failed', 'Could not save the workflow.'); },
     });
   }

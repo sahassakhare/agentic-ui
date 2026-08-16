@@ -14,6 +14,8 @@ import { shellWidgets } from './registry/shell-widgets';
 import { appTools } from './agentic/tools';
 import { environment } from '../environments/environment';
 import { CatalogExperienceSource } from './catalog/catalog-experience-source';
+import { CatalogFormSource } from './catalog/catalog-form-source';
+import { CatalogWorkflowSource } from './catalog/catalog-workflow-source';
 import { ApplicationSource } from './catalog/application-source';
 import { PageSource } from './catalog/page-source';
 import { PageHostComponent } from './render/page-host.component';
@@ -80,6 +82,16 @@ export const appConfig: ApplicationConfig = {
       const source = inject(CatalogExperienceSource);
       await source.hydrate();      // load approved experiences from the catalog
       source.startLiveSync();      // SSE: re-hydrate on Studio edits
+    }),
+    provideAppInitializer(async () => {
+      const forms = inject(CatalogFormSource);
+      await forms.hydrate();       // compile kind:'form' capabilities → FormRegistry
+      forms.startLiveSync();       // SSE: re-hydrate when a form is edited
+    }),
+    provideAppInitializer(async () => {
+      const flows = inject(CatalogWorkflowSource);
+      await flows.hydrate();       // compile kind:'workflow' capabilities → FormRegistry
+      flows.startLiveSync();       // SSE: re-hydrate when a workflow is edited
     }),
     provideAppInitializer(async () => {
       const app = inject(ApplicationSource);

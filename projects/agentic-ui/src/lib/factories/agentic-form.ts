@@ -1,6 +1,11 @@
 import { z, type ZodTypeAny } from 'zod';
 import { parseCompositionExpression } from '../composition/composition-expression';
-import type { CompositionEntry, FormDef, FormFieldUi } from '../types/registry-defs';
+import type {
+  CompositionEntry,
+  FormActionDef,
+  FormDef,
+  FormFieldUi,
+} from '../types/registry-defs';
 
 /**
  * Schema-mode form: validate a flat field map with a single Zod schema.
@@ -12,6 +17,8 @@ export interface AgenticSchemaFormConfig<TSchema extends ZodTypeAny> {
   readonly fieldsSchema: TSchema;
   readonly ui?: Readonly<Record<string, FormFieldUi>>;
   readonly submit: (values: z.infer<TSchema>) => Promise<void> | void;
+  /** Optional action bar; when omitted a single Submit button is synthesized. */
+  readonly actions?: readonly FormActionDef[];
   readonly composition?: never;
 }
 
@@ -26,6 +33,8 @@ export interface AgenticCompositionFormConfig {
   readonly composition: readonly CompositionEntry[];
   readonly ui?: Readonly<Record<string, FormFieldUi>>;
   readonly submit: (values: Readonly<Record<string, unknown>>) => Promise<void> | void;
+  /** Optional action bar; when omitted a single Submit button is synthesized. */
+  readonly actions?: readonly FormActionDef[];
   readonly fieldsSchema?: never;
 }
 
@@ -58,6 +67,93 @@ export class FormCompositionError extends Error {
 }
 
 const IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+
+/** Every valid `FormActionDef.kind`. */
+const FORM_ACTION_KINDS = ['submit', 'reset', 'cancel', 'tool', 'action', 'navigate', 'emit'] as const;
+
+/**
+ * Thrown by `agenticForm({...})` when an `actions[]` entry is malformed
+ * (unknown kind, empty label, or a missing/invalid governed target). Carries
+ * `formName` + `actionIndex` so authoring errors point at the offending button.
+ */
+export class FormActionError extends Error {
+  constructor(
+    message: string,
+    public readonly formName: string,
+    public readonly actionIndex: number,
+  ) {
+    super(`[${formName}] actions[${actionIndex}]: ${message}`);
+    this.name = 'FormActionError';
+  }
+}
+
+/**
+ * Validate + normalize one action-bar entry. Strips unknown fields and keeps
+ * only the shape for the entry's `kind`, so untrusted catalog input can't smuggle
+ * extra properties onto a `FormActionDef`.
+ */
+function normalizeFormAction(
+  action: FormActionDef,
+  formName: string,
+  index: number,
+): FormActionDef {
+  if (typeof action !== 'object' || action === null) {
+    throw new FormActionError('Entry must be an object', formName, index);
+  }
+  const kind = (action as FormActionDef).kind;
+  if (!FORM_ACTION_KINDS.includes(kind as (typeof FORM_ACTION_KINDS)[number])) {
+    throw new FormActionError(`Unknown action kind ${JSON.stringify(kind)}`, formName, index);
+  }
+  if (typeof action.label !== 'string' || action.label.trim() === '') {
+    throw new FormActionError('Action must have a non-empty label', formName, index);
+  }
+  const base = { label: action.label, style: action.style } as const;
+  switch (action.kind) {
+    case 'tool':
+      if (typeof action.tool !== 'string' || !IDENTIFIER_RE.test(action.tool)) {
+        throw new FormActionError(
+          `'tool' must name a registered tool (got ${JSON.stringify(action.tool)})`,
+          formName,
+          index,
+        );
+      }
+      return { kind: 'tool', ...base, tool: action.tool, args: action.args };
+    case 'action':
+      if (typeof action.action !== 'string' || !IDENTIFIER_RE.test(action.action)) {
+        throw new FormActionError(
+          `'action' must name a registered action (got ${JSON.stringify(action.action)})`,
+          formName,
+          index,
+        );
+      }
+      return { kind: 'action', ...base, action: action.action, payload: action.payload };
+    case 'navigate':
+      if (typeof action.to !== 'string' || action.to.trim() === '') {
+        throw new FormActionError("'navigate' requires a non-empty 'to'", formName, index);
+      }
+      return { kind: 'navigate', ...base, to: action.to };
+    case 'emit':
+      if (typeof action.event !== 'string' || action.event.trim() === '') {
+        throw new FormActionError("'emit' requires a non-empty 'event'", formName, index);
+      }
+      return { kind: 'emit', ...base, event: action.event, detail: action.detail };
+    default:
+      // submit | reset | cancel — no extra fields.
+      return { kind: action.kind, ...base };
+  }
+}
+
+/**
+ * Resolve an optional `actions[]` config into a normalized, always-present list.
+ * When omitted, synthesize the classic single Submit so old forms are unchanged.
+ */
+function resolveFormActions(
+  raw: readonly FormActionDef[] | undefined,
+  formName: string,
+): readonly FormActionDef[] {
+  if (raw === undefined) return [{ kind: 'submit', label: 'Submit' }];
+  return raw.map((a, i) => normalizeFormAction(a, formName, i));
+}
 
 function isCompositionConfig<TSchema extends ZodTypeAny>(
   config: AgenticFormConfig<TSchema>,
@@ -165,6 +261,7 @@ export function agenticForm<TSchema extends ZodTypeAny>(
       fieldsSchema: COMPOSITION_FIELDS_SCHEMA,
       ui: config.ui,
       composition: normalized,
+      actions: resolveFormActions(config.actions, config.name),
       submit: async (values) =>
         Promise.resolve(submit(values as Readonly<Record<string, unknown>>)),
     };
@@ -177,6 +274,7 @@ export function agenticForm<TSchema extends ZodTypeAny>(
     description: config.description,
     fieldsSchema: config.fieldsSchema,
     ui: config.ui,
+    actions: resolveFormActions(config.actions, config.name),
     submit: async (values) => Promise.resolve(submit(values as z.infer<TSchema>)),
   };
 }

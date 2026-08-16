@@ -469,6 +469,62 @@ export interface CompositionEntry {
   readonly predicate?: (ctx: Readonly<Record<string, unknown>>) => boolean;
 }
 
+/** Visual weight of a form action button. */
+export type FormActionStyle = 'primary' | 'secondary' | 'danger';
+
+/**
+ * One button in a form's action bar. Replaces the renderer's hardcoded single
+ * "Submit": an author (in TypeScript via `agenticForm`, or in the Studio Form
+ * Designer via the catalog) can attach several buttons, each bound to a
+ * *governed* behaviour — never arbitrary code:
+ *
+ *  - `submit`   validate the form then run `FormDef.submit`
+ *  - `reset`    clear the form back to its initial values
+ *  - `cancel`   emit a `cancel` event the host can act on
+ *  - `tool`     dispatch a governed `ToolDef` (ToolRegistry) with the form values
+ *  - `action`   dispatch a governed `ActionDef` (ActionRegistry) with a payload
+ *  - `navigate` route to a page / URL
+ *  - `emit`     emit a named event with an optional detail
+ *
+ * When a `FormDef` carries no `actions`, the factory / renderer synthesize a
+ * single `{ kind: 'submit', label: 'Submit' }` so existing forms are unchanged.
+ */
+export type FormActionDef =
+  | { readonly kind: 'submit'; readonly label: string; readonly style?: FormActionStyle }
+  | { readonly kind: 'reset'; readonly label: string; readonly style?: FormActionStyle }
+  | { readonly kind: 'cancel'; readonly label: string; readonly style?: FormActionStyle }
+  | {
+      readonly kind: 'tool';
+      readonly label: string;
+      readonly style?: FormActionStyle;
+      /** ToolRegistry name to dispatch, receiving the form values (+ `args`). */
+      readonly tool: string;
+      readonly args?: Readonly<Record<string, unknown>>;
+    }
+  | {
+      readonly kind: 'action';
+      readonly label: string;
+      readonly style?: FormActionStyle;
+      /** ActionDef `type` to dispatch, with `payload` (+ the form `values`). */
+      readonly action: string;
+      readonly payload?: Readonly<Record<string, unknown>>;
+    }
+  | {
+      readonly kind: 'navigate';
+      readonly label: string;
+      readonly style?: FormActionStyle;
+      /** Router URL / path to navigate to. */
+      readonly to: string;
+    }
+  | {
+      readonly kind: 'emit';
+      readonly label: string;
+      readonly style?: FormActionStyle;
+      /** Event name emitted on the renderer's `formAction` output. */
+      readonly event: string;
+      readonly detail?: Readonly<Record<string, unknown>>;
+    };
+
 /**
  * Schema-driven form the agent can ask the user to fill. Pairs a Zod schema
  * with a submit handler; the `<mvk-form-renderer>` validates input via the
@@ -493,6 +549,13 @@ export interface FormDef<TValues = unknown> extends RegistryEntry {
   readonly ui?: Readonly<Record<string, FormFieldUi>>;
   /** Async submit handler invoked when validation passes. */
   readonly submit: (values: TValues) => Promise<void>;
+  /**
+   * Optional action bar. Each entry renders one button bound to a governed
+   * behaviour (submit / reset / cancel / tool / action / navigate / emit).
+   * When absent, the factory synthesizes `[{ kind: 'submit', label: 'Submit' }]`
+   * so a form authored the old way (just `submit`) is visually unchanged.
+   */
+  readonly actions?: readonly FormActionDef[];
   /**
    * Optional ordered list of widget-backed sections (Capability F1). When
    * present, the renderer mounts each entry's widget in order, evaluates its

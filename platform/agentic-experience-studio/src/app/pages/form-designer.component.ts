@@ -4,6 +4,9 @@ import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
 import { SchemaFormComponent, type SchemaField } from '../schema-form.component';
+import { LifecycleBarComponent } from '../lifecycle-bar.component';
+import type { Lifecycle } from '../lifecycle';
+import type { HasUnsavedChanges } from '../guards/unsaved-changes.guard';
 
 /**
  * Drag-and-drop Form Designer. The Component registry is the palette; dragging a
@@ -15,10 +18,24 @@ import { SchemaFormComponent, type SchemaField } from '../schema-form.component'
 type DragSrc = { kind: 'palette'; widget: string } | { kind: 'field'; index: number } | null;
 const FIELD_TYPES = ['text', 'email', 'number', 'date', 'textarea', 'select', 'checkbox', 'radio'] as const;
 
+/** Action-bar kinds an author can attach (mirrors the lib's `FormActionDef`). */
+const ACTION_KINDS = ['submit', 'reset', 'cancel', 'tool', 'action', 'navigate', 'emit'] as const;
+type ActionKind = (typeof ACTION_KINDS)[number];
+/** One authored button. Kind-specific target fields are set as the kind changes. */
+interface DesignerAction {
+  kind: ActionKind;
+  label: string;
+  style?: 'primary' | 'secondary' | 'danger';
+  tool?: string;
+  action?: string;
+  to?: string;
+  event?: string;
+}
+
 @Component({
   selector: 'aes-form-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, SchemaFormComponent],
+  imports: [FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent],
   template: `
     <div class="page wide">
       <a routerLink="/forms" class="back">
@@ -30,7 +47,8 @@ const FIELD_TYPES = ['text', 'email', 'number', 'date', 'textarea', 'select', 'c
           <h1>{{ form()?.name ?? 'Form' }}</h1>
           <p class="subtitle">The canvas is the form's <code>schema.fields[]</code> — the same JSON the renderer and agents consume.</p>
         </div>
-        <div class="row" style="gap:var(--s2)">
+        <div class="row" style="gap:var(--s2); align-items:center">
+          <aes-lifecycle-bar [lifecycle]="lifecycle()" [busy]="saving()" (transition)="setLifecycle($event)" />
           <button class="btn" type="button" (click)="addSection()">+ Section</button>
           <button class="btn btn-primary" type="button" (click)="save()" [disabled]="saving()">
             @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… } @else { Save form }
@@ -38,13 +56,54 @@ const FIELD_TYPES = ['text', 'email', 'number', 'date', 'textarea', 'select', 'c
         </div>
       </div>
 
-      <div class="row" style="gap:var(--s2); align-items:center; margin-bottom:var(--s4)">
-        <span class="muted" style="font-size:var(--fs-sm)">On submit →</span>
-        <select class="input" style="width:auto" [(ngModel)]="submitTarget" aria-label="Submit target">
-          <option value="usage-event">usage-event · log</option>
-          @for (t of toolSources(); track t.name) { <option [value]="t.name">{{ t.name }} · tool</option> }
-        </select>
-        <span class="muted" style="font-size:var(--fs-xs)">a governed tool/backend — not a URL</span>
+      <div class="actions-editor card card-pad" style="margin-bottom:var(--s4)">
+        <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:var(--s2)">
+          <div>
+            <span class="eyebrow">Action buttons</span>
+            <span class="muted" style="font-size:var(--fs-xs); margin-left:var(--s2)">each bound to a governed capability — add as many as you need</span>
+          </div>
+          <button class="btn" type="button" (click)="addAction()">+ Action</button>
+        </div>
+        @if (!actions().length) {
+          <div class="muted" style="font-size:var(--fs-sm)">No buttons — a single Submit is added automatically.</div>
+        }
+        @for (a of actions(); track $index) {
+          <div class="arow">
+            <input class="input flex" [ngModel]="a.label" (ngModelChange)="patchAction($index, { label: $event })" placeholder="Button label" aria-label="Button label" />
+            <select class="input akind" [ngModel]="a.kind" (ngModelChange)="setActionKind($index, $event)" aria-label="Action kind">
+              @for (k of actionKinds; track k) { <option [value]="k">{{ k }}</option> }
+            </select>
+            @switch (a.kind) {
+              @case ('tool') {
+                <select class="input atgt" [ngModel]="a.tool ?? ''" (ngModelChange)="patchAction($index, { tool: $event })" aria-label="Tool">
+                  <option value="" disabled>tool…</option>
+                  @for (t of toolSources(); track t.name) { <option [value]="t.name">⚙ {{ t.name }}</option> }
+                </select>
+              }
+              @case ('action') {
+                <select class="input atgt" [ngModel]="a.action ?? ''" (ngModelChange)="patchAction($index, { action: $event })" aria-label="Action">
+                  <option value="" disabled>action…</option>
+                  @for (ac of actionSources(); track ac.name) { <option [value]="ac.name">⚡ {{ ac.name }}</option> }
+                </select>
+              }
+              @case ('navigate') {
+                <input class="input atgt" [ngModel]="a.to ?? ''" (ngModelChange)="patchAction($index, { to: $event })" placeholder="/route or url" aria-label="Navigate target" />
+              }
+              @case ('emit') {
+                <input class="input atgt" [ngModel]="a.event ?? ''" (ngModelChange)="patchAction($index, { event: $event })" placeholder="event name" aria-label="Event name" />
+              }
+              @default {
+                <span class="atgt muted" style="font-size:var(--fs-xs); align-self:center">{{ a.kind }} — no target</span>
+              }
+            }
+            <select class="input astyle" [ngModel]="a.style ?? 'primary'" (ngModelChange)="patchAction($index, { style: $event })" title="Button style" aria-label="Button style">
+              <option value="primary">primary</option>
+              <option value="secondary">secondary</option>
+              <option value="danger">danger</option>
+            </select>
+            <button class="rm" type="button" (click)="removeAction($index)" aria-label="Remove action">✕</button>
+          </div>
+        }
       </div>
 
       <div class="designer">
@@ -126,9 +185,11 @@ const FIELD_TYPES = ['text', 'email', 'number', 'date', 'textarea', 'select', 'c
     .wchip { font-family:var(--font-mono); font-size:10px; color:var(--brand); background:var(--brand-soft); padding:2px 7px; border-radius:var(--r-full); white-space:nowrap; }
     .rm { border:1px solid var(--border); background:var(--surface); border-radius:var(--r-sm); width:28px; height:28px; cursor:pointer; color:var(--text-muted); }
     .rm:hover { border-color:var(--danger); color:var(--danger); }
+    .arow { display:flex; align-items:center; gap:var(--s2); padding:8px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface); margin-top:var(--s2); flex-wrap:wrap; }
+    .arow .flex { flex:1; min-width:120px; } .arow .akind { width:110px; } .arow .atgt { width:150px; } .arow .astyle { width:110px; } .arow .input { padding:7px 9px; font-size:var(--fs-sm); }
   `],
 })
-export class FormDesignerComponent {
+export class FormDesignerComponent implements HasUnsavedChanges {
   private readonly catalog = inject(CapabilityCatalogService);
   private readonly toast = inject(ToastService);
 
@@ -144,16 +205,23 @@ export class FormDesignerComponent {
   readonly validators = signal<readonly Capability[]>([]);
   readonly saving = signal(false);
   readonly drag = signal<DragSrc>(null);
+  readonly lifecycle = signal<Lifecycle>('draft');
+  private pristine = '';
   q = '';
-  /** Form-level submit target — a `tool` capability or the built-in usage-event. */
-  submitTarget = 'usage-event';
+  readonly actionKinds = ACTION_KINDS;
+  /** The form's action bar — multiple governed buttons. */
+  readonly actions = signal<DesignerAction[]>([]);
+  /** ActionDef capabilities a `kind:'action'` button can dispatch. */
+  readonly actionSources = signal<readonly Capability[]>([]);
 
   readonly palette = computed(() => {
     const query = this.q.trim().toLowerCase();
     return this.components().filter((c) => !query || c.name.toLowerCase().includes(query));
   });
   readonly toolSources = computed(() => this.sources().filter((c) => c.kind === 'tool'));
-  readonly previewBody = computed(() => ({ schema: { fields: this.fields(), submit: this.submitTarget } }));
+  readonly previewBody = computed(() => ({
+    schema: { fields: this.fields(), actions: this.actions(), submit: legacySubmit(this.actions()) },
+  }));
 
   constructor() { queueMicrotask(() => this.load()); }
 
@@ -161,9 +229,11 @@ export class FormDesignerComponent {
     this.catalog.get(this.id()).subscribe({
       next: (c) => {
         this.form.set(c);
-        const schema = (c.body?.['schema'] ?? {}) as { fields?: SchemaField[]; submit?: string };
+        const schema = (c.body?.['schema'] ?? {}) as { fields?: SchemaField[]; submit?: string; actions?: DesignerAction[] };
         this.fields.set([...(schema.fields ?? [])]);
-        this.submitTarget = schema.submit ?? 'usage-event';
+        this.actions.set(hydrateActions(schema.actions, schema.submit));
+        this.lifecycle.set((c.lifecycle as Lifecycle) ?? 'draft');
+        this.pristine = this.snapshot();
       },
       error: () => this.toast.error('Load failed', 'Could not load the form.'),
     });
@@ -171,10 +241,22 @@ export class FormDesignerComponent {
     // Governed data sources: dataSource + tool capabilities (never raw URLs).
     this.catalog.listByKind('datasource').subscribe({ next: (r) => this.sources.update((s) => [...s, ...r.items]), error: () => {} });
     this.catalog.listByKind('tool').subscribe({ next: (r) => this.sources.update((s) => [...s, ...r.items]), error: () => {} });
+    this.catalog.listByKind('action').subscribe({ next: (r) => this.actionSources.set(r.items), error: () => {} });
     this.catalog.listByKind('validation').subscribe({ next: (r) => this.validators.set(r.items), error: () => {} });
   }
 
   firstValidator(f: SchemaField): string { return f.validators?.[0] ?? ''; }
+
+  // ── action bar ────────────────────────────────────────────────────────────
+  addAction(): void { this.actions.update((a) => [...a, { kind: 'submit', label: 'Submit' }]); }
+  removeAction(i: number): void { this.actions.update((a) => a.filter((_, idx) => idx !== i)); }
+  patchAction(i: number, part: Partial<DesignerAction>): void {
+    this.actions.update((a) => a.map((x, idx) => (idx === i ? { ...x, ...part } : x)));
+  }
+  /** Changing kind clears now-irrelevant target fields so we never save stale ones. */
+  setActionKind(i: number, kind: ActionKind): void {
+    this.actions.update((a) => a.map((x, idx) => (idx === i ? { kind, label: x.label, style: x.style } : x)));
+  }
 
   // ── drag + drop (native HTML5) ──────────────────────────────────────────────
   allow(e: DragEvent): void { e.preventDefault(); }
@@ -217,16 +299,45 @@ export class FormDesignerComponent {
     return { name, label: humanize(widget), type, widget, required: false, ...(type === 'select' ? { options: ['Option A', 'Option B'] } : {}) };
   }
 
+  // ── governance + unsaved-changes guard ──────────────────────────────────────
+  private snapshot(): string { return JSON.stringify({ fields: this.fields(), actions: this.actions() }); }
+  hasUnsavedChanges(): boolean { return !!this.form() && this.snapshot() !== this.pristine; }
+  setLifecycle(next: Lifecycle): void {
+    const form = this.form();
+    if (!form) return;
+    this.catalog.update(form.id, { lifecycle: next }).subscribe({
+      next: () => { this.lifecycle.set(next); this.toast.success('Lifecycle updated', `“${form.name}” is now ${next}.`); },
+      error: () => this.toast.error('Update failed', 'Could not change the lifecycle.'),
+    });
+  }
+
   save(): void {
     const form = this.form();
     if (!form) return;
     this.saving.set(true);
-    const body = { ...form.body, schema: { fields: this.fields(), submit: this.submitTarget } };
+    const actions = this.actions();
+    const body = { ...form.body, schema: { fields: this.fields(), actions, submit: legacySubmit(actions) } };
     this.catalog.update(form.id, { body }).subscribe({
-      next: () => { this.saving.set(false); this.toast.success('Form saved', `“${form.name}” schema updated.`); },
+      next: () => { this.saving.set(false); this.pristine = this.snapshot(); this.toast.success('Form saved', `“${form.name}” schema updated.`); },
       error: () => { this.saving.set(false); this.toast.error('Save failed', 'Could not save the form.'); },
     });
   }
+}
+
+/** Back-compat `submit` string: the first tool button's target, else usage-event. */
+function legacySubmit(actions: readonly DesignerAction[]): string {
+  return actions.find((a) => a.kind === 'tool')?.tool ?? 'usage-event';
+}
+
+/**
+ * Load the action bar for the designer: prefer authored `actions[]`; otherwise
+ * synthesize a single row from the legacy `submit` string so old forms open cleanly.
+ */
+function hydrateActions(actions: DesignerAction[] | undefined, submit: string | undefined): DesignerAction[] {
+  if (actions?.length) return actions.map((a) => ({ ...a }));
+  return submit && submit !== 'usage-event'
+    ? [{ kind: 'tool', label: 'Submit', tool: submit }]
+    : [{ kind: 'submit', label: 'Submit' }];
 }
 
 function inferType(widget: string): SchemaField['type'] {

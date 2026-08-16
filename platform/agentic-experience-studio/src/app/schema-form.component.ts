@@ -34,7 +34,17 @@ export interface SchemaField {
   /** Governed validation-registry entries (cross-field/business rules). */
   readonly validators?: readonly string[];
 }
-export interface FormSchema { readonly fields?: readonly SchemaField[]; readonly submit?: string; }
+/** A form action-bar button (preview mirror of the lib's `FormActionDef`). */
+export interface PreviewFormAction {
+  readonly kind: 'submit' | 'reset' | 'cancel' | 'tool' | 'action' | 'navigate' | 'emit';
+  readonly label: string;
+  readonly style?: 'primary' | 'secondary' | 'danger';
+}
+export interface FormSchema {
+  readonly fields?: readonly SchemaField[];
+  readonly submit?: string;
+  readonly actions?: readonly PreviewFormAction[];
+}
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -78,7 +88,13 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
           </div>
           }
         }
-        <button class="sf-submit" type="submit">Submit</button>
+        <div class="sf-actions">
+          @for (a of actions(); track $index) {
+            <button class="sf-submit" type="button"
+              [class.secondary]="a.style === 'secondary'"
+              [class.danger]="a.style === 'danger'">{{ a.label }}</button>
+          }
+        </div>
       </form>
     } @else {
       <div class="sf-none">No <code>schema.fields</code> to render. Add fields to compose this form.</div>
@@ -102,8 +118,11 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     .sf-radios { display: flex; gap: var(--s4); flex-wrap: wrap; }
     .sf-hint { font-size: var(--fs-xs); color: var(--text-faint); }
     .sf-err { font-size: var(--fs-xs); color: var(--danger); }
-    .sf-submit { align-self: flex-start; font: inherit; font-weight: 600; font-size: var(--fs-sm); margin-top: var(--s2);
+    .sf-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s2); }
+    .sf-submit { align-self: flex-start; font: inherit; font-weight: 600; font-size: var(--fs-sm);
       background: var(--brand); color: #fff; border: none; border-radius: var(--r-full); padding: 9px 20px; cursor: pointer; }
+    .sf-submit.secondary { background: var(--surface-3, #4b5563); }
+    .sf-submit.danger { background: var(--danger); }
     .sf-none { font-size: var(--fs-sm); color: var(--text-muted); border: 1px dashed var(--border); border-radius: var(--r-md); padding: var(--s5); text-align: center; }
     .sf-none code { font-family: var(--font-mono); }
   `],
@@ -117,6 +136,15 @@ export class SchemaFormComponent {
     return s && Array.isArray(s.fields) ? s : null;
   });
   readonly fields = computed<readonly SchemaField[]>(() => this.schema()?.fields ?? []);
+  /** The action bar to preview; falls back to a single Submit (legacy-aware). */
+  readonly actions = computed<readonly PreviewFormAction[]>(() => {
+    const s = this.schema();
+    if (s?.actions?.length) return s.actions;
+    const submit = s?.submit;
+    return submit && submit !== 'usage-event'
+      ? [{ kind: 'tool', label: 'Submit' }]
+      : [{ kind: 'submit', label: 'Submit' }];
+  });
 
   // Live values + touched state, so inline constraints validate as you type.
   private readonly values = signal<Record<string, unknown>>({});

@@ -141,7 +141,7 @@ export const FORM_STUDIO: StudioConfig = {
   noun: 'form',
   bodyFields: [
     { key: 'description', label: 'Description', type: 'text' },
-    { key: 'schema', label: 'Form schema (JSON)', type: 'json', placeholder: '{\n  "fields": [\n    { "name": "email", "type": "text", "label": "Email", "required": true }\n  ],\n  "submit": "usage-event"\n}' },
+    { key: 'schema', label: 'Form schema (JSON)', type: 'json', placeholder: '{\n  "fields": [\n    { "name": "email", "type": "text", "label": "Email", "required": true }\n  ],\n  "actions": [\n    { "kind": "submit", "label": "Save" },\n    { "kind": "tool", "label": "Export", "tool": "export-pdf" }\n  ]\n}' },
     { key: 'submit', label: 'Submit target', type: 'text', placeholder: 'usage-event / backend name' },
     { key: 'version', label: 'Version', type: 'text' },
   ],
