@@ -17,22 +17,21 @@ export interface ScaffoldOptions {
   /** Angular major to build against (must match the host's shared singleton). */
   readonly angularRange?: string;
   readonly agenticUiRange?: string;
-  /** Extra packages to exclude from federation sharing/bundling (externalized). */
+  /** Extra packages to exclude from federation sharing (rarely needed — see DEFAULT_SKIP). */
   readonly skip?: readonly string[];
+  /**
+   * Extra npm dependencies to install into the remote, beyond Angular + the library:
+   *  - @ag-ui/client + @hashbrownai/core: the published @infra-tools/agentic-ui fesm imports
+   *    these but doesn't declare them (the host provides them at runtime); the remote must
+   *    install them to build agentic-ui's shared bundle. `skip` does NOT help — native-
+   *    federation still resolves a shared package's transitive imports, so they must exist.
+   *  - a library's own optional peers (e.g. chart.js for PrimeNG's p-chart).
+   */
+  readonly extraDeps?: Readonly<Record<string, string>>;
 }
 
-/**
- * Packages native-federation must not try to bundle/share:
- *  - rxjs deep entries + zod-to-json-schema — not browser-shareable (the platform default);
- *  - @ag-ui/client + @hashbrownai/core — runtime deps the published @infra-tools/agentic-ui
- *    imports but doesn't declare; the host (which shares agentic-ui as a singleton) provides
- *    them, so the remote externalizes them rather than failing to resolve;
- *  - chart.js — PrimeNG's optional p-chart peer (install it only if you need charts).
- */
-export const DEFAULT_SKIP = [
-  'rxjs/ajax', 'rxjs/fetch', 'rxjs/testing', 'rxjs/webSocket', 'zod-to-json-schema',
-  '@ag-ui/client', '@hashbrownai/core', 'chart.js', 'chart.js/auto',
-];
+/** rxjs deep entry points + zod-to-json-schema aren't browser-shareable — the platform default. */
+export const DEFAULT_SKIP = ['rxjs/ajax', 'rxjs/fetch', 'rxjs/testing', 'rxjs/webSocket', 'zod-to-json-schema'];
 
 export function remotePackageJson(o: ScaffoldOptions): unknown {
   const ng = o.angularRange ?? '^21.0.0';
@@ -48,6 +47,7 @@ export function remotePackageJson(o: ScaffoldOptions): unknown {
       '@angular-architects/native-federation': ng,
       '@infra-tools/agentic-ui': o.agenticUiRange ?? '^1.4.0',
       'es-module-shims': '^1.10.0', rxjs: '^7.8.0', zod: '^3.23.0',
+      ...o.extraDeps,
       [o.packageName]: o.packageSpec,
     },
     // @angular/compiler-cli is the AOT toolchain @angular/build loads at build time.
