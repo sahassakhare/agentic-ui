@@ -58,7 +58,7 @@ export const appConfig: ApplicationConfig = {
     // MFE federation: discover catalog-registered remotes and load each remote's
     // CapabilityModule (its components/tools) into the host registries — so a
     // federated component becomes a bindable surface, loaded at runtime.
-    provideStaticJsonMfeRegistry({ url: 'mfes.json' }),
+    provideStaticJsonMfeRegistry({ url: environment.mfeRegistryUrl }),
     provideAppInitializer(() => {
       const injector = inject(EnvironmentInjector);
       const client = inject(MfeRegistryClient);
