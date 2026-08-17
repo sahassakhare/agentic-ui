@@ -22,7 +22,10 @@ export interface ScaffoldOptions {
 export function remotePackageJson(o: ScaffoldOptions): unknown {
   const ng = o.angularRange ?? '^20.0.0';
   return {
-    name: o.remoteName, private: true, type: 'module',
+    // No "type":"module" — Angular workspaces are CommonJS at the root, so the
+    // CommonJS federation.config.js (`require`/`module.exports`) is read correctly.
+    // The compiled app bundles are ESM regardless (handled by @angular/build).
+    name: o.remoteName, private: true,
     scripts: { build: `ng build ${o.remoteName}` },
     dependencies: {
       '@angular/animations': ng, '@angular/common': ng, '@angular/compiler': ng, '@angular/core': ng,
