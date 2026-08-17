@@ -54,7 +54,7 @@ app.post('/ingest', async (c) => {
   void runIngest(job.id, input, {
     workDir: CONFIG.workDir, artifactDir: CONFIG.artifactDir, publicUrl: CONFIG.publicUrl,
     catalog: { catalogUrl: CONFIG.catalogUrl, tenant: CONFIG.tenant }, jobs, registry, builder,
-    hostAngularRange: CONFIG.hostAngularRange, extraSkip: CONFIG.extraSkip,
+    hostAngularRange: CONFIG.hostAngularRange, extraSkip: CONFIG.extraSkip, extraDeps: CONFIG.extraDeps,
   });
   return c.json({ jobId: job.id, remoteName }, 202);
 });
