@@ -96,7 +96,10 @@ export async function runIngest(jobId: string, input: IngestInput, ctx: Pipeline
     jobs.update(jobId, { phase: 'installing' });
     jobs.update(jobId, { phase: 'building' });
     await ctx.builder.build(wsDir, remoteName, log);
-    const distDir = join(wsDir, 'dist', remoteName);
+    // @angular/build:application nests output under a `browser/` subdir; fall back to the
+    // root for other builders.
+    const outRoot = join(wsDir, 'dist', remoteName);
+    const distDir = existsSync(join(outRoot, 'browser', 'remoteEntry.json')) ? join(outRoot, 'browser') : outRoot;
     if (!existsSync(join(distDir, 'remoteEntry.json'))) return fail('build did not emit remoteEntry.json');
 
     // 6. Serve: copy artifacts to the served dir
