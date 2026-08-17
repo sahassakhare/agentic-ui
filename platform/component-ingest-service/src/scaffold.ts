@@ -17,7 +17,22 @@ export interface ScaffoldOptions {
   /** Angular major to build against (must match the host's shared singleton). */
   readonly angularRange?: string;
   readonly agenticUiRange?: string;
+  /** Extra packages to exclude from federation sharing/bundling (externalized). */
+  readonly skip?: readonly string[];
 }
+
+/**
+ * Packages native-federation must not try to bundle/share:
+ *  - rxjs deep entries + zod-to-json-schema — not browser-shareable (the platform default);
+ *  - @ag-ui/client + @hashbrownai/core — runtime deps the published @infra-tools/agentic-ui
+ *    imports but doesn't declare; the host (which shares agentic-ui as a singleton) provides
+ *    them, so the remote externalizes them rather than failing to resolve;
+ *  - chart.js — PrimeNG's optional p-chart peer (install it only if you need charts).
+ */
+export const DEFAULT_SKIP = [
+  'rxjs/ajax', 'rxjs/fetch', 'rxjs/testing', 'rxjs/webSocket', 'zod-to-json-schema',
+  '@ag-ui/client', '@hashbrownai/core', 'chart.js', 'chart.js/auto',
+];
 
 export function remotePackageJson(o: ScaffoldOptions): unknown {
   const ng = o.angularRange ?? '^21.0.0';
@@ -76,7 +91,7 @@ module.exports = withNativeFederation({
     ...shareAll({ singleton: true, strictVersion: false, requiredVersion: 'auto' }),
     '@infra-tools/agentic-ui': { singleton: true, strictVersion: false, requiredVersion: 'auto' },
   },
-  skip: ['rxjs/ajax', 'rxjs/fetch', 'rxjs/testing', 'rxjs/webSocket', 'zod-to-json-schema'],
+  skip: ${JSON.stringify([...DEFAULT_SKIP, ...(o.skip ?? [])])},
 });
 `;
 }

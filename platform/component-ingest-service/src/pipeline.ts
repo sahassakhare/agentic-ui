@@ -35,6 +35,8 @@ export interface PipelineCtx {
   readonly builder: BuildRunner;
   /** The host platform's Angular version — the remote builds against it (see config). */
   readonly hostAngularRange: string;
+  /** Extra packages to externalize from federation, beyond the built-in defaults. */
+  readonly extraSkip?: readonly string[];
 }
 
 export async function runIngest(jobId: string, input: IngestInput, ctx: PipelineCtx): Promise<void> {
@@ -84,7 +86,7 @@ export async function runIngest(jobId: string, input: IngestInput, ctx: Pipeline
     // siblings) — a `file:` link to the unpacked dir leaves the library's fesm
     // files unable to resolve their own dependencies from the workspace.
     scaffoldRemote(wsDir,
-      { remoteName, packageName: meta.packageName, packageSpec: `file:${tarball}`, port: 4400, angularRange: ctx.hostAngularRange },
+      { remoteName, packageName: meta.packageName, packageSpec: `file:${tarball}`, port: 4400, angularRange: ctx.hostAngularRange, skip: ctx.extraSkip },
       generateCapabilityTs(meta, components));
 
     // 4 + 5. Install + build — in a sandboxed container (or local, per config).
