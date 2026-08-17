@@ -36,7 +36,9 @@ export function remotePackageJson(o: ScaffoldOptions): unknown {
       [o.packageName]: o.packageSpec,
     },
     // @angular/compiler-cli is the AOT toolchain @angular/build loads at build time.
-    devDependencies: { '@angular/build': ng, '@angular/cli': ng, '@angular/compiler-cli': ng, typescript: '~5.6.0' },
+    // TypeScript must satisfy the Angular compiler's hard version check (Angular 20/21
+    // require >=5.8 <6.0); resolve the latest in range so both majors are covered.
+    devDependencies: { '@angular/build': ng, '@angular/cli': ng, '@angular/compiler-cli': ng, typescript: '>=5.8.0 <6.0.0' },
   };
 }
 
