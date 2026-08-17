@@ -35,7 +35,8 @@ export function remotePackageJson(o: ScaffoldOptions): unknown {
       'es-module-shims': '^1.10.0', rxjs: '^7.8.0', zod: '^3.23.0',
       [o.packageName]: o.packageSpec,
     },
-    devDependencies: { '@angular/build': ng, '@angular/cli': ng, typescript: '~5.6.0' },
+    // @angular/compiler-cli is the AOT toolchain @angular/build loads at build time.
+    devDependencies: { '@angular/build': ng, '@angular/cli': ng, '@angular/compiler-cli': ng, typescript: '~5.6.0' },
   };
 }
 
