@@ -23,7 +23,7 @@ export function remotePackageJson(o: ScaffoldOptions): unknown {
   const ng = o.angularRange ?? '^20.0.0';
   return {
     name: o.remoteName, private: true, type: 'module',
-    scripts: { build: `ng build ${o.remoteName} --configuration production` },
+    scripts: { build: `ng build ${o.remoteName}` },
     dependencies: {
       '@angular/animations': ng, '@angular/common': ng, '@angular/compiler': ng, '@angular/core': ng,
       '@angular/forms': ng, '@angular/platform-browser': ng, '@angular/router': ng,
@@ -43,7 +43,9 @@ export function remoteAngularJson(o: ScaffoldOptions): unknown {
       [o.remoteName]: {
         projectType: 'application', root: '', sourceRoot: 'src',
         architect: {
-          build: { builder: '@angular-architects/native-federation:build', options: {} },
+          // native-federation:build delegates to the esbuild target named here; without
+          // `target` it crashes in targetFromTargetString (undefined.split).
+          build: { builder: '@angular-architects/native-federation:build', options: { target: `${o.remoteName}:esbuild:production` } },
           esbuild: {
             builder: '@angular/build:application',
             options: { browser: 'src/main.ts', polyfills: ['es-module-shims'], tsConfig: 'tsconfig.app.json', outputPath: `dist/${o.remoteName}` },

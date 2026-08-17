@@ -64,6 +64,7 @@ describe('scaffoldRemote', () => {
     const ng = remoteAngularJson(opts) as any;
     const arch = ng.projects['kendo-buttons'].architect;
     expect(arch.build.builder).toBe('@angular-architects/native-federation:build');
+    expect(arch.build.options.target).toBe('kendo-buttons:esbuild:production');   // else targetFromTargetString crashes
     expect(arch.esbuild.options.browser).toBe('src/main.ts');
     expect(arch.esbuild.options.outputPath).toBe('dist/kendo-buttons');
   });
