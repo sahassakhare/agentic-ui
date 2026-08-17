@@ -121,3 +121,4 @@ export * from './lib/layout/matter-phase';
 // `ActiveAlert`s the resolver consumes as a precedence layer (weight
 // 400 — same as route/selection, beats persona/matter-phase).
 export * from './lib/layout/alert';
+export * from './lib/theme';

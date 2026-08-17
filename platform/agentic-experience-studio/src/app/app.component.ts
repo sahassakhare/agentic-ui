@@ -11,6 +11,7 @@ const NAV = [
   { path: '/forms', label: 'Forms' },
   { path: '/workflows', label: 'Workflows' },
   { path: '/decisions', label: 'Decisions' },
+  { path: '/themes', label: 'Themes' },
   { path: '/prompts', label: 'Prompts' },
   { path: '/skills', label: 'Skills' },
   { path: '/knowledge', label: 'Knowledge' },

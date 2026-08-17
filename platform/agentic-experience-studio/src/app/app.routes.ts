@@ -13,6 +13,7 @@ import {
   NAVIGATION_STUDIO,
   PROMPT_STUDIO,
   SKILL_STUDIO,
+  THEME_STUDIO,
   TOOL_STUDIO,
   VALIDATION_STUDIO,
 } from './studio-configs';
@@ -72,6 +73,18 @@ export const routes: Routes = [
     canActivate: [authGuard],
     canDeactivate: [unsavedChangesGuard],
     loadComponent: () => import('./pages/decision-designer.component').then((m) => m.DecisionDesignerComponent),
+  },
+  {
+    path: 'themes',
+    canActivate: [authGuard],
+    data: { config: THEME_STUDIO },
+    loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
+  },
+  {
+    path: 'themes/:id/design',
+    canActivate: [authGuard],
+    canDeactivate: [unsavedChangesGuard],
+    loadComponent: () => import('./pages/token-designer.component').then((m) => m.TokenDesignerComponent),
   },
   {
     path: 'prompts',

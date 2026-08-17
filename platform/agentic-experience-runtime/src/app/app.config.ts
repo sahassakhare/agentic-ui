@@ -16,6 +16,7 @@ import { environment } from '../environments/environment';
 import { CatalogExperienceSource } from './catalog/catalog-experience-source';
 import { CatalogFormSource } from './catalog/catalog-form-source';
 import { CatalogWorkflowSource } from './catalog/catalog-workflow-source';
+import { CatalogThemeSource } from './catalog/catalog-theme-source';
 import { ApplicationSource } from './catalog/application-source';
 import { PageSource } from './catalog/page-source';
 import { PageHostComponent } from './render/page-host.component';
@@ -92,6 +93,11 @@ export const appConfig: ApplicationConfig = {
       const flows = inject(CatalogWorkflowSource);
       await flows.hydrate();       // compile kind:'workflow' capabilities → FormRegistry
       flows.startLiveSync();       // SSE: re-hydrate when a workflow is edited
+    }),
+    provideAppInitializer(async () => {
+      const themes = inject(CatalogThemeSource);
+      await themes.hydrate();      // load kind:'theme' capabilities (design tokens)
+      themes.startLiveSync();      // SSE: re-apply when a theme is edited
     }),
     provideAppInitializer(async () => {
       const app = inject(ApplicationSource);

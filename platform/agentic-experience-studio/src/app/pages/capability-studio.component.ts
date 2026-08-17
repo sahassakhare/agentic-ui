@@ -191,6 +191,7 @@ export interface StudioConfig {
                 @if (cfg().kind === 'application') { <a class="btn btn-sm" [routerLink]="['/applications', c.id, 'design']">Design</a> }
                 @if (cfg().kind === 'page') { <a class="btn btn-sm" [routerLink]="['/pages', c.id, 'design']">Design</a> }
                 @if (cfg().kind === 'decision') { <a class="btn btn-sm" [routerLink]="['/decisions', c.id, 'design']">Design</a> }
+                @if (cfg().kind === 'theme') { <a class="btn btn-sm" [routerLink]="['/themes', c.id, 'design']">Design</a> }
                 <button class="btn btn-sm" type="button" (click)="startEdit(c)">Edit</button>
                 <button class="btn btn-danger btn-sm" type="button" (click)="askDelete(c)">Delete</button>
               </div>
