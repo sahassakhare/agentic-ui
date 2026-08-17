@@ -16,6 +16,14 @@ export const CONFIG = {
   registryFile: process.env.REGISTRY_FILE ?? join(rootTmp, 'registry.json'),
   /** JSON array of pre-existing RemoteSpec to seed registry.json (e.g. matter-management). */
   seedRemotes: process.env.SEED_REMOTES,
+  /**
+   * The host platform's Angular version. A federated remote shares Angular as a
+   * singleton with the host, so the remote is built against this version and an
+   * ingested library must be compatible with its major (else the build fails or
+   * the component breaks at runtime under the host's Angular). Keep in sync with
+   * the Studio/Hub apps.
+   */
+  hostAngularRange: process.env.HOST_ANGULAR_RANGE ?? '^21.0.0',
 
   // ── build sandbox (B3) ──────────────────────────────────────────────────────
   /** 'docker' isolates each build in an ephemeral container; 'local' runs in-process (trusted only). */
