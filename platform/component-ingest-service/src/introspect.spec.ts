@@ -36,6 +36,13 @@ describe('introspectDts', () => {
     expect(c.widgetName).toBe('kendo-button');
   });
 
+  it('classifies each input type (boolean / string-literal-union enum / string)', () => {
+    const [c] = introspectDts(KENDO_BUTTON);
+    expect(c.inputTypes['disabled']).toEqual({ kind: 'boolean' });
+    expect(c.inputTypes['themeColor']).toEqual({ kind: 'string' });
+    expect(c.inputTypes['size']).toEqual({ kind: 'enum', enum: ['small', 'medium', 'large'] });
+  });
+
   it('ignores NgModules / services (only ɵcmp classes)', () => {
     expect(introspectDts(KENDO_BUTTON)).toHaveLength(1);
   });

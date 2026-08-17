@@ -134,6 +134,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/capability-studio.component').then((m) => m.CapabilityStudioComponent),
   },
   {
+    path: 'components/upload',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/component-ingest.component').then((m) => m.ComponentIngestComponent),
+  },
+  {
     path: 'forms',
     canActivate: [authGuard],
     data: { config: FORM_STUDIO },

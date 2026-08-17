@@ -2,14 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { mkdtempSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { generateCapabilityTs, componentCatalogBody, type RemoteMeta } from './generate.js';
+import { generateCapabilityTs, componentCatalogBody, propsSchemaExpr, type RemoteMeta } from './generate.js';
 import { scaffoldRemote, remoteAngularJson, type ScaffoldOptions } from './scaffold.js';
 import type { DiscoveredComponent } from './introspect.js';
 
 const meta: RemoteMeta = { remoteName: 'kendo-buttons', version: '1.2.3', packageName: '@progress/kendo-angular-buttons' };
 const comps: DiscoveredComponent[] = [
-  { className: 'ButtonComponent', selector: 'kendo-button', inputs: ['disabled', 'size'], widgetName: 'kendo-button' },
-  { className: 'ChipComponent', selector: 'kendo-chip', inputs: ['label'], widgetName: 'kendo-chip' },
+  { className: 'ButtonComponent', selector: 'kendo-button', inputs: ['disabled', 'size'],
+    inputTypes: { disabled: { kind: 'boolean' }, size: { kind: 'enum', enum: ['small', 'large'] } }, widgetName: 'kendo-button' },
+  { className: 'ChipComponent', selector: 'kendo-chip', inputs: ['label'],
+    inputTypes: { label: { kind: 'string' } }, widgetName: 'kendo-chip' },
 ];
 
 describe('generateCapabilityTs', () => {
@@ -17,10 +19,19 @@ describe('generateCapabilityTs', () => {
   it('imports the component classes from the package', () => {
     expect(src).toContain("import { ButtonComponent, ChipComponent } from '@progress/kendo-angular-buttons';");
   });
-  it('emits a defineCapabilityModule with an agenticWidget per component', () => {
+  it('emits a defineCapabilityModule with a typed agenticWidget per component', () => {
     expect(src).toContain("remoteName: 'kendo-buttons'");
-    expect(src).toContain("agenticWidget({ name: 'kendo-button', component: ButtonComponent, propsSchema: anyProps })");
-    expect(src).toContain("agenticWidget({ name: 'kendo-chip', component: ChipComponent, propsSchema: anyProps })");
+    expect(src).toContain("name: 'kendo-button', component: ButtonComponent");
+    expect(src).toContain("name: 'kendo-chip', component: ChipComponent");
+  });
+});
+
+describe('propsSchemaExpr', () => {
+  it('builds a typed passthrough object schema from input types', () => {
+    expect(propsSchemaExpr(comps[0])).toBe("z.object({ 'disabled': z.boolean().optional(), 'size': z.enum(['small', 'large']).optional() }).passthrough()");
+  });
+  it('falls back to passthrough when there are no typed inputs', () => {
+    expect(propsSchemaExpr({ ...comps[0], inputTypes: {} })).toBe('z.object({}).passthrough()');
   });
 });
 

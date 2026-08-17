@@ -11,6 +11,8 @@ import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { CONFIG } from './config.js';
 import { JobStore } from './jobs.js';
 import { RegistryStore, parseSeed } from './registry.js';
@@ -25,8 +27,20 @@ app.get('/health', (c) => c.json({ status: 'ok' }));
 app.get('/registry.json', (c) => c.json(registry.doc()));
 
 app.post('/ingest', async (c) => {
-  const input = (await c.req.json().catch(() => ({}))) as IngestInput & { remoteName?: string };
-  if (!input.npm && !input.archivePath) return c.json({ error: 'provide { npm } or { archivePath }' }, 400);
+  let input: IngestInput & { remoteName?: string };
+  if ((c.req.header('content-type') ?? '').includes('multipart/form-data')) {
+    const body = await c.req.parseBody();
+    const file = body['file'];
+    if (!(file instanceof File)) return c.json({ error: 'multipart upload requires a `file` field' }, 400);
+    const dir = join(CONFIG.workDir, 'uploads');
+    mkdirSync(dir, { recursive: true });
+    const p = join(dir, `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`);
+    writeFileSync(p, Buffer.from(await file.arrayBuffer()));
+    input = { archivePath: p, remoteName: (body['remoteName'] as string) || file.name };
+  } else {
+    input = (await c.req.json().catch(() => ({}))) as IngestInput & { remoteName?: string };
+  }
+  if (!input.npm && !input.archivePath) return c.json({ error: 'provide { npm } or a multipart `file`' }, 400);
   const remoteName = sanitizeRemote(input.remoteName ?? input.npm ?? input.archivePath ?? 'remote');
   const job = jobs.create(remoteName, new Date().toISOString());
   // Fire and forget; the client polls GET /ingest/:jobId.

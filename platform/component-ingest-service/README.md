@@ -24,8 +24,9 @@ service is the *produce + register* half.
    = `initFederation`, `federation.config.js` exposing `./Capability`).
 4. **Generate** (`generate.ts`) — `src/capability.ts` =
    `defineCapabilityModule({ components: [agenticWidget({ name, component, propsSchema })…] })`.
-   **MVP: `propsSchema` is `z.object({}).passthrough()`** (props forwarded as-is;
-   `widget-container` validates leniently). Typed schemas from input types are B2.
+   `propsSchema` is **typed** from each input's TS type (string/number/boolean/enum/
+   array/object → `z.*`, all optional, `.passthrough()`); unknown types fall back to
+   `z.unknown()`.
 5. **Build** — `npm install` + `ng build <remote>` → `dist/<remote>/remoteEntry.json`.
 6. **Serve** — copy artifacts under `GET /remotes/<name>/…`.
 7. **Register** — append a `RemoteSpec` to `registry.json` **and** POST a
@@ -70,14 +71,21 @@ curl -s -X POST localhost:4320/ingest -H 'content-type: application/json' \
 curl -s localhost:4320/ingest/<jobId>                       # poll phase + log
 ```
 
-## Status & limitations (B1)
+## Studio upload UI (B2)
 
-- **Verified in-repo:** the deterministic core — `introspect` (Ivy `.d.ts` parsing),
-  `generate` (capability.ts + catalog bodies), `scaffold` (workspace), and
-  `sanitizeRemote` — **12 unit tests** (`npm test`); the service typechecks.
+The Component Studio (`/components`) has an **⬆ Upload library** action → `/components/upload`
+(`component-ingest.component.ts`): paste an npm spec or upload a `.tgz`/`.zip`, watch
+the job phases + build log, and see the discovered components. Once registered they
+appear in the Components list and the Page/Form designers' surface pickers. The Studio
+reads the service URL from `environment.ingestUrl` (default `http://localhost:4320`).
+
+## Status & limitations
+
+- **Verified in-repo:** the deterministic core — `introspect` (Ivy `.d.ts` parsing +
+  input-type classification), `generate` (typed schemas + catalog bodies), `scaffold`
+  (workspace), `sanitizeRemote` — **15 unit tests** (`npm test`); the service + Studio typecheck/build.
 - **Requires a real run:** `npm install` + `ng build` of an actual library is heavy
-  (minutes, ~GB) and is executed when you `POST /ingest` — not exercised by the unit tests.
-- **B2 (next):** typed `propsSchema` from input types; a Studio "Upload library" UI.
-- **B3 (hardening):** the build runs arbitrary code — run each job in a **sandboxed
-  worker** (container, egress allow-list, resource/time limits) before exposing this
-  beyond a trusted operator. Not yet sandboxed.
+  (minutes, ~GB) and runs when you `POST /ingest` — not exercised by the unit tests.
+- **B3 (hardening, NOT done):** the build runs arbitrary uploaded code — run each job
+  in a **sandboxed worker** (container, egress allow-list, resource/time limits) before
+  exposing this beyond a trusted operator. **Not yet sandboxed.**
