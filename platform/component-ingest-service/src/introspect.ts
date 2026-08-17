@@ -14,7 +14,7 @@
  */
 import ts from 'typescript';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 
 export interface PropType {
   readonly kind: 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'object' | 'unknown';
@@ -66,25 +66,32 @@ export function introspectDts(source: string): ComponentInfo[] {
  */
 export function introspectLibrary(pkgDir: string): DiscoveredComponent[] {
   const packageName = readPackageName(pkgDir);
-  const exportMap = publicExportMap(pkgDir, packageName);
+  const entries = buildEntries(pkgDir, packageName);
 
-  const found = new Map<string, ComponentInfo>();
+  // Track the file each component is declared in — the same class name can be a
+  // component in one entry and a same-named interface in another (PrimeNG's
+  // `SelectItem` class vs `SelectItem` interface), so resolving by name alone
+  // picks the wrong module. Resolve by declaration file instead.
+  const found = new Map<string, { info: ComponentInfo; file: string }>();
   for (const file of walkDts(pkgDir)) {
-    for (const c of introspectDts(readFileSync(file, 'utf8'))) if (!found.has(c.className)) found.set(c.className, c);
+    for (const c of introspectDts(readFileSync(file, 'utf8'))) if (!found.has(c.className)) found.set(c.className, { info: c, file });
   }
 
   const used = new Set<string>();
   const out: DiscoveredComponent[] = [];
-  for (const c of found.values()) {
-    if (!c.standalone) continue;                                    // only mountable standalone components
-    // Import from the entry point that exports it; if the lib has no export map
-    // (a simple single-entry lib) import everything from the package root.
-    const importPath = exportMap.get(c.className) ?? (exportMap.size === 0 ? packageName : undefined);
+  for (const { info, file } of found.values()) {
+    if (!info.standalone) continue;                                 // only mountable standalone components
+    const key = resolve(file);
+    // The owning entry both contains the declaration file AND exports the class
+    // name as a value — this excludes internal (non-exported) classes and the
+    // interface-vs-class collision.
+    const entry = entries.find((e) => e.files.has(key) && e.names.has(info.className));
+    const importPath = entry?.importPath ?? (entries.length === 0 ? packageName : undefined);
     if (!importPath) continue;                                      // internal / not publicly exported
-    let name = c.widgetName; let n = 2;
-    while (used.has(name)) name = `${c.widgetName}-${n++}`;
+    let name = info.widgetName; let n = 2;
+    while (used.has(name)) name = `${info.widgetName}-${n++}`;
     used.add(name);
-    out.push({ ...c, importPath, widgetName: name });
+    out.push({ ...info, importPath, widgetName: name });
   }
   return out;
 }
@@ -188,15 +195,44 @@ function readPackageName(pkgDir: string): string {
   try { return JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8')).name ?? ''; } catch { return ''; }
 }
 
-/** className → import path (`packageName` or a secondary entry like `primeng/button`). */
-function publicExportMap(pkgDir: string, packageName: string): Map<string, string> {
-  const map = new Map<string, string>();
-  if (!packageName) return map;
+/** A resolved entry point: its import path, the declaration files it pulls in, and the names it exports. */
+interface EntryInfo {
+  readonly importPath: string;
+  readonly files: ReadonlySet<string>;   // absolute .d.ts paths reachable via relative re-exports
+  readonly names: ReadonlySet<string>;   // names this entry exports as values
+}
+
+function buildEntries(pkgDir: string, packageName: string): EntryInfo[] {
+  if (!packageName) return [];
+  const out: EntryInfo[] = [];
   for (const ep of entryPoints(pkgDir)) {
-    const importPath = packageName + ep.subpath;
-    for (const cls of exportedClasses(ep.typesFile, new Set())) if (!map.has(cls)) map.set(cls, importPath);
+    const files = new Set<string>();
+    const stack = [ep.typesFile];
+    while (stack.length) {
+      const f = stack.pop()!;
+      const key = resolve(f);
+      if (files.has(key) || !existsSync(f)) continue;
+      files.add(key);
+      for (const rel of relativeReexports(f)) { const t = resolveDts(dirname(f), rel); if (t) stack.push(t); }
+    }
+    out.push({ importPath: packageName + ep.subpath, files, names: new Set(exportedClasses(ep.typesFile, new Set())) });
   }
-  return map;
+  return out;
+}
+
+/** Relative `export … from './x'` specifiers in a `.d.ts` (for the declaration-file graph). */
+function relativeReexports(file: string): string[] {
+  let src: string;
+  try { src = readFileSync(file, 'utf8'); } catch { return []; }
+  const sf = ts.createSourceFile(file, src, ts.ScriptTarget.Latest, true);
+  const specs: string[] = [];
+  sf.forEachChild((node) => {
+    if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)
+        && node.moduleSpecifier.text.startsWith('.')) {
+      specs.push(node.moduleSpecifier.text);
+    }
+  });
+  return specs;
 }
 
 /**
