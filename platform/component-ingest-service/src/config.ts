@@ -24,6 +24,9 @@ export const CONFIG = {
    * the Studio/Hub apps.
    */
   hostAngularRange: process.env.HOST_ANGULAR_RANGE ?? '^21.0.0',
+  /** Extra packages to externalize from federation (comma-separated), on top of the defaults —
+   *  e.g. a library's optional third-party peers (quill for p-editor). */
+  extraSkip: (process.env.EXTRA_SKIP ?? '').split(',').map((s) => s.trim()).filter(Boolean),
 
   // ── build sandbox (B3) ──────────────────────────────────────────────────────
   /** 'docker' isolates each build in an ephemeral container; 'local' runs in-process (trusted only). */
