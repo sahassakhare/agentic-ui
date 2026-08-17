@@ -69,7 +69,7 @@ export function remoteAngularJson(o: ScaffoldOptions): unknown {
           build: { builder: '@angular-architects/native-federation:build', options: { target: `${o.remoteName}:esbuild:production` } },
           esbuild: {
             builder: '@angular/build:application',
-            options: { browser: 'src/main.ts', polyfills: ['es-module-shims'], tsConfig: 'tsconfig.app.json', outputPath: `dist/${o.remoteName}` },
+            options: { browser: 'src/main.ts', index: 'src/index.html', polyfills: ['es-module-shims'], tsConfig: 'tsconfig.app.json', outputPath: `dist/${o.remoteName}` },
             configurations: { production: {}, development: { optimization: false, sourceMap: true } },
             defaultConfiguration: 'production',
           },
@@ -102,6 +102,12 @@ export const MAIN_TS = `import { initFederation } from '@angular-architects/nati
 initFederation().catch((err) => console.error(err));
 `;
 
+// @angular/build:application requires an index HTML; a pure remote never serves it,
+// so a minimal shell is enough to satisfy the builder.
+export const INDEX_HTML = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>remote</title></head><body></body></html>
+`;
+
 export function tsconfigBase(): unknown {
   return {
     compilerOptions: {
@@ -128,5 +134,6 @@ export function scaffoldRemote(dir: string, o: ScaffoldOptions, capabilityTs: st
   write('tsconfig.app.json', JSON.stringify(tsconfigApp(), null, 2));
   write('federation.config.js', federationConfig(o));
   write('src/main.ts', MAIN_TS);
+  write('src/index.html', INDEX_HTML);
   write('src/capability.ts', capabilityTs);
 }
