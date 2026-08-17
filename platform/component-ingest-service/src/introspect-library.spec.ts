@@ -80,4 +80,27 @@ describe('introspectLibrary', () => {
     expect(byCls.get('Accordion')!.importPath).toBe('primeng/accordion');
     expect(byCls.get('Button')!.importPath).toBe('primeng/button');
   });
+
+  it('resolves a component when a same-named interface exists in another entry (SelectItem collision)', () => {
+    // primeng/select exports a `class SelectItem` (a component); primeng/api exports
+    // an `interface SelectItem`. The component must import from primeng/select.
+    const dir = mkdtempSync(join(tmpdir(), 'lib-'));
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({
+      name: 'primeng', version: '21.0.0',
+      exports: {
+        './api': { types: './types/primeng-api.d.ts' },
+        './select': { types: './types/primeng-select.d.ts' },
+      },
+    }));
+    mkdirSync(join(dir, 'types'));
+    writeFileSync(join(dir, 'types', 'primeng-api.d.ts'), 'export interface SelectItem { label: string; value: any; }');
+    writeFileSync(join(dir, 'types', 'primeng-select.d.ts'), [
+      'import * as i0 from "@angular/core";',
+      'export declare class SelectItem {', cmp('SelectItem', 'p-selectItem', true), '}',
+      'export { SelectItem };',
+    ].join('\n'));
+
+    const byCls = new Map(introspectLibrary(dir).map((c) => [c.className, c]));
+    expect(byCls.get('SelectItem')!.importPath).toBe('primeng/select');          // not primeng/api (the interface)
+  });
 });
