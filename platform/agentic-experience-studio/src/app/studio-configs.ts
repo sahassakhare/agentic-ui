@@ -33,6 +33,24 @@ export const NAVIGATION_STUDIO: StudioConfig = {
  * table (inputs, outputs, rules, hit policy). Workflows/forms reference it by name
  * for branching/validation. Rich table designer at /decisions/:id/design.
  */
+/**
+ * Theme Studio — authors a `kind:'theme'` capability: a design-token set (base +
+ * dark overrides). The rich editing lives in the Token Designer (/themes/:id/design);
+ * this generic studio lists/creates and shows the raw token body.
+ */
+export const THEME_STUDIO: StudioConfig = {
+  kind: 'theme',
+  title: 'Themes',
+  noun: 'theme',
+  bodyFields: [
+    { key: 'title', label: 'Title', type: 'text' },
+    { key: 'base', label: 'Base tokens (JSON { color, space, radius, font, … })', type: 'json', required: true,
+      placeholder: '{ "color": { "brand": "#4f46e5", "surface": "#ffffff", "text": "#131720" } }' },
+    { key: 'dark', label: 'Dark overrides (JSON, optional)', type: 'json',
+      placeholder: '{ "color": { "surface": "#141924", "text": "#e7ebf3" } }' },
+  ],
+};
+
 export const DECISION_STUDIO: StudioConfig = {
   kind: 'decision',
   title: 'Decision Tables',

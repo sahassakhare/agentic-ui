@@ -118,23 +118,23 @@ export type CanvasTileExplain = DashboardTileExplain & { readonly dashboardName:
     :host { display: block; font-family: system-ui, sans-serif; }
     .canvas {
       padding: 1rem 1.2rem;
-      background: #f9fafb;
+      background: var(--bg, #f9fafb);
       min-height: 100%;
     }
-    .canvas.empty { display: flex; align-items: center; justify-content: center; color: #9ca3af; padding: 3rem; }
+    .canvas.empty { display: flex; align-items: center; justify-content: center; color: var(--text-faint, #9ca3af); padding: 3rem; }
     .head {
       display: flex; align-items: flex-start; justify-content: space-between;
       gap: 1rem; margin-bottom: 1rem;
     }
     hgroup { margin: 0; }
-    .title { margin: 0; font-size: 1.25rem; font-weight: 700; color: #111827; }
-    .desc { margin: 0.2rem 0 0; color: #6b7280; font-size: 0.85rem; }
+    .title { margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text, #111827); }
+    .desc { margin: 0.2rem 0 0; color: var(--text-muted, #6b7280); font-size: 0.85rem; }
     .head-actions { display: flex; align-items: center; gap: 0.6rem; }
     .filter-chips { display: flex; gap: 0.4rem; list-style: none; margin: 0; padding: 0; }
     .chip {
       display: inline-flex; align-items: center; gap: 0.3rem;
       padding: 0.2rem 0.55rem; border-radius: 999px;
-      background: #eef2ff; color: #4338ca;
+      background: var(--brand-soft, #eef2ff); color: var(--brand-hover, #4338ca);
       font-size: 0.75rem; font-weight: 500;
     }
     .chip-label { opacity: 0.8; }
@@ -142,7 +142,7 @@ export type CanvasTileExplain = DashboardTileExplain & { readonly dashboardName:
     .refresh-all {
       padding: 0.4rem 0.7rem;
       background: white; border: 1px solid #e5e7eb; border-radius: 0.4rem;
-      font: inherit; font-size: 0.8rem; color: #4338ca; cursor: pointer;
+      font: inherit; font-size: 0.8rem; color: var(--brand-hover, #4338ca); cursor: pointer;
     }
     .refresh-all:hover { background: #eef2ff; border-color: #c7d2fe; }
     .grid {
@@ -153,7 +153,7 @@ export type CanvasTileExplain = DashboardTileExplain & { readonly dashboardName:
     .slot { display: flex; flex-direction: column; gap: 0.6rem; min-height: 200px; }
     .slot-unslotted { grid-column: 1 / -1; }
     .slot-warning {
-      padding: 0.4rem 0.6rem; background: #fef3c7; color: #92400e;
+      padding: 0.4rem 0.6rem; background: var(--warn-soft, #fef3c7); color: var(--warn, #92400e);
       border-radius: 0.35rem; font-size: 0.8rem;
     }
   `,

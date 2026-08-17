@@ -42,7 +42,7 @@ interface UnresolvedWidget {
   `,
   styles: `
     :host { display: block; }
-    .unresolved { padding: 0.4rem 0.6rem; background: #fef3c7; color: #92400e; border-radius: 0.4rem; font-size: 0.85em; }
+    .unresolved { padding: 0.4rem 0.6rem; background: var(--warn-soft, #fef3c7); color: var(--warn, #92400e); border-radius: 0.4rem; font-size: 0.85em; }
   `,
 })
 export class WidgetContainerComponent {

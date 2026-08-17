@@ -74,13 +74,14 @@ export interface ApplicationDef {
   readonly menu: readonly AppMenuEntry[];
   readonly nav: readonly NavEntry[];
   readonly personas?: readonly string[];
+  readonly theme?: string;            // a kind:'theme' capability name (design tokens)
 }
 
 interface CapabilityRow {
   readonly name: string;
   readonly body: {
     title?: string; description?: string; master?: string; assistant?: AppAssistant;
-    menu?: AppMenuEntry[]; nav?: NavEntry[]; personas?: string[];
+    menu?: AppMenuEntry[]; nav?: NavEntry[]; personas?: string[]; theme?: string;
   };
 }
 
@@ -153,6 +154,7 @@ export class ApplicationSource {
         menu: row.body.menu ?? [],
         nav: row.body.nav ?? [],
         personas: row.body.personas,
+        theme: row.body.theme,
       }));
       this.applications.set(defs);
       // Keep the current selection valid; default to env, else the first app.

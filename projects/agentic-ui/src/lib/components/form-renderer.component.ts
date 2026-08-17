@@ -209,17 +209,17 @@ interface ResolvedSection {
     :host { display: block; padding: 0.5rem; }
     form { display: flex; flex-direction: column; gap: 0.6rem; }
     h3 { margin: 0; font-size: 1rem; }
-    .desc { margin: 0; color: #6b7280; font-size: 0.85rem; }
+    .desc { margin: 0; color: var(--text-muted, #6b7280); font-size: 0.85rem; }
     label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; }
     label em { color: #b91c1c; font-style: normal; margin-left: 0.15rem; }
-    input, select, textarea { padding: 0.4rem 0.5rem; border: 1px solid #d1d5db; border-radius: 0.3rem; font: inherit; }
+    input, select, textarea { padding: 0.4rem 0.5rem; border: 1px solid var(--border, #d1d5db); border-radius: 0.3rem; font: inherit; }
     .error { color: #b91c1c; font-size: 0.75rem; }
     .form-actions { display: flex; align-items: center; gap: 0.5rem; }
-    button { padding: 0.5rem 1rem; background: #2563eb; color: white; border: 0; border-radius: 0.3rem; cursor: pointer; align-self: flex-start; }
+    button { padding: 0.5rem 1rem; background: var(--brand, #2563eb); color: var(--on-brand, #fff); border: 0; border-radius: 0.3rem; cursor: pointer; align-self: flex-start; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
-    button.danger { background: #dc2626; }
+    button.danger { background: var(--danger, #dc2626); }
     button.secondary { background: #4b5563; }
-    .missing { padding: 0.4rem; background: #fef3c7; color: #92400e; border-radius: 0.3rem; font-size: 0.85rem; }
+    .missing { padding: 0.4rem; background: var(--warn-soft, #fef3c7); color: var(--warn, #92400e); border-radius: 0.3rem; font-size: 0.85rem; }
     .composition-section { display: flex; flex-direction: column; gap: 0.4rem; padding-bottom: 0.4rem; border-bottom: 1px solid #f3f4f6; }
     .composition-section:last-of-type { border-bottom: 0; }
     .section-heading { margin: 0; font-size: 0.85rem; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.04em; }

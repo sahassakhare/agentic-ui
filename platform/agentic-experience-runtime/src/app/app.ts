@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ThemeService, DEFAULT_TOKENS } from '@infra-tools/agentic-ui';
+import { CatalogThemeSource } from './catalog/catalog-theme-source';
 import { Router, RouterOutlet } from '@angular/router';
 import { AuthService } from './auth/auth.service';
 import { LoginComponent } from './auth/login.component';
@@ -111,10 +113,19 @@ export class App {
   protected readonly appSource = inject(ApplicationSource);
   private readonly pages = inject(PageSource);
   private readonly router = inject(Router);
+  private readonly theme = inject(ThemeService);
+  private readonly themes = inject(CatalogThemeSource);
   protected readonly tenant = environment.tenant;
 
   protected readonly launcherOpen = signal(false);
   protected readonly apps = computed(() => this.appSource.applications());
+
+  /** Apply the active application's design tokens (falls back to the platform
+   *  default). Re-runs when the app switches or a theme is edited (SSE). */
+  private readonly themeEffect = effect(() => {
+    const app = this.appSource.application();
+    this.theme.apply(this.themes.get(app?.theme) ?? DEFAULT_TOKENS);
+  });
 
   /** Switch the active application and jump to its first page. */
   switchApp(name: string): void {
