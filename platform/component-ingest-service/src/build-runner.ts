@@ -25,9 +25,11 @@ export interface DockerOptions {
   readOnlyRoot: boolean;  // read-only rootfs + tmpfs /tmp
 }
 
-/** The command the container runs (install, then build). Kept simple + auditable. */
+/** The command the container runs (install, then build). Kept simple + auditable.
+ *  No `--configuration` — the native-federation `build` target delegates to the
+ *  `esbuild` target's default (production) configuration. */
 export const BUILD_SCRIPT = (remoteName: string): string =>
-  `npm install --no-audit --no-fund --ignore-scripts=false && npx ng build ${shellQuote(remoteName)} --configuration production`;
+  `npm install --no-audit --no-fund && npx ng build ${shellQuote(remoteName)}`;
 
 /** Build the `docker run …` argv for a job (pure — unit-tested without Docker). */
 export function dockerArgs(wsDir: string, remoteName: string, o: DockerOptions): string[] {
@@ -58,7 +60,7 @@ export class LocalBuildRunner implements BuildRunner {
   async build(wsDir: string, remoteName: string, log: (l: string) => void): Promise<void> {
     log('WARNING: local (unsandboxed) build — trusted operator only. Set BUILD_SANDBOX=docker to isolate.');
     await run('npm', ['install', '--no-audit', '--no-fund'], wsDir, this.timeoutMs, log);
-    await run('npx', ['ng', 'build', remoteName, '--configuration', 'production'], wsDir, this.timeoutMs, log);
+    await run('npx', ['ng', 'build', remoteName], wsDir, this.timeoutMs, log);
   }
 }
 

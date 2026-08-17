@@ -30,7 +30,8 @@ describe('dockerArgs', () => {
     expect(args[args.length - 3]).toBe('sh');
     expect(args[args.length - 2]).toBe('-lc');
     expect(args[args.length - 1]).toBe(BUILD_SCRIPT('kendo-buttons'));
-    expect(BUILD_SCRIPT('kendo-buttons')).toContain('ng build kendo-buttons --configuration production');
+    expect(BUILD_SCRIPT('kendo-buttons')).toContain('ng build kendo-buttons');
+    expect(BUILD_SCRIPT('kendo-buttons')).not.toContain('--configuration');   // native-federation build target has no prod config
   });
   it('supports a network-none (pre-fetched) mode', () => {
     expect(dockerArgs('/w', 'r', { ...opts, network: 'none' }).join(' ')).toContain('--network none');

@@ -47,6 +47,11 @@ describe('introspectDts', () => {
     expect(introspectDts(KENDO_BUTTON)).toHaveLength(1);
   });
 
+  it('reads the standalone flag (8th type arg)', () => {
+    expect(introspectDts(KENDO_BUTTON)[0].standalone).toBe(true);
+    expect(introspectDts(OLDER)[0].standalone).toBe(false);
+  });
+
   it('handles the older string input-map shape + derives a widget name from selector', () => {
     const found = introspectDts(OLDER);
     expect(found).toHaveLength(1);

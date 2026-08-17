@@ -8,9 +8,11 @@ import type { DiscoveredComponent } from './introspect.js';
 
 const meta: RemoteMeta = { remoteName: 'kendo-buttons', version: '1.2.3', packageName: '@progress/kendo-angular-buttons' };
 const comps: DiscoveredComponent[] = [
-  { className: 'ButtonComponent', selector: 'kendo-button', inputs: ['disabled', 'size'],
+  { className: 'ButtonComponent', selector: 'kendo-button', inputs: ['disabled', 'size'], standalone: true,
+    importPath: '@progress/kendo-angular-buttons',
     inputTypes: { disabled: { kind: 'boolean' }, size: { kind: 'enum', enum: ['small', 'large'] } }, widgetName: 'kendo-button' },
-  { className: 'ChipComponent', selector: 'kendo-chip', inputs: ['label'],
+  { className: 'ChipComponent', selector: 'kendo-chip', inputs: ['label'], standalone: true,
+    importPath: '@progress/kendo-angular-buttons',
     inputTypes: { label: { kind: 'string' } }, widgetName: 'kendo-chip' },
 ];
 
@@ -23,6 +25,14 @@ describe('generateCapabilityTs', () => {
     expect(src).toContain("remoteName: 'kendo-buttons'");
     expect(src).toContain("name: 'kendo-button', component: ButtonComponent");
     expect(src).toContain("name: 'kendo-chip', component: ChipComponent");
+  });
+  it('groups imports by each component\'s secondary entry point', () => {
+    const multi = generateCapabilityTs({ remoteName: 'primeng', version: '22.0.0', packageName: 'primeng' }, [
+      { ...comps[0], className: 'Button', importPath: 'primeng/button', widgetName: 'p-button' },
+      { ...comps[1], className: 'Card', importPath: 'primeng/card', widgetName: 'p-card' },
+    ]);
+    expect(multi).toContain("import { Button } from 'primeng/button';");
+    expect(multi).toContain("import { Card } from 'primeng/card';");
   });
 });
 
