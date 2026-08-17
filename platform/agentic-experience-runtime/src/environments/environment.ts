@@ -19,6 +19,10 @@ export const environment = {
   applicationName: 'ediscovery-matters',
   // MFE federation environment (matches the `env` in mfes.json / the catalog).
   mfeEnv: 'dev',
+  // Where the Hub discovers federated remotes. Default: the bundled static file.
+  // Point at the component-ingest service (e.g. 'http://localhost:4320/registry.json')
+  // to load libraries ingested at runtime — no host rebuild.
+  mfeRegistryUrl: 'mfes.json',
   // The agentic assistant's ag-ui backend (a real LLM-backed AG-UI SSE server).
   // Point this at your running agent server; the assistant rail activates when
   // the application's `assistant.enabled` is true.
