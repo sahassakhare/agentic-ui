@@ -47,8 +47,8 @@ app.post('/ingest', async (c) => {
   } else {
     input = (await c.req.json().catch(() => ({}))) as IngestInput & { remoteName?: string };
   }
-  if (!input.npm && !input.archivePath) return c.json({ error: 'provide { npm } or a multipart `file`' }, 400);
-  const remoteName = sanitizeRemote(input.remoteName ?? input.npm ?? input.archivePath ?? 'remote');
+  if (!input.npm && !input.url && !input.archivePath) return c.json({ error: 'provide { npm }, { url }, or a multipart `file`' }, 400);
+  const remoteName = sanitizeRemote(input.remoteName ?? input.npm ?? input.url ?? input.archivePath ?? 'remote');
   const job = jobs.create(remoteName, new Date().toISOString());
   // Fire and forget; the client polls GET /ingest/:jobId.
   void runIngest(job.id, input, {
@@ -66,9 +66,10 @@ app.get('/ingest/:jobId', (c) => {
 // Serve built artifacts: /remotes/<name>/remoteEntry.json + chunks.
 app.use('/remotes/*', serveStatic({ root: CONFIG.artifactDir, rewriteRequestPath: (p) => p.replace(/^\/remotes/, '/remotes') }));
 
-/** A package spec/name/path → a valid Native Federation remote name (`^[a-z0-9-]+$`). */
+/** A package spec/name/path/URL → a valid Native Federation remote name (`^[a-z0-9-]+$`). */
 export function sanitizeRemote(spec: string): string {
-  let s = spec.trim();
+  let s = spec.trim().split(/[?#]/)[0];                                     // drop query/hash
+  if (/^https?:\/\//i.test(s)) s = s.replace(/\/+$/, '').replace(/^.*\//, ''); // URL → last path segment
   if (/\.(tgz|zip)$/i.test(s)) {
     s = s.replace(/^.*[\\/]/, '').replace(/\.(tgz|zip)$/i, '');            // archive → basename
   } else {
