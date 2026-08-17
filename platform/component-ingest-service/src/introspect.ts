@@ -199,21 +199,53 @@ function publicExportMap(pkgDir: string, packageName: string): Map<string, strin
   return map;
 }
 
-/** Every entry point = a dir with a package.json (typings) — the ng-packagr convention. */
+/**
+ * Enumerate the library's entry points from both conventions:
+ *  1. the root package.json `exports` map (modern ng-packagr — PrimeNG, Angular
+ *     Material, … : `"./button": { "types": "./types/…d.ts" }`), and
+ *  2. per-directory package.json stubs (classic ng-packagr secondary entries).
+ */
 function entryPoints(pkgDir: string): { subpath: string; typesFile: string }[] {
   const out: { subpath: string; typesFile: string }[] = [];
+  const seen = new Set<string>();
+  const add = (subpath: string, typesFile: string): void => {
+    if (existsSync(typesFile) && !seen.has(typesFile)) { seen.add(typesFile); out.push({ subpath, typesFile }); }
+  };
+
+  let rootPkg: { exports?: unknown } | undefined;
+  try { rootPkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8')); } catch { /* none */ }
+  const exp = rootPkg?.exports;
+  if (exp && typeof exp === 'object') {
+    for (const [key, val] of Object.entries(exp as Record<string, unknown>)) {
+      if (key.includes('*') || key.endsWith('package.json')) continue;
+      const types = typesFromExport(val);
+      if (types) add(key === '.' ? '' : key.replace(/^\./, ''), join(pkgDir, types));   // './button' → '/button'
+    }
+  }
+
   for (const pj of walkPackageJsons(pkgDir)) {
     const dir = dirname(pj);
     let types: string | undefined;
     try { const p = JSON.parse(readFileSync(pj, 'utf8')); types = p.typings ?? p.types; } catch { /* skip */ }
     if (!types && existsSync(join(dir, 'index.d.ts'))) types = 'index.d.ts';
     if (!types) continue;
-    const typesFile = join(dir, types);
-    if (!existsSync(typesFile)) continue;
     const rel = relative(pkgDir, dir).replace(/\\/g, '/');
-    out.push({ subpath: rel ? `/${rel}` : '', typesFile });
+    add(rel ? `/${rel}` : '', join(dir, types));
   }
   return out;
+}
+
+/** Extract the `.d.ts` from an `exports` map value (string, or a conditions object). */
+function typesFromExport(val: unknown): string | null {
+  if (typeof val === 'string') return val.endsWith('.d.ts') ? val : null;
+  if (val && typeof val === 'object') {
+    const o = val as Record<string, unknown>;
+    for (const k of ['types', 'typings']) if (typeof o[k] === 'string') return o[k] as string;
+    for (const k of ['import', 'module', 'default', 'node', 'browser', 'require']) {
+      const r = typesFromExport(o[k]); if (r) return r;
+    }
+  }
+  return null;
 }
 
 /** Class names publicly exported from an entry's `.d.ts` (follows `export * from`). */
