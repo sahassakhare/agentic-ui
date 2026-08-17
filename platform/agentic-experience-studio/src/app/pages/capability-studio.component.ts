@@ -53,10 +53,13 @@ export interface StudioConfig {
           <p class="subtitle">Author and govern reusable <strong>{{ cfg().noun }}</strong> capabilities.
             An Experience resolves against whatever is published here.</p>
         </div>
-        <button class="btn btn-primary" type="button" (click)="toggleCreate()" [attr.aria-expanded]="createOpen()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          New {{ cfg().noun }}
-        </button>
+        <div class="row" style="gap:var(--s2); align-items:center">
+          @if (cfg().kind === 'component') { <a class="btn" routerLink="/components/upload">⬆ Upload library</a> }
+          <button class="btn btn-primary" type="button" (click)="toggleCreate()" [attr.aria-expanded]="createOpen()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            New {{ cfg().noun }}
+          </button>
+        </div>
       </div>
 
       @if (cfg().siblings; as sibs) {

@@ -11,10 +11,18 @@ import ts from 'typescript';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+/** A coarse classification of an `@Input()`'s type, mapped to Zod at generation time. */
+export interface PropType {
+  readonly kind: 'string' | 'number' | 'boolean' | 'enum' | 'array' | 'object' | 'unknown';
+  readonly enum?: readonly string[];
+}
+
 export interface DiscoveredComponent {
   readonly className: string;
   readonly selector: string | null;
   readonly inputs: readonly string[];
+  /** Per-input classified type (from the component class' property declarations). */
+  readonly inputTypes: Readonly<Record<string, PropType>>;
   /** Kebab name used as the `agenticWidget` name / catalog capability name. */
   readonly widgetName: string;
 }
@@ -30,14 +38,59 @@ export function introspectDts(source: string): DiscoveredComponent[] {
         const args = cmp.typeArguments ?? [];
         const selector = firstSelector(args[1]);
         const inputs = inputNames(args[3]);
+        const propTypes = classPropTypes(node);
+        const inputTypes: Record<string, PropType> = {};
+        for (const name of inputs) inputTypes[name] = propType(propTypes.get(name));
         const className = node.name.text;
-        out.push({ className, selector, inputs, widgetName: widgetNameFor(selector, className) });
+        out.push({ className, selector, inputs, inputTypes, widgetName: widgetNameFor(selector, className) });
       }
     }
     ts.forEachChild(node, visit);
   };
   ts.forEachChild(sf, visit);
   return out;
+}
+
+/** Map a component class' property declarations → `name → type node`. */
+function classPropTypes(cls: ts.ClassDeclaration): Map<string, ts.TypeNode> {
+  const m = new Map<string, ts.TypeNode>();
+  for (const member of cls.members) {
+    if (ts.isPropertyDeclaration(member) && member.type && member.name) {
+      const name = ts.isIdentifier(member.name) ? member.name.text
+        : ts.isStringLiteral(member.name) ? member.name.text : null;
+      if (name && name !== 'ɵcmp' && name !== 'ɵfac') m.set(name, member.type);
+    }
+  }
+  return m;
+}
+
+/** Classify a TS type node for schema generation. */
+function propType(t: ts.TypeNode | undefined): PropType {
+  if (!t) return { kind: 'unknown' };
+  if (ts.isArrayTypeNode(t)) return { kind: 'array' };
+  if (ts.isTypeLiteralNode(t)) return { kind: 'object' };
+  if (ts.isUnionTypeNode(t)) {
+    const strLits = t.types.filter((x) => ts.isLiteralTypeNode(x) && ts.isStringLiteral(x.literal));
+    if (strLits.length && strLits.length === t.types.filter((x) => !isNullish(x)).length) {
+      return { kind: 'enum', enum: strLits.map((x) => ((x as ts.LiteralTypeNode).literal as ts.StringLiteral).text) };
+    }
+    return { kind: 'unknown' };
+  }
+  if (ts.isTypeReferenceNode(t)) {
+    const name = ts.isQualifiedName(t.typeName) ? t.typeName.right.text : t.typeName.text;
+    return name === 'Array' ? { kind: 'array' } : { kind: 'object' };
+  }
+  switch (t.kind) {
+    case ts.SyntaxKind.StringKeyword: return { kind: 'string' };
+    case ts.SyntaxKind.NumberKeyword: return { kind: 'number' };
+    case ts.SyntaxKind.BooleanKeyword: return { kind: 'boolean' };
+    default: return { kind: 'unknown' };
+  }
+}
+
+function isNullish(t: ts.TypeNode): boolean {
+  return t.kind === ts.SyntaxKind.UndefinedKeyword || t.kind === ts.SyntaxKind.NullKeyword
+    || (ts.isLiteralTypeNode(t) && t.literal.kind === ts.SyntaxKind.NullKeyword);
 }
 
 /** Introspect every `.d.ts` under a package dir; dedupe by class name. */
