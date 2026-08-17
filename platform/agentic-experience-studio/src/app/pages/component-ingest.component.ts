@@ -33,11 +33,16 @@ interface IngestJob {
         <section class="card">
           <div class="tabs">
             <button [class.on]="mode() === 'npm'" (click)="mode.set('npm')">npm package</button>
+            <button [class.on]="mode() === 'url'" (click)="mode.set('url')">Tarball URL</button>
             <button [class.on]="mode() === 'file'" (click)="mode.set('file')">Upload archive</button>
           </div>
           @if (mode() === 'npm') {
             <label class="lbl">npm spec</label>
             <input class="input" [(ngModel)]="npmSpec" placeholder="&#64;progress/kendo-angular-buttons@16.0.0" (keydown.enter)="ingest()" />
+          } @else if (mode() === 'url') {
+            <label class="lbl">Tarball URL (.tgz)</label>
+            <input class="input" [(ngModel)]="url" placeholder="https://…/my-lib-1.0.0.tgz" (keydown.enter)="ingest()" />
+            <p class="muted sm" style="margin-top:6px">A direct link to a packed library tarball — e.g. an npm registry URL or a release asset.</p>
           } @else {
             <label class="lbl">Library archive (.tgz / .zip)</label>
             <input type="file" accept=".tgz,.gz,.zip" (change)="onFile($event)" />
@@ -96,15 +101,19 @@ interface IngestJob {
 export class ComponentIngestComponent {
   private readonly base = environment.ingestUrl;
 
-  protected readonly mode = signal<'npm' | 'file'>('npm');
+  protected readonly mode = signal<'npm' | 'url' | 'file'>('npm');
   protected readonly npmSpec = signal('');
+  protected readonly url = signal('');
   protected readonly file = signal<File | null>(null);
   protected readonly job = signal<IngestJob | null>(null);
   protected readonly busy = signal(false);
   protected readonly polling = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  protected readonly canIngest = computed(() => this.mode() === 'npm' ? this.npmSpec().trim().length > 0 : this.file() !== null);
+  protected readonly canIngest = computed(() =>
+    this.mode() === 'npm' ? this.npmSpec().trim().length > 0
+    : this.mode() === 'url' ? /^https?:\/\/\S+/.test(this.url().trim())
+    : this.file() !== null);
   protected readonly logText = computed(() => (this.job()?.log ?? []).join('\n'));
 
   protected onFile(e: Event): void { this.file.set((e.target as HTMLInputElement).files?.[0] ?? null); }
@@ -119,9 +128,10 @@ export class ComponentIngestComponent {
         fd.append('file', this.file()!);
         res = await fetch(`${this.base}/ingest`, { method: 'POST', body: fd });
       } else {
+        const payload = this.mode() === 'url' ? { url: this.url().trim() } : { npm: this.npmSpec().trim() };
         res = await fetch(`${this.base}/ingest`, {
           method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ npm: this.npmSpec().trim() }),
+          body: JSON.stringify(payload),
         });
       }
       const data = (await res.json()) as { jobId?: string; error?: string };
@@ -152,6 +162,6 @@ export class ComponentIngestComponent {
   }
 
   protected reset(): void {
-    this.job.set(null); this.npmSpec.set(''); this.file.set(null); this.error.set(null);
+    this.job.set(null); this.npmSpec.set(''); this.url.set(''); this.file.set(null); this.error.set(null);
   }
 }

@@ -5,7 +5,7 @@
  * status is reported through the JobStore.
  */
 import { execFile } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { introspectLibrary } from './introspect.js';
 import { generateCapabilityTs, componentCatalogBody, type RemoteMeta } from './generate.js';
@@ -16,8 +16,11 @@ import type { JobStore } from './jobs.js';
 import type { RegistryStore } from './registry.js';
 
 export interface IngestInput {
-  /** An npm spec (`@progress/kendo-angular-buttons@1.2.3`) OR a path to a `.tgz`/`.zip`. */
+  /** An npm spec (`@progress/kendo-angular-buttons@1.2.3`). */
   readonly npm?: string;
+  /** A URL to a `.tgz` tarball (e.g. an npm registry / release asset URL). */
+  readonly url?: string;
+  /** A local path to an uploaded `.tgz`/`.zip`. */
   readonly archivePath?: string;
 }
 
@@ -102,10 +105,16 @@ async function unpack(input: IngestInput, jobDir: string, log: (l: string) => vo
     log(`npm pack ${input.npm}`);
     await sh('npm', ['pack', input.npm, '--pack-destination', jobDir], jobDir, log);
     tgz = firstFile(jobDir, '.tgz');
+  } else if (input.url) {
+    log(`download ${input.url}`);
+    const res = await fetch(input.url);
+    if (!res.ok) throw new Error(`download failed: ${res.status} ${res.statusText}`);
+    tgz = join(jobDir, 'download.tgz');
+    writeFileSync(tgz, Buffer.from(await res.arrayBuffer()));
   } else if (input.archivePath) {
     tgz = input.archivePath;
   } else {
-    throw new Error('provide { npm } or { archivePath }');
+    throw new Error('provide { npm }, { url }, or { archivePath }');
   }
   // npm/library tarballs unpack to a top-level `package/` dir.
   await sh('tar', ['-xzf', tgz, '-C', dest, '--strip-components', '1'], jobDir, log);
