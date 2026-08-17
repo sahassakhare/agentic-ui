@@ -35,6 +35,33 @@ function fixtureLib(): string {
   return dir;
 }
 
+/** A PrimeNG-style library: entry points declared only via the package.json `exports` map. */
+function exportsMapLib(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'lib-'));
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({
+    name: 'primeng', version: '22.0.0', type: 'module',
+    exports: {
+      './package.json': { default: './package.json' },
+      '.': { types: './types/primeng.d.ts', default: './fesm/primeng.mjs' },       // root re-exports nothing
+      './accordion': { types: './types/primeng-accordion.d.ts', default: './fesm/primeng-accordion.mjs' },
+      './button': { types: './types/primeng-button.d.ts', default: './fesm/primeng-button.mjs' },
+    },
+  }));
+  mkdirSync(join(dir, 'types'));
+  writeFileSync(join(dir, 'types', 'primeng.d.ts'), 'export { };');
+  writeFileSync(join(dir, 'types', 'primeng-accordion.d.ts'), [
+    'import * as i0 from "@angular/core";',
+    'export declare class Accordion {', cmp('Accordion', 'p-accordion', true), '}',
+    'export { Accordion };',
+  ].join('\n'));
+  writeFileSync(join(dir, 'types', 'primeng-button.d.ts'), [
+    'import * as i0 from "@angular/core";',
+    'export declare class Button {', cmp('Button', 'p-button', true), '}',
+    'export { Button };',
+  ].join('\n'));
+  return dir;
+}
+
 describe('introspectLibrary', () => {
   const found = introspectLibrary(fixtureLib());
   const byClass = new Map(found.map((c) => [c.className, c]));
@@ -45,5 +72,12 @@ describe('introspectLibrary', () => {
   it('resolves each component to its secondary entry-point import path', () => {
     expect(byClass.get('ButtonComponent')!.importPath).toBe('fancy-ui/button');
     expect(byClass.get('TableComponent')!.importPath).toBe('fancy-ui/table');   // followed `export *`
+  });
+
+  it('resolves entry points from a package.json `exports` map (PrimeNG shape)', () => {
+    const byCls = new Map(introspectLibrary(exportsMapLib()).map((c) => [c.className, c]));
+    expect([...byCls.keys()].sort()).toEqual(['Accordion', 'Button']);          // root (empty) contributes nothing
+    expect(byCls.get('Accordion')!.importPath).toBe('primeng/accordion');
+    expect(byCls.get('Button')!.importPath).toBe('primeng/button');
   });
 });
