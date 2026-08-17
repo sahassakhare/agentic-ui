@@ -20,7 +20,7 @@ export interface ScaffoldOptions {
 }
 
 export function remotePackageJson(o: ScaffoldOptions): unknown {
-  const ng = o.angularRange ?? '^20.0.0';
+  const ng = o.angularRange ?? '^21.0.0';
   return {
     // No "type":"module" — Angular workspaces are CommonJS at the root, so the
     // CommonJS federation.config.js (`require`/`module.exports`) is read correctly.
@@ -28,8 +28,8 @@ export function remotePackageJson(o: ScaffoldOptions): unknown {
     name: o.remoteName, private: true,
     scripts: { build: `ng build ${o.remoteName}` },
     dependencies: {
-      '@angular/animations': ng, '@angular/common': ng, '@angular/compiler': ng, '@angular/core': ng,
-      '@angular/forms': ng, '@angular/platform-browser': ng, '@angular/router': ng,
+      '@angular/animations': ng, '@angular/cdk': ng, '@angular/common': ng, '@angular/compiler': ng,
+      '@angular/core': ng, '@angular/forms': ng, '@angular/platform-browser': ng, '@angular/router': ng,
       '@angular-architects/native-federation': ng,
       '@infra-tools/agentic-ui': o.agenticUiRange ?? '^1.4.0',
       'es-module-shims': '^1.10.0', rxjs: '^7.8.0', zod: '^3.23.0',

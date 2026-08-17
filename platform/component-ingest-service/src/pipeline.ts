@@ -33,6 +33,8 @@ export interface PipelineCtx {
   readonly registry: RegistryStore;
   /** Where install + ng build run (local in-process, or a sandboxed container). */
   readonly builder: BuildRunner;
+  /** The host platform's Angular version — the remote builds against it (see config). */
+  readonly hostAngularRange: string;
 }
 
 export async function runIngest(jobId: string, input: IngestInput, ctx: PipelineCtx): Promise<void> {
@@ -47,12 +49,26 @@ export async function runIngest(jobId: string, input: IngestInput, ctx: Pipeline
     rmSync(jobDir, { recursive: true, force: true });
     mkdirSync(jobDir, { recursive: true });
 
-    // 1. Unpack the library into <jobDir>/package
+    // 1. Unpack the library into <jobDir>/package (+ a tarball we install from)
     jobs.update(jobId, { phase: 'unpacking' });
-    const pkgDir = await unpack(input, jobDir, log);
-    const pkgJson = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8')) as { name: string; version: string };
+    const { pkgDir, tarball } = await unpack(input, jobDir, log);
+    const pkgJson = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8')) as {
+      name: string; version: string;
+      dependencies?: Record<string, string>; peerDependencies?: Record<string, string>;
+    };
     const meta: RemoteMeta = { remoteName, version: pkgJson.version ?? '0.0.0', packageName: pkgJson.name };
     log(`library: ${meta.packageName}@${meta.version}`);
+
+    // The remote shares Angular as a singleton with the host, so a library built
+    // for a different Angular major can't load — catch it here with clear guidance
+    // instead of a cryptic build/runtime failure.
+    const hostMajor = majorOf(ctx.hostAngularRange);
+    const libNgRange = pkgJson.peerDependencies?.['@angular/core'] ?? pkgJson.dependencies?.['@angular/core'];
+    const libMajor = libNgRange ? majorOf(libNgRange) : null;
+    if (libMajor !== null && hostMajor !== null && libMajor !== hostMajor) {
+      return fail(`${meta.packageName}@${meta.version} requires Angular ${libNgRange} (v${libMajor}), but the platform runs Angular v${hostMajor}. `
+        + `Ingest a version of ${meta.packageName} compatible with Angular ${hostMajor} (e.g. a matching major).`);
+    }
 
     // 2. Introspect components + inputs
     jobs.update(jobId, { phase: 'introspecting' });
@@ -64,7 +80,11 @@ export async function runIngest(jobId: string, input: IngestInput, ctx: Pipeline
     // 3. Scaffold the standalone remote workspace
     jobs.update(jobId, { phase: 'scaffolding' });
     const wsDir = join(jobDir, 'workspace');
-    scaffoldRemote(wsDir, { remoteName, packageName: meta.packageName, packageSpec: `file:${pkgDir}`, port: 4400 },
+    // Install from the tarball (npm copies it into node_modules with its deps as
+    // siblings) — a `file:` link to the unpacked dir leaves the library's fesm
+    // files unable to resolve their own dependencies from the workspace.
+    scaffoldRemote(wsDir,
+      { remoteName, packageName: meta.packageName, packageSpec: `file:${tarball}`, port: 4400, angularRange: ctx.hostAngularRange },
       generateCapabilityTs(meta, components));
 
     // 4 + 5. Install + build — in a sandboxed container (or local, per config).
@@ -96,8 +116,12 @@ export async function runIngest(jobId: string, input: IngestInput, ctx: Pipeline
   }
 }
 
-/** Resolve an npm spec (via `npm pack`) or an archive into a package dir with a package.json. */
-async function unpack(input: IngestInput, jobDir: string, log: (l: string) => void): Promise<string> {
+/**
+ * Resolve an npm spec / URL / uploaded archive into both an unpacked package dir
+ * (for introspection) and a `.tgz` tarball (installed via `file:` so npm copies
+ * the library + its deps into the workspace node_modules).
+ */
+async function unpack(input: IngestInput, jobDir: string, log: (l: string) => void): Promise<{ pkgDir: string; tarball: string }> {
   const dest = join(jobDir, 'package');
   mkdirSync(dest, { recursive: true });
   let tgz: string;
@@ -111,6 +135,14 @@ async function unpack(input: IngestInput, jobDir: string, log: (l: string) => vo
     if (!res.ok) throw new Error(`download failed: ${res.status} ${res.statusText}`);
     tgz = join(jobDir, 'download.tgz');
     writeFileSync(tgz, Buffer.from(await res.arrayBuffer()));
+  } else if (input.archivePath && /\.zip$/i.test(input.archivePath)) {
+    // A zip can't be `npm install`ed — unzip, find the package root, repack to a tgz.
+    const unz = join(jobDir, 'unzipped');
+    mkdirSync(unz, { recursive: true });
+    await sh('unzip', ['-q', input.archivePath, '-d', unz], jobDir, log);
+    const root = findPackageRoot(unz);
+    await sh('npm', ['pack', root, '--pack-destination', jobDir], jobDir, log);
+    tgz = firstFile(jobDir, '.tgz');
   } else if (input.archivePath) {
     tgz = input.archivePath;
   } else {
@@ -119,7 +151,23 @@ async function unpack(input: IngestInput, jobDir: string, log: (l: string) => vo
   // npm/library tarballs unpack to a top-level `package/` dir.
   await sh('tar', ['-xzf', tgz, '-C', dest, '--strip-components', '1'], jobDir, log);
   if (!existsSync(join(dest, 'package.json'))) throw new Error('archive has no package.json at its root');
-  return dest;
+  return { pkgDir: dest, tarball: tgz };
+}
+
+/** Find the dir containing package.json within an unzipped archive (root or one level down). */
+function findPackageRoot(dir: string): string {
+  if (existsSync(join(dir, 'package.json'))) return dir;
+  for (const name of readdirSync(dir)) {
+    const sub = join(dir, name);
+    if (existsSync(join(sub, 'package.json'))) return sub;
+  }
+  throw new Error('zip has no package.json at its root or first level');
+}
+
+/** Major version from a semver range like `^21.0.0` / `>=20 <22` → 21 / 20 (first number seen). */
+function majorOf(range: string): number | null {
+  const m = range.match(/(\d+)/);
+  return m ? Number(m[1]) : null;
 }
 
 function firstFile(dir: string, ext: string): string {
