@@ -79,13 +79,36 @@ the job phases + build log, and see the discovered components. Once registered t
 appear in the Components list and the Page/Form designers' surface pickers. The Studio
 reads the service URL from `environment.ingestUrl` (default `http://localhost:4320`).
 
-## Status & limitations
+## Build sandbox (B3)
+
+Ingesting a library runs its `npm install` (postinstall scripts) + `ng build` — arbitrary
+code. The build step is a pluggable **`BuildRunner`** (`build-runner.ts`), selected by
+`BUILD_SANDBOX`:
+
+- **`local`** (default) — runs in-process. **Trusted operator only.** `/health` reports
+  `"sandbox":"local"`.
+- **`docker`** — runs each build in an **ephemeral container** (`docker run --rm`) that can
+  only touch the mounted workspace: `--cap-drop ALL`, `--security-opt no-new-privileges`,
+  `--memory`/`--cpus`/`--pids-limit`, a **read-only rootfs** + tmpfs `/tmp`, and all writes
+  (node_modules, npm cache, HOME) confined to `/work`. Set `BUILD_NETWORK=none` to require
+  pre-fetched deps (no egress); default `bridge` reaches the npm registry.
+
+```bash
+BUILD_SANDBOX=docker BUILD_IMAGE=node:20-bookworm BUILD_MEMORY=4g BUILD_CPUS=2 npm start
+```
+
+Env: `BUILD_IMAGE`, `BUILD_MEMORY` (4g), `BUILD_CPUS` (2), `BUILD_PIDS_LIMIT` (512),
+`BUILD_NETWORK` (bridge|none), `BUILD_READONLY_ROOT` (true), `BUILD_TIMEOUT_MS`.
+
+> A locked-down **egress proxy** (npm-registry-only) is the recommended further hardening
+> for `bridge` mode; `network: none` with a pre-populated cache is the strongest.
+
+## Status
 
 - **Verified in-repo:** the deterministic core — `introspect` (Ivy `.d.ts` parsing +
   input-type classification), `generate` (typed schemas + catalog bodies), `scaffold`
-  (workspace), `sanitizeRemote` — **15 unit tests** (`npm test`); the service + Studio typecheck/build.
+  (workspace), `dockerArgs` (sandbox flags), `sanitizeRemote` — **20 unit tests**
+  (`npm test`); the service + Studio typecheck/build.
 - **Requires a real run:** `npm install` + `ng build` of an actual library is heavy
-  (minutes, ~GB) and runs when you `POST /ingest` — not exercised by the unit tests.
-- **B3 (hardening, NOT done):** the build runs arbitrary uploaded code — run each job
-  in a **sandboxed worker** (container, egress allow-list, resource/time limits) before
-  exposing this beyond a trusted operator. **Not yet sandboxed.**
+  (minutes, ~GB) and runs when you `POST /ingest` — not exercised by the unit tests;
+  the `docker` runner additionally requires a Docker daemon.

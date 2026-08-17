@@ -11,6 +11,7 @@ import { introspectLibrary } from './introspect.js';
 import { generateCapabilityTs, componentCatalogBody, type RemoteMeta } from './generate.js';
 import { scaffoldRemote } from './scaffold.js';
 import { registerComponents, type CatalogTarget } from './catalog.js';
+import type { BuildRunner } from './build-runner.js';
 import type { JobStore } from './jobs.js';
 import type { RegistryStore } from './registry.js';
 
@@ -27,6 +28,8 @@ export interface PipelineCtx {
   readonly catalog: CatalogTarget;
   readonly jobs: JobStore;
   readonly registry: RegistryStore;
+  /** Where install + ng build run (local in-process, or a sandboxed container). */
+  readonly builder: BuildRunner;
 }
 
 export async function runIngest(jobId: string, input: IngestInput, ctx: PipelineCtx): Promise<void> {
@@ -61,13 +64,10 @@ export async function runIngest(jobId: string, input: IngestInput, ctx: Pipeline
     scaffoldRemote(wsDir, { remoteName, packageName: meta.packageName, packageSpec: `file:${pkgDir}`, port: 4400 },
       generateCapabilityTs(meta, components));
 
-    // 4. Install
+    // 4 + 5. Install + build — in a sandboxed container (or local, per config).
     jobs.update(jobId, { phase: 'installing' });
-    await sh('npm', ['install', '--no-audit', '--no-fund'], wsDir, log);
-
-    // 5. Build (native federation)
     jobs.update(jobId, { phase: 'building' });
-    await sh('npx', ['ng', 'build', remoteName, '--configuration', 'production'], wsDir, log);
+    await ctx.builder.build(wsDir, remoteName, log);
     const distDir = join(wsDir, 'dist', remoteName);
     if (!existsSync(join(distDir, 'remoteEntry.json'))) return fail('build did not emit remoteEntry.json');
 

@@ -17,13 +17,20 @@ import { CONFIG } from './config.js';
 import { JobStore } from './jobs.js';
 import { RegistryStore, parseSeed } from './registry.js';
 import { runIngest, type IngestInput } from './pipeline.js';
+import { DockerBuildRunner, LocalBuildRunner, type BuildRunner } from './build-runner.js';
 
 const jobs = new JobStore();
 const registry = new RegistryStore(CONFIG.registryFile, parseSeed(CONFIG.seedRemotes));
+const builder: BuildRunner = CONFIG.buildSandbox === 'docker'
+  ? new DockerBuildRunner({
+      image: CONFIG.buildImage, memory: CONFIG.buildMemory, cpus: CONFIG.buildCpus,
+      pidsLimit: CONFIG.buildPidsLimit, network: CONFIG.buildNetwork, readOnlyRoot: CONFIG.buildReadOnlyRoot,
+    }, CONFIG.buildTimeoutMs)
+  : new LocalBuildRunner(CONFIG.buildTimeoutMs);
 const app = new Hono();
 app.use('*', cors());
 
-app.get('/health', (c) => c.json({ status: 'ok' }));
+app.get('/health', (c) => c.json({ status: 'ok', sandbox: CONFIG.buildSandbox }));
 app.get('/registry.json', (c) => c.json(registry.doc()));
 
 app.post('/ingest', async (c) => {
@@ -46,7 +53,7 @@ app.post('/ingest', async (c) => {
   // Fire and forget; the client polls GET /ingest/:jobId.
   void runIngest(job.id, input, {
     workDir: CONFIG.workDir, artifactDir: CONFIG.artifactDir, publicUrl: CONFIG.publicUrl,
-    catalog: { catalogUrl: CONFIG.catalogUrl, tenant: CONFIG.tenant }, jobs, registry,
+    catalog: { catalogUrl: CONFIG.catalogUrl, tenant: CONFIG.tenant }, jobs, registry, builder,
   });
   return c.json({ jobId: job.id, remoteName }, 202);
 });
