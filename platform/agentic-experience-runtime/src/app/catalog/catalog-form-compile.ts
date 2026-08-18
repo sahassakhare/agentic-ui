@@ -17,6 +17,9 @@ export interface CatalogFieldValidation {
   readonly email?: boolean;
 }
 
+/** A field validator resolved by name from a `kind:'validation'` rule. */
+export type FieldValidator = (value: unknown) => string | null;
+
 /** One authored field (mirrors the Studio's `SchemaField`, runtime-local). */
 export interface CatalogFormField {
   readonly name: string;
@@ -25,6 +28,8 @@ export interface CatalogFormField {
   readonly required?: boolean;
   readonly options?: readonly string[];
   readonly validation?: CatalogFieldValidation;
+  /** Names of `kind:'validation'` rules to enforce on this field. */
+  readonly validators?: readonly string[];
 }
 
 /**
@@ -32,7 +37,10 @@ export interface CatalogFormField {
  * design — an unknown field type or a bad pattern degrades to a permissive
  * node rather than throwing, so one malformed field can't blank the form.
  */
-export function fieldsToZod(fields: readonly CatalogFormField[]): ZodTypeAny {
+export function fieldsToZod(
+  fields: readonly CatalogFormField[],
+  resolveRule?: (name: string) => FieldValidator | undefined,
+): ZodTypeAny {
   const shape: Record<string, ZodTypeAny> = {};
   for (const f of fields) {
     if (!f?.name || f.type === 'section') continue;
@@ -63,10 +71,31 @@ export function fieldsToZod(fields: readonly CatalogFormField[]): ZodTypeAny {
         node = z.unknown();
     }
     node = applyConstraints(node, f.validation);
+    node = applyNamedValidators(node, f.validators, resolveRule);
     if (!f.required) node = node.optional();
     shape[f.name] = node;
   }
   return z.object(shape);
+}
+
+/** Fold named `kind:'validation'` rules onto a field as Zod refinements. */
+function applyNamedValidators(
+  node: ZodTypeAny,
+  validators: readonly string[] | undefined,
+  resolveRule: ((name: string) => FieldValidator | undefined) | undefined,
+): ZodTypeAny {
+  if (!validators?.length || !resolveRule) return node;
+  let n = node;
+  for (const name of validators) {
+    const validate = resolveRule(name);
+    if (!validate) continue; // rule not (yet) registered — don't block the field
+    // An empty optional field passes; the rule only judges a present value.
+    n = n.refine(
+      (val) => val == null || validate(val) == null,
+      (val) => ({ message: validate(val) ?? 'Invalid value' }),
+    );
+  }
+  return n;
 }
 
 /** Fold inline constraints onto a string/number node; ignore anything invalid. */
