@@ -3,6 +3,7 @@ import {
   provideBrowserGlobalErrorListeners, provideZonelessChangeDetection, provideAppInitializer,
 } from '@angular/core';
 import { provideRouter, withComponentInputBinding, type Routes } from '@angular/router';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { loadRemoteModule } from '@angular-architects/native-federation';
 import {
   provideAgenticUiPlatform, provideAgUiBackend,
@@ -54,6 +55,9 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
+    // Ingested libraries (e.g. PrimeNG) use Angular animations; provide them so
+    // their components mount instead of throwing on a synthetic @-property.
+    provideAnimationsAsync(),
     provideRouter(routes, withComponentInputBinding()),
     provideAgenticUiPlatform({
       widgets: [...widgets, ...dashboardWidgets, ...shellWidgets],
