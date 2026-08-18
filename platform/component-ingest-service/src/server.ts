@@ -11,12 +11,13 @@ import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONFIG } from './config.js';
 import { JobStore } from './jobs.js';
 import { RegistryStore, parseSeed } from './registry.js';
-import { runIngest, type IngestInput } from './pipeline.js';
+import { runIngest, type IngestInput, type PipelineCtx } from './pipeline.js';
+import { unregisterComponents } from './catalog.js';
 import { DockerBuildRunner, LocalBuildRunner, type BuildRunner } from './build-runner.js';
 
 const jobs = new JobStore();
@@ -30,8 +31,57 @@ const builder: BuildRunner = CONFIG.buildSandbox === 'docker'
 const app = new Hono();
 app.use('*', cors());
 
+/** The pipeline context shared by /ingest and /admin/remotes/:name/reingest. */
+function pipelineCtx(): PipelineCtx {
+  return {
+    workDir: CONFIG.workDir, artifactDir: CONFIG.artifactDir, publicUrl: CONFIG.publicUrl,
+    catalog: { catalogUrl: CONFIG.catalogUrl, tenant: CONFIG.tenant }, jobs, registry, builder,
+    hostAngularRange: CONFIG.hostAngularRange, extraSkip: CONFIG.extraSkip, extraDeps: CONFIG.extraDeps,
+  };
+}
+const catalogTarget = { catalogUrl: CONFIG.catalogUrl, tenant: CONFIG.tenant };
+
 app.get('/health', (c) => c.json({ status: 'ok', sandbox: CONFIG.buildSandbox }));
 app.get('/registry.json', (c) => c.json(registry.doc()));
+
+// ── MFE admin (Studio's MFEs page) ──────────────────────────────────────────
+/** Full remote records incl. admin metadata (source, ingestedAt, disabled). */
+app.get('/admin/remotes', (c) => c.json({ remotes: registry.adminList() }));
+
+/** Enable/disable a remote — disabled remotes are omitted from /registry.json. */
+app.patch('/admin/remotes/:name', async (c) => {
+  const name = c.req.param('name');
+  const body = (await c.req.json().catch(() => ({}))) as { disabled?: boolean };
+  if (typeof body.disabled !== 'boolean') return c.json({ error: 'body must be { disabled: boolean }' }, 400);
+  return registry.setDisabled(name, body.disabled)
+    ? c.json({ remote: registry.get(name) })
+    : c.json({ error: 'remote not found' }, 404);
+});
+
+/** Remove a remote: registry entry + served artifacts + its catalog component rows. */
+app.delete('/admin/remotes/:name', async (c) => {
+  const name = c.req.param('name');
+  if (!registry.get(name)) return c.json({ error: 'remote not found' }, 404);
+  registry.remove(name);
+  rmSync(join(CONFIG.artifactDir, 'remotes', name), { recursive: true, force: true });
+  const { removed } = await unregisterComponents(catalogTarget, name);
+  return c.json({ removed: true, catalogRowsRemoved: removed });
+});
+
+/** Rebuild a remote from its stored ingest source (npm/url). */
+app.post('/admin/remotes/:name/reingest', (c) => {
+  const name = c.req.param('name');
+  const rec = registry.get(name);
+  if (!rec) return c.json({ error: 'remote not found' }, 404);
+  const source = rec.source;
+  if (!source?.npm && !source?.url) {
+    return c.json({ error: 'no re-ingestable source (seeded or file-uploaded remote) — re-upload it' }, 400);
+  }
+  const input: IngestInput & { remoteName?: string } = { ...source, remoteName: name };
+  const job = jobs.create(name, new Date().toISOString());
+  void runIngest(job.id, input, pipelineCtx());
+  return c.json({ jobId: job.id, remoteName: name }, 202);
+});
 
 app.post('/ingest', async (c) => {
   let input: IngestInput & { remoteName?: string };
@@ -55,11 +105,7 @@ app.post('/ingest', async (c) => {
   const remoteName = sanitizeRemote(input.remoteName ?? input.npm ?? input.url ?? input.archivePath ?? 'remote');
   const job = jobs.create(remoteName, new Date().toISOString());
   // Fire and forget; the client polls GET /ingest/:jobId.
-  void runIngest(job.id, input, {
-    workDir: CONFIG.workDir, artifactDir: CONFIG.artifactDir, publicUrl: CONFIG.publicUrl,
-    catalog: { catalogUrl: CONFIG.catalogUrl, tenant: CONFIG.tenant }, jobs, registry, builder,
-    hostAngularRange: CONFIG.hostAngularRange, extraSkip: CONFIG.extraSkip, extraDeps: CONFIG.extraDeps,
-  });
+  void runIngest(job.id, input, pipelineCtx());
   return c.json({ jobId: job.id, remoteName }, 202);
 });
 

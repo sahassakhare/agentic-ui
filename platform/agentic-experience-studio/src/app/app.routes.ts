@@ -139,6 +139,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/component-ingest.component').then((m) => m.ComponentIngestComponent),
   },
   {
+    path: 'mfes',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/mfe-registry.component').then((m) => m.MfeRegistryComponent),
+  },
+  {
     path: 'forms',
     canActivate: [authGuard],
     data: { config: FORM_STUDIO },
