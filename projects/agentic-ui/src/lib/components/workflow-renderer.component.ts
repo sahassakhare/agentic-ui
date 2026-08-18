@@ -19,7 +19,8 @@ import {
   type FormDef,
   type WorkflowStep,
 } from '../internal';
-import { resolveNext } from '../workflow/resolve-next';
+import { resolveNext, resolveNextAsync } from '../workflow/resolve-next';
+import { AGENTIC_DECISION_EVALUATOR } from '../workflow/decision-evaluator';
 
 /**
  * Renders a multi-step workflow form by name (Capability F3 — provisional,
@@ -118,6 +119,7 @@ export class WorkflowRendererComponent {
   private readonly store = inject(CompositionStore);
   private readonly hostInjector = inject(Injector);
   private readonly telemetry = inject(AGENTIC_TELEMETRY_SINK);
+  private readonly decisionEval = inject(AGENTIC_DECISION_EVALUATOR);
 
   protected readonly form = computed<FormDef | undefined>(() => this.forms.get(this.formName()));
 
@@ -211,7 +213,7 @@ export class WorkflowRendererComponent {
     return this.visited().has(id);
   }
 
-  protected next(): void {
+  protected async next(): Promise<void> {
     const def = this.form();
     const step = this.currentStep();
     if (!def?.workflow || !step) return;
@@ -221,7 +223,9 @@ export class WorkflowRendererComponent {
 
     let target: string | null;
     try {
-      target = resolveNext(step.next, state);
+      // Async so a DecisionNext step can run the governed decision evaluator;
+      // all other transition forms resolve synchronously inside resolveNextAsync.
+      target = await resolveNextAsync(step.next, state, this.decisionEval);
     } catch (err) {
       this.errorMessage.set(`Transition failed: ${describeError(err)}`);
       return;

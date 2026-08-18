@@ -40,6 +40,7 @@ export * from './lib/platform';
 // Was @infra-tools/agentic-ui/components
 export * from './lib/components';
 export * from './lib/workflow/resolve-next';
+export * from './lib/workflow/decision-evaluator';
 
 // Was @infra-tools/agentic-ui/ag-ui, /hashbrown, /a2ui
 export * from './lib/backends/ag-ui';

@@ -1,15 +1,21 @@
 import { z, type ZodTypeAny } from 'zod';
 import type {
   ConditionalNext,
+  DecisionNext,
   FormDef,
   WorkflowCtx,
   WorkflowDef,
   WorkflowStep,
 } from '../types/registry-defs';
 
-/** A step's `next` is a declarative branch object (vs a string/null/function). */
+/** A step's `next` is a declarative state-branch object (vs a string/null/function). */
 function isConditionalNext(next: unknown): next is ConditionalNext {
   return typeof next === 'object' && next !== null && Array.isArray((next as ConditionalNext).branches);
+}
+
+/** A step's `next` branches on a governed decision's output. */
+function isDecisionNext(next: unknown): next is DecisionNext {
+  return typeof next === 'object' && next !== null && typeof (next as DecisionNext).decision === 'string';
 }
 
 /**
@@ -75,10 +81,11 @@ function validateStep(step: WorkflowStep, workflowName: string): void {
     step.next !== null &&
     typeof step.next !== 'string' &&
     typeof step.next !== 'function' &&
-    !isConditionalNext(step.next)
+    !isConditionalNext(step.next) &&
+    !isDecisionNext(step.next)
   ) {
     throw new AgenticWorkflowError(
-      "Step `next` must be a string, null, a function, or a { branches, default } object",
+      "Step `next` must be a string, null, a function, a { branches, default } object, or a { decision, cases, default } object",
       workflowName,
       step.id,
     );
@@ -143,6 +150,23 @@ export function agenticWorkflow(config: AgenticWorkflowConfig): FormDef {
       if (step.next.default !== null && !seen.has(step.next.default)) {
         throw new AgenticWorkflowError(
           `Branch \`default\` references unknown step ${JSON.stringify(step.next.default)}`,
+          config.name,
+          step.id,
+        );
+      }
+    } else if (isDecisionNext(step.next)) {
+      for (const goto of Object.values(step.next.cases)) {
+        if (typeof goto !== 'string' || !seen.has(goto)) {
+          throw new AgenticWorkflowError(
+            `Decision case \`goto\` references unknown step ${JSON.stringify(goto)}`,
+            config.name,
+            step.id,
+          );
+        }
+      }
+      if (step.next.default !== null && !seen.has(step.next.default)) {
+        throw new AgenticWorkflowError(
+          `Decision \`default\` references unknown step ${JSON.stringify(step.next.default)}`,
           config.name,
           step.id,
         );
