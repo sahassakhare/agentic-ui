@@ -24,6 +24,8 @@ import { CatalogPromptSource } from './catalog/catalog-prompt-source';
 import { CatalogSkillSource } from './catalog/catalog-skill-source';
 import { CatalogNavigationSource } from './catalog/catalog-navigation-source';
 import { CatalogDecisionSource } from './catalog/catalog-decision-source';
+import { DecisionRegistry } from './catalog/decision-registry';
+import { AGENTIC_DECISION_EVALUATOR } from '@infra-tools/agentic-ui';
 import { ApplicationSource } from './catalog/application-source';
 import { PageSource } from './catalog/page-source';
 import { PageHostComponent } from './render/page-host.component';
@@ -132,6 +134,15 @@ export const appConfig: ApplicationConfig = {
       await Promise.all([prompts.hydrate(), skills.hydrate(), nav.hydrate()]);
       prompts.startLiveSync(); skills.startLiveSync(); nav.startLiveSync();
     }),
+    // Let the workflow engine branch on a governed decision: the lib's
+    // AGENTIC_DECISION_EVALUATOR seam, backed by the Hub's DecisionRegistry.
+    {
+      provide: AGENTIC_DECISION_EVALUATOR,
+      useFactory: () => {
+        const registry = inject(DecisionRegistry);
+        return { evaluate: async (decision: string, input: Readonly<Record<string, unknown>>) => registry.evaluate(decision, input as Record<string, unknown>)?.outputs ?? null };
+      },
+    },
     provideAppInitializer(async () => {
       // Decisions → DecisionRegistry + an executable tool per decision.
       const decisions = inject(CatalogDecisionSource);

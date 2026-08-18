@@ -610,6 +610,24 @@ export interface ConditionalNext {
   readonly default: string | null;
 }
 
+/**
+ * Serializable decision-driven transition — evaluate a governed `kind:'decision'`
+ * against the workflow's aggregated state, then branch on one of its outputs.
+ * The decision runs through the host-provided evaluator
+ * ({@link AGENTIC_DECISION_EVALUATOR}); `cases` maps an output value → the step to
+ * advance to, falling back to `default`. Persists in the catalog + Studio-authorable.
+ */
+export interface DecisionNext {
+  /** Name of the `kind:'decision'` capability to evaluate. */
+  readonly decision: string;
+  /** Which decision output to branch on (defaults to the decision's first output). */
+  readonly output?: string;
+  /** Map a decision output value → the step id to advance to. */
+  readonly cases: Readonly<Record<string, string>>;
+  /** Step to advance to when no case matches (or the decision can't evaluate); `null` is terminal. */
+  readonly default: string | null;
+}
+
 export interface WorkflowStep {
   /** Unique step id within this workflow. */
   readonly id: string;
@@ -620,12 +638,14 @@ export interface WorkflowStep {
   /**
    * Transition target. `string` advances unconditionally; `null` is terminal;
    * a `(state)=>string|null` function branches in code; a {@link ConditionalNext}
-   * object branches declaratively (serializable + Studio-authorable).
+   * object branches declaratively on state; a {@link DecisionNext} branches on a
+   * governed decision's output (both serializable + Studio-authorable).
    */
   readonly next:
     | string
     | null
     | ConditionalNext
+    | DecisionNext
     | ((state: Readonly<Record<string, unknown>>) => string | null);
 }
 

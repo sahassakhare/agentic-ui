@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { resolveNext, evalWorkflowCondition, isConditionalNext } from './resolve-next';
-import type { ConditionalNext } from '../types/registry-defs';
+import { resolveNext, resolveNextAsync, evalWorkflowCondition, isConditionalNext, isDecisionNext } from './resolve-next';
+import type { ConditionalNext, DecisionNext } from '../types/registry-defs';
+import type { DecisionEvaluator } from './decision-evaluator';
 
 /**
  * Conditional-branch workflow transitions (gap B3). `resolveNext` is the single
@@ -55,5 +56,53 @@ describe('isConditionalNext', () => {
     expect(isConditionalNext('review')).toBe(false);
     expect(isConditionalNext(null)).toBe(false);
     expect(isConditionalNext(() => null)).toBe(false);
+  });
+});
+
+describe('isDecisionNext', () => {
+  it('detects the decision-branch form only', () => {
+    expect(isDecisionNext({ decision: 'route', cases: {}, default: null })).toBe(true);
+    expect(isDecisionNext({ branches: [], default: null })).toBe(false);
+    expect(isDecisionNext('review')).toBe(false);
+    expect(isDecisionNext(null)).toBe(false);
+  });
+});
+
+describe('resolveNextAsync — DecisionNext', () => {
+  const dn: DecisionNext = {
+    decision: 'route-approval',
+    output: 'route',
+    cases: { 'senior-review': 'escalation', 'auto-approve': 'done' },
+    default: 'manual',
+  };
+  // Evaluator that echoes a fixed route based on the state's amount.
+  const evaluator: DecisionEvaluator = {
+    evaluate: async (name, input) =>
+      name === 'route-approval'
+        ? { route: Number(input['amount']) > 10000 ? 'senior-review' : 'auto-approve' }
+        : null,
+  };
+
+  it('maps a decision output value to its case step', async () => {
+    expect(await resolveNextAsync(dn, { amount: 25000 }, evaluator)).toBe('escalation');
+    expect(await resolveNextAsync(dn, { amount: 100 }, evaluator)).toBe('done');
+  });
+  it('falls back to default when the output has no case', async () => {
+    const other: DecisionEvaluator = { evaluate: async () => ({ route: 'unknown-value' }) };
+    expect(await resolveNextAsync(dn, {}, other)).toBe('manual');
+  });
+  it('falls back to default when the decision does not evaluate', async () => {
+    const none: DecisionEvaluator = { evaluate: async () => null };
+    expect(await resolveNextAsync(dn, {}, none)).toBe('manual');
+  });
+  it('uses the first output when no output key is named', async () => {
+    const noKey: DecisionNext = { decision: 'x', cases: { yes: 'a' }, default: 'b' };
+    const ev: DecisionEvaluator = { evaluate: async () => ({ result: 'yes' }) };
+    expect(await resolveNextAsync(noKey, {}, ev)).toBe('a');
+  });
+  it('delegates non-decision forms to the sync resolver', async () => {
+    const ev: DecisionEvaluator = { evaluate: async () => null };
+    expect(await resolveNextAsync('review', {}, ev)).toBe('review');
+    expect(await resolveNextAsync(null, {}, ev)).toBeNull();
   });
 });

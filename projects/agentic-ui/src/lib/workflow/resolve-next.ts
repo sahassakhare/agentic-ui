@@ -1,8 +1,14 @@
-import type { ConditionalNext, WorkflowCondition, WorkflowStep } from '../types/registry-defs';
+import type { ConditionalNext, DecisionNext, WorkflowCondition, WorkflowStep } from '../types/registry-defs';
+import type { DecisionEvaluator } from './decision-evaluator';
 
 /** True when `next` is the declarative {@link ConditionalNext} data form. */
 export function isConditionalNext(next: WorkflowStep['next']): next is ConditionalNext {
   return typeof next === 'object' && next !== null && Array.isArray((next as ConditionalNext).branches);
+}
+
+/** True when `next` is the {@link DecisionNext} (branch on a governed decision) data form. */
+export function isDecisionNext(next: WorkflowStep['next']): next is DecisionNext {
+  return typeof next === 'object' && next !== null && typeof (next as DecisionNext).decision === 'string';
 }
 
 /** Evaluate one serializable condition against the aggregated workflow state. */
@@ -32,9 +38,34 @@ export function resolveNext(
   if (next === null) return null;
   if (typeof next === 'string') return next;
   if (typeof next === 'function') return next(state);
+  // DecisionNext can't evaluate synchronously — fall back to its `default`.
+  // `resolveNextAsync` handles the real decision-driven branch.
+  if (isDecisionNext(next)) return next.default;
   // ConditionalNext — first matching branch, else default.
   for (const b of next.branches) {
     if (evalWorkflowCondition(b.when, state)) return b.goto;
   }
   return next.default;
+}
+
+/**
+ * Async variant of {@link resolveNext} that resolves a {@link DecisionNext} by
+ * running the host {@link DecisionEvaluator} against the workflow state, then
+ * mapping the chosen decision output through `cases` (else `default`). Every
+ * non-decision form delegates to the pure synchronous {@link resolveNext}.
+ */
+export async function resolveNextAsync(
+  next: WorkflowStep['next'],
+  state: Readonly<Record<string, unknown>>,
+  evaluator: DecisionEvaluator,
+): Promise<string | null> {
+  if (isDecisionNext(next)) {
+    const outputs = await evaluator.evaluate(next.decision, state);
+    if (outputs) {
+      const value = next.output ? outputs[next.output] : Object.values(outputs)[0];
+      if (value != null && next.cases[value] != null) return next.cases[value];
+    }
+    return next.default;
+  }
+  return resolveNext(next, state);
 }
