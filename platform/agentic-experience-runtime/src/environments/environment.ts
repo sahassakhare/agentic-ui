@@ -30,4 +30,8 @@ export const environment = {
   authMode: 'disabled' as 'oidc' | 'disabled',
   ssoAuthorizeUrl: 'http://127.0.0.1:9100/authorize',
   ssoTokenUrl: 'http://127.0.0.1:9100/token',
+  // Secrets referenced by data-source headers as `${NAME}` (e.g. an API token).
+  // Kept out of the catalog body — a data source stores only the ref. Populate
+  // this from your deployment's config; empty in local dev.
+  dataSourceSecrets: {} as Record<string, string>,
 };

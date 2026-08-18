@@ -165,17 +165,21 @@ export const FORM_STUDIO: StudioConfig = {
   ],
 };
 
-/** Data Source Registry — `datasource`-kind capabilities. A form field or submit
- *  references one by name (governed); the platform resolves it — never a raw URL. */
+/** Data Source Registry — `datasource`-kind capabilities. Tools and form fields
+ *  reference one by name (governed). An `api`/`rest` source with an `endpoint` is
+ *  compiled by the Hub's `CatalogDataSource` into a live `fetch`-backed source. */
 export const DATASOURCE_STUDIO: StudioConfig = {
   kind: 'datasource',
   title: 'Data Source Registry',
   noun: 'data source',
   bodyFields: [
-    { key: 'kind', label: 'Type (sql/api/document/vector)', type: 'text', required: true, placeholder: 'sql' },
+    { key: 'kind', label: 'Type (api/rest/sql/document/vector)', type: 'text', required: true, placeholder: 'api' },
     { key: 'description', label: 'Description', type: 'text' },
-    { key: 'connector', label: 'Connector', type: 'text', placeholder: 'postgres / scim / s3' },
-    { key: 'uri', label: 'URI / table / index', type: 'text' },
+    { key: 'endpoint', label: 'API endpoint URL (for api/rest)', type: 'text', placeholder: 'https://crm.example.com/v1' },
+    { key: 'method', label: 'Default method', type: 'text', placeholder: 'GET' },
+    { key: 'headers', label: 'Headers (JSON — use ${SECRET} for tokens)', type: 'json', placeholder: '{ "Authorization": "Bearer ${CRM_TOKEN}" }' },
+    { key: 'connector', label: 'Connector (non-HTTP: postgres / scim / s3)', type: 'text', placeholder: 'postgres / scim / s3' },
+    { key: 'uri', label: 'URI / table / index (non-HTTP)', type: 'text' },
   ],
 };
 
@@ -193,14 +197,22 @@ export const VALIDATION_STUDIO: StudioConfig = {
   ],
 };
 
-/** Tool Registry — `tool`-kind capabilities (agent tools). */
+/** Tool Registry — `tool`-kind capabilities (agent tools). A tool bound to a
+ *  `dataSource` is compiled by the Hub's `CatalogToolSource` into an executable
+ *  tool: the agent's call args fill `{arg}` placeholders in the path/query/body
+ *  and the request goes to the data source's endpoint — no code. */
 export const TOOL_STUDIO: StudioConfig = {
   kind: 'tool',
   title: 'Tool Registry',
   noun: 'tool',
   bodyFields: [
-    { key: 'description', label: 'Description', type: 'text', required: true },
+    { key: 'description', label: 'Description (shown to the assistant)', type: 'text', required: true },
     { key: 'inputs', label: 'Inputs (comma separated)', type: 'list' },
+    { key: 'dataSource', label: 'Data source (name) — makes the tool callable', type: 'text', placeholder: 'crm-api' },
+    { key: 'method', label: 'HTTP method', type: 'text', placeholder: 'GET' },
+    { key: 'path', label: 'Path template ({arg} refs)', type: 'text', placeholder: '/customers/{id}' },
+    { key: 'query', label: 'Query params (JSON — {arg} refs)', type: 'json', placeholder: '{ "q": "{term}" }' },
+    { key: 'body', label: 'Request body (JSON — {arg} refs)', type: 'json', placeholder: '{ "name": "{name}" }' },
     { key: 'version', label: 'Version', type: 'text' },
   ],
 };
