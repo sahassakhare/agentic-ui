@@ -19,6 +19,11 @@ function targetsOf(step: JourneyFlowStep): string[] {
   if (n == null) return [];
   if (typeof n === 'string') return [n];
   if (typeof n === 'function') return []; // dynamic — can't statically resolve
+  if ('decision' in n) {
+    const out = Object.values(n.cases).filter(Boolean);
+    if (n.default) out.push(n.default);
+    return out;
+  }
   const out = n.branches.map((b) => b.goto).filter(Boolean);
   if (n.default) out.push(n.default);
   return out;
