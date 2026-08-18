@@ -93,16 +93,18 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 
             <section class="card">
               <div class="eyebrow">Add to <b>{{ activeRegion() }}</b> <span class="muted sm">— click a region, then a block</span></div>
-              @for (g of palette(); track g.category) {
-                <div class="cat">{{ g.category }}</div>
-                @for (it of g.items; track it.kind + ':' + it.name) {
-                  <button class="palette" (click)="add(it)">
-                    <span class="ic" [class.dash]="it.kind === 'dashboard'">{{ glyph(it.kind) }}</span>
-                    <span class="pt"><span class="nm">{{ it.title }}</span><span class="gl">{{ it.kind }} · {{ it.name }}</span></span>
-                    <span class="plus">＋</span>
-                  </button>
+              <div class="palscroll">
+                @for (g of palette(); track g.category) {
+                  <div class="cat">{{ g.category }}</div>
+                  @for (it of g.items; track it.kind + ':' + it.name) {
+                    <button class="palette" (click)="add(it)">
+                      <span class="ic" [class.dash]="it.kind === 'dashboard'">{{ glyph(it.kind) }}</span>
+                      <span class="pt"><span class="nm">{{ it.title }}</span><span class="gl">{{ it.kind }} · {{ it.name }}</span></span>
+                      <span class="plus">＋</span>
+                    </button>
+                  }
                 }
-              }
+              </div>
             </section>
 
             @if (selected(); as sel) {
@@ -200,7 +202,10 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     .btn { font:inherit; padding:9px 16px; border-radius:9px; border:1px solid rgba(120,120,140,.3); background:transparent; color:inherit; cursor:pointer; }
     .btn.primary { background:#6750a4; color:#fff; border-color:#6750a4; font-weight:600; } .btn[disabled] { opacity:.5; }
     .btn.ghost.sm { font-size:12px; padding:6px 10px; margin-top:8px; }
-    .grid { display:grid; grid-template-columns:340px 1fr; gap:18px; }
+    .grid { display:grid; grid-template-columns:340px 1fr; gap:18px; align-items:start; }
+    .col { position:sticky; top:16px; }
+    .palscroll { max-height:46vh; overflow-y:auto; margin-top:6px; }
+    @media (max-width:900px){ .col { position:static; } .palscroll { max-height:none; } }
     .card { border:1px solid rgba(120,120,140,.18); border-radius:14px; padding:16px; margin-bottom:16px; }
     .eyebrow { font-size:11px; text-transform:uppercase; letter-spacing:.06em; opacity:.55; margin-bottom:10px; }
     .muted { opacity:.6; } .sm { font-size:12px; }
