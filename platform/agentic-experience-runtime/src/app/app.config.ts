@@ -4,10 +4,9 @@ import {
 } from '@angular/core';
 import { provideRouter, withComponentInputBinding, type Routes } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import { loadRemoteModule } from '@angular-architects/native-federation';
 import {
   provideAgenticUiPlatform, provideAgUiBackend,
-  provideStaticJsonMfeRegistry, MfeRegistryClient, loadRemoteCapabilities, type CapabilityModule,
+  provideStaticJsonMfeRegistry, MfeRegistryClient, loadRemoteCapabilities, createRemoteLoader,
 } from '@infra-tools/agentic-ui';
 import { widgets, registerCatalog } from './registry/capabilities';
 import { dashboardWidgets, registerDashboards } from './registry/dashboards';
@@ -79,15 +78,12 @@ export const appConfig: ApplicationConfig = {
         const remotes = await client.discover(environment.mfeEnv).catch(() => []);
         await Promise.allSettled(remotes.map((remote) =>
           runInInjectionContext(injector, () =>
-            loadRemoteCapabilities({
-              remote,
-              loader: async () => {
-                const mod = await loadRemoteModule<{ capability: CapabilityModule }>({
-                  remoteName: remote.remoteName, exposedModule: './Capability',
-                });
-                return { capability: mod.capability };
-              },
-            }).catch((err) => console.warn('[hub] MFE load failed:', remote.remoteName, err)),
+            // Type-aware loader: Native Federation is handled directly (by
+            // remoteEntry URL, so remotes discovered at runtime load without a
+            // rebuilt boot manifest); Module Federation remotes need a host-wired
+            // loader (install @module-federation/runtime + pass moduleFederation).
+            loadRemoteCapabilities({ remote, loader: createRemoteLoader(remote) })
+              .catch((err) => console.warn('[hub] MFE load failed:', remote.remoteName, err)),
           ),
         ));
       });

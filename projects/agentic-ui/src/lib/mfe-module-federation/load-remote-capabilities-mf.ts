@@ -2,6 +2,7 @@ import {
   loadRemoteCapabilities,
   type CapabilityModule,
   type LoadedRemote,
+  type RemoteLoader,
   type RemoteSpec,
 } from '../mfe';
 
@@ -29,6 +30,24 @@ export interface LoadRemoteCapabilitiesMFOptions {
   readonly exposedModule?: string;
   readonly prefetchManifest?: boolean;
   readonly fetchFn?: typeof fetch;
+}
+
+/**
+ * Adapt a Module Federation `loadRemote` (from `@module-federation/runtime`, which
+ * handles both MF 2.0 and MF 1.0 remotes) into a {@link RemoteLoader} for
+ * `createRemoteLoader(remote, { moduleFederation: moduleFederationLoader(loadRemote) })`.
+ * The host owns the MF runtime + its `init(...)`, so the library stays free of it.
+ *
+ *   import { init, loadRemote } from '@module-federation/runtime';
+ *   init({ name: 'host', remotes: [{ name: r.remoteName, entry: r.remoteEntry }] });
+ *   const loader = createRemoteLoader(r, { moduleFederation: moduleFederationLoader(loadRemote) });
+ */
+export function moduleFederationLoader(
+  loadRemote: <T>(name: string) => Promise<T>,
+  exposedModule = './Capability',
+): RemoteLoader {
+  return (spec) =>
+    loadRemote<{ readonly capability: CapabilityModule }>(`${spec.remoteName}/${exposedModule.replace(/^\.\//, '')}`);
 }
 
 export function loadRemoteCapabilitiesMF(opts: LoadRemoteCapabilitiesMFOptions): Promise<LoadedRemote> {

@@ -17,6 +17,8 @@ export interface RemoteSpec {
   remoteName: string;
   version: string;
   remoteEntry: string;       // URL of remoteEntry.json
+  /** Federation runtime that built the remote — the ingest service builds native-federation. */
+  type?: 'native-federation' | 'module-federation' | 'module-federation-1';
   env?: string;
   capabilityManifestUrl?: string;
 }
@@ -34,7 +36,7 @@ export interface RemoteRecord extends RemoteSpec {
   ingestedAt?: string;
 }
 
-const SPEC_KEYS: (keyof RemoteSpec)[] = ['remoteName', 'version', 'remoteEntry', 'env', 'capabilityManifestUrl'];
+const SPEC_KEYS: (keyof RemoteSpec)[] = ['remoteName', 'version', 'remoteEntry', 'type', 'env', 'capabilityManifestUrl'];
 
 function toSpec(r: RemoteRecord): RemoteSpec {
   const out: Record<string, unknown> = {};
