@@ -50,6 +50,7 @@ The three runtimes:
 | **AG-UI agent server** | Real LLM (e.g. Gemini) that backs the assistant | `:4111` |
 | **SSO** (optional) | OIDC identity provider | `:9100` |
 | **MFE remotes** | Federated micro-frontends (e.g. Matter Management) | e.g. `:4300` |
+| **Component-ingest service** | Builds an uploaded Angular library into a federated remote + registers its components (§3.8) | `:4320` |
 
 ---
 
@@ -76,7 +77,7 @@ Most of these are powered by a single generic screen, `CapabilityStudioComponent
 | `decision` | `DECISION_STUDIO` | **Decision Designer** | DMN-style decision table |
 | `form` | `FORM_STUDIO` | **Form Designer** | Schema-driven form |
 | `workflow` | — | **Workflow Designer** | Multi-step journey/wizard |
-| `component` | `COMPONENT_STUDIO` | list/edit | A registered/federated component |
+| `component` | `COMPONENT_STUDIO` | list/edit · **⬆ Upload library** (§3.8) | A registered/federated component — host-native, an MFE widget, or ingested from an external library |
 | `prompt` · `skill` · `knowledge` · `memory` · `navigation` · `tool` · `datasource` · `validation` | respective `*_STUDIO` | generic studio | Supporting capabilities |
 
 Each capability moves through a **governed lifecycle**:
@@ -414,14 +415,71 @@ for (const remote of remotes) {
 Once loaded, the remote's widgets (`matter-dashboard`, …) are ordinary surfaces — the
 Studio composes them and the Hub renders them like any local component.
 
-### 3.8 Live sync
+### 3.8 Ingest an external component library (no code)
+
+§3.7 is the *manual* producer path — you write a `capability.ts`, a
+`federation.config.js`, and build the remote yourself. The **component-ingest
+service** (`platform/component-ingest-service`, `:4320`) automates it: upload an
+existing Angular library and it builds a federated remote and registers the
+library's components as `kind:'component'` capabilities — **no code, no host
+redeploy**. It's the same runtime consumption path as §3.7; only the *producing* is
+automated.
+
+**In the Studio.** Go to **Components → ⬆ Upload library** (`/components/upload`).
+Provide the library three ways: an **npm spec** (`primeng@21`), a **tarball URL**
+(a `.tgz` on any host), or an **uploaded archive** (`.tgz` / `.zip`). Then:
+
+1. **Discover components →** — the service unpacks + introspects the library and
+   lists every component it finds (fast; no build yet).
+2. Tick the components you want (filter, select all/none).
+3. **Build N selected →** — it builds *only* those into the remote and registers
+   them. (An **ingest the whole library** shortcut skips selection.)
+
+> **Select a subset for big libraries.** PrimeNG discovers ~173 components;
+> building all of them is slow and memory-hungry and pulls each component's optional
+> peers (e.g. `chart.js` for `p-chart`). Pick the handful you need — the build is
+> then small and fast.
+
+**What the pipeline does** (`src/pipeline.ts`): `unpack → introspect → scaffold a
+standalone Native Federation remote → npm install → ng build → serve
+remoteEntry.json → write registry.json + POST kind:'component' rows to the catalog`.
+Introspection reads the library's shipped `.d.ts` — Ivy encodes each component's
+inputs in `static ɵcmp: ɵɵComponentDeclaration<…>` — so it needs no source, and it
+resolves each component's public import path from the package's `exports` map (e.g.
+`primeng/button`).
+
+**Angular version must match the host.** A remote shares Angular as a **singleton**
+with the host, so the ingested library must target the host's Angular **major**. The
+service builds against `HOST_ANGULAR_RANGE` (default `^21.0.0`) and **fails fast**
+with guidance if the library needs a different major — e.g. ingesting `primeng`
+(latest, Angular 22) against an Angular-21 host is rejected with *"ingest a version
+compatible with Angular 21"*; use `primeng@21`.
+
+**Hub wiring — one env change.** Point the Hub's MFE registry at the service so it
+discovers every ingested remote (no host rebuild):
+
+```ts
+// platform/agentic-experience-runtime/src/environments/environment.ts
+mfeRegistryUrl: 'http://localhost:4320/registry.json',   // was 'mfes.json'
+```
+
+The existing boot loop (§3.7) then loads each remote's `./Capability`, and the
+components show up as surfaces in the Page/Form designers and render in the Hub.
+
+**Config (env):** `HOST_ANGULAR_RANGE` (host Angular, default `^21.0.0`),
+`EXTRA_DEPS` (extra deps to install, e.g. `chart.js@^4.5.1` — defaults cover the
+platform's runtime deps + chart.js), `BUILD_SANDBOX=docker|local` (isolate the
+build — arbitrary uploaded code runs `npm install` + `ng build`), `CATALOG_URL`,
+`PUBLIC_URL`. Run untrusted uploads with `BUILD_SANDBOX=docker`.
+
+### 3.9 Live sync
 
 The Hub hydrates and then keeps in sync with the catalog over SSE. Initializers wire
 `CatalogExperienceSource`, `ApplicationSource`, and `PageSource`, each with
 `startLiveSync()`, so publishing a change in the Studio surfaces in the Hub without a
 reload.
 
-### 3.9 Runtime environment
+### 3.10 Runtime environment
 
 ```ts
 // platform/agentic-experience-runtime/src/environments/environment.ts
@@ -459,6 +517,7 @@ export const environment = {
 | Experience Studio | `npx ng serve agentic-experience-studio` | `:4600` |
 | Experience Hub | `npx ng serve agentic-experience-runtime` | `:4700` |
 | Matter-Management MFE | `npx ng serve matter-management-mfe --port 4300` | `:4300` |
+| Component-ingest service | `cd platform/component-ingest-service && npm run dev` | `:4320` |
 | Agent server | (your AG-UI/Gemini server) | `:4111` |
 
 > Native Federation dev servers should bind `0.0.0.0` (not just IPv6 `[::1]`) so
@@ -520,3 +579,5 @@ omits.
 | `provideAgUiBackend` | `projects/agentic-ui/src/lib/backends/ag-ui/ag-ui-backend.ts` |
 | Chat shell | `projects/agentic-ui/src/lib/components/chat-shell.component.ts` |
 | MFE capability module | `projects/agentic-ui/src/lib/mfe/capability-module.ts` |
+| Component-ingest service | `platform/component-ingest-service/` (`src/pipeline.ts`, `src/introspect.ts`, `src/scaffold.ts`) |
+| Studio upload UI | `platform/agentic-experience-studio/src/app/pages/component-ingest.component.ts` |
