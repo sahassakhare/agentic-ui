@@ -23,6 +23,7 @@ import { CatalogToolSource } from './catalog/catalog-tool-source';
 import { CatalogPromptSource } from './catalog/catalog-prompt-source';
 import { CatalogSkillSource } from './catalog/catalog-skill-source';
 import { CatalogNavigationSource } from './catalog/catalog-navigation-source';
+import { CatalogDecisionSource } from './catalog/catalog-decision-source';
 import { ApplicationSource } from './catalog/application-source';
 import { PageSource } from './catalog/page-source';
 import { PageHostComponent } from './render/page-host.component';
@@ -130,6 +131,12 @@ export const appConfig: ApplicationConfig = {
       const nav = inject(CatalogNavigationSource);
       await Promise.all([prompts.hydrate(), skills.hydrate(), nav.hydrate()]);
       prompts.startLiveSync(); skills.startLiveSync(); nav.startLiveSync();
+    }),
+    provideAppInitializer(async () => {
+      // Decisions → DecisionRegistry + an executable tool per decision.
+      const decisions = inject(CatalogDecisionSource);
+      await decisions.hydrate();
+      decisions.startLiveSync();
     }),
     provideAppInitializer(async () => {
       const app = inject(ApplicationSource);
