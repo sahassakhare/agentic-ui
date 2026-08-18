@@ -83,6 +83,7 @@ interface DesignerAction {
                 <select class="input atgt" [ngModel]="a.tool ?? ''" (ngModelChange)="patchAction($index, { tool: $event })" aria-label="Tool">
                   <option value="" disabled>tool…</option>
                   @for (t of toolSources(); track t.name) { <option [value]="t.name">⚙ {{ t.name }}</option> }
+                  @for (d of decisions(); track d.name) { <option [value]="d.name">◆ {{ d.name }} (decision)</option> }
                 </select>
               }
               @case ('action') {
@@ -224,6 +225,8 @@ export class FormDesignerComponent implements HasUnsavedChanges {
   readonly actions = signal<DesignerAction[]>([]);
   /** ActionDef capabilities a `kind:'action'` button can dispatch. */
   readonly actionSources = signal<readonly Capability[]>([]);
+  /** Decisions a button can run — each is exposed as a tool at runtime (form values → outputs). */
+  readonly decisions = signal<readonly Capability[]>([]);
 
   readonly palette = computed(() => {
     const query = this.q.trim().toLowerCase();
@@ -254,6 +257,8 @@ export class FormDesignerComponent implements HasUnsavedChanges {
     this.catalog.listByKind('tool').subscribe({ next: (r) => this.sources.update((s) => [...s, ...r.items]), error: () => {} });
     this.catalog.listByKind('action').subscribe({ next: (r) => this.actionSources.set(r.items), error: () => {} });
     this.catalog.listByKind('validation').subscribe({ next: (r) => this.validators.set(r.items), error: () => {} });
+    // Decisions become runtime tools (name-matched); a button can run one on the form's values.
+    this.catalog.listByKind('decision').subscribe({ next: (r) => this.decisions.set(r.items), error: () => {} });
   }
 
   firstValidator(f: SchemaField): string { return f.validators?.[0] ?? ''; }
