@@ -10,8 +10,12 @@ export const environment = {
   tenant: 'acme',
   applicationName: 'acme-workspace',
   mfeEnv: 'prod',
+  mfeRegistryUrl: 'mfes.json',
   agentUrl: 'https://agents.example.com/agents/gemini/run',
   authMode: 'oidc' as 'oidc' | 'disabled',
   ssoAuthorizeUrl: 'https://sso.example.com/authorize',
   ssoTokenUrl: 'https://sso.example.com/token',
+  // Secrets referenced by data-source headers as `${NAME}` — populate from your
+  // deployment's secret store; never commit real tokens.
+  dataSourceSecrets: {} as Record<string, string>,
 };

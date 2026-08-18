@@ -17,6 +17,8 @@ import { CatalogExperienceSource } from './catalog/catalog-experience-source';
 import { CatalogFormSource } from './catalog/catalog-form-source';
 import { CatalogWorkflowSource } from './catalog/catalog-workflow-source';
 import { CatalogThemeSource } from './catalog/catalog-theme-source';
+import { CatalogDataSource } from './catalog/catalog-data-source';
+import { CatalogToolSource } from './catalog/catalog-tool-source';
 import { ApplicationSource } from './catalog/application-source';
 import { PageSource } from './catalog/page-source';
 import { PageHostComponent } from './render/page-host.component';
@@ -98,6 +100,18 @@ export const appConfig: ApplicationConfig = {
       const themes = inject(CatalogThemeSource);
       await themes.hydrate();      // load kind:'theme' capabilities (design tokens)
       themes.startLiveSync();      // SSE: re-apply when a theme is edited
+    }),
+    provideAppInitializer(async () => {
+      // Data sources before tools: a tool resolves its data source at call time,
+      // but hydrating sources first keeps the first agent turn consistent.
+      const data = inject(CatalogDataSource);
+      await data.hydrate();        // compile kind:'datasource' (endpoint) → DataSourceRegistry
+      data.startLiveSync();        // SSE: re-hydrate when a data source is edited
+    }),
+    provideAppInitializer(async () => {
+      const tools = inject(CatalogToolSource);
+      await tools.hydrate();       // compile kind:'tool' (dataSource-bound) → ToolRegistry
+      tools.startLiveSync();       // SSE: re-hydrate when a tool/data source is edited
     }),
     provideAppInitializer(async () => {
       const app = inject(ApplicationSource);
