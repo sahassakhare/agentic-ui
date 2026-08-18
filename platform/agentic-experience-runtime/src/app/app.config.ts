@@ -19,6 +19,9 @@ import { CatalogWorkflowSource } from './catalog/catalog-workflow-source';
 import { CatalogThemeSource } from './catalog/catalog-theme-source';
 import { CatalogDataSource } from './catalog/catalog-data-source';
 import { CatalogToolSource } from './catalog/catalog-tool-source';
+import { CatalogPromptSource } from './catalog/catalog-prompt-source';
+import { CatalogSkillSource } from './catalog/catalog-skill-source';
+import { CatalogNavigationSource } from './catalog/catalog-navigation-source';
 import { ApplicationSource } from './catalog/application-source';
 import { PageSource } from './catalog/page-source';
 import { PageHostComponent } from './render/page-host.component';
@@ -112,6 +115,14 @@ export const appConfig: ApplicationConfig = {
       const tools = inject(CatalogToolSource);
       await tools.hydrate();       // compile kind:'tool' (dataSource-bound) → ToolRegistry
       tools.startLiveSync();       // SSE: re-hydrate when a tool/data source is edited
+    }),
+    provideAppInitializer(async () => {
+      // Context/planner capabilities — compile catalog rows into their registries.
+      const prompts = inject(CatalogPromptSource);
+      const skills = inject(CatalogSkillSource);
+      const nav = inject(CatalogNavigationSource);
+      await Promise.all([prompts.hydrate(), skills.hydrate(), nav.hydrate()]);
+      prompts.startLiveSync(); skills.startLiveSync(); nav.startLiveSync();
     }),
     provideAppInitializer(async () => {
       const app = inject(ApplicationSource);
