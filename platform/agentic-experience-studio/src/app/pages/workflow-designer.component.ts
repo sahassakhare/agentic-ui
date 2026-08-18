@@ -22,7 +22,16 @@ import type { HasUnsavedChanges } from '../guards/unsaved-changes.guard';
  * ConditionalNext for decisions. Live JourneyFlow preview; saves to the workflow.
  */
 interface Branch { field: string; op: '==' | '!=' | 'in' | 'truthy' | 'falsy'; value: string; goto: string; }
-interface Step { id: string; section: string; widget: string; decision: boolean; branches: Branch[]; defaultNext: string; }
+/** One decision-output case: when the chosen output equals `value`, go to `goto`. */
+interface Case { value: string; goto: string; }
+interface Step {
+  id: string; section: string; widget: string; decision: boolean;
+  /** How a branching step decides: on aggregated state fields, or on a governed decision. */
+  mode: 'state' | 'decision';
+  branches: Branch[]; defaultNext: string;
+  /** Governed-decision mode: the decision capability, which output to read, and the value→step cases. */
+  decisionRef: string; output: string; cases: Case[];
+}
 const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
 
 @Component({
@@ -89,6 +98,48 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                 <button class="rm" type="button" (click)="remove(i)" aria-label="Remove">✕</button>
               </div>
               @if (s.decision) {
+                <div class="branches">
+                  <div class="branch">
+                    <span class="when">branch on</span>
+                    <select class="input o" style="width:auto" [ngModel]="s.mode" (ngModelChange)="patch(i, { mode: $event })">
+                      <option value="state">state fields</option>
+                      <option value="decision">a decision</option>
+                    </select>
+                    @if (s.mode === 'decision') {
+                      <select class="input g" [ngModel]="s.decisionRef" (ngModelChange)="patch(i, { decisionRef: $event })" title="Governed decision to evaluate">
+                        <option value="" disabled>decision…</option>
+                        @for (d of decisions(); track d.name) { <option [value]="d.name">◆ {{ d.name }}</option> }
+                      </select>
+                      <input class="input f" [ngModel]="s.output" (ngModelChange)="patch(i, { output: $event })" placeholder="output (opt)" title="Which decision output to branch on (blank = first)" />
+                    }
+                  </div>
+                </div>
+                }
+                @if (s.decision && s.mode === 'decision') {
+                <div class="branches">
+                  @for (c of s.cases; track $index; let ci = $index) {
+                    <div class="branch">
+                      <span class="when">when =</span>
+                      <input class="input v" [ngModel]="c.value" (ngModelChange)="patchCase(i, ci, { value: $event })" placeholder="output value" />
+                      <span class="arr">→</span>
+                      <select class="input g" [ngModel]="c.goto" (ngModelChange)="patchCase(i, ci, { goto: $event })">
+                        <option value="" disabled>go to…</option>
+                        @for (t of steps(); track t.id) { <option [value]="t.id">{{ t.section || t.id }}</option> }
+                      </select>
+                      <button class="rm sm" type="button" (click)="removeCase(i, ci)">✕</button>
+                    </div>
+                  }
+                  <div class="branch">
+                    <span class="when">else →</span>
+                    <select class="input g" [ngModel]="s.defaultNext" (ngModelChange)="patch(i, { defaultNext: $event })">
+                      <option value="">End</option>
+                      @for (t of steps(); track t.id) { <option [value]="t.id">{{ t.section || t.id }}</option> }
+                    </select>
+                    <button class="btn btn-ghost btn-sm" type="button" (click)="addCase(i)">+ Case</button>
+                  </div>
+                </div>
+                }
+                @if (s.decision && s.mode !== 'decision') {
                 <div class="branches">
                   @for (br of s.branches; track $index; let bi = $index) {
                     <div class="branch">
@@ -176,6 +227,8 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
   readonly wf = signal<Capability | null>(null);
   readonly steps = signal<Step[]>([]);
   readonly widgets = signal<readonly Capability[]>([]);
+  /** Governed decisions a step can branch on (◆). */
+  readonly decisions = signal<readonly Capability[]>([]);
   readonly saving = signal(false);
   readonly lifecycle = signal<Lifecycle>('draft');
   readonly approvalState = signal<ApprovalState>('draft');
@@ -205,13 +258,20 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
       widget: st.widget,
       section: st.section,
       next: st.decision
-        ? {
-            branches: st.branches.filter((b) => b.goto).map((b) => ({
-              when: { field: b.field, op: b.op, ...(b.op === 'truthy' || b.op === 'falsy' ? {} : { value: coerce(b.value) }) },
-              goto: b.goto,
-            })),
-            default: st.defaultNext || null,
-          }
+        ? (st.mode === 'decision' && st.decisionRef
+            ? {
+                decision: st.decisionRef,
+                ...(st.output ? { output: st.output } : {}),
+                cases: Object.fromEntries(st.cases.filter((c) => c.value && c.goto).map((c) => [c.value, c.goto])),
+                default: st.defaultNext || null,
+              }
+            : {
+                branches: st.branches.filter((b) => b.goto).map((b) => ({
+                  when: { field: b.field, op: b.op, ...(b.op === 'truthy' || b.op === 'falsy' ? {} : { value: coerce(b.value) }) },
+                  goto: b.goto,
+                })),
+                default: st.defaultNext || null,
+              })
         : (s[i + 1]?.id ?? null),
     }));
   });
@@ -232,19 +292,27 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
     });
     this.catalog.listByKind('component').subscribe({ next: (r) => this.widgets.update((w) => [...w, ...r.items]), error: () => {} });
     this.catalog.listByKind('form').subscribe({ next: (r) => this.widgets.update((w) => [...w, ...r.items]), error: () => {} });
+    this.catalog.listByKind('decision').subscribe({ next: (r) => this.decisions.set(r.items), error: () => {} });
   }
 
   private fromRaw(r: Record<string, unknown>, i: number): Step {
     const next = r['next'];
-    const decision = !!next && typeof next === 'object' && Array.isArray((next as { branches?: unknown }).branches);
-    const cn = decision ? (next as { branches: Array<{ when: { field: string; op: Branch['op']; value?: unknown }; goto: string }>; default: string | null }) : null;
+    const obj = !!next && typeof next === 'object' ? (next as Record<string, unknown>) : null;
+    const governed = !!obj && typeof obj['decision'] === 'string';
+    const stateBranch = !!obj && Array.isArray(obj['branches']);
+    const cn = stateBranch ? (obj as unknown as { branches: Array<{ when: { field: string; op: Branch['op']; value?: unknown }; goto: string }>; default: string | null }) : null;
+    const dn = governed ? (obj as unknown as { decision: string; output?: string; cases?: Record<string, string>; default: string | null }) : null;
     return {
       id: (r['id'] as string) ?? `s${i + 1}`,
       section: (r['section'] as string) ?? (r['id'] as string) ?? `Step ${i + 1}`,
       widget: (r['widget'] as string) ?? '',
-      decision,
+      decision: governed || stateBranch,
+      mode: governed ? 'decision' : 'state',
       branches: cn ? cn.branches.map((b) => ({ field: b.when.field, op: b.when.op, value: b.when.value == null ? '' : String(b.when.value), goto: b.goto })) : [],
-      defaultNext: cn?.default ?? '',
+      defaultNext: dn?.default ?? cn?.default ?? '',
+      decisionRef: dn?.decision ?? '',
+      output: dn?.output ?? '',
+      cases: dn?.cases ? Object.entries(dn.cases).map(([value, goto]) => ({ value, goto: String(goto) })) : [],
     };
   }
 
@@ -262,10 +330,26 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
   }
 
   private insert(at: number, widget: string): void {
-    this.steps.update((s) => { const next = [...s]; next.splice(at, 0, { id: this.newId(s), section: humanize(widget), widget, decision: false, branches: [], defaultNext: '' }); return next; });
+    this.steps.update((s) => { const next = [...s]; next.splice(at, 0, { id: this.newId(s), section: humanize(widget), widget, decision: false, mode: 'state', branches: [], defaultNext: '', decisionRef: '', output: '', cases: [] }); return next; });
   }
   private move(from: number, to: number): void { if (from === to) return; this.steps.update((s) => { const n = [...s]; const [x] = n.splice(from, 1); n.splice(to, 0, x!); return n; }); }
-  patch(i: number, part: Partial<Step>): void { this.steps.update((s) => s.map((st, idx) => (idx === i ? { ...st, ...part, ...(part.decision && !st.branches.length ? { branches: [{ field: '', op: '==', value: '', goto: '' }] } : {}) } : st))); }
+  patch(i: number, part: Partial<Step>): void {
+    this.steps.update((s) => s.map((st, idx) => {
+      if (idx !== i) return st;
+      const merged: Step = { ...st, ...part };
+      // Seed a first row when a step becomes branching, matching its mode.
+      if ((part.decision || part.mode) && merged.decision) {
+        if (merged.mode === 'decision' && !merged.cases.length) merged.cases = [{ value: '', goto: '' }];
+        if (merged.mode !== 'decision' && !merged.branches.length) merged.branches = [{ field: '', op: '==', value: '', goto: '' }];
+      }
+      return merged;
+    }));
+  }
+  addCase(i: number): void { this.steps.update((s) => s.map((st, idx) => (idx === i ? { ...st, cases: [...st.cases, { value: '', goto: '' }] } : st))); }
+  removeCase(i: number, ci: number): void { this.steps.update((s) => s.map((st, idx) => (idx === i ? { ...st, cases: st.cases.filter((_, x) => x !== ci) } : st))); }
+  patchCase(i: number, ci: number, part: Partial<Case>): void {
+    this.steps.update((s) => s.map((st, idx) => (idx === i ? { ...st, cases: st.cases.map((c, x) => (x === ci ? { ...c, ...part } : c)) } : st)));
+  }
   remove(i: number): void { this.steps.update((s) => s.filter((_, idx) => idx !== i)); }
   addBranch(i: number): void { this.steps.update((s) => s.map((st, idx) => (idx === i ? { ...st, branches: [...st.branches, { field: '', op: '==', value: '', goto: '' }] } : st))); }
   removeBranch(i: number, bi: number): void { this.steps.update((s) => s.map((st, idx) => (idx === i ? { ...st, branches: st.branches.filter((_, x) => x !== bi) } : st))); }

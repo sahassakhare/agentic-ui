@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
-/** A step's transition — string advance, terminal (null), or conditional branches. */
+/** A step's transition — string advance, terminal (null), conditional (state)
+ *  branches, or a governed-decision branch (decision output → step). */
 type StepNext =
   | string
   | null
-  | { readonly branches: ReadonlyArray<{ readonly when: { field: string; op: string; value?: unknown }; readonly goto: string }>; readonly default: string | null };
+  | { readonly branches: ReadonlyArray<{ readonly when: { field: string; op: string; value?: unknown }; readonly goto: string }>; readonly default: string | null }
+  | { readonly decision: string; readonly output?: string; readonly cases: Readonly<Record<string, string>>; readonly default: string | null };
 
 export interface JourneyFlowStep {
   readonly id: string;
@@ -105,6 +107,13 @@ export class JourneyFlowComponent {
         terminal = true;
       } else if (typeof s.next === 'string') {
         transitions.push({ cond: null, targetLabel: labelOf(s.next), terminal: false });
+      } else if ('decision' in s.next) {
+        decision = true;
+        const label = s.next.output ? `${s.next.decision}.${s.next.output}` : s.next.decision;
+        for (const [value, goto] of Object.entries(s.next.cases)) {
+          transitions.push({ cond: `${label} = ${value}`, targetLabel: labelOf(goto), terminal: false });
+        }
+        transitions.push({ cond: 'otherwise', targetLabel: labelOf(s.next.default), terminal: s.next.default === null });
       } else {
         decision = true;
         for (const b of s.next.branches) {
