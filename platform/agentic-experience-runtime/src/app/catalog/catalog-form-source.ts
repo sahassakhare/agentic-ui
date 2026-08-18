@@ -19,6 +19,7 @@ import { FormRegistry, agenticForm, type FormActionDef } from '@infra-tools/agen
 import { environment } from '../../environments/environment';
 import { AuthService } from '../auth/auth.service';
 import { fieldsToZod, resolveActions, type CatalogFormField } from './catalog-form-compile';
+import { ValidationRuleRegistry } from './validation-rule-registry';
 
 const CATALOG_URL = environment.catalogBaseUrl;
 const TENANT = environment.tenant;
@@ -42,6 +43,7 @@ interface CatalogFormRow {
 export class CatalogFormSource {
   private readonly registry = inject(FormRegistry);
   private readonly auth = inject(AuthService);
+  private readonly rules = inject(ValidationRuleRegistry);
   private stream?: EventSource;
 
   readonly count = signal(0);
@@ -84,7 +86,10 @@ export class CatalogFormSource {
       this.stream.onmessage = (ev) => {
         try {
           const data = JSON.parse(ev.data) as { entityType?: string; kind?: string };
-          if (data.entityType === 'form' || data.kind === 'form') void this.hydrate();
+          const k = data.entityType ?? data.kind;
+          // Re-compile on form edits and on validation-rule edits (a field's
+          // named validators must re-apply the updated rule).
+          if (k === 'form' || k === 'validation') void this.hydrate();
         } catch { /* ignore non-JSON keepalives */ }
       };
       this.stream.onerror = () => { /* browser auto-reconnects; ignore */ };
@@ -94,7 +99,7 @@ export class CatalogFormSource {
   /** Compile one catalog form row → a runtime `FormDef` via `agenticForm`. */
   private toDef(row: CatalogFormRow): Parameters<FormRegistry['register']>[0] {
     const schema = row.body?.schema ?? {};
-    const fieldsSchema = fieldsToZod(schema.fields ?? []);
+    const fieldsSchema = fieldsToZod(schema.fields ?? [], this.rules.resolver());
     const actions = resolveActions(schema.actions, schema.submit);
     const def = agenticForm({
       name: row.name,

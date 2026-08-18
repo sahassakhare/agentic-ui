@@ -14,6 +14,7 @@ import { shellWidgets } from './registry/shell-widgets';
 import { appTools } from './agentic/tools';
 import { environment } from '../environments/environment';
 import { CatalogExperienceSource } from './catalog/catalog-experience-source';
+import { CatalogValidationSource } from './catalog/catalog-validation-source';
 import { CatalogFormSource } from './catalog/catalog-form-source';
 import { CatalogWorkflowSource } from './catalog/catalog-workflow-source';
 import { CatalogThemeSource } from './catalog/catalog-theme-source';
@@ -90,9 +91,15 @@ export const appConfig: ApplicationConfig = {
       source.startLiveSync();      // SSE: re-hydrate on Studio edits
     }),
     provideAppInitializer(async () => {
+      // Before forms: a form field's named validators resolve from these rules.
+      const rules = inject(CatalogValidationSource);
+      await rules.hydrate();       // compile kind:'validation' → ValidationRuleRegistry
+      rules.startLiveSync();       // SSE: re-hydrate when a rule is edited
+    }),
+    provideAppInitializer(async () => {
       const forms = inject(CatalogFormSource);
       await forms.hydrate();       // compile kind:'form' capabilities → FormRegistry
-      forms.startLiveSync();       // SSE: re-hydrate when a form is edited
+      forms.startLiveSync();       // SSE: re-hydrate when a form (or validation rule) is edited
     }),
     provideAppInitializer(async () => {
       const flows = inject(CatalogWorkflowSource);
