@@ -8,6 +8,7 @@ const NAV = [
   { path: '/applications', label: 'Applications' },
   { path: '/pages', label: 'Pages' },
   { path: '/components', label: 'Components' },
+  { path: '/mfes', label: 'MFEs' },
   { path: '/forms', label: 'Forms' },
   { path: '/workflows', label: 'Workflows' },
   { path: '/decisions', label: 'Decisions' },
