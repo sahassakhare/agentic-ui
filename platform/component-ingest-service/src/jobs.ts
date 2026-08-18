@@ -1,7 +1,7 @@
 /** In-memory ingest-job store (one process; swap for Redis/DB in B3). */
 
 export type JobPhase =
-  | 'queued' | 'unpacking' | 'introspecting' | 'scaffolding' | 'installing'
+  | 'queued' | 'unpacking' | 'introspecting' | 'discovered' | 'scaffolding' | 'installing'
   | 'building' | 'serving' | 'registering' | 'registered' | 'failed';
 
 export interface JobComponent { name: string; className: string; inputs: readonly string[] }

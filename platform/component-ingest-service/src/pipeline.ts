@@ -22,6 +22,10 @@ export interface IngestInput {
   readonly url?: string;
   /** A local path to an uploaded `.tgz`/`.zip`. */
   readonly archivePath?: string;
+  /** Discover the library's components and stop (don't build) — for the selection UI. */
+  readonly discover?: boolean;
+  /** Build only these components (by widget name); empty/absent = all discovered. */
+  readonly include?: readonly string[];
 }
 
 export interface PipelineCtx {
@@ -81,6 +85,23 @@ export async function runIngest(jobId: string, input: IngestInput, ctx: Pipeline
     log(`discovered ${components.length} component(s): ${components.map((c) => c.widgetName).join(', ')}`);
     jobs.update(jobId, { components: components.map((c) => ({ name: c.widgetName, className: c.className, inputs: c.inputs })) });
 
+    // Discovery only — stop so the caller can present the list for selection.
+    if (input.discover) {
+      jobs.update(jobId, { phase: 'discovered' });
+      log('discovery complete — select which components to build');
+      return;
+    }
+
+    // Build only the selected components (empty/absent = all). Selecting a subset
+    // cuts build time + memory and avoids pulling components' optional peers.
+    const include = input.include ?? [];
+    const selected = include.length ? components.filter((c) => include.includes(c.widgetName)) : components;
+    if (!selected.length) return fail('none of the selected components were found in the library');
+    if (include.length) {
+      log(`building ${selected.length} of ${components.length} selected component(s)`);
+      jobs.update(jobId, { components: selected.map((c) => ({ name: c.widgetName, className: c.className, inputs: c.inputs })) });
+    }
+
     // 3. Scaffold the standalone remote workspace
     jobs.update(jobId, { phase: 'scaffolding' });
     const wsDir = join(jobDir, 'workspace');
@@ -90,7 +111,7 @@ export async function runIngest(jobId: string, input: IngestInput, ctx: Pipeline
     scaffoldRemote(wsDir,
       { remoteName, packageName: meta.packageName, packageSpec: `file:${tarball}`, port: 4400,
         angularRange: ctx.hostAngularRange, skip: ctx.extraSkip, extraDeps: ctx.extraDeps },
-      generateCapabilityTs(meta, components));
+      generateCapabilityTs(meta, selected));
 
     // 4 + 5. Install + build — in a sandboxed container (or local, per config).
     jobs.update(jobId, { phase: 'installing' });
@@ -113,7 +134,7 @@ export async function runIngest(jobId: string, input: IngestInput, ctx: Pipeline
     // 7. Register: registry.json + catalog kind:'component' rows
     jobs.update(jobId, { phase: 'registering' });
     ctx.registry.upsert({ remoteName, version: meta.version, remoteEntry, env: 'ingested' });
-    const bodies = components.map((c) => componentCatalogBody(meta, remoteEntry, c));
+    const bodies = selected.map((c) => componentCatalogBody(meta, remoteEntry, c));
     const r = await registerComponents(ctx.catalog, bodies);
     log(`catalog: ${r.registered} registered, ${r.skipped} existed${r.failed.length ? `, failed: ${r.failed.join('; ')}` : ''}`);
 
