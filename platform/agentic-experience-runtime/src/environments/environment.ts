@@ -19,10 +19,12 @@ export const environment = {
   applicationName: 'ediscovery-matters',
   // MFE federation environment (matches the `env` in mfes.json / the catalog).
   mfeEnv: 'dev',
-  // Where the Hub discovers federated remotes. Default: the bundled static file.
-  // Point at the component-ingest service (e.g. 'http://localhost:4320/registry.json')
-  // to load libraries ingested at runtime — no host rebuild.
-  mfeRegistryUrl: 'mfes.json',
+  // Where the Hub discovers federated remotes. Points at the component-ingest
+  // service so libraries ingested at runtime (npm/tarball/upload) load with no
+  // host rebuild. Its /registry.json also carries any seeded remotes
+  // (SEED_REMOTES). Use the bundled static file ('mfes.json') instead if you're
+  // not running the ingest service.
+  mfeRegistryUrl: 'http://localhost:4320/registry.json',
   // The agentic assistant's ag-ui backend (a real LLM-backed AG-UI SSE server).
   // Point this at your running agent server; the assistant rail activates when
   // the application's `assistant.enabled` is true.
