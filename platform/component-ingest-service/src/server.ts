@@ -43,7 +43,11 @@ app.post('/ingest', async (c) => {
     mkdirSync(dir, { recursive: true });
     const p = join(dir, `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`);
     writeFileSync(p, Buffer.from(await file.arrayBuffer()));
-    input = { archivePath: p, remoteName: (body['remoteName'] as string) || file.name };
+    input = {
+      archivePath: p, remoteName: (body['remoteName'] as string) || file.name,
+      discover: body['discover'] === 'true',
+      include: parseInclude(body['include']),
+    };
   } else {
     input = (await c.req.json().catch(() => ({}))) as IngestInput & { remoteName?: string };
   }
@@ -66,6 +70,12 @@ app.get('/ingest/:jobId', (c) => {
 
 // Serve built artifacts: /remotes/<name>/remoteEntry.json + chunks.
 app.use('/remotes/*', serveStatic({ root: CONFIG.artifactDir, rewriteRequestPath: (p) => p.replace(/^\/remotes/, '/remotes') }));
+
+/** Parse a multipart `include` field (a JSON array of widget names) into a string[]. */
+function parseInclude(v: unknown): string[] | undefined {
+  if (typeof v !== 'string' || !v) return undefined;
+  try { const a = JSON.parse(v); return Array.isArray(a) ? a.map(String) : undefined; } catch { return undefined; }
+}
 
 /** A package spec/name/path/URL → a valid Native Federation remote name (`^[a-z0-9-]+$`). */
 export function sanitizeRemote(spec: string): string {
