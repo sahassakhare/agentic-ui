@@ -134,7 +134,7 @@ export async function runIngest(jobId: string, input: IngestInput, ctx: Pipeline
     // 7. Register: registry.json + catalog kind:'component' rows
     jobs.update(jobId, { phase: 'registering' });
     ctx.registry.upsert(
-      { remoteName, version: meta.version, remoteEntry, env: 'ingested' },
+      { remoteName, version: meta.version, remoteEntry, type: 'native-federation', env: 'ingested' },
       { source: input.npm ? { npm: input.npm } : input.url ? { url: input.url } : undefined, ingestedAt: new Date().toISOString() },
     );
     const bodies = selected.map((c) => componentCatalogBody(meta, remoteEntry, c));

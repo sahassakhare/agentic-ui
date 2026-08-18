@@ -1,4 +1,5 @@
 export * from './capability-module';
+export * from './create-remote-loader';
 export * from './load-remote-capabilities';
 export * from './manifest';
 export * from './mfe-registry-source';
