@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Matter Intake</title>
+<style>
+  /* ---- tokens: light (bare :root) ---- */
+  :root {
+    --ground: #eef1f5;        /* cool institutional paper, slight navy bias */
+    --surface: #ffffff;
+    --surface-2: #f5f7fa;
+    --line: #d8dee8;
+    --line-strong: #c2cad8;
+    --ink: #16203a;           /* deep navy — text + primary */
+    --ink-soft: #45506a;
+    --ink-faint: #7a8398;
+    --brass: #977b3e;         /* restrained accent */
+    --brass-soft: #efe7d4;
+    --clear: #1f7a4d;
+    --clear-soft: #dcefe3;
+    --conflict: #b23b2e;
+    --conflict-soft: #f6dfda;
+    --amber: #9c7414;
+    --shadow: 0 1px 2px rgba(22,32,58,.06), 0 8px 30px rgba(22,32,58,.08);
+    --radius: 12px;
+    --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+    --sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0f1524; --surface: #172033; --surface-2: #1c2740; --line: #2a3651; --line-strong: #3b496a;
+      --ink: #e7ecf6; --ink-soft: #aab6cf; --ink-faint: #74829e;
+      --brass: #c6a866; --brass-soft: #2c2a1f;
+      --clear: #5cc48b; --clear-soft: #16311f; --conflict: #e07a6a; --conflict-soft: #351b18; --amber: #d8b25a;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 34px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0f1524; --surface: #172033; --surface-2: #1c2740; --line: #2a3651; --line-strong: #3b496a;
+    --ink: #e7ecf6; --ink-soft: #aab6cf; --ink-faint: #74829e;
+    --brass: #c6a866; --brass-soft: #2c2a1f;
+    --clear: #5cc48b; --clear-soft: #16311f; --conflict: #e07a6a; --conflict-soft: #351b18; --amber: #d8b25a;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 34px rgba(0,0,0,.4);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--sans); line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .shell { max-width: 780px; margin: 0 auto; padding: 28px 20px 64px; }
+
+  /* ---- masthead ---- */
+  .mast { display: flex; align-items: center; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+  .crest {
+    width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; flex: none;
+    background: var(--ink); color: var(--surface); font-family: var(--serif); font-size: 20px; font-weight: 700;
+  }
+  :root[data-theme="dark"] .crest, :root:not([data-theme="light"]) .crest { color: var(--ground); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .crest { background: var(--brass); } }
+  :root[data-theme="dark"] .crest { background: var(--brass); }
+  .firm { font-family: var(--serif); font-size: 15px; letter-spacing: .01em; }
+  .firm b { display: block; font-weight: 600; }
+  .firm span { color: var(--ink-faint); font-family: var(--sans); font-size: 11.5px; text-transform: uppercase; letter-spacing: .11em; }
+  .mast .sp { flex: 1; }
+  .ref { text-align: right; font-family: var(--mono); font-size: 12px; color: var(--ink-soft); }
+  .ref b { display: block; color: var(--ink); font-size: 13px; }
+  .themebtn { margin-left: 10px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-soft);
+    width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .themebtn:hover { color: var(--ink); }
+
+  h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(22px, 3.6vw, 30px); margin: 22px 0 4px; text-wrap: balance; }
+  .goal { color: var(--ink-soft); margin: 0 0 20px; max-width: 60ch; }
+
+  /* ---- stepper ---- */
+  .stepper { display: flex; gap: 4px; margin: 0 0 22px; list-style: none; padding: 0; flex-wrap: wrap; }
+  .stepper li { flex: 1 1 92px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .stepper .bar { height: 4px; border-radius: 3px; background: var(--line); }
+  .stepper li.done .bar { background: var(--brass); }
+  .stepper li.active .bar { background: var(--ink); }
+  .stepper .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stepper li.active .lbl { color: var(--ink); font-weight: 650; }
+  .stepper li.done .lbl { color: var(--ink-soft); }
+
+  /* ---- card ---- */
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .card-hd { padding: 16px 22px; border-bottom: 1px solid var(--line); display: flex; align-items: baseline; gap: 10px; }
+  .card-hd .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--brass); font-weight: 700; }
+  .card-hd h2 { font-family: var(--serif); font-weight: 600; font-size: 19px; margin: 0; }
+  .card-bd { padding: 22px; }
+  .stepwrap { animation: rise .28s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+  @media (prefers-reduced-motion: reduce) { .stepwrap { animation: none; } }
+
+  /* ---- form controls (the portal's own) ---- */
+  .field { margin-bottom: 15px; }
+  .field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); margin-bottom: 5px; }
+  .field .req { color: var(--conflict); }
+  .field input, .field select, .field textarea {
+    width: 100%; font: inherit; font-size: 14.5px; color: var(--ink); background: var(--surface-2);
+    border: 1px solid var(--line-strong); border-radius: 9px; padding: 10px 12px; transition: border-color .15s, box-shadow .15s;
+  }
+  .field textarea { min-height: 84px; resize: vertical; }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline: none; border-color: var(--brass); box-shadow: 0 0 0 3px var(--brass-soft);
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 560px) { .row2 { grid-template-columns: 1fr; } }
+  .hint { font-size: 12px; color: var(--ink-faint); margin-top: 5px; }
+  .err { color: var(--conflict); font-size: 12.5px; margin-top: 8px; min-height: 1em; }
+
+  /* segmented choice */
+  .seg { display: flex; flex-wrap: wrap; gap: 8px; }
+  .seg button { font: inherit; font-size: 13.5px; padding: 9px 14px; border: 1px solid var(--line-strong);
+    background: var(--surface-2); color: var(--ink-soft); border-radius: 999px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--surface); font-weight: 600; }
+  :root[data-theme="dark"] .seg button[aria-pressed="true"], :root:not([data-theme="light"]) .seg button[aria-pressed="true"] { color: var(--ground); }
+
+  /* conflict check */
+  .scan { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px dashed var(--line-strong); border-radius: 10px; background: var(--surface-2); }
+  .scan .who { flex: 1; font-size: 13.5px; color: var(--ink-soft); }
+  .scan .who b { color: var(--ink); }
+  .verdict { margin-top: 14px; border-radius: 10px; padding: 14px 16px; display: none; }
+  .verdict.show { display: block; animation: rise .25s ease both; }
+  .verdict.clear { background: var(--clear-soft); border: 1px solid color-mix(in srgb, var(--clear) 40%, transparent); }
+  .verdict.hit { background: var(--conflict-soft); border: 1px solid color-mix(in srgb, var(--conflict) 40%, transparent); }
+  .verdict .v-hd { font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .verdict.clear .v-hd { color: var(--clear); }
+  .verdict.hit .v-hd { color: var(--conflict); }
+  .verdict p { margin: 6px 0 0; font-size: 13.5px; color: var(--ink-soft); }
+  .spinner { width: 16px; height: 16px; border: 2px solid var(--line-strong); border-top-color: var(--brass); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .banner { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px; background: var(--conflict-soft);
+    border: 1px solid color-mix(in srgb, var(--conflict) 35%, transparent); font-size: 13.5px; color: var(--ink-soft); margin-bottom: 16px; }
+  .banner .ic { color: var(--conflict); font-weight: 700; }
+
+  .check { display: flex; gap: 9px; align-items: flex-start; font-size: 13.5px; color: var(--ink-soft); cursor: pointer; }
+  .check input { margin-top: 3px; accent-color: var(--brass); }
+
+  /* review */
+  .summary { display: grid; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .summary .grp { padding: 13px 16px; border-bottom: 1px solid var(--line); }
+  .summary .grp:last-child { border-bottom: none; }
+  .summary .g-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--brass); font-weight: 700; margin-bottom: 8px; }
+  .summary dl { margin: 0; display: grid; grid-template-columns: 140px 1fr; gap: 6px 14px; }
+  .summary dt { color: var(--ink-faint); font-size: 13px; }
+  .summary dd { margin: 0; font-size: 13.5px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; padding: 2px 9px; border-radius: 999px; }
+  .chip.clear { background: var(--clear-soft); color: var(--clear); }
+  .chip.hit { background: var(--conflict-soft); color: var(--conflict); }
+
+  /* footer nav */
+  .foot { display: flex; align-items: center; gap: 10px; padding: 16px 22px; border-top: 1px solid var(--line); background: var(--surface-2); }
+  .foot .sp { flex: 1; }
+  .btn { font: inherit; font-size: 14px; padding: 10px 18px; border-radius: 9px; cursor: pointer; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); }
+  .btn:hover { border-color: var(--ink-faint); }
+  .btn.ghost { border-color: transparent; background: transparent; color: var(--ink-soft); }
+  .btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); font-weight: 600; }
+  :root[data-theme="dark"] .btn.primary, :root:not([data-theme="light"]) .btn.primary { color: var(--ground); }
+  .btn.primary:hover { background: color-mix(in srgb, var(--ink) 88%, var(--brass)); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* provenance strip + manifest peek */
+  .prov { margin-top: 22px; font-size: 12px; color: var(--ink-faint); text-align: center; line-height: 1.7; }
+  .prov code { font-family: var(--mono); color: var(--ink-soft); }
+  .prov a { color: var(--brass); text-decoration: none; border-bottom: 1px dotted; cursor: pointer; }
+  .peek { margin-top: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; display: none; }
+  .peek.show { display: block; }
+  .peek pre { margin: 0; padding: 16px; font-family: var(--mono); font-size: 11.5px; line-height: 1.6; color: var(--ink-soft); overflow-x: auto; }
+  .peek .k { color: var(--brass); } .peek .s { color: var(--clear); } .peek .b { color: var(--ink); font-weight: 600; }
+
+  /* success */
+  .done-wrap { text-align: center; padding: 12px 8px; }
+  .seal { width: 66px; height: 66px; margin: 0 auto 16px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--clear-soft); color: var(--clear); font-size: 30px; border: 1.5px solid color-mix(in srgb, var(--clear) 45%, transparent); }
+  .done-wrap h2 { font-family: var(--serif); margin: 0 0 6px; }
+  .matterno { font-family: var(--mono); font-size: 20px; color: var(--ink); margin: 10px 0 4px; letter-spacing: .02em; }
+  .done-wrap p { color: var(--ink-soft); margin: 4px 0 0; }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <header class="mast">
+      <div class="crest">A</div>
+      <div class="firm"><b>Ashcroft &amp; Vale LLP</b><span>Client &amp; Matter Intake</span></div>
+      <div class="sp"></div>
+      <div class="ref">Draft ref<b id="ref">—</b></div>
+      <button class="themebtn" id="theme" title="Toggle theme" aria-label="Toggle light/dark">◑</button>
+    </header>
+
+    <h1 id="exp-title">New Matter Intake</h1>
+    <p class="goal" id="exp-goal"></p>
+
+    <ol class="stepper" id="stepper"></ol>
+
+    <section class="card">
+      <div class="card-hd"><span class="eyebrow" id="step-eyebrow">Step</span><h2 id="step-title"></h2></div>
+      <div class="card-bd"><div class="stepwrap" id="stage"></div></div>
+      <div class="foot" id="foot">
+        <button class="btn ghost" id="back">← Back</button>
+        <div class="sp"></div>
+        <button class="btn primary" id="next">Continue →</button>
+      </div>
+    </section>
+
+    <div class="prov">
+      Rendered from a <b>published render manifest</b> via <code>@infra-tools/aep-embed-sdk</code> — no agentic-ui, no framework.<br>
+      The steps and the conflict-check branch come from the manifest; these components are this portal's own.
+      &nbsp;·&nbsp; <a id="peektoggle">View the manifest driving this →</a>
+    </div>
+    <div class="peek" id="peek"><pre id="peekpre"></pre></div>
+  </div>
+
+<script type="module">
+/* ================================================================
+   1. The embed-SDK engine — inlined verbatim (it is zero-dep and
+   framework-agnostic by design). In a real portal you'd instead:
+     import { createEmbedClient, resolveNext } from '@infra-tools/aep-embed-sdk';
+     const client = createEmbedClient({ catalogUrl, tenant, key });
+     const manifest = await client.getManifest('legal-intake-matter');
+   ================================================================ */
+function isConditionalNext(next) {
+  return !!next && typeof next === 'object' && Array.isArray(next.branches);
+}
+function evalWorkflowCondition(c, state) {
+  const v = state[c.field];
+  switch (c.op) {
+    case '==': return v === c.value;
+    case '!=': return v !== c.value;
+    case 'in': return Array.isArray(c.value) && c.value.includes(v);
+    case 'truthy': return Boolean(v);
+    case 'falsy': return !v;
+    default: return false;
+  }
+}
+function resolveNext(next, state) {
+  if (next === null) return null;
+  if (typeof next === 'string') return next;
+  for (const b of next.branches) if (evalWorkflowCondition(b.when, state)) return b.goto;
+  return next.default;
+}
+function stepById(steps, id) { return steps.find((s) => s.id === id); }
+
+/* ================================================================
+   2. The published manifest — what getManifest() would return.
+   Data + control-flow only. The conflict branch is declarative.
+   ================================================================ */
+const manifest = {
+  experience: {
+    name: 'legal-intake-matter',
+    title: 'New Matter Intake',
+    goal: 'Open a new legal matter — capture the client, scope the matter, clear conflicts, and set the fee arrangement before it reaches a partner.',
+  },
+  workflow: { steps: [
+    { id: 'client',   widget: 'legal-client-form',   section: 'Client',   next: 'matter' },
+    { id: 'matter',   widget: 'legal-matter-form',    section: 'Matter',   next: 'conflicts' },
+    { id: 'conflicts', widget: 'legal-conflict-check', section: 'Conflicts',
+      next: { branches: [{ when: { field: 'conflictFound', op: 'truthy' }, goto: 'conflict-review' }], default: 'fees' } },
+    { id: 'conflict-review', widget: 'legal-conflict-review', section: 'Waiver', next: 'fees' },
+    { id: 'fees',     widget: 'legal-fee-form',        section: 'Fees',     next: 'review' },
+    { id: 'review',   widget: 'legal-matter-review',   section: 'Review',   next: null },
+  ]},
+  widgets: [
+    { name: 'legal-client-form', kind: 'form' },
+    { name: 'legal-matter-form', kind: 'form' },
+    { name: 'legal-conflict-check', kind: 'component' },
+    { name: 'legal-conflict-review', kind: 'form' },
+    { name: 'legal-fee-form', kind: 'form' },
+    { name: 'legal-matter-review', kind: 'component' },
+  ],
+  publishedVersionNo: 3,
+  publishedAt: '2026-08-18T00:00:00Z',
+};
+
+/* mock book of business — an opposing party matching one of these trips a conflict */
+const EXISTING_CLIENTS = ['Meridian Capital', 'Halcyon Health', 'Northwind Trading', 'Ashcroft Holdings'];
+const MATTER_TYPES = ['Litigation', 'Corporate', 'Intellectual Property', 'Employment', 'Real Estate'];
+const FEE_TYPES = ['Hourly', 'Fixed fee', 'Contingency'];
+
+/* ================================================================
+   3. The portal's OWN widget registry — plain functions keyed by
+   the manifest's widget name. Each renders into the stage, reads/
+   writes shared state, and reports whether it can advance.
+   ================================================================ */
+const state = {};                 // accumulated intake data, keyed by step id
+const el = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const widgets = {
+  'legal-client-form'(stage, ctx) {
+    const v = state.client || {};
+    stage.innerHTML = `
+      <div class="field"><label>Client name <span class="req">*</span></label>
+        <input id="w-name" value="${esc(v.name)}" placeholder="e.g. Jordan Ellery" autocomplete="off"></div>
+      <div class="row2">
+        <div class="field"><label>Contact email <span class="req">*</span></label>
+          <input id="w-email" type="email" value="${esc(v.email)}" placeholder="jordan@…"></div>
+        <div class="field"><label>Organization</label>
+          <input id="w-org" value="${esc(v.org)}" placeholder="Company / individual"></div>
+      </div>
+      <div class="err" id="w-err"></div>`;
+    const read = () => ({ name: el('w-name').value.trim(), email: el('w-email').value.trim(), org: el('w-org').value.trim() });
+    stage.oninput = () => { state.client = read(); ctx.setValid(!!read().name && /.+@.+\..+/.test(read().email)); };
+    state.client = read(); ctx.setValid(!!v.name && /.+@.+\..+/.test(v.email || ''));
+  },
+
+  'legal-matter-form'(stage, ctx) {
+    const v = state.matter || { type: '' };
+    stage.innerHTML = `
+      <div class="field"><label>Matter type <span class="req">*</span></label>
+        <div class="seg" id="w-type">${MATTER_TYPES.map((t) =>
+          `<button type="button" data-t="${t}" aria-pressed="${v.type === t}">${t}</button>`).join('')}</div></div>
+      <div class="field"><label>Matter title <span class="req">*</span></label>
+        <input id="w-title" value="${esc(v.title)}" placeholder="Short descriptive title"></div>
+      <div class="field"><label>Opposing / counter party</label>
+        <input id="w-opp" value="${esc(v.opposing)}" placeholder="Adverse party, if any" autocomplete="off">
+        <div class="hint">Checked against the firm's existing clients in the next step.</div></div>
+      <div class="field"><label>Summary</label>
+        <textarea id="w-desc" placeholder="What does the client need?">${esc(v.description)}</textarea></div>
+      <div class="err" id="w-err"></div>`;
+    const read = () => ({ type: state.matter?.type || '', title: el('w-title').value.trim(),
+      opposing: el('w-opp').value.trim(), description: el('w-desc').value.trim() });
+    const validate = () => { const r = read(); ctx.setValid(!!r.type && !!r.title); };
+    el('w-type').onclick = (e) => {
+      const b = e.target.closest('button[data-t]'); if (!b) return;
+      [...el('w-type').children].forEach((c) => c.setAttribute('aria-pressed', c === b));
+      state.matter = { ...read(), type: b.dataset.t }; validate();
+    };
+    stage.oninput = () => { state.matter = read(); validate(); };
+    state.matter = { ...read(), type: v.type }; validate();
+  },
+
+  'legal-conflict-check'(stage, ctx) {
+    const m = state.matter || {};
+    const opp = (m.opposing || '').trim();
+    const already = state.conflicts;
+    stage.innerHTML = `
+      <div class="scan">
+        <div class="who">Screening <b>${esc(m.title || 'this matter')}</b>${opp ? ` against <b>${esc(opp)}</b>` : ''}
+          across the firm's book of business.</div>
+        <button class="btn" id="w-run">${already ? 'Re-run' : 'Run conflict check'}</button>
+      </div>
+      <div class="verdict" id="w-verdict"></div>`;
+    ctx.setValid(!!already);
+    const run = () => {
+      const vd = el('w-verdict'); vd.className = 'verdict show';
+      vd.innerHTML = `<div class="v-hd"><span class="spinner"></span> Screening…</div>`;
+      el('w-run').disabled = true;
+      setTimeout(() => {
+        const hit = opp && EXISTING_CLIENTS.some((c) => c.toLowerCase() === opp.toLowerCase());
+        state.conflictFound = !!hit;                 // <- the field the manifest branch reads
+        state.conflicts = { checkedAt: 'just now', opposing: opp, hit: !!hit };
+        el('w-run').disabled = false;
+        if (hit) {
+          vd.className = 'verdict hit show';
+          vd.innerHTML = `<div class="v-hd">⚠ Potential conflict</div>
+            <p><b>${esc(opp)}</b> is an existing client of the firm. The matter routes to conflict review for a waiver decision.</p>`;
+        } else {
+          vd.className = 'verdict clear show';
+          vd.innerHTML = `<div class="v-hd">✓ No conflict found</div>
+            <p>${opp ? `<b>${esc(opp)}</b> does not appear` : 'No adverse party given, and the client does not appear'} in the firm's client list. Cleared to proceed.</p>`;
+        }
+        ctx.setValid(true);
+      }, 850);
+    };
+    el('w-run').onclick = run;
+    if (already) { // restore prior verdict on Back/Next
+      const hit = already.hit;
+      const vd = el('w-verdict'); vd.className = 'verdict show ' + (hit ? 'hit' : 'clear');
+      vd.innerHTML = hit
+        ? `<div class="v-hd">⚠ Potential conflict</div><p><b>${esc(already.opposing)}</b> is an existing client — routed to conflict review.</p>`
+        : `<div class="v-hd">✓ No conflict found</div><p>Cleared to proceed.</p>`;
+    }
+  },
+
+  'legal-conflict-review'(stage, ctx) {
+    const v = state.conflictReview || {};
+    stage.innerHTML = `
+      <div class="banner"><span class="ic">⚠</span><div>This matter is adverse to
+        <b>${esc(state.conflicts?.opposing || 'an existing client')}</b>. A supervising partner must approve an ethical wall before intake continues.</div></div>
+      <div class="field"><label>Supervising partner <span class="req">*</span></label>
+        <input id="w-partner" value="${esc(v.partner)}" placeholder="Partner name"></div>
+      <div class="field"><label>Waiver / ethical-wall note</label>
+        <textarea id="w-note" placeholder="How the conflict is addressed">${esc(v.note)}</textarea></div>
+      <label class="check"><input type="checkbox" id="w-ack" ${v.ack ? 'checked' : ''}>
+        <span>I confirm an ethical wall is in place and informed consent will be obtained.</span></label>
+      <div class="err" id="w-err"></div>`;
+    const read = () => ({ partner: el('w-partner').value.trim(), note: el('w-note').value.trim(), ack: el('w-ack').checked });
+    const validate = () => { const r = read(); ctx.setValid(!!r.partner && r.ack); };
+    stage.oninput = stage.onchange = () => { state.conflictReview = read(); validate(); };
+    state.conflictReview = read(); validate();
+  },
+
+  'legal-fee-form'(stage, ctx) {
+    const v = state.fees || { type: '' };
+    stage.innerHTML = `
+      <div class="field"><label>Fee arrangement <span class="req">*</span></label>
+        <div class="seg" id="w-fee">${FEE_TYPES.map((t) =>
+          `<button type="button" data-t="${t}" aria-pressed="${v.type === t}">${t}</button>`).join('')}</div></div>
+      <div class="row2">
+        <div class="field"><label id="w-ratelbl">Rate</label>
+          <input id="w-rate" value="${esc(v.rate)}" placeholder="e.g. 450"></div>
+        <div class="field"><label>Retainer</label>
+          <input id="w-ret" value="${esc(v.retainer)}" placeholder="e.g. 5,000"></div>
+      </div>
+      <div class="err" id="w-err"></div>`;
+    const rateLbl = { 'Hourly': 'Hourly rate (USD)', 'Fixed fee': 'Fixed fee (USD)', 'Contingency': 'Contingency (%)' };
+    const read = () => ({ type: state.fees?.type || '', rate: el('w-rate').value.trim(), retainer: el('w-ret').value.trim() });
+    const validate = () => ctx.setValid(!!read().type);
+    el('w-fee').onclick = (e) => {
+      const b = e.target.closest('button[data-t]'); if (!b) return;
+      [...el('w-fee').children].forEach((c) => c.setAttribute('aria-pressed', c === b));
+      state.fees = { ...read(), type: b.dataset.t }; el('w-ratelbl').textContent = rateLbl[b.dataset.t] || 'Rate'; validate();
+    };
+    stage.oninput = () => { state.fees = read(); validate(); };
+    if (v.type) el('w-ratelbl').textContent = rateLbl[v.type] || 'Rate';
+    state.fees = { ...read(), type: v.type }; validate();
+  },
+
+  'legal-matter-review'(stage, ctx) {
+    const c = state.client || {}, m = state.matter || {}, f = state.fees || {}, cf = state.conflictFound;
+    const money = (t, r) => !r ? '—' : t === 'Contingency' ? `${r}%` : `$${r}`;
+    stage.innerHTML = `
+      <div class="summary">
+        <div class="grp"><div class="g-lbl">Client</div>
+          <dl><dt>Name</dt><dd>${esc(c.name) || '—'}</dd><dt>Email</dt><dd>${esc(c.email) || '—'}</dd>
+          <dt>Organization</dt><dd>${esc(c.org) || '—'}</dd></dl></div>
+        <div class="grp"><div class="g-lbl">Matter</div>
+          <dl><dt>Type</dt><dd>${esc(m.type) || '—'}</dd><dt>Title</dt><dd>${esc(m.title) || '—'}</dd>
+          <dt>Opposing party</dt><dd>${esc(m.opposing) || 'None'}</dd></dl></div>
+        <div class="grp"><div class="g-lbl">Conflicts</div>
+          <dl><dt>Screening</dt><dd>${cf
+            ? `<span class="chip hit">⚠ Conflict — waiver by ${esc(state.conflictReview?.partner || 'partner')}</span>`
+            : `<span class="chip clear">✓ Cleared</span>`}</dd></dl></div>
+        <div class="grp"><div class="g-lbl">Fees</div>
+          <dl><dt>Arrangement</dt><dd>${esc(f.type) || '—'}</dd><dt>Rate</dt><dd>${money(f.type, f.rate)}</dd>
+          <dt>Retainer</dt><dd>${f.retainer ? '$' + esc(f.retainer) : '—'}</dd></dl></div>
+      </div>`;
+    ctx.setValid(true);
+    ctx.setCta('Open matter');
+  },
+};
+
+/* ================================================================
+   4. The runner — walks the manifest with resolveNext, renders the
+   active step's widget, and handles the declarative branch.
+   ================================================================ */
+const steps = manifest.workflow.steps;
+const spine = ['client', 'matter', 'conflicts', 'fees', 'review']; // stepper display order (conflict-review is a branch)
+let current = steps[0].id;
+let history = [];
+let valid = false;
+
+el('ref').textContent = 'INT-' + Math.floor(1000 + Math.random() * 9000);
+el('exp-title').textContent = manifest.experience.title;
+el('exp-goal').textContent = manifest.experience.goal;
+
+function renderStepper() {
+  const doneSet = new Set(history);
+  const activeSpineIdx = spine.indexOf(current === 'conflict-review' ? 'conflicts' : current);
+  el('stepper').innerHTML = spine.map((id, i) => {
+    const s = stepById(steps, id);
+    const cls = i < activeSpineIdx || doneSet.has(id) ? 'done' : (i === activeSpineIdx ? 'active' : '');
+    return `<li class="${cls}"><span class="bar"></span><span class="lbl">${s.section}</span></li>`;
+  }).join('');
+}
+
+let ctaLabel = 'Continue →';
+function render() {
+  const step = stepById(steps, current);
+  const idx = spine.indexOf(current === 'conflict-review' ? 'conflicts' : current);
+  el('step-eyebrow').textContent = current === 'conflict-review' ? 'Conflict review' : `Step ${idx + 1} of ${spine.length}`;
+  el('step-title').textContent = step.section;
+  ctaLabel = resolveNext(step.next, state) === null ? 'Open matter' : 'Continue →';
+  valid = false;
+  const ctx = {
+    setValid: (ok) => { valid = ok; el('next').disabled = !ok; },
+    setCta: (label) => { ctaLabel = label; el('next').textContent = label; },
+  };
+  el('stage').innerHTML = '';
+  const stage = document.createElement('div'); stage.className = 'stepwrap'; el('stage').appendChild(stage);
+  widgets[step.widget](stage, ctx);
+  el('next').textContent = ctaLabel;
+  el('next').disabled = !valid;
+  el('back').style.visibility = history.length ? 'visible' : 'hidden';
+  renderStepper();
+}
+
+el('next').onclick = () => {
+  if (!valid) return;
+  const step = stepById(steps, current);
+  const target = resolveNext(step.next, state);   // <- manifest-driven; branches on state.conflictFound
+  if (target === null) return complete();
+  history.push(current); current = target; render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+el('back').onclick = () => { if (!history.length) return; current = history.pop(); render(); };
+
+function complete() {
+  const no = 'MAT-2026-' + String(Math.floor(100 + Math.random() * 900));
+  document.querySelector('.card-hd').style.display = 'none';
+  el('foot').style.display = 'none';
+  el('stage').innerHTML = `
+    <div class="done-wrap">
+      <div class="seal">⚖</div>
+      <h2>Matter opened</h2>
+      <div class="matterno">${no}</div>
+      <p>${esc(state.client?.name || 'The client')} · ${esc(state.matter?.type || 'Matter')} · ${esc(state.fees?.type || 'fees TBD')}</p>
+      <p>${state.conflictFound ? 'Conflict waiver recorded — ' : 'Conflicts cleared — '}routed to the practice-group partner for acceptance.</p>
+    </div>`;
+  renderStepper();
+  document.querySelectorAll('.stepper li').forEach((li) => li.classList.add('done'));
+}
+
+/* manifest peek (the teaching point) */
+function fmtManifest() {
+  const j = JSON.stringify({ experience: manifest.experience.name, workflow: manifest.workflow, widgets: manifest.widgets.map((w) => w.name) }, null, 2);
+  return j.replace(/"(\w[\w-]*)":/g, '"<span class="k">$1</span>":')
+          .replace(/: "([^"]*)"/g, ': "<span class="s">$1</span>"');
+}
+el('peekpre').innerHTML = fmtManifest();
+el('peektoggle').onclick = () => {
+  const p = el('peek'); const open = p.classList.toggle('show');
+  el('peektoggle').textContent = open ? 'Hide the manifest ↑' : 'View the manifest driving this →';
+};
+
+/* theme toggle */
+const root = document.documentElement;
+el('theme').onclick = () => {
+  const cur = root.getAttribute('data-theme')
+    || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+};
+
+render();
+</script>
+</body>
+</html>
