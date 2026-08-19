@@ -23,6 +23,9 @@
       "@infra-tools/agentic-ui": [
         "./dist/agentic-ui"
       ],
+      "@infra-tools/aep-embed-sdk": [
+        "./platform/aep-embed-sdk/src/index.ts"
+      ],
       "@infra-tools/demo-ediscovery-shared": [
         "./examples/demo-ediscovery-shared/dist/index"
       ],
