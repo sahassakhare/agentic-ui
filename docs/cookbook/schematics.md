@@ -15,6 +15,7 @@ generators are available via `ng add` / `ng generate`.
 | Add a custom backend adapter | `ng g @infra-tools/agentic-ui:backend <Name>` |
 | Spin up an agent server next to your app | `ng g @infra-tools/agentic-ui:agent-server` |
 | Promote a project into an MFE remote | `ng g @infra-tools/agentic-ui:mfe-capability <remoteName>` |
+| Connect an existing app to Experience Studio's backend | `ng g @infra-tools/agentic-ui:connect-studio` |
 | Add an `ActionRegistry` action (NgRx-style command) | `ng g @infra-tools/agentic-ui:action <name>` |
 | Map common phrasings to a tool/action/route | `ng g @infra-tools/agentic-ui:intent <name>` |
 | Add a schema-driven form | `ng g @infra-tools/agentic-ui:form <name>` |
@@ -169,6 +170,59 @@ Creates the federation surface:
 
 `--federation=native` writes a `withNativeFederation(...)` config; `--federation=module-federation` writes the webpack Module Federation
 equivalent.
+
+## `connect-studio` — connect an app to the catalog backend
+
+Wires an **existing** standalone Angular app to an Experience Studio catalog
+service, so it loads the tenant's governed capabilities at boot and stays live
+over SSE — no host rebuild when an author changes something in Studio.
+
+```bash
+ng g @infra-tools/agentic-ui:connect-studio \
+  [--project=<name>] \
+  [--catalogUrl=http://localhost:8081] \
+  [--tenant=acme] \
+  [--applicationName=<app>] \
+  [--authMode=disabled|oidc] \
+  [--skipInstall]
+```
+
+Aliased `cs`. What it does:
+
+- Scaffolds `src/app/catalog-runtime/` — a self-contained bridge: a
+  `CatalogClient` (HTTP + one pooled SSE stream), pure compile helpers
+  (`catalog-http.ts`, `form-compile.ts`), and five `Catalog*Source` services
+  that compile catalog rows into the library's registries.
+- Patches `app.config.ts` — adds `provideCatalogRuntime({ baseUrl, tenant, … })`
+  and its import (idempotent).
+- Adds `@infra-tools/agentic-ui` + `zod` to `package.json`.
+
+| Catalog kind | Compiled into | Rendered / used by |
+|---|---|---|
+| `experience` | `ExperienceRegistry` | the planner / experience host |
+| `form` | `FormRegistry` | `<mvk-form-renderer [formName]>` |
+| `workflow` | `FormRegistry` (`.workflow`) | `<mvk-workflow-renderer [formName]>` |
+| `datasource` | `DataSourceRegistry` | tools, at call time |
+| `tool` | `ToolRegistry` | the assistant |
+
+Prerequisite: the library platform must be present — run
+`ng add @infra-tools/agentic-ui` first (the bridge fills registries that
+`provideAgenticUi()` / `provideAgenticUiPlatform()` provide; the schematic warns
+if it can't find one). For `--authMode=oidc`, also provide a `CATALOG_AUTH` that
+returns the current bearer token (see the generated `catalog-runtime/README.md`).
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--project` | workspace default | Which Angular project to patch |
+| `--catalogUrl` | `http://localhost:8081` | Catalog service base URL |
+| `--tenant` | `acme` | Tenant / catalog id to read from |
+| `--applicationName` | — | Which `kind:'application'` capability is the shell (optional) |
+| `--authMode` | `disabled` | `disabled` (trusted-network dev) or `oidc` (forward a bearer token) |
+| `--skipInstall` | `false` | Skip `npm install` at the end |
+
+The generated bridge covers the registry-backed content kinds; extend it for
+`navigation` / `prompt` / `skill` / `theme` / `decision` / `validation` by
+adding a source with the same shape (see the folder README).
 
 ## Extended-registry generators
 

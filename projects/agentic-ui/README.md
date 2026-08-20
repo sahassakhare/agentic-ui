@@ -62,7 +62,7 @@ That's a working chat UI talking to an AG-UI backend. For real tools + widgets +
 | **Backend adapters** | `provideAgUiBackend` · `provideHashbrownBackend` · `provideA2uiBackend` — swap by config |
 | **Federation** | `defineCapabilityModule` + `loadRemoteCapabilities` (Native Federation) / `loadRemoteCapabilitiesMF` (webpack MF). Remotes contribute tools + widgets at runtime |
 | **Platform integration** | `provideAgenticPlatform({...})` — IAM persona, MFE registry, capability registrar / authorizer, usage metering through one composite provider |
-| **Schematics** | 10 generators: `ng add`, `tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `action`, `intent`, `form` |
+| **Schematics** | generators: `ng add`, `tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `connect-studio` (wire an existing app to an Experience Studio catalog backend), `action`, `intent`, `form`, `trigger`, `dashboard`, `playbook` |
 
 ## Key seams
 

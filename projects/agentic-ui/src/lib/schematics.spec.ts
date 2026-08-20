@@ -254,3 +254,52 @@ describe('schematics: playbook', () => {
     expect(content).toContain('continueOnError');
   });
 });
+
+describe('schematics: connect-studio', () => {
+  let runner: SchematicTestRunner;
+  beforeEach(() => { runner = new SchematicTestRunner('@infra-tools/agentic-ui', COLLECTION_PATH); });
+
+  it('scaffolds the catalog-runtime bridge and patches app.config.ts', async () => {
+    const tree = await runner.runSchematic(
+      'connect-studio',
+      { tenant: 'acme', catalogUrl: 'http://localhost:8081', skipInstall: true },
+      baseWorkspace(),
+    );
+
+    // The self-contained bridge folder.
+    for (const f of [
+      'catalog.config.ts', 'catalog-client.ts', 'catalog-http.ts',
+      'form-compile.ts', 'sources.ts', 'provide-catalog-runtime.ts', 'index.ts',
+    ]) {
+      expect(tree.files).toContain(`/src/app/catalog-runtime/${f}`);
+    }
+
+    // app.config.ts patched with the import + provider.
+    const config = tree.readContent('/src/app/app.config.ts');
+    expect(config).toContain("import { provideCatalogRuntime } from './catalog-runtime';");
+    expect(config).toContain("provideCatalogRuntime({ baseUrl: 'http://localhost:8081', tenant: 'acme' })");
+
+    // Bridge wires the five content sources into the lib registries.
+    const sources = tree.readContent('/src/app/catalog-runtime/sources.ts');
+    for (const cls of [
+      'CatalogExperienceSource', 'CatalogFormSource', 'CatalogWorkflowSource',
+      'CatalogDataSource', 'CatalogToolSource',
+    ]) {
+      expect(sources).toContain(`export class ${cls}`);
+    }
+
+    // Dependency added.
+    expect(JSON.parse(tree.readContent('/package.json')).dependencies['@infra-tools/agentic-ui']).toBeDefined();
+  });
+
+  it('honors --authMode=oidc + --applicationName', async () => {
+    const tree = await runner.runSchematic(
+      'connect-studio',
+      { tenant: 'legal', authMode: 'oidc', applicationName: 'legal-intake', skipInstall: true },
+      baseWorkspace(),
+    );
+    const config = tree.readContent('/src/app/app.config.ts');
+    expect(config).toContain("authMode: 'oidc'");
+    expect(config).toContain("applicationName: 'legal-intake'");
+  });
+});

@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "$id": "MaverickAgenticUiConnectStudio",
+  "title": "Connect an existing app to Experience Studio",
+  "type": "object",
+  "properties": {
+    "project": {
+      "type": "string",
+      "description": "Target Angular project name. Defaults to the workspace's defaultProject.",
+      "$default": { "$source": "projectName" }
+    },
+    "catalogUrl": {
+      "type": "string",
+      "description": "Experience Studio catalog service base URL.",
+      "default": "http://localhost:8081",
+      "x-prompt": "Catalog service base URL?"
+    },
+    "tenant": {
+      "type": "string",
+      "description": "Tenant / catalog id the app reads from.",
+      "default": "acme",
+      "x-prompt": "Tenant / catalog id?"
+    },
+    "applicationName": {
+      "type": "string",
+      "description": "Which kind:'application' capability this app renders as its shell (optional)."
+    },
+    "authMode": {
+      "type": "string",
+      "description": "Auth against the catalog: 'disabled' (trusted-network dev) or 'oidc' (forward a bearer token).",
+      "enum": ["disabled", "oidc"],
+      "default": "disabled"
+    },
+    "skipInstall": {
+      "type": "boolean",
+      "description": "Skip running npm install at the end.",
+      "default": false
+    }
+  },
+  "required": []
+}

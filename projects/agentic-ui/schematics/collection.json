@@ -38,6 +38,12 @@
       "factory": "./mfe-capability/index#mfeCapabilitySchematic",
       "schema": "./mfe-capability/schema.json"
     },
+    "connect-studio": {
+      "description": "Connect an existing Angular app to an Experience Studio catalog backend — scaffold a catalog-runtime bridge and wire provideCatalogRuntime so the app loads governed capabilities (experiences, forms, workflows, data sources, tools) at boot and live over SSE.",
+      "factory": "./connect-studio/index#connectStudio",
+      "schema": "./connect-studio/schema.json",
+      "aliases": ["cs"]
+    },
     "action": {
       "description": "Scaffold an agentic action (NgRx-style command) — *.action.ts with agenticAction({...}).",
       "factory": "./action/index#actionSchematic",

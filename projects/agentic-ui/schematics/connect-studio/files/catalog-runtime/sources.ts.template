@@ -1,0 +1,347 @@
+/**
+ * The runtime "load half" of the author → govern → load → compose loop.
+ *
+ * Product owners author capabilities in Experience Studio; the catalog service
+ * persists them per-tenant (approval, audit, scope). These services GET the
+ * tenant's rows, compile each catalog `body` into the runtime shape the lib's
+ * registries expect, register it tagged with a `source` (so re-hydrate can
+ * `removeBySource`), and re-hydrate live over the catalog SSE stream — so a
+ * Studio edit appears in the app with no reload.
+ *
+ * Every source shares `CatalogClient` (HTTP + one pooled SSE stream) and is
+ * decoupled from any host auth/config via `CATALOG_CONFIG` / `CATALOG_AUTH`.
+ */
+import { Injectable, inject, signal } from '@angular/core';
+import {
+  ExperienceRegistry, FormRegistry, DataSourceRegistry, ToolRegistry,
+  agenticForm, agenticWorkflow, agenticDataSource, agenticTool,
+  type WorkflowStep, type DataSourceDef, type ToolDef, type FormActionDef,
+} from '@infra-tools/agentic-ui';
+import { z } from 'zod';
+import { CatalogClient } from './catalog-client';
+import { CATALOG_CONFIG } from './catalog.config';
+import { fieldsToZod, resolveActions, type CatalogFormField } from './form-compile';
+import { buildHttpAdapter, resolveHeaders, fillDeep, fillTemplate, type HttpQuery } from './catalog-http';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Experiences → ExperienceRegistry
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CatalogExperienceRow {
+  readonly name: string;
+  readonly title: string;
+  readonly goal: string;
+  readonly version: string | null;
+  readonly owner: string | null;
+  readonly tags: readonly string[];
+  readonly body: {
+    intents?: string[];
+    requires?: { kind: string; name?: string; tag?: string; optional?: boolean }[];
+    defaultLayout?: string;
+    policies?: string[];
+    personas?: string[];
+    scopes?: string[];
+  };
+}
+
+@Injectable({ providedIn: 'root' })
+export class CatalogExperienceSource {
+  private readonly client = inject(CatalogClient);
+  private readonly registry = inject(ExperienceRegistry);
+  private static readonly SOURCE = 'catalog';
+
+  readonly count = signal(0);
+  readonly error = signal<string | null>(null);
+
+  async hydrate(): Promise<void> {
+    try {
+      const items = await this.client.listExperiences<CatalogExperienceRow>();
+      this.registry.removeBySource(CatalogExperienceSource.SOURCE);
+      for (const row of items) this.registry.register(this.toDef(row));
+      this.count.set(items.length);
+      this.error.set(null);
+    } catch (e) {
+      this.error.set((e as Error).message);
+    }
+  }
+
+  startLiveSync(): void {
+    this.client.onMutation((k) => { if (k === 'experience') void this.hydrate(); });
+  }
+
+  private toDef(row: CatalogExperienceRow): Parameters<ExperienceRegistry['register']>[0] {
+    const b = row.body ?? {};
+    return {
+      name: row.name,
+      title: row.title,
+      goal: row.goal,
+      intents: b.intents,
+      requires: b.requires,
+      defaultLayout: b.defaultLayout,
+      policies: b.policies,
+      personas: b.personas,
+      requiredPermissions: b.scopes,
+      version: row.version ?? undefined,
+      approvalState: 'approved',
+      tags: [...(row.tags ?? [])],
+      owner: row.owner ?? undefined,
+      source: CatalogExperienceSource.SOURCE,
+    } as unknown as Parameters<ExperienceRegistry['register']>[0];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Forms → FormRegistry  (resolved by name in <mvk-form-renderer [formName]>)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CatalogFormRow {
+  readonly name: string;
+  readonly body?: {
+    description?: string;
+    schema?: {
+      fields?: readonly CatalogFormField[];
+      actions?: readonly FormActionDef[];
+      submit?: string;
+    };
+  };
+}
+
+@Injectable({ providedIn: 'root' })
+export class CatalogFormSource {
+  private readonly client = inject(CatalogClient);
+  private readonly registry = inject(FormRegistry);
+  private static readonly SOURCE = 'catalog-form';
+
+  readonly count = signal(0);
+  readonly error = signal<string | null>(null);
+
+  async hydrate(): Promise<void> {
+    try {
+      const items = await this.client.listByKind<CatalogFormRow>('form');
+      this.registry.removeBySource(CatalogFormSource.SOURCE);
+      let n = 0;
+      for (const row of items) {
+        try { this.registry.register(this.toDef(row)); n++; }
+        catch (e) { this.error.set(`form "${row.name}": ${(e as Error).message}`); }
+      }
+      this.count.set(n);
+      if (n === items.length) this.error.set(null);
+    } catch (e) {
+      this.error.set((e as Error).message);
+    }
+  }
+
+  startLiveSync(): void {
+    // Re-compile on form edits (and validation-rule edits, once a validation
+    // source is wired to supply the named-rule resolver).
+    this.client.onMutation((k) => { if (k === 'form' || k === 'validation') void this.hydrate(); });
+  }
+
+  private toDef(row: CatalogFormRow): Parameters<FormRegistry['register']>[0] {
+    const schema = row.body?.schema ?? {};
+    const fieldsSchema = fieldsToZod(schema.fields ?? []);
+    const actions = resolveActions(schema.actions, schema.submit);
+    const def = agenticForm({
+      name: row.name,
+      description: row.body?.description ?? '',
+      fieldsSchema,
+      actions,
+      submit: async () => undefined,
+    });
+    return { ...def, source: CatalogFormSource.SOURCE } as unknown as Parameters<FormRegistry['register']>[0];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Workflows → FormRegistry  (a FormDef whose `.workflow` is set)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CatalogWorkflowRow {
+  readonly name: string;
+  readonly body?: {
+    description?: string;
+    workflow?: { steps?: WorkflowStep[] };
+    steps?: WorkflowStep[]; // legacy top-level shape
+  };
+}
+
+@Injectable({ providedIn: 'root' })
+export class CatalogWorkflowSource {
+  private readonly client = inject(CatalogClient);
+  private readonly registry = inject(FormRegistry);
+  private static readonly SOURCE = 'catalog-workflow';
+
+  readonly count = signal(0);
+  readonly error = signal<string | null>(null);
+
+  async hydrate(): Promise<void> {
+    try {
+      const items = await this.client.listByKind<CatalogWorkflowRow>('workflow');
+      this.registry.removeBySource(CatalogWorkflowSource.SOURCE);
+      let n = 0;
+      for (const row of items) {
+        const def = this.toDef(row);
+        if (def) { this.registry.register(def); n++; }
+      }
+      this.count.set(n);
+    } catch (e) {
+      this.error.set((e as Error).message);
+    }
+  }
+
+  startLiveSync(): void {
+    this.client.onMutation((k) => { if (k === 'workflow') void this.hydrate(); });
+  }
+
+  private toDef(row: CatalogWorkflowRow): Parameters<FormRegistry['register']>[0] | null {
+    const steps = row.body?.workflow?.steps ?? row.body?.steps ?? [];
+    if (!steps.length) return null; // agenticWorkflow requires >= 1 step
+    try {
+      const def = agenticWorkflow({
+        name: row.name,
+        description: row.body?.description ?? '',
+        steps: [...steps],
+        onComplete: async () => undefined,
+      });
+      return { ...def, source: CatalogWorkflowSource.SOURCE } as unknown as Parameters<FormRegistry['register']>[0];
+    } catch (e) {
+      this.error.set(`workflow "${row.name}": ${(e as Error).message}`);
+      return null;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Data sources → DataSourceRegistry  (fetch-backed, from a declared endpoint)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CatalogDataSourceRow {
+  readonly name: string;
+  readonly body?: {
+    description?: string;
+    endpoint?: string;
+    method?: string;
+    headers?: Record<string, string> | string;
+  };
+}
+
+@Injectable({ providedIn: 'root' })
+export class CatalogDataSource {
+  private readonly client = inject(CatalogClient);
+  private readonly cfg = inject(CATALOG_CONFIG);
+  private readonly registry = inject(DataSourceRegistry);
+  private static readonly SOURCE = 'catalog-datasource';
+
+  readonly count = signal(0);
+  readonly error = signal<string | null>(null);
+
+  async hydrate(): Promise<void> {
+    try {
+      const items = await this.client.listByKind<CatalogDataSourceRow>('datasource');
+      this.registry.removeBySource(CatalogDataSource.SOURCE);
+      let n = 0;
+      for (const row of items) {
+        const def = this.toDef(row);
+        if (!def) continue; // no endpoint → not browser-callable
+        try { this.registry.register(def); n++; }
+        catch (e) { this.error.set(`data source "${row.name}": ${(e as Error).message}`); }
+      }
+      this.count.set(n);
+    } catch (e) {
+      this.error.set((e as Error).message);
+    }
+  }
+
+  startLiveSync(): void {
+    this.client.onMutation((k) => { if (k === 'datasource') void this.hydrate(); });
+  }
+
+  private toDef(row: CatalogDataSourceRow): DataSourceDef | null {
+    const endpoint = row.body?.endpoint?.trim();
+    if (!endpoint) return null;
+    const adapter = buildHttpAdapter({
+      endpoint,
+      method: row.body?.method,
+      headers: resolveHeaders(row.body?.headers, this.cfg.dataSourceSecrets),
+    });
+    const def = agenticDataSource({ name: row.name, kind: 'rest', adapter: (q) => adapter(q as HttpQuery) });
+    return { ...def, source: CatalogDataSource.SOURCE } as unknown as DataSourceDef;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tools → ToolRegistry  (executable; bind a data source, fill {arg} placeholders)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface CatalogToolRow {
+  readonly name: string;
+  readonly body?: {
+    description?: string;
+    inputs?: readonly string[];
+    dataSource?: string;
+    method?: string;
+    path?: string;
+    query?: Record<string, unknown>;
+    body?: unknown;
+  };
+}
+
+@Injectable({ providedIn: 'root' })
+export class CatalogToolSource {
+  private readonly client = inject(CatalogClient);
+  private readonly tools = inject(ToolRegistry);
+  private readonly dataSources = inject(DataSourceRegistry);
+  private static readonly SOURCE = 'catalog-tool';
+
+  readonly count = signal(0);
+  readonly error = signal<string | null>(null);
+
+  async hydrate(): Promise<void> {
+    try {
+      const items = await this.client.listByKind<CatalogToolRow>('tool');
+      this.tools.removeBySource(CatalogToolSource.SOURCE);
+      let n = 0;
+      for (const row of items) {
+        const def = this.toDef(row);
+        if (!def) continue; // no bound data source → not executable
+        try { this.tools.register(def); n++; }
+        catch (e) { this.error.set(`tool "${row.name}": ${(e as Error).message}`); }
+      }
+      this.count.set(n);
+    } catch (e) {
+      this.error.set((e as Error).message);
+    }
+  }
+
+  startLiveSync(): void {
+    this.client.onMutation((k) => { if (k === 'tool' || k === 'datasource') void this.hydrate(); });
+  }
+
+  private toDef(row: CatalogToolRow): ToolDef | null {
+    const dataSource = row.body?.dataSource?.trim();
+    if (!dataSource) return null;
+    const { method, path, query, body } = row.body ?? {};
+    const shape: Record<string, z.ZodTypeAny> = {};
+    for (const input of row.body?.inputs ?? []) shape[input] = z.any().optional();
+    const dataSources = this.dataSources;
+
+    const def = agenticTool({
+      name: row.name,
+      description: row.body?.description ?? `Call the ${dataSource} data source`,
+      schema: z.object(shape).passthrough(),
+      handler: async (args: Record<string, unknown>) => {
+        const ds = dataSources.get(dataSource);
+        if (!ds) throw new Error(`data source "${dataSource}" is not registered`);
+        const a = args ?? {};
+        const q: HttpQuery = {
+          path: path ? fillTemplate(path, a, true) : undefined,
+          method,
+          query: query ? (fillDeep(query, a) as Record<string, unknown>) : undefined,
+          body: body !== undefined ? fillDeep(body, a) : undefined,
+        };
+        return ds.adapter(q);
+      },
+    });
+    return { ...def, source: CatalogToolSource.SOURCE } as unknown as ToolDef;
+  }
+}
