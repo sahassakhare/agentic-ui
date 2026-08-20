@@ -37,6 +37,14 @@ Dashboards are host-shipped defs flagged by a catalog experience tag. MFEs are
 Native-Federation remotes discovered from `mfes.json` and loaded via
 `loadRemoteCapabilities` into `ComponentRegistry`.
 
+**Reuse in your own app.** This bridge is generalized as a schematic — run
+`ng g @infra-tools/agentic-ui:connect-studio` in any existing standalone Angular
+app to scaffold an equivalent `catalog-runtime/` (a `CatalogClient` + the
+experience/form/workflow/datasource/tool sources, decoupled from this app's
+`AuthService`/`environment` via injection tokens) and wire
+`provideCatalogRuntime({ baseUrl, tenant })` into its `app.config.ts`. See the
+[schematics reference](../../docs/cookbook/schematics.md#connect-studio--connect-an-app-to-the-catalog-backend).
+
 ## Run
 
 ```bash

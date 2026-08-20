@@ -129,9 +129,10 @@ describe('WorkflowRendererComponent — Capability F3 (provisional)', () => {
     const store = fixture.debugElement.injector.get(CompositionStore);
     store.write('a', 'value-a');
 
-    // Step 'a' → 'b'
+    // Step 'a' → 'b'  (advance is async — resolveNextAsync supports DecisionNext)
     const nextBtn = fixture.nativeElement.querySelectorAll('button.primary')[0] as HTMLButtonElement;
     nextBtn.click();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('[data-testid="step-b"]')).toBeTruthy();
@@ -151,7 +152,7 @@ describe('WorkflowRendererComponent — Capability F3 (provisional)', () => {
     expect(fixture.nativeElement.querySelector('.completed')).toBeTruthy();
   });
 
-  it('AC-F3-2: conditional next branches on the current state', () => {
+  it('AC-F3-2: conditional next branches on the current state', async () => {
     const { forms } = setup();
     forms.register(
       agenticWorkflow({
@@ -175,13 +176,14 @@ describe('WorkflowRendererComponent — Capability F3 (provisional)', () => {
 
     const nextBtn = fixture.nativeElement.querySelector('button.primary') as HTMLButtonElement;
     nextBtn.click();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('[data-testid="step-c"]')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('[data-testid="step-b"]')).toBeNull();
   });
 
-  it('AC-F3-3: Back navigation preserves prior step values via CompositionStore', () => {
+  it('AC-F3-3: Back navigation preserves prior step values via CompositionStore', async () => {
     const { forms } = setup();
     forms.register(
       agenticWorkflow({
@@ -198,13 +200,14 @@ describe('WorkflowRendererComponent — Capability F3 (provisional)', () => {
     fixture.detectChanges();
     const store = fixture.debugElement.injector.get(CompositionStore);
 
-    // Fill step 'a' → advance to 'b'
+    // Fill step 'a' → advance to 'b' (async advance)
     store.write('a', 'a-value');
     (fixture.nativeElement.querySelector('button.primary') as HTMLButtonElement).click();
+    await fixture.whenStable();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[data-testid="step-b"]')).toBeTruthy();
 
-    // Click Back → returns to step 'a' with value preserved
+    // Click Back → returns to step 'a' with value preserved (back() is synchronous)
     const backBtn = fixture.nativeElement.querySelectorAll('button')[0] as HTMLButtonElement;
     backBtn.click();
     fixture.detectChanges();
@@ -212,7 +215,7 @@ describe('WorkflowRendererComponent — Capability F3 (provisional)', () => {
     expect(store.read('a')).toBe('a-value');
   });
 
-  it('reports an error when conditional next returns an unknown step id', () => {
+  it('reports an error when conditional next returns an unknown step id', async () => {
     const { forms } = setup();
     forms.register(
       agenticWorkflow({
@@ -230,6 +233,7 @@ describe('WorkflowRendererComponent — Capability F3 (provisional)', () => {
 
     const nextBtn = fixture.nativeElement.querySelector('button.primary') as HTMLButtonElement;
     nextBtn.click();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const err = fixture.nativeElement.querySelector('.error');

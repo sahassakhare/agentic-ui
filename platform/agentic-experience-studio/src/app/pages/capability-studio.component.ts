@@ -315,6 +315,10 @@ export interface StudioConfig {
     .pvraw summary { cursor: pointer; font-size: var(--fs-sm); color: var(--text-muted); }
     .pvraw pre { margin-top: var(--s2); background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-sm);
       padding: var(--s3); font-size: var(--fs-xs); overflow-x: auto; max-height: 260px; }
+    @media (max-width: 520px) {
+      .pvfields { grid-template-columns: 1fr; gap: 2px var(--s4); }
+      .pvfields dd { margin-bottom: var(--s2); }
+    }
   `],
 })
 export class CapabilityStudioComponent {

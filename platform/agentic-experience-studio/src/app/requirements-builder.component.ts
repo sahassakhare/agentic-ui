@@ -74,6 +74,19 @@ export const REQ_KINDS: readonly string[] = [
       background: var(--surface); color: var(--text-muted); cursor: pointer; }
     .reqrow .rrm:hover { border-color: var(--danger); color: var(--danger); }
     .btn-add { margin-top: var(--s2); font-size: var(--fs-sm); padding: .35rem .7rem; }
+    @media (max-width: 560px) {
+      .reqrow {
+        grid-template-columns: 22px 26px 1fr auto;
+        grid-template-areas: "seq move kind rm" "reg reg reg opt";
+        row-gap: var(--s2);
+      }
+      .reqrow .seq { grid-area: seq; }
+      .reqrow .move { grid-area: move; }
+      .reqrow .rk { grid-area: kind; }
+      .reqrow .rn { grid-area: reg; }
+      .reqrow .opt { grid-area: opt; justify-self: end; }
+      .reqrow .rrm { grid-area: rm; }
+    }
   `],
 })
 export class RequirementsBuilderComponent {

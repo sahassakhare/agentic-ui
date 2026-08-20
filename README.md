@@ -117,7 +117,7 @@ The design separates a **framework-agnostic core** from the **UI binding** that 
 | Layer | Package | Status |
 |---|---|---|
 | Framework-agnostic core — types, Zod schemas, protocol contracts, backend adapters, pure orchestration logic | folded into `@infra-tools/agentic-ui` today; extraction to `@infra-tools/agentic-core` is a pending [RFC](./docs/plans/agentic-core-split-plan.md) | ⏳ Planned (RFC) |
-| **Angular 21 binding** — `<mvk-chat-shell>`, 24 registries, widgets, 13 schematics | `@infra-tools/agentic-ui` | ✅ **Production** |
+| **Angular 21 binding** — `<mvk-chat-shell>`, 24 registries, widgets, 14 schematics | `@infra-tools/agentic-ui` | ✅ **Production** |
 | React binding | `@infra-tools/agentic-react` (proposed) | 🗺 Roadmap |
 | Vue / vanilla-web bindings | proposed | 🗺 Roadmap |
 
@@ -131,7 +131,7 @@ The contracts are *already* framework-agnostic — a non-Angular backend can con
 - **Agentic Experience Platform (AEP).** Compose a complete enterprise experience from a business goal: a capability dependency graph (`requires`/`produces`), an `ExperienceRegistry`, and a deterministic, access-gated `ExperiencePlanner` that resolves a goal into a concrete, audited capability bundle and seeds the workspace layout — with a dedicated authoring app ([`agentic-experience-studio`](./platform/agentic-experience-studio/)) and catalog persistence. See [ADR-051](./docs/adr/0051-agentic-experience-platform.md), the [AEP plan](./docs/plans/agentic-experience-platform-plan.md), and the [compose-an-experience cookbook](./docs/cookbook/compose-an-experience.md).
 - **Generative UI.** Tool results carrying a `components: [{ name, props }]` field cause the chat shell to render registered Angular components by name through `*ngComponentOutlet`, with Zod-validated props.
 - **MFE federation.** `defineCapabilityModule` packages a remote's tools and widgets; `loadRemoteCapabilities` (Native Federation) and `loadRemoteCapabilitiesMF` (webpack Module Federation) push them into the host's runtime registries. Remote discovery happens through a pluggable `MfeRegistrySource`.
-- **Schematics.** Thirteen generators: `ng-add`, `tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `action`, `intent`, `form`, plus the post-chat-surfaces scaffolds `trigger`, `dashboard`, `playbook`. All snapshot-tested.
+- **Schematics.** Fourteen generators: `ng-add`, `tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `connect-studio` (wire an existing app to an Experience Studio catalog backend — governed experiences/forms/workflows/data-sources/tools loaded at boot and live over SSE), `action`, `intent`, `form`, plus the post-chat-surfaces scaffolds `trigger`, `dashboard`, `playbook`. All snapshot-tested.
 - **Post-chat surfaces (P0–P5).** The agent is reachable beyond the chat rail through 16 dispatch-agnostic widgets (workspace layout, ⌘K palette, smart cells, notification tray, inbox, dashboards, review queue, timeline, playbook runner, …). Every contribution federates through `defineCapabilityModule`; `removeBySource` reaps them on unload. **Try the live demo** at [ediscovery-shell.onrender.com](https://ediscovery-shell.onrender.com) — the [guided tour](./docs/cookbook/post-chat-surfaces-tour.md) walks through every pillar. See the [post-chat-surfaces plan](./docs/plans/post-chat-surfaces-plan.md).
 - **MCP on three sides.** Expose your `ToolDef[]` **as** an MCP server (`@infra-tools/agentic-ui-mcp`) over stdio or modern **Streamable HTTP** for Claude Desktop / Cursor / Zed; render server-driven UI **in-app** with `<mvk-mcp-ui-resource>` — both the legacy MCP-UI convention and the **MCP Apps SEP-1865** (`text/html;profile=mcp-app` + a scope-gated `ui/*` JSON-RPC action channel); and expose the host's tools to an **in-page** agent via WebMCP. See [MCP surfaces](#mcp-surfaces).
 - **Observability.** `AgenticTelemetrySink` emit points are baked into the orchestrator and registries from M1; the optional OpenTelemetry-backed sink ships with W3C trace context propagation across SSE.
@@ -279,7 +279,7 @@ Each feature switch is independently opt-in; the app stays embedded-first when n
 | [Federation at scale](./docs/cookbook/federation-at-scale.md) | Capability prefetch + per-turn tool filtering at 50+ remotes / 200+ tools. |
 | [Expose your tools as an MCP server](./docs/cookbook/mcp-server.md) | Wrap any `ToolDef[]` with `createMcpServer({...})` for Claude Desktop / Cursor / Zed. |
 | [Integrate into an existing Angular app](./docs/cookbook/integrate-into-existing-angular-app.md) | Install → tools/widgets → MFE federation → multi-agent orchestration. |
-| [Schematics reference](./docs/cookbook/schematics.md) | The 13 generators — all options + common pipelines. |
+| [Schematics reference](./docs/cookbook/schematics.md) | The 14 generators — all options + common pipelines. |
 | [Swap the backend](./docs/cookbook/swap-backend.md) | AG-UI ↔ Hashbrown ↔ A2UI; runtime selection via `BackendRegistry`. |
 | [Observability](./docs/cookbook/observability.md) | `provideAgenticTelemetry` wiring; OpenTelemetry SDK integration. |
 | [Platform seams](./docs/architecture/platform-seams.md) | The definitive map of every platform contract — **read first** if integrating or reviewing a PR. |
@@ -309,7 +309,7 @@ The repository uses a Git pre-commit hook (`.githooks/pre-commit`, activated via
 
 ## Testing
 
-The npm-published packages cover **900+ unit tests** across the workspace, executed in seconds via Vitest. The runtime tier (`@infra-tools/agentic-ui`) carries the bulk — registry base + 18 concrete registries, the run orchestrator, federation symmetry, the cross-backend conformance suite, the post-chat-surface components, and snapshot tests for all 13 schematics. The sibling packages each carry their own focused suites (MCP server, Teams bot, Copilot skill, Copilot Studio connector, OPA authorizer).
+The npm-published packages cover **900+ unit tests** across the workspace, executed in seconds via Vitest. The runtime tier (`@infra-tools/agentic-ui`) carries the bulk — registry base + 18 concrete registries, the run orchestrator, federation symmetry, the cross-backend conformance suite, the post-chat-surface components, and snapshot tests for all 14 schematics. The sibling packages each carry their own focused suites (MCP server, Teams bot, Copilot skill, Copilot Studio connector, OPA authorizer).
 
 GitHub Actions runs the full pipeline (build → test → three production demo builds → FESM size guard) on every push and pull request. See [`.github/workflows/ci.yml`](./.github/workflows/ci.yml). The eDiscovery flagship adds **25 Playwright tests across 11 specs** under [`e2e/`](./e2e/README.md) — including a post-chat-surfaces video walkthrough (no LLM required).
 

@@ -71,6 +71,7 @@ export class KpiStatWidget {
     .fill { display:block; height:100%; border-radius:6px; background:linear-gradient(90deg,#6750a4,#8a74d6); }
     .num { text-align:right; font-variant-numeric:tabular-nums; opacity:.8; }
     .muted { opacity:.5; font-size:13px; }
+    @media (max-width: 380px) { .row { grid-template-columns:64px 1fr 34px; gap:6px; } }
   `],
 })
 export class BarChartWidget {

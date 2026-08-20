@@ -1,0 +1,68 @@
+import { Injectable, inject } from '@angular/core';
+import { CATALOG_AUTH, CATALOG_CONFIG } from './catalog.config';
+
+/**
+ * Thin HTTP + SSE client for the Experience Studio catalog service.
+ *
+ * One shared `EventSource` fans catalog mutation events out to every registered
+ * source (`onMutation`), so a Studio edit re-hydrates the affected registry with
+ * no reload. In `oidc` mode requests forward the bearer token from `CATALOG_AUTH`.
+ */
+@Injectable({ providedIn: 'root' })
+export class CatalogClient {
+  private readonly cfg = inject(CATALOG_CONFIG);
+  private readonly auth = inject(CATALOG_AUTH);
+  private stream?: EventSource;
+  private readonly listeners = new Set<(kind: string) => void>();
+
+  /** GET the tenant's capabilities of one `kind`. */
+  listByKind<T>(kind: string): Promise<readonly T[]> {
+    return this.getItems<T>(`${this.base()}/capabilities?kind=${encodeURIComponent(kind)}`);
+  }
+
+  /** GET the tenant's **approved** experiences. */
+  listExperiences<T>(): Promise<readonly T[]> {
+    return this.getItems<T>(`${this.base()}/experiences?approvalState=approved&limit=200`);
+  }
+
+  /**
+   * Register interest in catalog mutations. The callback receives the mutated
+   * entity kind (`'form'`, `'tool'`, …). Opens the shared SSE stream lazily.
+   */
+  onMutation(cb: (kind: string) => void): void {
+    this.listeners.add(cb);
+    this.openStream();
+  }
+
+  private async getItems<T>(url: string): Promise<readonly T[]> {
+    const res = await fetch(url, { headers: this.headers() });
+    if (!res.ok) throw new Error(`catalog returned ${res.status}`);
+    return ((await res.json()) as { items?: T[] }).items ?? [];
+  }
+
+  private base(): string {
+    return `${this.cfg.baseUrl}/v1/catalogs/${encodeURIComponent(this.cfg.tenant)}`;
+  }
+
+  private headers(): Record<string, string> {
+    const h: Record<string, string> = { accept: 'application/json' };
+    const token = this.auth.token();
+    if (this.cfg.authMode === 'oidc' && token) h['authorization'] = `Bearer ${token}`;
+    return h;
+  }
+
+  private openStream(): void {
+    if (this.stream) return;
+    try {
+      this.stream = new EventSource(`${this.base()}/stream`);
+      this.stream.onmessage = (ev) => {
+        try {
+          const data = JSON.parse(ev.data) as { entityType?: string; kind?: string };
+          const kind = data.entityType ?? data.kind;
+          if (kind) for (const l of this.listeners) l(kind);
+        } catch { /* non-JSON keepalive */ }
+      };
+      this.stream.onerror = () => { /* browser auto-reconnects */ };
+    } catch { /* SSE unavailable — hydrate() still works on demand */ }
+  }
+}
