@@ -8,6 +8,7 @@ import { HistoryPanelComponent } from '../history-panel.component';
 import { applyCapability, canApproveWith, handleBarAction, reportWriteError, type GovState } from '../governance-actions';
 import { AuthService } from '../services/auth.service';
 import { ToastService } from '../services/toast.service';
+import { kindMeta } from '../services/kind-meta';
 import type { ApprovalState } from '../services/capability-catalog.service';
 import type { Lifecycle } from '../lifecycle';
 import type { HasUnsavedChanges } from '../guards/unsaved-changes.guard';
@@ -186,6 +187,34 @@ const PROP_FIELDS: Record<string, PropField[]> = {
               </div>
             </section>
           </main>
+
+          <aside class="preview">
+            <div class="eyebrow">Preview <span class="muted sm">— layout &amp; composition</span></div>
+            <div class="pv-frame" [attr.data-layout]="type() === 'shell' ? 'shell' : layout()">
+              @if (type() === 'shell') {
+                <div class="pv-r pv-header"><div class="pv-rlbl">header</div>
+                  @for (s of tilesFor('header'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue">{{ km(s.kind).glyph }} {{ s.name }}</span> }</div>
+                <div class="pv-mid">
+                  <div class="pv-r pv-side"><div class="pv-rlbl">sidenav</div>
+                    @for (s of tilesFor('sidenav'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue">{{ km(s.kind).glyph }}</span> }</div>
+                  <div class="pv-r pv-content">Page content<span class="muted sm">router-outlet</span></div>
+                  <div class="pv-r pv-aside"><div class="pv-rlbl">aside</div>
+                    @for (s of tilesFor('aside'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue">{{ km(s.kind).glyph }}</span> }</div>
+                </div>
+                <div class="pv-r pv-footer"><div class="pv-rlbl">footer</div>
+                  @for (s of tilesFor('footer'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue">{{ km(s.kind).glyph }} {{ s.name }}</span> }</div>
+              } @else {
+                @for (r of regionNames(); track r) {
+                  <div class="pv-r" [style.grid-area]="r">
+                    <div class="pv-rlbl">{{ r }}</div>
+                    @for (s of tilesFor(r); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue" [title]="km(s.kind).label + ' · ' + s.name">{{ km(s.kind).glyph }} {{ s.name }}</span> }
+                    @empty { <span class="pv-empty">empty</span> }
+                  </div>
+                }
+              }
+            </div>
+            <div class="muted sm pv-note">Structural preview — surfaces render live in the Hub.</div>
+          </aside>
         </div>
       }
       @if (showHistory()) { <aes-history-panel [capabilityId]="id()" (close)="showHistory.set(false)" (changed)="reload()" /> }
@@ -202,10 +231,27 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     .btn { font:inherit; padding:9px 16px; border-radius:9px; border:1px solid rgba(120,120,140,.3); background:transparent; color:inherit; cursor:pointer; }
     .btn.primary { background:#6750a4; color:#fff; border-color:#6750a4; font-weight:600; } .btn[disabled] { opacity:.5; }
     .btn.ghost.sm { font-size:12px; padding:6px 10px; margin-top:8px; }
-    .grid { display:grid; grid-template-columns:340px 1fr; gap:18px; align-items:start; }
+    .grid { display:grid; grid-template-columns:300px minmax(0,1fr) minmax(280px,360px); gap:16px; align-items:start; }
     .col { position:sticky; top:16px; }
     .palscroll { max-height:46vh; overflow-y:auto; margin-top:6px; }
-    @media (max-width:900px){ .col { position:static; } .palscroll { max-height:none; } }
+    @media (max-width:1180px){ .grid { grid-template-columns:280px minmax(0,1fr); } .preview { grid-column:1 / -1; } }
+    @media (max-width:820px){ .grid { grid-template-columns:1fr; } .col,.preview { position:static; } .palscroll { max-height:none; } }
+    .preview { position:sticky; top:16px; align-self:start; }
+    .pv-frame { display:grid; gap:8px; margin-top:8px; padding:10px; min-height:200px; border:1px solid var(--border); border-radius:12px; background:var(--surface-2); }
+    .pv-frame[data-layout='single']{ grid-template-areas:'main'; }
+    .pv-frame[data-layout='two-column']{ grid-template-areas:'left right'; grid-template-columns:1fr 1fr; }
+    .pv-frame[data-layout='sidebar-right']{ grid-template-areas:'main aside'; grid-template-columns:2fr 1fr; }
+    .pv-frame[data-layout='sidebar-left']{ grid-template-areas:'aside main'; grid-template-columns:1fr 2fr; }
+    .pv-frame[data-layout='stacked']{ grid-template-areas:'top' 'main'; }
+    .pv-frame[data-layout='grid']{ grid-template-areas:'a a' 'b c'; grid-template-columns:1fr 1fr; }
+    .pv-frame[data-layout='shell']{ display:flex; flex-direction:column; }
+    .pv-r { display:flex; flex-direction:column; gap:5px; min-height:52px; padding:8px; border:1px dashed var(--border); border-radius:8px; background:var(--surface); }
+    .pv-rlbl { font-size:10px; text-transform:uppercase; letter-spacing:.06em; opacity:.5; }
+    .pv-tile { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; padding:3px 8px; border-radius:6px; background:hsl(var(--h) 55% 50% / .16); color:var(--text); }
+    .pv-empty { font-size:11px; opacity:.4; font-style:italic; }
+    .pv-mid { display:grid; grid-template-columns:56px 1fr 56px; gap:8px; }
+    .pv-content { display:grid; place-content:center; text-align:center; gap:2px; min-height:80px; font-size:11px; opacity:.65; }
+    .pv-note { margin-top:8px; text-align:center; }
     .card { border:1px solid rgba(120,120,140,.18); border-radius:14px; padding:16px; margin-bottom:16px; }
     .eyebrow { font-size:11px; text-transform:uppercase; letter-spacing:.06em; opacity:.55; margin-bottom:10px; }
     .muted { opacity:.6; } .sm { font-size:12px; }
@@ -277,6 +323,8 @@ export class PageDesignerComponent implements HasUnsavedChanges {
   constructor() { queueMicrotask(() => this.load()); }
 
   protected glyph(kind: string): string { return KIND_GLYPH[kind] ?? '›'; }
+  protected readonly km = kindMeta;
+  protected tilesFor(r: string): Surface[] { return this.regions()[r] ?? []; }
   protected propFields(name: string): PropField[] { return PROP_FIELDS[name] ?? []; }
   protected asLinks(v: unknown): { label: string; href: string }[] { return (Array.isArray(v) ? v : []) as { label: string; href: string }[]; }
   protected propVal(s: Surface, key: string): unknown { return s.props[key]; }
