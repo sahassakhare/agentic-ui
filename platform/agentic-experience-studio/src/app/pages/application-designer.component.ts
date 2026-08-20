@@ -132,6 +132,10 @@ interface PageItem { name: string; title: string }
     .navctrls { display:inline-flex; align-items:center; gap:2px; margin-left:2px; }
     .navctrls .mv, .navctrls .x { border:none; background:transparent; color:inherit; opacity:.5; cursor:pointer; padding:2px 5px; font-size:12px; }
     .navctrls .mv:hover:not([disabled]), .navctrls .x:hover { opacity:1; } .navctrls .mv[disabled] { opacity:.18; cursor:default; }
+    @media (max-width: 860px) {
+      .grid { grid-template-columns:1fr; gap:14px; }
+      .wrap { padding:16px 14px; }
+    }
   `],
 })
 export class ApplicationDesignerComponent implements HasUnsavedChanges {
