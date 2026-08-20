@@ -4,6 +4,30 @@ All notable changes to `@infra-tools/agentic-ui` are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0]
+
+Consolidates the features landed since `1.4.0` (which shipped without a changelog entry) plus the new catalog-connect schematic.
+
+### Added — `connect-studio` schematic
+
+- **`ng g @infra-tools/agentic-ui:connect-studio`** (alias `cs`) wires an existing standalone Angular app to an Experience Studio catalog backend. It scaffolds a self-contained `src/app/catalog-runtime/` bridge — a `CatalogClient` (HTTP + one pooled SSE stream), pure compile helpers, and five `Catalog*Source` services that compile catalog rows into the runtime registries (`ExperienceRegistry`, `FormRegistry`, `DataSourceRegistry`, `ToolRegistry`) — and patches `app.config.ts` with `provideCatalogRuntime({ baseUrl, tenant })`. Decoupled from any host auth/config via `CATALOG_CONFIG` / `CATALOG_AUTH` injection tokens (default disabled; OIDC by supplying a token). Snapshot-tested.
+
+### Added — design-token system
+
+- **`kind:'theme'` design tokens** authored per-application and applied across every surface (the token designer + `TokenSet` shape). Themes hot-swap live over the catalog SSE stream.
+
+### Added — workflow decisions
+
+- **`DecisionNext` + `AGENTIC_DECISION_EVALUATOR`** seam lets a workflow step branch on a governed decision table (`provideDecisionEvaluator`, `resolveNextAsync`, `isDecisionNext`).
+
+### Added — type-aware MFE remote loader
+
+- **`createRemoteLoader(remote)`** dispatches by remote `type` — Native Federation loads directly by `remoteEntry` URL (so remotes discovered at runtime load without a rebuilt boot manifest); Module Federation 1.0/2.0 remotes load via an optional `@module-federation/runtime` peer. `RemoteSpec` gains an optional `type` field.
+
+### Changed
+
+- `LIB_VERSION` synced to `1.5.0` (was drifted at `1.3.0`) so host-version compatibility checks reflect the published version.
+
 ## [1.3.0]
 
 ### Added — MCP Apps (SEP-1865) inbound rendering
