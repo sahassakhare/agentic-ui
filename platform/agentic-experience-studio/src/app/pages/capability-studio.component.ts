@@ -2,6 +2,8 @@ import { Component, computed, inject, input, signal, effect } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
+import { CapabilityGraphService, type Usage } from '../services/capability-graph.service';
+import { kindMeta } from '../services/kind-meta';
 import { ToastService } from '../services/toast.service';
 import { AuthService } from '../services/auth.service';
 import { PreviewHostComponent } from '../preview-host.component';
@@ -186,6 +188,30 @@ export interface StudioConfig {
                   <span class="badge" [class.badge-ok]="c.lifecycle === 'published'" [class.badge-warn]="c.lifecycle === 'draft'" [class.badge-danger]="c.lifecycle === 'deprecated' || c.lifecycle === 'disabled'">{{ c.lifecycle }}</span>
                 </div>
                 @if (summarize(c)) { <span class="desc" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ summarize(c) }}</span> }
+                @let u = usageOf(c);
+                @if (u.uses.length || u.usedBy.length || u.unmet.length) {
+                  <button type="button" class="usebtn" (click)="toggleUsage(c)" [attr.aria-expanded]="expandedUsage() === c.kind + ':' + c.name">
+                    @if (u.uses.length) { <span title="Composed of">↳ uses {{ u.uses.length }}</span> }
+                    @if (u.usedBy.length) { <span title="Referenced by">↰ used by {{ u.usedBy.length }}</span> }
+                    @if (u.unmet.length) { <span class="unmet" title="References that aren't defined">⚠ {{ u.unmet.length }} unmet</span> }
+                  </button>
+                  @if (expandedUsage() === c.kind + ':' + c.name) {
+                    <div class="usedetail">
+                      @if (u.uses.length) {
+                        <div class="ugrp"><span class="ulbl">Uses</span>
+                          @for (r of u.uses; track r.kind + r.name) { <span class="kchip" [style.--h]="km(r.kind).hue">{{ km(r.kind).glyph }} {{ r.name }} <em>{{ km(r.kind).label }}</em></span> }</div>
+                      }
+                      @if (u.unmet.length) {
+                        <div class="ugrp"><span class="ulbl unmet">Unmet</span>
+                          @for (r of u.unmet; track r.kind + r.name) { <span class="kchip unmet" [style.--h]="km(r.kind).hue">{{ km(r.kind).glyph }} {{ r.name }} <em>{{ km(r.kind).label }}?</em></span> }</div>
+                      }
+                      @if (u.usedBy.length) {
+                        <div class="ugrp"><span class="ulbl">Used by</span>
+                          @for (r of u.usedBy; track r.kind + r.name) { <span class="kchip" [style.--h]="km(r.kind).hue">{{ km(r.kind).glyph }} {{ r.name }} <em>{{ km(r.kind).label }}</em></span> }</div>
+                      }
+                    </div>
+                  }
+                }
               </div>
               @for (t of c.tags; track t) { <span class="badge plain badge-brand">{{ t }}</span> }
               <div class="row" style="gap:var(--s2)">
@@ -256,6 +282,18 @@ export interface StudioConfig {
     @if (historyFor(); as hid) { <aes-history-panel [capabilityId]="hid" (close)="historyFor.set(null)" (changed)="onHistoryChanged(hid)" /> }
   `,
   styles: [`
+    .usebtn { margin-top: 4px; border: none; background: none; padding: 0; cursor: pointer; display: inline-flex; gap: 12px; font-size: 11.5px; color: var(--text-muted); }
+    .usebtn span { display: inline-flex; align-items: center; gap: 3px; }
+    .usebtn:hover { color: var(--text); }
+    .usebtn .unmet { color: var(--danger); font-weight: 600; }
+    .usedetail { margin-top: 7px; display: flex; flex-direction: column; gap: 6px; padding: 9px 11px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; }
+    .ugrp { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .ulbl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; opacity: .55; min-width: 52px; }
+    .ulbl.unmet { color: var(--danger); opacity: 1; }
+    .kchip { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 2px 9px; border-radius: 999px;
+      background: hsl(var(--h) 55% 50% / .15); color: var(--text); }
+    .kchip em { opacity: .6; font-style: normal; font-size: 10.5px; }
+    .kchip.unmet { background: hsl(2 60% 50% / .1); color: var(--danger); border: 1px dashed hsl(2 55% 50% / .5); }
     .subtabs { display: flex; gap: var(--s1); margin: var(--s3) 0 0; border-bottom: 1px solid var(--border); }
     .subtabs a { font-size: var(--fs-sm); font-weight: 550; color: var(--text-muted); text-decoration: none;
       padding: .5rem .8rem; border-bottom: 2px solid transparent; }
@@ -281,8 +319,11 @@ export interface StudioConfig {
 })
 export class CapabilityStudioComponent {
   private readonly catalog = inject(CapabilityCatalogService);
+  private readonly graph = inject(CapabilityGraphService);
   private readonly toast = inject(ToastService);
   private readonly auth = inject(AuthService);
+  protected readonly km = kindMeta;
+  protected readonly expandedUsage = signal<string | null>(null);
   readonly canApprove = computed(() => canApproveWith(this.auth.roles()));
   readonly historyFor = signal<string | null>(null);
 
@@ -416,6 +457,17 @@ export class CapabilityStudioComponent {
       next: (res) => { this.items.set(res.items); this.loading.set(false); },
       error: (err) => { this.error.set(msg(err)); this.loading.set(false); },
     });
+    this.graph.load();   // (re)build the cross-registry dependency graph
+  }
+
+  /** What this capability uses / is used by / references but isn't defined. */
+  protected usageOf(c: Capability): Usage {
+    this.graph.version();   // re-read when the graph (re)builds
+    return this.graph.usage(c);
+  }
+  protected toggleUsage(c: Capability): void {
+    const k = `${c.kind}:${c.name}`;
+    this.expandedUsage.set(this.expandedUsage() === k ? null : k);
   }
 
   /** Create or update depending on whether the form is in edit mode. */
