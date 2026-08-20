@@ -44,6 +44,7 @@ const CARD = `
   .sum .r { display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line); font-size:14px; }
   .sum .r span:first-child { color:var(--muted); } .sum .r span:last-child { font-weight:600; }
   .ok { display:inline-flex; align-items:center; gap:7px; color:var(--ok); font-weight:600; font-size:14px; }
+  @media (max-width: 480px) { .row { grid-template-columns:1fr; } }
 `;
 
 @Component({ selector: 'w-role-picker', changeDetection: ChangeDetectionStrategy.OnPush, styles: [CARD],
