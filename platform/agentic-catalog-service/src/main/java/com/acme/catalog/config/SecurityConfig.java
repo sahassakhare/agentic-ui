@@ -45,7 +45,8 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         http.authorizeHttpRequests(a -> {
-            a.requestMatchers("/health", "/readyz", "/v1/embed/**", "/h2-console/**", "/actuator/**").permitAll();
+            a.requestMatchers("/health", "/readyz", "/v1/embed/**", "/h2-console/**", "/actuator/**",
+                              "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll();
             if (props.authDisabled()) {
                 a.anyRequest().permitAll();
             } else {
