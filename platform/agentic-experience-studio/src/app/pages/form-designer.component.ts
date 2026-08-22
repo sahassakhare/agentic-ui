@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, HostListener, inject, input, signal } from '@angular/core';
+import { CdkDrag, CdkDragHandle, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
@@ -19,7 +20,6 @@ import type { HasUnsavedChanges } from '../guards/unsaved-changes.guard';
  * form's `schema.fields[]` JSON — edited by direct manipulation, rendered live by
  * SchemaForm, saved to the form capability. Native HTML5 drag-and-drop (no deps).
  */
-type DragSrc = { kind: 'palette'; widget: string } | { kind: 'field'; index: number } | null;
 const FIELD_TYPES = ['text', 'email', 'number', 'date', 'textarea', 'select', 'checkbox', 'radio'] as const;
 
 /** Action-bar kinds an author can attach (mirrors the lib's `FormActionDef`). */
@@ -39,7 +39,7 @@ interface DesignerAction {
 @Component({
   selector: 'aes-form-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent],
+  imports: [FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle],
   template: `
     <div class="page wide">
       <a routerLink="/forms" class="back">
@@ -117,9 +117,10 @@ interface DesignerAction {
         <aside class="palette card card-pad">
           <div class="eyebrow" style="margin-bottom:var(--s2)">Components</div>
           <input class="input" [(ngModel)]="q" placeholder="Search components…" autocomplete="off" />
-          <div class="pal-list">
+          <div class="pal-list" cdkDropList id="form-palette" [cdkDropListData]="paletteSource"
+               [cdkDropListConnectedTo]="['form-canvas']" [cdkDropListSortingDisabled]="true">
             @for (c of palette(); track c.name) {
-              <div class="pal-item" draggable="true" (dragstart)="startPaletteDrag(c.name)" (dragend)="drag.set(null)" [title]="'Drag ' + c.name + ' onto the canvas'">
+              <div class="pal-item" cdkDrag [cdkDragData]="c.name" [title]="'Drag ' + c.name + ' onto the canvas'">
                 <span class="grip">⋮⋮</span> {{ c.name }}
               </div>
             }
@@ -128,16 +129,20 @@ interface DesignerAction {
         </aside>
 
         <!-- Canvas: the composed fields -->
-        <div class="canvas card card-pad" (dragover)="allow($event)" (drop)="dropOnCanvas($event)">
-          <div class="eyebrow" style="margin-bottom:var(--s3)">Canvas · {{ fields().length }} field{{ fields().length === 1 ? '' : 's' }}</div>
+        <div class="canvas card card-pad" cdkDropList id="form-canvas" [cdkDropListData]="fields()" (cdkDropListDropped)="onDrop($event)">
+          <div class="eyebrow rowbar" style="margin-bottom:var(--s3)">
+            <span>Canvas · {{ fields().length }} field{{ fields().length === 1 ? '' : 's' }}</span>
+            <span class="hbtns">
+              <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" title="Undo (⌘Z)" aria-label="Undo">↶</button>
+              <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" title="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
+            </span>
+          </div>
           @if (!fields().length) {
             <div class="drop-empty">Drag components here to compose the form.</div>
           }
           @for (f of fields(); track $index) {
-            <div class="frow" [class.section]="f.type === 'section'" draggable="true"
-                 (dragstart)="startFieldDrag($index, $event)" (dragend)="drag.set(null)"
-                 (dragover)="allow($event)" (drop)="dropOnField($index, $event)">
-              <span class="grip">⋮⋮</span>
+            <div class="frow" [class.section]="f.type === 'section'" cdkDrag [cdkDragData]="$index">
+              <span class="grip" cdkDragHandle>⋮⋮</span>
               @if (f.type === 'section') {
                 <input class="input sec" [ngModel]="f.label" (ngModelChange)="patch($index, { label: $event })" placeholder="Section title" />
               } @else {
@@ -192,6 +197,17 @@ interface DesignerAction {
     .wchip { font-family:var(--font-mono); font-size:10px; color:var(--brand); background:var(--brand-soft); padding:2px 7px; border-radius:var(--r-full); white-space:nowrap; }
     .rm { border:1px solid var(--border); background:var(--surface); border-radius:var(--r-sm); width:28px; height:28px; cursor:pointer; color:var(--text-muted); }
     .rm:hover { border-color:var(--danger); color:var(--danger); }
+    /* CDK drag-drop states + undo toolbar (Studio-token styled). */
+    .frow.cdk-drag-preview { box-shadow:0 8px 24px -8px rgba(0,0,0,.35); border-color:var(--brand); background:var(--surface); }
+    .frow.cdk-drag-placeholder { opacity:.35; border-style:dashed; }
+    .grip[cdkdraghandle] { cursor:grab; } .frow.cdk-drag-dragging .grip { cursor:grabbing; }
+    .canvas.cdk-drop-list-dragging { outline:1px dashed var(--brand); outline-offset:2px; }
+    .cdk-drag-animating { transition:transform .18s cubic-bezier(0,0,.2,1); }
+    .rowbar { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .hbtns { display:inline-flex; gap:4px; }
+    .hb { border:1px solid var(--border); background:var(--surface); color:var(--text-muted); border-radius:var(--r-sm); width:26px; height:24px; font-size:14px; line-height:1; cursor:pointer; }
+    .hb:hover:not([disabled]) { border-color:var(--brand); color:var(--brand); }
+    .hb[disabled] { opacity:.35; cursor:default; }
     .arow { display:flex; align-items:center; gap:var(--s2); padding:8px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface); margin-top:var(--s2); flex-wrap:wrap; }
     .arow .flex { flex:1; min-width:120px; } .arow .akind { width:110px; } .arow .atgt { width:150px; } .arow .astyle { width:110px; } .arow .input { padding:7px 9px; font-size:var(--fs-sm); }
   `],
@@ -211,7 +227,6 @@ export class FormDesignerComponent implements HasUnsavedChanges {
   /** validation-registry entries a field can attach as a governed rule. */
   readonly validators = signal<readonly Capability[]>([]);
   readonly saving = signal(false);
-  readonly drag = signal<DragSrc>(null);
   readonly lifecycle = signal<Lifecycle>('draft');
   readonly approvalState = signal<ApprovalState>('draft');
   readonly capVersion = signal(0);
@@ -245,6 +260,7 @@ export class FormDesignerComponent implements HasUnsavedChanges {
         this.form.set(c);
         const schema = (c.body?.['schema'] ?? {}) as { fields?: SchemaField[]; submit?: string; actions?: DesignerAction[] };
         this.fields.set([...(schema.fields ?? [])]);
+        this.past.set([]); this.future.set([]); // fresh undo history from the loaded form
         this.actions.set(hydrateActions(schema.actions, schema.submit));
         applyCapability(this.gov(), c);
         this.pristine = this.snapshot();
@@ -274,38 +290,63 @@ export class FormDesignerComponent implements HasUnsavedChanges {
     this.actions.update((a) => a.map((x, idx) => (idx === i ? { kind, label: x.label, style: x.style } : x)));
   }
 
-  // ── drag + drop (native HTML5) ──────────────────────────────────────────────
-  allow(e: DragEvent): void { e.preventDefault(); }
-  startPaletteDrag(widget: string): void { this.drag.set({ kind: 'palette', widget }); }
-  startFieldDrag(index: number, e: DragEvent): void { e.stopPropagation(); this.drag.set({ kind: 'field', index }); }
-
-  dropOnCanvas(e: DragEvent): void {
-    e.preventDefault();
-    const d = this.drag();
-    if (d?.kind === 'palette') this.insertField(this.fields().length, d.widget);
-    this.drag.set(null);
+  // ── drag + drop (CDK) — reorder within the canvas, or copy from the palette ──
+  protected readonly paletteSource: readonly string[] = [];
+  protected onDrop(event: CdkDragDrop<SchemaField[]>): void {
+    if (event.previousContainer === event.container) {
+      this.moveField(event.previousIndex, event.currentIndex);
+    } else {
+      this.insertField(event.currentIndex, event.item.data as string);
+    }
   }
-  dropOnField(target: number, e: DragEvent): void {
-    e.preventDefault(); e.stopPropagation();
-    const d = this.drag();
-    if (d?.kind === 'palette') this.insertField(target, d.widget);
-    else if (d?.kind === 'field') this.moveField(d.index, target);
-    this.drag.set(null);
+
+  // ── undo / redo over the fields() model (structural edits: add/move/remove) ──
+  private readonly past = signal<SchemaField[][]>([]);
+  private readonly future = signal<SchemaField[][]>([]);
+  readonly canUndo = computed(() => this.past().length > 0);
+  readonly canRedo = computed(() => this.future().length > 0);
+  private pushHistory(): void { this.past.update((h) => [...h.slice(-49), this.fields()]); this.future.set([]); }
+
+  undo(): void {
+    const h = this.past();
+    if (!h.length) return;
+    this.future.update((f) => [this.fields(), ...f]);
+    this.past.set(h.slice(0, -1));
+    this.fields.set(h[h.length - 1]!);
+  }
+  redo(): void {
+    const f = this.future();
+    if (!f.length) return;
+    this.past.update((p) => [...p, this.fields()]);
+    this.future.set(f.slice(1));
+    this.fields.set(f[0]!);
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  protected onKey(e: KeyboardEvent): void {
+    const el = e.target as HTMLElement | null;
+    if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    if (!(e.metaKey || e.ctrlKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(); }
+    else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); this.redo(); }
   }
 
   // ── model ops ───────────────────────────────────────────────────────────────
   private insertField(at: number, widget: string): void {
+    this.pushHistory();
     this.fields.update((fs) => { const next = [...fs]; next.splice(at, 0, this.makeField(widget, fs)); return next; });
   }
   private moveField(from: number, to: number): void {
     if (from === to) return;
+    this.pushHistory();
     this.fields.update((fs) => { const next = [...fs]; const [x] = next.splice(from, 1); next.splice(to, 0, x!); return next; });
   }
   patch(i: number, part: Partial<SchemaField>): void {
     this.fields.update((fs) => fs.map((f, idx) => (idx === i ? { ...f, ...part } : f)));
   }
-  remove(i: number): void { this.fields.update((fs) => fs.filter((_, idx) => idx !== i)); }
-  addSection(): void { this.fields.update((fs) => [...fs, { name: `section_${fs.length}`, type: 'section', label: 'New section' }]); }
+  remove(i: number): void { this.pushHistory(); this.fields.update((fs) => fs.filter((_, idx) => idx !== i)); }
+  addSection(): void { this.pushHistory(); this.fields.update((fs) => [...fs, { name: `section_${fs.length}`, type: 'section', label: 'New section' }]); }
 
   private makeField(widget: string, existing: readonly SchemaField[]): SchemaField {
     const type = inferType(widget);
