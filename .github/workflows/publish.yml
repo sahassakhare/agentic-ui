@@ -32,11 +32,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node 20.19 (+ npm registry auth)
+      # NOTE: deliberately NO `registry-url:` here. setup-node's registry-url
+      # writes `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}` into an
+      # .npmrc; with no token that becomes an empty auth line, and npm treats
+      # "auth is configured" as a reason to SKIP the OIDC trusted-publishing
+      # exchange (→ unauthenticated PUT → E404). npm's trusted-publishing docs
+      # require removing all npm auth config. Default registry is npmjs.org.
+      - name: Set up Node 20.19
         uses: actions/setup-node@v4
         with:
           node-version: '20.19'
-          registry-url: 'https://registry.npmjs.org'
           cache: npm
 
       # Match the lockfile generator (see .github/workflows/ci.yml).
