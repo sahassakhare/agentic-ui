@@ -22,6 +22,8 @@ export interface Capability {
   readonly version: number;
   readonly approvalState: ApprovalState;
   readonly approvalChain: readonly ApprovalEvent[];
+  /** Authoring provenance: distinguishes AI-assisted drafts. Absent is treated as 'human'. */
+  readonly authoredBy?: 'human' | 'ai-assisted';
   readonly createdAt: string;
   readonly updatedAt?: string;
   readonly softDeletedAt: string | null;
@@ -80,7 +82,7 @@ export class CapabilityCatalogService {
     return this.http.get<Capability>(`${this.base()}/${id}`);
   }
 
-  create(input: { kind: string; name: string; body: Record<string, unknown>; tags?: string[] }): Observable<Capability> {
+  create(input: { kind: string; name: string; body: Record<string, unknown>; tags?: string[]; authoredBy?: 'human' | 'ai-assisted' }): Observable<Capability> {
     return this.http.post<Capability>(this.base(), input);
   }
 

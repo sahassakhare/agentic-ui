@@ -27,6 +27,7 @@ public class Views {
         m.put("version", c.version);
         m.put("approvalState", c.approvalState);
         m.put("approvalChain", json.read(c.approvalChain == null ? "[]" : c.approvalChain));
+        m.put("authoredBy", c.authoredBy == null ? "human" : c.authoredBy);
         m.put("createdAt", iso(c.createdAt)); m.put("updatedAt", iso(c.updatedAt));
         m.put("createdBy", c.createdBy); m.put("softDeletedAt", iso(c.softDeletedAt));
         return m;

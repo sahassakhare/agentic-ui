@@ -62,6 +62,8 @@ public class CapabilityService {
         c.lifecycle = input.hasNonNull("lifecycle") ? input.get("lifecycle").asText() : "draft";
         c.approvalState = "published".equals(c.lifecycle) ? "approved" : "draft";
         c.approvalChain = "[]";
+        // Provenance defaults to 'human'; only an explicit 'ai-assisted' is honored.
+        c.authoredBy = "ai-assisted".equals(input.path("authoredBy").asText(null)) ? "ai-assisted" : "human";
         c.owner = input.hasNonNull("owner") ? input.get("owner").asText() : null;
         c.tags = json.write(input.has("tags") ? input.get("tags") : json.mapper().createArrayNode());
         c.requiredHostVersion = input.hasNonNull("requiredHostVersion") ? input.get("requiredHostVersion").asText() : null;
@@ -84,6 +86,7 @@ public class CapabilityService {
         if (patch.has("body")) { c.body = json.write(patch.get("body")); bodyChanged = true; }
         if (patch.has("tags")) c.tags = json.write(patch.get("tags"));
         if (patch.has("owner")) c.owner = patch.get("owner").isNull() ? null : patch.get("owner").asText();
+        if (patch.hasNonNull("authoredBy")) c.authoredBy = "ai-assisted".equals(patch.get("authoredBy").asText()) ? "ai-assisted" : "human";
         // A content change on an approved capability sends it back to draft so the
         // change is re-reviewed before it can be published again.
         if (bodyChanged && "approved".equals(c.approvalState)) c.approvalState = "draft";
