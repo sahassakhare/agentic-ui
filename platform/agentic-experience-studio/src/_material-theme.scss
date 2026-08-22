@@ -1,0 +1,65 @@
+// Angular Material 3 theme for Experience Studio.
+//
+// The Studio owns its visual identity through the design tokens in styles.scss,
+// which already swap across light / dark / [data-theme]. Rather than give
+// Material its own palette (which would fight that identity), we scaffold the
+// M3 structure, density and typography here and then remap Material's system
+// tokens (--mat-sys-*) onto the Studio tokens. Because those tokens switch
+// themselves, Material components follow the Studio's light/dark automatically —
+// there is no duplicate dark block here. Adopt Material only for the categories
+// listed in docs/material-adoption.md; canvas / graph / preview stay custom.
+@use '@angular/material' as mat;
+
+html {
+  // Structure, density and typography only. The palette is a placeholder — every
+  // visible colour is overridden by the token map below. Typography is pinned to
+  // the Studio's Inter stack so Material never falls back to Roboto.
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$violet-palette,
+        tertiary: mat.$violet-palette,
+      ),
+      typography: (
+        plain-family: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+        brand-family: 'Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+        bold-weight: 600,
+        medium-weight: 500,
+      ),
+      density: -1,
+    )
+  );
+}
+
+// Remap M3 system tokens → Studio design tokens. Declared on :root so it inherits
+// the Studio's per-theme values (bare :root, prefers-color-scheme, [data-theme])
+// with no per-theme duplication here.
+:root {
+  --mat-sys-primary: var(--brand);
+  --mat-sys-on-primary: var(--on-brand);
+  --mat-sys-primary-container: var(--brand-soft);
+  --mat-sys-on-primary-container: var(--brand);
+
+  --mat-sys-surface: var(--surface);
+  --mat-sys-surface-container-low: var(--surface);
+  --mat-sys-surface-container: var(--surface-2);
+  --mat-sys-surface-container-high: var(--surface-hover);
+  --mat-sys-surface-container-highest: var(--surface-hover);
+  --mat-sys-on-surface: var(--text);
+  --mat-sys-on-surface-variant: var(--text-muted);
+
+  --mat-sys-background: var(--bg);
+  --mat-sys-on-background: var(--text);
+
+  --mat-sys-outline: var(--border-strong);
+  --mat-sys-outline-variant: var(--border);
+
+  --mat-sys-error: var(--danger);
+  --mat-sys-on-error: var(--on-brand);
+
+  // Corners → Studio radii.
+  --mat-sys-corner-small: var(--r-sm);
+  --mat-sys-corner-medium: var(--r-md);
+  --mat-sys-corner-large: var(--r-lg);
+  --mat-sys-corner-extra-large: var(--r-lg);
+}
