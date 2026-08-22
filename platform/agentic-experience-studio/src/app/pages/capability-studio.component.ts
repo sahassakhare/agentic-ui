@@ -128,7 +128,7 @@ export interface StudioConfig {
                 <span class="muted" style="font-size:var(--fs-sm)">Review chain: draft → submit → review → approve → publish. The Hub resolves <strong>published</strong> entries.</span>
               </div>
               <div class="row spacer" style="gap:var(--s2); flex-wrap:wrap; justify-content:flex-end; align-items:center">
-                <aes-lifecycle-bar [lifecycle]="et.lifecycle" [approvalState]="et.approvalState" [canApprove]="canApprove()"
+                <aes-lifecycle-bar [lifecycle]="et.lifecycle" [approvalState]="et.approvalState" [authoredBy]="et.authoredBy" [canApprove]="canApprove()"
                   [busy]="transitioning()" (action)="onBarAction(et, $event)" (history)="historyFor.set(et.id)" />
               </div>
             </div>

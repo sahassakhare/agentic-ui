@@ -30,6 +30,9 @@ interface BarButton {
     <span class="badge" [class.pub]="approvalState() === 'approved'" [class.rev]="approvalState() === 'review'"
       [class.rej]="approvalState() === 'rejected'">{{ approvalState() }}</span>
     <span class="lc">· {{ lifecycle() }}</span>
+    @if (authoredBy() === 'ai-assisted') {
+      <span class="ai" title="Drafted with AI assistance">✨ AI-assisted</span>
+    }
     @for (b of buttons(); track b.label) {
       <button class="lc-btn" type="button"
         [class.primary]="b.primary" [class.danger]="b.danger"
@@ -45,6 +48,7 @@ interface BarButton {
     .badge.rev { background:rgba(203,143,0,.15); color:#a86a00; }
     .badge.rej { background:rgba(192,57,43,.13); color:#c0392b; }
     .lc { font-size:11px; opacity:.6; text-transform:uppercase; letter-spacing:.03em; }
+    .ai { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:3px 9px; border-radius:999px; background:var(--brand-soft); color:var(--brand); }
     .lc-btn { font:inherit; font-size:12px; padding:5px 11px; border:1px solid rgba(120,120,140,.3); border-radius:8px; background:transparent; color:inherit; cursor:pointer; }
     .lc-btn:hover:not([disabled]) { border-color:#6750a4; color:#6750a4; }
     .lc-btn.primary { background:#6750a4; color:#fff; border-color:#6750a4; font-weight:600; }
@@ -57,6 +61,8 @@ interface BarButton {
 export class LifecycleBarComponent {
   readonly lifecycle = input.required<Lifecycle>();
   readonly approvalState = input.required<ApprovalState>();
+  /** Authoring provenance; when 'ai-assisted' a subtle badge is shown. */
+  readonly authoredBy = input<'human' | 'ai-assisted' | undefined>();
   /** Whether the current user may approve/reject (approver role). */
   readonly canApprove = input(false);
   readonly busy = input(false);

@@ -31,4 +31,7 @@ public class Capability {
     public String approvalState;
     /** JSON array of approval events (who/when/action/comment). */
     public String approvalChain;
+    /** Authoring provenance: 'human' (default) or 'ai-assisted' — distinguishes
+     *  AI-assisted drafts for audit. Nullable; treated as 'human' when absent. */
+    public String authoredBy;
 }

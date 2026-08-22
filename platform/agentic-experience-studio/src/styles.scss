@@ -5,6 +5,7 @@
  * Token-driven; light + dark are first-class (media query + [data-theme]).
  * Component classes are global so every route reuses one visual language.
  * ==========================================================================*/
+@use './material-theme';
 
 :root {
   color-scheme: light dark;

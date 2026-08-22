@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, HostListener, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { CdkDrag, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ExperienceCatalogService } from '../services/experience-catalog.service';
 import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
@@ -58,7 +59,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 @Component({
   selector: 'aes-page-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag],
   template: `
     <div class="wrap">
       <header class="head">
@@ -93,12 +94,13 @@ const PROP_FIELDS: Record<string, PropField[]> = {
             }
 
             <section class="card">
-              <div class="eyebrow">Add to <b>{{ activeRegion() }}</b> <span class="muted sm">— click a region, then a block</span></div>
-              <div class="palscroll">
+              <div class="eyebrow">Add to <b>{{ activeRegion() }}</b> <span class="muted sm">— click a region then a block, or drag a block onto one</span></div>
+              <div class="palscroll" cdkDropList id="palette" [cdkDropListData]="paletteSource"
+                   [cdkDropListConnectedTo]="regionListIds()" [cdkDropListSortingDisabled]="true">
                 @for (g of palette(); track g.category) {
                   <div class="cat">{{ g.category }}</div>
                   @for (it of g.items; track it.kind + ':' + it.name) {
-                    <button class="palette" (click)="add(it)">
+                    <button class="palette" cdkDrag [cdkDragData]="it" (click)="add(it)">
                       <span class="ic" [class.dash]="it.kind === 'dashboard'">{{ glyph(it.kind) }}</span>
                       <span class="pt"><span class="nm">{{ it.title }}</span><span class="gl">{{ it.kind }} · {{ it.name }}</span></span>
                       <span class="plus">＋</span>
@@ -162,16 +164,24 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 
           <main class="col">
             <section class="card">
-              <div class="eyebrow">
-                @if (type() === 'shell') { Shell regions <span class="muted sm">— content (pages) renders in the centre</span> }
-                @else { Regions · <span class="muted">{{ layout() }}</span> }
+              <div class="eyebrow rowbar">
+                <span>
+                  @if (type() === 'shell') { Shell regions <span class="muted sm">— content (pages) renders in the centre</span> }
+                  @else { Regions · <span class="muted">{{ layout() }}</span> }
+                </span>
+                <span class="hbtns">
+                  <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" title="Undo (⌘Z)" aria-label="Undo">↶</button>
+                  <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" title="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
+                </span>
               </div>
               <div class="regions" [attr.data-shell]="type() === 'shell'">
                 @for (r of regionNames(); track r) {
-                  <div class="region" [class.on]="activeRegion() === r" (click)="activeRegion.set(r)">
+                  <div class="region" cdkDropList [id]="'region-' + r" [cdkDropListData]="regions()[r] || []"
+                       [cdkDropListConnectedTo]="regionListIds()" (cdkDropListDropped)="onDrop($event, r)"
+                       [class.on]="activeRegion() === r" (click)="activeRegion.set(r)">
                     <div class="rhead">{{ r }} <span class="muted sm">{{ (regions()[r] || []).length }}</span></div>
                     @for (s of regions()[r]; track $index) {
-                      <div class="block" [class.sel]="isSelected(r, $index)" (click)="select(r, $index, $event)">
+                      <div class="block" cdkDrag [cdkDragData]="s" [class.sel]="isSelected(r, $index)" (click)="select(r, $index, $event)">
                         <span class="ic" [class.dash]="s.kind === 'dashboard'">{{ glyph(s.kind) }}</span>
                         <span class="bm"><span class="nm">{{ s.name }}</span><span class="gl">{{ s.kind }}</span></span>
                         <span class="ctrls">
@@ -274,6 +284,20 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     .block .mv, .block .x { padding:2px 4px; font-size:11px; line-height:1; }
     .block .mv:hover:not([disabled]), .block .x:hover, .proprow .x:hover { opacity:1; }
     .block .mv[disabled] { opacity:.18; cursor:default; }
+    /* CDK drag-drop canvas states (Studio-token styled). */
+    .block { cursor:grab; }
+    .block.cdk-drag-dragging { cursor:grabbing; }
+    .block.cdk-drag-preview { box-shadow:0 8px 24px -8px rgba(0,0,0,.35); border-color:var(--brand); background:var(--surface); border-radius:9px; }
+    .block.cdk-drag-placeholder { opacity:.35; border-style:dashed; }
+    .palette[cdkdrag] { cursor:grab; } .palette.cdk-drag-dragging { cursor:grabbing; }
+    .region.cdk-drop-list-dragging { border-color:var(--brand); background:var(--brand-soft); }
+    .region.cdk-drop-list-receiving { border-color:var(--brand); }
+    .cdk-drag-animating, .block.cdk-drag-placeholder { transition:transform .18s cubic-bezier(0,0,.2,1); }
+    .rowbar { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .hbtns { display:inline-flex; gap:4px; }
+    .hb { border:1px solid var(--border); background:var(--surface); color:var(--text-muted); border-radius:var(--r-sm); width:26px; height:24px; font-size:14px; line-height:1; cursor:pointer; }
+    .hb:hover:not([disabled]) { border-color:var(--brand); color:var(--brand); }
+    .hb[disabled] { opacity:.35; cursor:default; }
     .proprow { display:grid; grid-template-columns:auto 1fr auto; gap:6px; margin-top:6px; align-items:center; }
     .proprow.add { grid-template-columns:1fr 1fr auto; }
     .pkey { font-size:12px; opacity:.8; max-width:96px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -311,6 +335,13 @@ export class PageDesignerComponent implements HasUnsavedChanges {
   protected readonly showHistory = signal(false);
   protected readonly canApprove = computed(() => canApproveWith(this.auth.roles()));
   private pristine = '';
+  // Undo/redo history over the regions() model (drag canvas + manual edits share it).
+  private readonly past = signal<Record<string, Surface[]>[]>([]);
+  private readonly future = signal<Record<string, Surface[]>[]>([]);
+  protected readonly canUndo = computed(() => this.past().length > 0);
+  protected readonly canRedo = computed(() => this.future().length > 0);
+  private historyReady = false;
+  private lastRegions: Record<string, Surface[]> | null = null;
 
   protected readonly regionNames = computed(() => this.type() === 'shell' ? SHELL_REGIONS : TEMPLATE_REGIONS[this.layout()]);
   /** Both page types share the SAME palette — every surface + shell components. */
@@ -320,7 +351,57 @@ export class PageDesignerComponent implements HasUnsavedChanges {
     return s ? this.regions()[s.region]?.[s.index] ?? null : null;
   });
 
-  constructor() { queueMicrotask(() => this.load()); }
+  constructor() {
+    queueMicrotask(() => this.load());
+    // Record a history snapshot whenever regions() changes through an edit. undo/
+    // redo and load pre-set lastRegions so their own writes aren't re-recorded.
+    effect(() => {
+      const cur = this.regions();
+      if (!this.historyReady) { this.lastRegions = cur; return; }
+      if (this.lastRegions && this.lastRegions !== cur) {
+        this.past.update((h) => [...h.slice(-49), this.lastRegions!]);
+        this.future.set([]);
+      }
+      this.lastRegions = cur;
+    });
+  }
+
+  /** Undo the last regions edit (⌘Z). */
+  protected undo(): void {
+    const h = this.past();
+    if (!h.length) return;
+    const prev = h[h.length - 1]!;
+    this.future.update((f) => [this.regions(), ...f]);
+    this.past.set(h.slice(0, -1));
+    this.lastRegions = prev; // pre-set so the history effect ignores this write
+    this.regions.set(prev);
+    this.selection.set(null);
+    this.saved.set(false);
+  }
+
+  /** Redo the last undone regions edit (⌘⇧Z). */
+  protected redo(): void {
+    const f = this.future();
+    if (!f.length) return;
+    const next = f[0]!;
+    this.past.update((p) => [...p, this.regions()]);
+    this.future.set(f.slice(1));
+    this.lastRegions = next;
+    this.regions.set(next);
+    this.selection.set(null);
+    this.saved.set(false);
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  protected onKey(e: KeyboardEvent): void {
+    if (this.loading()) return;
+    const el = e.target as HTMLElement | null;
+    if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    if (!(e.metaKey || e.ctrlKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(); }
+    else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); this.redo(); }
+  }
 
   protected glyph(kind: string): string { return KIND_GLYPH[kind] ?? '›'; }
   protected readonly km = kindMeta;
@@ -331,6 +412,7 @@ export class PageDesignerComponent implements HasUnsavedChanges {
   protected isSelected(r: string, i: number): boolean { const s = this.selection(); return !!s && s.region === r && s.index === i; }
 
   private load(): void {
+    this.historyReady = false; // don't record the load itself as an undoable edit
     const groups: PaletteGroup[] = [
       { category: 'Experiences', items: [] }, { category: 'Dashboards', items: [] },
       { category: 'Forms', items: [] }, { category: 'Workflows', items: [] }, { category: 'Components', items: [] },
@@ -361,6 +443,10 @@ export class PageDesignerComponent implements HasUnsavedChanges {
       applyCapability(this.gov(), c);
       this.loading.set(false);
       this.pristine = this.snapshot();
+      // Start history clean from the loaded state.
+      this.past.set([]); this.future.set([]);
+      this.lastRegions = this.regions();
+      this.historyReady = true;
     });
   }
 
@@ -380,12 +466,14 @@ export class PageDesignerComponent implements HasUnsavedChanges {
     const next: Record<string, Surface[]> = {};
     keys.forEach((r, i) => { next[r] = i === 0 ? carried : []; });
     this.type.set(t); this.regions.set(next); this.activeRegion.set(keys[0]); this.selection.set(null); this.saved.set(false);
+    this.lastRegions = next; this.past.set([]); this.future.set([]); // structural change resets history
   }
   protected setLayout(l: PageLayout): void {
     const carried = Object.values(this.regions()).flat();
     const keys = TEMPLATE_REGIONS[l]; const next: Record<string, Surface[]> = {};
     keys.forEach((r, i) => { next[r] = i === 0 ? carried : []; });
     this.layout.set(l); this.regions.set(next); this.activeRegion.set(keys[0]); this.saved.set(false);
+    this.lastRegions = next; this.past.set([]); this.future.set([]); // structural change resets history
   }
   protected add(it: PaletteItem): void {
     const r = this.activeRegion();
@@ -454,6 +542,41 @@ export class PageDesignerComponent implements HasUnsavedChanges {
     this.regions.update((cur) => ({ ...cur, [s.region]: nextFrom, [toR]: nextTo }));
     this.selection.set({ region: toR, index: nextTo.length - 1 });
     this.activeRegion.set(toR);
+    this.saved.set(false);
+  }
+
+  // ── drag-drop canvas (CDK) — additive over the same regions() model ──────────
+  /** DropList ids the palette and every region connect to. */
+  protected readonly regionListIds = computed(() => this.regionNames().map((r) => 'region-' + r));
+  /** Inert source array for the palette list — palette items are copied, never moved out. */
+  protected readonly paletteSource: readonly PaletteItem[] = [];
+
+  /** Drop a block: reorder within a region, move across regions, or copy from the palette. */
+  protected onDrop(event: CdkDragDrop<Surface[]>, toRegion: string): void {
+    const cur = this.regions();
+    if (event.previousContainer === event.container) {
+      const arr = [...(cur[toRegion] ?? [])];
+      moveItemInArray(arr, event.previousIndex, event.currentIndex);
+      this.regions.set({ ...cur, [toRegion]: arr });
+      this.selection.set({ region: toRegion, index: event.currentIndex });
+    } else if (event.previousContainer.id === 'palette') {
+      const it = event.item.data as PaletteItem;
+      const arr = [...(cur[toRegion] ?? [])];
+      arr.splice(event.currentIndex, 0, { kind: it.kind, name: it.name, props: {} });
+      this.regions.set({ ...cur, [toRegion]: arr });
+      this.activeRegion.set(toRegion);
+      this.selection.set({ region: toRegion, index: event.currentIndex });
+    } else {
+      const fromRegion = event.previousContainer.id.replace('region-', '');
+      const fromArr = [...(cur[fromRegion] ?? [])];
+      const toArr = fromRegion === toRegion ? fromArr : [...(cur[toRegion] ?? [])];
+      const [moved] = fromArr.splice(event.previousIndex, 1);
+      if (!moved) return;
+      toArr.splice(event.currentIndex, 0, moved);
+      this.regions.set({ ...cur, [fromRegion]: fromArr, [toRegion]: toArr });
+      this.activeRegion.set(toRegion);
+      this.selection.set({ region: toRegion, index: event.currentIndex });
+    }
     this.saved.set(false);
   }
 
