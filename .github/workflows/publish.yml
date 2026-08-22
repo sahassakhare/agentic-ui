@@ -1,11 +1,14 @@
 name: publish
 
-# Publishes the four @infra-tools packages to npm from CI, where:
-#   - GitHub Actions is a supported OIDC provider, so npm provenance
-#     attestations work (the publishConfig.provenance:true on agentic-ui
-#     and agentic-ui-server is honoured — it fails on a local publish).
-#   - The NPM_TOKEN repo secret is an npm *Automation* token, which
-#     bypasses the account's publish-time 2FA requirement.
+# Publishes the @infra-tools packages to npm from CI via npm **Trusted
+# Publishing** (OIDC) — no NPM_TOKEN. GitHub Actions is a supported OIDC
+# provider, so with `id-token: write` and npm >= 11.5.1, `npm publish`
+# exchanges the workflow's OIDC token with npm; this also produces the
+# provenance attestation (publishConfig.provenance:true). Each package
+# must have a trusted publisher configured on npmjs.com (repo
+# sahassakhare/agentic-ui, workflow publish.yml) before its first OIDC
+# publish. This replaces the old NPM_TOKEN automation token, whose
+# 2FA-bypass npm is deprecating (https://gh.io/npm-gat-bypass2fa-deprecation).
 #
 # Each step is idempotent: a version already on npm is skipped, so a
 # re-run only publishes what's new. Trigger manually (Actions -> publish
@@ -58,8 +61,6 @@ jobs:
       # workflow is safe to re-run.
       - name: Publish @infra-tools/agentic-ui
         working-directory: dist/agentic-ui
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           v=$(node -p "require('./package.json').version")
           if npm view "@infra-tools/agentic-ui@$v" version >/dev/null 2>&1; then
@@ -70,8 +71,6 @@ jobs:
 
       - name: Build + publish @infra-tools/agentic-ui-server
         working-directory: projects/agentic-ui-server
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
           v=$(node -p "require('./package.json').version")
@@ -83,8 +82,6 @@ jobs:
 
       - name: Build + publish @infra-tools/agentic-platform-schematics
         working-directory: projects/agentic-platform-schematics
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
           v=$(node -p "require('./package.json').version")
@@ -96,8 +93,6 @@ jobs:
 
       - name: Build + publish @infra-tools/agentic-catalog-server
         working-directory: platform/agentic-catalog-server
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm install --no-audit --fund=false
           npm run build
@@ -110,8 +105,6 @@ jobs:
 
       - name: Build + publish @infra-tools/agentic-ui-mcp
         working-directory: projects/agentic-ui-mcp
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
           v=$(node -p "require('./package.json').version")
@@ -123,8 +116,6 @@ jobs:
 
       - name: Build + publish @infra-tools/agentic-ui-opa-authorizer
         working-directory: projects/agentic-ui-opa-authorizer
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
           v=$(node -p "require('./package.json').version")
@@ -136,8 +127,6 @@ jobs:
 
       - name: Build + publish @infra-tools/aep-embed-sdk
         working-directory: platform/aep-embed-sdk
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
           v=$(node -p "require('./package.json').version")
@@ -149,8 +138,6 @@ jobs:
 
       - name: Build + publish @infra-tools/mvk (mvk-cli)
         working-directory: platform/mvk-cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
           v=$(node -p "require('./package.json').version")
