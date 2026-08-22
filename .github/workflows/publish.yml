@@ -67,11 +67,13 @@ jobs:
       - name: Publish @infra-tools/agentic-ui
         working-directory: dist/agentic-ui
         run: |
+          echo "node=$(node -v)  npm=$(npm -v)  npm-path=$(command -v npm)"
+          echo "OIDC request URL present: ${ACTIONS_ID_TOKEN_REQUEST_URL:+yes}${ACTIONS_ID_TOKEN_REQUEST_URL:-NO}"
           v=$(node -p "require('./package.json').version")
           if npm view "@infra-tools/agentic-ui@$v" version >/dev/null 2>&1; then
             echo "::notice::@infra-tools/agentic-ui@$v already published — skipping"
           else
-            npm publish --access public
+            npm publish --access public --loglevel verbose
           fi
 
       - name: Build + publish @infra-tools/agentic-ui-server
