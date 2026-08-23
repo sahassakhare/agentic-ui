@@ -105,12 +105,9 @@ export interface StudioConfig {
                     }
                     @case ('list') {
                       <textarea matInput rows="2" [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''"></textarea>
-                      <mat-hint>Separate with spaces or commas.</mat-hint>
                     }
                     @case ('json') {
                       <textarea matInput class="mono" rows="10" [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? '{ }'" spellcheck="false" autocomplete="off"></textarea>
-                      @if (!jsonOk(f.key)) { <mat-hint class="err-hint">Invalid JSON.</mat-hint> }
-                      @else { <mat-hint>Declarative JSON — the shape the renderer and agents consume.</mat-hint> }
                     }
                     @case ('number') {
                       <input matInput type="number" [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''" />
@@ -119,7 +116,7 @@ export interface StudioConfig {
                       <input matInput [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''" autocomplete="off" />
                     }
                   }
-                  @if (f.type !== 'json' && touched() && f.required && !filled(f.key)) { <mat-hint class="err-hint">{{ f.label }} is required.</mat-hint> }
+                  @if (fieldHint(f); as h) { <mat-hint [class.err-hint]="isErrHint(f)">{{ h }}</mat-hint> }
                 </mat-form-field>
               }
             }
@@ -409,6 +406,20 @@ export class CapabilityStudioComponent {
   isWide(f: StudioField): boolean { return f.type === 'textarea' || f.type === 'list' || f.type === 'json'; }
   filled(key: string): boolean { return String(this.values[key] ?? '').trim() !== ''; }
   nameValid(): boolean { return this.filled('name'); }
+
+  /** The single hint shown under a body field — one <mat-hint> outside the type
+   *  @switch so it always projects into MatFormField's hint slot (avoids NG8011). */
+  fieldHint(f: StudioField): string {
+    if (f.type === 'json' && !this.jsonOk(f.key)) return 'Invalid JSON.';
+    if (f.type !== 'json' && this.touched() && f.required && !this.filled(f.key)) return `${f.label} is required.`;
+    if (f.type === 'json') return 'Declarative JSON — the shape the renderer and agents consume.';
+    if (f.type === 'list') return 'Separate with spaces or commas.';
+    return '';
+  }
+  isErrHint(f: StudioField): boolean {
+    return (f.type === 'json' && !this.jsonOk(f.key))
+      || (f.type !== 'json' && this.touched() && !!f.required && !this.filled(f.key));
+  }
 
   /** A JSON field is OK when empty or when it parses. */
   jsonOk(key: string): boolean {
