@@ -26,7 +26,7 @@ import type { HasUnsavedChanges } from '../guards/unsaved-changes.guard';
  * form's `schema.fields[]` JSON — edited by direct manipulation, rendered live by
  * SchemaForm, saved to the form capability. Native HTML5 drag-and-drop (no deps).
  */
-const FIELD_TYPES = ['text', 'email', 'number', 'date', 'textarea', 'select', 'checkbox', 'radio'] as const;
+const FIELD_TYPES = ['text', 'email', 'tel', 'url', 'number', 'date', 'time', 'textarea', 'select', 'multiselect', 'checkbox', 'boolean', 'toggle', 'radio', 'range', 'file'] as const;
 
 /** Action-bar kinds an author can attach (mirrors the lib's `FormActionDef`). */
 const ACTION_KINDS = ['submit', 'reset', 'cancel', 'tool', 'action', 'navigate', 'emit'] as const;

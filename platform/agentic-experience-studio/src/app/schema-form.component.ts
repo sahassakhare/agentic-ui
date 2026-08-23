@@ -5,6 +5,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatButtonModule } from '@angular/material/button';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatSliderModule } from '@angular/material/slider';
 
 /**
  * Renders a form LIVE from its declarative JSON schema (`body.schema`) — the same
@@ -26,7 +28,8 @@ export interface FieldValidation {
 }
 export interface SchemaField {
   readonly name: string;
-  readonly type?: 'text' | 'email' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'section';
+  readonly type?: 'text' | 'email' | 'tel' | 'url' | 'password' | 'color' | 'number' | 'date' | 'time' | 'textarea'
+    | 'select' | 'multiselect' | 'checkbox' | 'boolean' | 'toggle' | 'radio' | 'range' | 'slider' | 'file' | 'section';
   readonly label?: string;
   readonly required?: boolean;
   readonly placeholder?: string;
@@ -57,7 +60,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 @Component({
   selector: 'aes-schema-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, MatRadioModule, MatButtonModule],
+  imports: [MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, MatRadioModule, MatButtonModule, MatSlideToggleModule, MatSliderModule],
   template: `
     @if (fields().length) {
       <form class="sf" (submit)="$event.preventDefault()">
@@ -72,7 +75,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
               @if (f.source) { <span class="sf-source" title="Data from the ‘{{ f.source }}’ source (resolved by the platform)">⇄ {{ f.source }}</span> }
               @for (v of f.validators ?? []; track v) { <span class="sf-val" title="Validated by the ‘{{ v }}’ rule (resolved at runtime)">✓ {{ v }}</span> }
             </label>
-            @switch (f.type) {
+            @switch (ctrl(f)) {
               @case ('textarea') {
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sf-mf">
                   <textarea matInput rows="3" [placeholder]="f.placeholder ?? ''" [value]="val(f.name)" (input)="set(f.name, $event)" (blur)="touch(f.name)"></textarea>
@@ -83,10 +86,22 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                   <mat-select [value]="val(f.name)" (selectionChange)="setVal(f.name, $event.value)">
                     @for (o of f.options ?? []; track o) { <mat-option [value]="o">{{ o }}</mat-option> }
                   </mat-select>
+                  @if (!(f.options?.length) && f.source) { <mat-hint>Options from ‘{{ f.source }}’ at runtime</mat-hint> }
+                </mat-form-field>
+              }
+              @case ('multiselect') {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sf-mf">
+                  <mat-select multiple [value]="valArr(f.name)" (selectionChange)="setVal(f.name, $event.value)">
+                    @for (o of f.options ?? []; track o) { <mat-option [value]="o">{{ o }}</mat-option> }
+                  </mat-select>
+                  @if (!(f.options?.length) && f.source) { <mat-hint>Options from ‘{{ f.source }}’ at runtime</mat-hint> }
                 </mat-form-field>
               }
               @case ('checkbox') {
-                <mat-checkbox [checked]="!!val(f.name)" (change)="setVal(f.name, $event.checked)">{{ f.placeholder ?? 'Yes' }}</mat-checkbox>
+                <mat-checkbox [checked]="!!val(f.name)" (change)="setVal(f.name, $event.checked)">{{ f.placeholder ?? f.label ?? 'Yes' }}</mat-checkbox>
+              }
+              @case ('toggle') {
+                <mat-slide-toggle [checked]="!!val(f.name)" (change)="setVal(f.name, $event.checked)">{{ f.placeholder ?? f.label ?? 'On' }}</mat-slide-toggle>
               }
               @case ('radio') {
                 <mat-radio-group class="sf-radios" [value]="val(f.name)" (change)="setVal(f.name, $event.value)">
@@ -103,9 +118,36 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
                   <input matInput type="date" [value]="val(f.name)" (input)="set(f.name, $event)" (blur)="touch(f.name)" />
                 </mat-form-field>
               }
+              @case ('time') {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sf-mf">
+                  <input matInput type="time" [value]="val(f.name)" (input)="set(f.name, $event)" (blur)="touch(f.name)" />
+                </mat-form-field>
+              }
+              @case ('range') {
+                <div class="sf-range">
+                  <mat-slider><input matSliderThumb [value]="+(val(f.name) || 0)" (valueChange)="setVal(f.name, $event)" /></mat-slider>
+                  <span class="sf-rangeval">{{ val(f.name) || 0 }}</span>
+                </div>
+              }
+              @case ('file') {
+                <div class="sf-file">
+                  <button matButton type="button" (click)="picker.click()">Choose file…</button>
+                  <input #picker type="file" hidden (change)="onFile(f.name, $event)" />
+                  <span class="sf-fname" [class.muted]="!val(f.name)">{{ val(f.name) || 'No file selected' }}</span>
+                </div>
+              }
+              @case ('slot') {
+                <div class="sf-slot" title="Rendered by the ‘{{ f.widget }}’ component at runtime (loaded from its remote)">
+                  <span class="sf-slot-glyph">◫</span>
+                  <span class="sf-slot-meta">
+                    <span class="sf-slot-nm">{{ f.widget }}</span>
+                    <span class="sf-slot-sub">component surface — renders at runtime</span>
+                  </span>
+                </div>
+              }
               @default {
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sf-mf">
-                  <input matInput [type]="f.type ?? 'text'" [placeholder]="f.placeholder ?? ''" [value]="val(f.name)" (input)="set(f.name, $event)" (blur)="touch(f.name)" />
+                  <input matInput [type]="inputType(f)" [placeholder]="f.placeholder ?? ''" [value]="val(f.name)" (input)="set(f.name, $event)" (blur)="touch(f.name)" />
                 </mat-form-field>
               }
             }
@@ -145,6 +187,19 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
     .sf-in.bad { border-color: var(--danger); }
     .sf-check, .sf-radio { display: inline-flex; align-items: center; gap: 7px; font-size: var(--fs-sm); }
     .sf-radios { display: flex; gap: var(--s4); flex-wrap: wrap; }
+    .sf-slot { display: flex; align-items: center; gap: var(--s3); padding: var(--s3) var(--s4); border: 1px dashed var(--border-strong, var(--border));
+      border-radius: var(--r-md); background: var(--brand-soft); }
+    .sf-slot-glyph { display: grid; place-items: center; width: 30px; height: 30px; border-radius: var(--r-sm); background: var(--surface);
+      color: var(--brand); font-size: 16px; flex: none; }
+    .sf-slot-meta { display: flex; flex-direction: column; min-width: 0; }
+    .sf-slot-nm { font-family: var(--font-mono); font-size: var(--fs-sm); font-weight: 600; color: var(--brand); }
+    .sf-slot-sub { font-size: var(--fs-xs); color: var(--text-muted); }
+    .sf-file { display: flex; align-items: center; gap: var(--s3); }
+    .sf-fname { font-size: var(--fs-sm); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sf-fname.muted { color: var(--text-faint); }
+    .sf-range { display: flex; align-items: center; gap: var(--s3); }
+    .sf-range mat-slider { flex: 1; min-width: 0; }
+    .sf-rangeval { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--text-muted); min-width: 2ch; text-align: right; }
     .sf-hint { font-size: var(--fs-xs); color: var(--text-faint); }
     .sf-err { font-size: var(--fs-xs); color: var(--danger); }
     .sf-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s2); }
@@ -188,6 +243,45 @@ export class SchemaFormComponent {
   /** Set a value directly (for Material controls whose change events aren't native DOM events). */
   setVal(name: string, v: unknown): void { this.values.update((m) => ({ ...m, [name]: v })); this.touch(name); }
   touch(name: string): void { this.touched.update((s) => new Set(s).add(name)); }
+  /** Current value coerced to an array (for the multi-select control). */
+  valArr(name: string): unknown[] { const v = this.values()[name]; return Array.isArray(v) ? v : v == null || v === '' ? [] : [v]; }
+  /** Record the chosen file's name so the preview reflects a selection. */
+  onFile(name: string, e: Event): void {
+    const f = (e.target as HTMLInputElement).files?.[0];
+    this.setVal(name, f ? f.name : '');
+  }
+
+  /** Widgets whose name denotes a file/upload surface — rendered as a file control. */
+  private static readonly FILE_RE = /\b(upload|file|attach(ment)?|receipt|dropzone|document|photo|image|avatar)\b/i;
+  private isFileField(f: SchemaField): boolean {
+    return f.type === 'file' || (!!f.widget && SchemaFormComponent.FILE_RE.test(f.widget));
+  }
+  /** A composite/custom component field with no primitive control — shown as a slot. */
+  private isComponentSlot(f: SchemaField): boolean {
+    return !!f.widget && !this.isFileField(f) && (f.type == null || f.type === 'text');
+  }
+  /** The control to render for a field — normalizes aliases and resolves widgets. */
+  ctrl(f: SchemaField): string {
+    if (this.isFileField(f)) return 'file';
+    if (this.isComponentSlot(f)) return 'slot';
+    switch (f.type) {
+      case 'textarea': return 'textarea';
+      case 'select': return 'select';
+      case 'multiselect': return 'multiselect';
+      case 'checkbox': case 'boolean': return 'checkbox';
+      case 'toggle': return 'toggle';
+      case 'radio': return 'radio';
+      case 'number': return 'number';
+      case 'date': return 'date';
+      case 'time': return 'time';
+      case 'range': case 'slider': return 'range';
+      default: return 'input';
+    }
+  }
+  /** Native input type for the default (text-like) case; unknown types fall back to text. */
+  inputType(f: SchemaField): string {
+    return ['text', 'email', 'tel', 'url', 'password', 'color'].includes(f.type ?? 'text') ? (f.type as string) : 'text';
+  }
 
   /** Inline-constraint description for the field (governed validators show as chips). */
   hint(f: SchemaField): string {
