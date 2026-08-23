@@ -64,7 +64,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
                   <button (click)="delCol('inputs', $index)" aria-label="Remove input" matTooltip="Remove input"><mat-icon>close</mat-icon></button>
                 </span>
               }
-              <button class="add" (click)="addCol('inputs')">＋ input</button>
+              <button class="add" (click)="addCol('inputs')"><mat-icon>add</mat-icon> input</button>
             </div>
             <div class="colset">
               <span class="lbl">Outputs</span>
@@ -75,7 +75,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
                   <button (click)="delCol('outputs', $index)" aria-label="Remove output" matTooltip="Remove output"><mat-icon>close</mat-icon></button>
                 </span>
               }
-              <button class="add" (click)="addCol('outputs')">＋ output</button>
+              <button class="add" (click)="addCol('outputs')"><mat-icon>add</mat-icon> output</button>
             </div>
           </div>
 
@@ -110,7 +110,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
               </tbody>
             </table>
           </div>
-          <button matButton (click)="addRule()">＋ Add rule</button>
+          <button matButton (click)="addRule()"><mat-icon>add</mat-icon> Add rule</button>
         </section>
 
         <section class="card test">
@@ -124,7 +124,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
           @if (result(); as res) {
             @if (res.outputs) {
               <div class="res ok">matched rule(s) {{ resRuleLabels() }} → {{ json(res.outputs) }}</div>
-              @if (res.conflict) { <div class="res warn">⚠ Hit policy is “unique” but multiple rules matched — your rules overlap. Make them disjoint or switch to “first”/“collect”.</div> }
+              @if (res.conflict) { <div class="res warn"><mat-icon class="res-ic">warning</mat-icon> Hit policy is “unique” but multiple rules matched — your rules overlap. Make them disjoint or switch to “first”/“collect”.</div> }
             }
             @else { <div class="res no">no rule matched</div> }
           }
@@ -142,6 +142,9 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
   `,
   styles: [`
     button mat-icon { font-size:15px; width:15px; height:15px; vertical-align:middle; }
+    .add mat-icon { font-size:15px; width:15px; height:15px; vertical-align:middle; }
+    .res.warn { display:flex; align-items:center; gap:6px; }
+    .res-ic { font-size:16px; width:16px; height:16px; flex:none; }
     .dt .x, .colhead button { display:inline-grid; place-items:center; }
     .wrap { padding:20px 24px; max-width:1150px; margin:0 auto; }
     .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; }

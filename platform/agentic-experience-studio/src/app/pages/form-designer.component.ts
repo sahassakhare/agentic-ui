@@ -65,7 +65,7 @@ interface DesignerAction {
         <div class="row" style="gap:var(--s2); align-items:center">
           <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
             [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
-          <button matButton type="button" (click)="addSection()">+ Section</button>
+          <button matButton type="button" (click)="addSection()"><mat-icon>add</mat-icon> Section</button>
           <button matButton="filled" type="button" (click)="save()" [disabled]="saving()">
             @if (saving()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Saving… } @else { Save form }
           </button>
@@ -78,7 +78,7 @@ interface DesignerAction {
             <span class="eyebrow">Action buttons</span>
             <span class="muted" style="font-size:var(--fs-xs); margin-left:var(--s2)">each bound to a governed capability — add as many as you need</span>
           </div>
-          <button matButton type="button" (click)="addAction()">+ Action</button>
+          <button matButton type="button" (click)="addAction()"><mat-icon>add</mat-icon> Action</button>
         </div>
         @if (!actions().length) {
           <div class="muted" style="font-size:var(--fs-sm)">No buttons — a single Submit is added automatically.</div>
@@ -100,8 +100,8 @@ interface DesignerAction {
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af atgt">
                   <mat-label>Tool</mat-label>
                   <mat-select [ngModel]="a.tool ?? ''" (ngModelChange)="patchAction($index, { tool: $event })">
-                    @for (t of toolSources(); track t.name) { <mat-option [value]="t.name">⚙ {{ t.name }}</mat-option> }
-                    @for (d of decisions(); track d.name) { <mat-option [value]="d.name">◆ {{ d.name }} (decision)</mat-option> }
+                    @for (t of toolSources(); track t.name) { <mat-option [value]="t.name"><mat-icon class="opt-ic">build</mat-icon> {{ t.name }}</mat-option> }
+                    @for (d of decisions(); track d.name) { <mat-option [value]="d.name"><mat-icon class="opt-ic">rule</mat-icon> {{ d.name }} (decision)</mat-option> }
                   </mat-select>
                 </mat-form-field>
               }
@@ -109,7 +109,7 @@ interface DesignerAction {
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af atgt">
                   <mat-label>Action</mat-label>
                   <mat-select [ngModel]="a.action ?? ''" (ngModelChange)="patchAction($index, { action: $event })">
-                    @for (ac of actionSources(); track ac.name) { <mat-option [value]="ac.name">⚡ {{ ac.name }}</mat-option> }
+                    @for (ac of actionSources(); track ac.name) { <mat-option [value]="ac.name"><mat-icon class="opt-ic">bolt</mat-icon> {{ ac.name }}</mat-option> }
                   </mat-select>
                 </mat-form-field>
               }
@@ -154,7 +154,7 @@ interface DesignerAction {
                [cdkDropListConnectedTo]="['form-canvas']" [cdkDropListSortingDisabled]="true">
             @for (c of palette(); track c.name) {
               <div class="pal-item" cdkDrag [cdkDragData]="c.name" [title]="'Drag ' + c.name + ' onto the canvas'">
-                <span class="grip">⋮⋮</span> {{ c.name }}
+                <mat-icon class="grip">drag_indicator</mat-icon> {{ c.name }}
               </div>
             }
             @if (!palette().length) { <div class="muted" style="font-size:var(--fs-sm); padding:var(--s3)">No components match.</div> }
@@ -175,7 +175,7 @@ interface DesignerAction {
           }
           @for (f of fields(); track $index) {
             <div class="frow" [class.section]="f.type === 'section'" cdkDrag [cdkDragData]="$index">
-              <span class="grip" cdkDragHandle>⋮⋮</span>
+              <mat-icon class="grip" cdkDragHandle>drag_indicator</mat-icon>
               @if (f.type === 'section') {
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex">
                   <mat-label>Section title</mat-label>
@@ -246,7 +246,7 @@ interface DesignerAction {
     .pal-item { display:flex; align-items:center; gap:8px; padding:9px 11px; border:1px solid var(--border); border-radius:var(--r-sm);
       background:var(--surface-2); font-size:var(--fs-sm); font-family:var(--font-mono); cursor:grab; }
     .pal-item:hover { border-color:var(--brand); color:var(--brand); }
-    .grip { color:var(--text-faint); cursor:grab; letter-spacing:-2px; }
+    .grip { color:var(--text-faint); cursor:grab; font-size:18px; width:18px; height:18px; }
     .canvas { min-height:280px; display:flex; flex-direction:column; gap:var(--s2); }
     .drop-empty { border:2px dashed var(--border); border-radius:var(--r-md); padding:var(--s6); text-align:center; color:var(--text-muted); font-size:var(--fs-sm); }
     .frow { display:flex; align-items:center; gap:var(--s2); padding:8px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface); }

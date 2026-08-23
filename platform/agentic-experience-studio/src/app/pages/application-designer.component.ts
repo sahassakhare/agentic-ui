@@ -78,9 +78,9 @@ interface PageItem { name: string; title: string }
               }
               @for (p of available(); track p.name) {
                 <button class="palette" (click)="add(p)">
-                  <span class="ic">▤</span>
+                  <span class="ic"><mat-icon>article</mat-icon></span>
                   <span class="pt"><span class="nm">{{ p.title }}</span><span class="gl">page · {{ p.name }}</span></span>
-                  <span class="plus">＋</span>
+                  <span class="plus"><mat-icon>add</mat-icon></span>
                 </button>
               }
             </section>
@@ -94,7 +94,7 @@ interface PageItem { name: string; title: string }
                 @for (n of nav(); track $index; let i = $index) {
                   <li class="row" [class.child]="n.depth > 0" [style.marginLeft.px]="n.depth * 22"
                       draggable="true" (dragstart)="drag.set(i)" (dragover)="allow($event)" (drop)="drop(i)">
-                    <span class="grip">⋮⋮</span>
+                    <mat-icon class="grip">drag_indicator</mat-icon>
                     <input class="iconin" [ngModel]="n.icon ?? ''" (ngModelChange)="setIcon(i, $event)" placeholder="▤" title="Icon (emoji or glyph)" aria-label="Icon" maxlength="2" />
                     <span class="meta">
                       <input class="titlein" [ngModel]="n.title" (ngModelChange)="edit(i, 'title', $event)" placeholder="Label" />
@@ -102,8 +102,8 @@ interface PageItem { name: string; title: string }
                     </span>
                     <input class="personasin" [ngModel]="personasText(n)" (ngModelChange)="setPersonas(i, $event)" placeholder="all personas" title="Comma-separated personas; empty = visible to all" aria-label="Personas" />
                     <span class="navctrls">
-                      <button class="mv" (click)="outdent(i)" [disabled]="n.depth === 0" title="Outdent" aria-label="Outdent">←</button>
-                      <button class="mv" (click)="indent(i)" [disabled]="!canIndent(i)" title="Indent (nest under previous)" aria-label="Indent">→</button>
+                      <button class="mv" (click)="outdent(i)" [disabled]="n.depth === 0" matTooltip="Outdent" aria-label="Outdent"><mat-icon>format_indent_decrease</mat-icon></button>
+                      <button class="mv" (click)="indent(i)" [disabled]="!canIndent(i)" matTooltip="Indent (nest under previous)" aria-label="Indent"><mat-icon>format_indent_increase</mat-icon></button>
                       <button class="x" (click)="remove(i)" aria-label="Remove" matTooltip="Remove"><mat-icon>close</mat-icon></button>
                     </span>
                   </li>
@@ -118,7 +118,10 @@ interface PageItem { name: string; title: string }
   `,
   styles: [`
     button mat-icon { font-size:16px; width:16px; height:16px; vertical-align:middle; }
-    .navctrls .x, .row .x { display:inline-grid; place-items:center; }
+    .navctrls .x, .row .x, .navctrls .mv { display:inline-grid; place-items:center; }
+    .grip { font-size:18px; width:18px; height:18px; }
+    .ic mat-icon { font-size:16px; width:16px; height:16px; }
+    .plus mat-icon { font-size:16px; width:16px; height:16px; }
     .wrap { padding:20px 24px; max-width:1100px; margin:0 auto; }
     .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
     .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; }

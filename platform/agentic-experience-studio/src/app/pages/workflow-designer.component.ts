@@ -92,7 +92,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                [cdkDropListConnectedTo]="['wf-canvas']" [cdkDropListSortingDisabled]="true">
             @for (c of palette(); track c.name) {
               <div class="pal-item" cdkDrag [cdkDragData]="c.name">
-                <span class="grip">⋮⋮</span> {{ c.name }} <span class="kind">{{ c.kind }}</span>
+                <mat-icon class="grip">drag_indicator</mat-icon> {{ c.name }} <span class="kind">{{ c.kind }}</span>
               </div>
             }
           </div>
@@ -110,7 +110,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
           @for (s of steps(); track s.id; let i = $index) {
             <div class="step" [class.decision]="s.decision" cdkDrag [cdkDragData]="i">
               <div class="srow">
-                <span class="grip" cdkDragHandle>⋮⋮</span>
+                <mat-icon class="grip" cdkDragHandle>drag_indicator</mat-icon>
                 <span class="num">{{ s.decision ? '◇' : i + 1 }}</span>
                 <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex">
                   <mat-label>Step title</mat-label>
@@ -134,7 +134,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                       <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af g">
                         <mat-label>Decision</mat-label>
                         <mat-select [ngModel]="s.decisionRef" (ngModelChange)="patch(i, { decisionRef: $event })">
-                          @for (d of decisions(); track d.name) { <mat-option [value]="d.name">◆ {{ d.name }}</mat-option> }
+                          @for (d of decisions(); track d.name) { <mat-option [value]="d.name"><mat-icon class="opt-ic">rule</mat-icon> {{ d.name }}</mat-option> }
                         </mat-select>
                       </mat-form-field>
                       <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af f">
@@ -254,7 +254,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
     .pal-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-sm);
       background:var(--surface-2); font-size:var(--fs-sm); font-family:var(--font-mono); cursor:grab; }
     .pal-item:hover { border-color:var(--brand); color:var(--brand); } .pal-item .kind { margin-left:auto; font-size:10px; opacity:.6; }
-    .grip { color:var(--text-faint); letter-spacing:-2px; }
+    .grip { color:var(--text-faint); font-size:18px; width:18px; height:18px; }
     .canvas { min-height:280px; display:flex; flex-direction:column; gap:var(--s2); }
     .drop-empty { border:2px dashed var(--border); border-radius:var(--r-md); padding:var(--s6); text-align:center; color:var(--text-muted); font-size:var(--fs-sm); }
     .step { border:1px solid var(--border); border-radius:var(--r-sm); padding:8px; background:var(--surface); }

@@ -198,9 +198,9 @@ export interface StudioConfig {
                 @let u = usageOf(c);
                 @if (u.uses.length || u.usedBy.length || u.unmet.length) {
                   <button type="button" class="usebtn" (click)="toggleUsage(c)" [attr.aria-expanded]="expandedUsage() === c.kind + ':' + c.name">
-                    @if (u.uses.length) { <span title="Composed of">↳ uses {{ u.uses.length }}</span> }
-                    @if (u.usedBy.length) { <span title="Referenced by">↰ used by {{ u.usedBy.length }}</span> }
-                    @if (u.unmet.length) { <span class="unmet" title="References that aren't defined">⚠ {{ u.unmet.length }} unmet</span> }
+                    @if (u.uses.length) { <span title="Composed of"><mat-icon class="ub-ic">subdirectory_arrow_right</mat-icon> uses {{ u.uses.length }}</span> }
+                    @if (u.usedBy.length) { <span title="Referenced by"><mat-icon class="ub-ic">call_received</mat-icon> used by {{ u.usedBy.length }}</span> }
+                    @if (u.unmet.length) { <span class="unmet" title="References that aren't defined"><mat-icon class="ub-ic">warning</mat-icon> {{ u.unmet.length }} unmet</span> }
                   </button>
                   @if (expandedUsage() === c.kind + ':' + c.name) {
                     <div class="usedetail">
@@ -309,6 +309,7 @@ export interface StudioConfig {
     mat-checkbox.field { display: inline-flex; align-items: center; }
     .usebtn { margin-top: 4px; border: none; background: none; padding: 0; cursor: pointer; display: inline-flex; gap: 12px; font-size: 11.5px; color: var(--text-muted); }
     .usebtn span { display: inline-flex; align-items: center; gap: 3px; }
+    .usebtn .ub-ic { font-size: 15px; width: 15px; height: 15px; }
     .usebtn:hover { color: var(--text); }
     .usebtn .unmet { color: var(--danger); font-weight: 600; }
     .usedetail { margin-top: 7px; display: flex; flex-direction: column; gap: 6px; padding: 9px 11px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; }

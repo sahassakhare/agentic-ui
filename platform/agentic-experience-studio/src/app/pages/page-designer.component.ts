@@ -115,7 +115,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                     <button class="palette" cdkDrag [cdkDragData]="it" (click)="add(it)">
                       <span class="ic" [class.dash]="it.kind === 'dashboard'"><mat-icon>{{ km(it.kind).icon }}</mat-icon></span>
                       <span class="pt"><span class="nm">{{ it.title }}</span><span class="gl">{{ it.kind }} · {{ it.name }}</span></span>
-                      <span class="plus">＋</span>
+                      <span class="plus"><mat-icon>add</mat-icon></span>
                     </button>
                   }
                 }
@@ -148,7 +148,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                             <button class="x" (click)="removeLink($index)" aria-label="Remove link"><mat-icon>close</mat-icon></button>
                           </div>
                         }
-                        <button matButton (click)="addLink()">＋ Add link</button>
+                        <button matButton (click)="addLink()"><mat-icon>add</mat-icon> Add link</button>
                       }
                       @default { <mat-form-field appearance="outline" class="af" style="width:100%"><mat-label>{{ f.label }}</mat-label><input matInput [ngModel]="propVal(sel, f.key)" (ngModelChange)="setProp(f.key, $event)" /></mat-form-field> }
                     }
@@ -168,7 +168,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                   <div class="proprow add">
                     <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>prop name</mat-label><input matInput [ngModel]="newPropKey()" (ngModelChange)="newPropKey.set($event)" /></mat-form-field>
                     <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>value / JSON</mat-label><input matInput [ngModel]="newPropValue()" (ngModelChange)="newPropValue.set($event)" /></mat-form-field>
-                    <button matButton class="addp" (click)="addProp()" [disabled]="!newPropKey().trim()" aria-label="Add property">＋</button>
+                    <button matButton class="addp" (click)="addProp()" [disabled]="!newPropKey().trim()" aria-label="Add property"><mat-icon>add</mat-icon></button>
                   </div>
                   @if (sel.kind === 'form') { <p class="muted sm">Add <code>initialValues</code> or <code>context</code> (a JSON object) to prefill the form.</p> }
                 }
@@ -339,7 +339,8 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     .input { width:100%; padding:9px 11px; border:1px solid rgba(120,120,140,.3); border-radius:8px; background:transparent; color:inherit; font:inherit; } .input.sm { padding:7px 9px; font-size:12.5px; }
     .templates { display:flex; flex-wrap:wrap; gap:6px; } .tpl { font:inherit; font-size:12px; padding:6px 10px; border:1px solid rgba(120,120,140,.3); border-radius:8px; background:transparent; color:inherit; cursor:pointer; } .tpl.on { background:rgba(103,80,164,.14); border-color:#6750a4; color:#6750a4; }
     .cat { font-size:11px; text-transform:uppercase; letter-spacing:.05em; opacity:.5; margin:12px 0 4px; }
-    .palette { display:flex; align-items:center; gap:10px; width:100%; padding:8px 10px; margin-top:6px; border:1px solid rgba(120,120,140,.22); border-radius:9px; background:transparent; color:inherit; cursor:pointer; text-align:left; } .palette:hover { background:rgba(103,80,164,.06); } .palette .plus { margin-left:auto; opacity:.5; }
+    .palette { display:flex; align-items:center; gap:10px; width:100%; padding:8px 10px; margin-top:6px; border:1px solid rgba(120,120,140,.22); border-radius:9px; background:transparent; color:inherit; cursor:pointer; text-align:left; } .palette:hover { background:rgba(103,80,164,.06); } .palette .plus { margin-left:auto; opacity:.5; display:inline-grid; place-items:center; }
+    .palette .plus mat-icon { font-size:18px; width:18px; height:18px; }
     .ic { display:grid; place-items:center; width:24px; height:24px; border-radius:6px; background:rgba(120,120,140,.14); font-size:12px; } .ic.dash { background:rgba(103,80,164,.18); color:#6750a4; }
     .pt, .bm { display:flex; flex-direction:column; min-width:0; flex:1 1 auto; }
     .nm, .gl { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; } .nm { font-size:13px; font-weight:600; } .gl { font-size:11px; opacity:.55; }
