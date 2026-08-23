@@ -38,4 +38,43 @@ describe('CodeViewComponent', () => {
     const el = render('just some text', 'text');
     expect(el.querySelector('code')!.textContent).toBe('just some text');
   });
+
+  it('emits the parsed object on save when the edited JSON is valid', () => {
+    TestBed.configureTestingModule({});
+    const fixture = TestBed.createComponent(CodeViewComponent);
+    fixture.componentRef.setInput('value', { a: 1 });
+    fixture.componentRef.setInput('editable', true);
+    fixture.detectChanges();
+    const cmp = fixture.componentInstance;
+    let emitted: unknown = null;
+    cmp.save.subscribe((v) => (emitted = v));
+
+    cmp.startEdit();
+    cmp.draft.set('{ "a": 2, "b": "x" }');
+    expect(cmp.parsed().ok).toBe(true);
+    cmp.commit();
+
+    expect(emitted).toEqual({ a: 2, b: 'x' });
+    expect(cmp.editing()).toBe(false);
+  });
+
+  it('rejects invalid or non-object JSON (save stays blocked, nothing emitted)', () => {
+    TestBed.configureTestingModule({});
+    const fixture = TestBed.createComponent(CodeViewComponent);
+    fixture.componentRef.setInput('value', { a: 1 });
+    fixture.componentRef.setInput('editable', true);
+    fixture.detectChanges();
+    const cmp = fixture.componentInstance;
+    let emitted = false;
+    cmp.save.subscribe(() => (emitted = true));
+
+    cmp.startEdit();
+    cmp.draft.set('{ bad json');
+    expect(cmp.parsed().ok).toBe(false);
+    cmp.commit();
+    expect(emitted).toBe(false);
+
+    cmp.draft.set('[1,2,3]'); // valid JSON but not an object
+    expect(cmp.parsed().ok).toBe(false);
+  });
 });

@@ -226,7 +226,7 @@ export interface StudioConfig {
                   }
                 }
                 @if (expandedCode() === c.id) {
-                  <aes-code-view class="row-code" [value]="c.body" [label]="c.kind + ' · ' + c.name" />
+                  <aes-code-view class="row-code" [value]="c.body" [label]="c.kind + ' · ' + c.name" [editable]="true" (save)="saveBody(c, $event)" />
                 }
               </div>
               @for (t of c.tags; track t) { <span class="badge plain badge-brand">{{ t }}</span> }
@@ -502,6 +502,17 @@ export class CapabilityStudioComponent {
   }
   protected toggleCode(c: Capability): void {
     this.expandedCode.set(this.expandedCode() === c.id ? null : c.id);
+  }
+
+  /** Save an edited JSON body straight back to the catalog (optimistic-concurrency guarded). */
+  protected saveBody(c: Capability, body: Record<string, unknown>): void {
+    this.catalog.update(c.id, { body }, c.version).subscribe({
+      next: (updated) => {
+        this.items.update((cur) => cur.map((x) => (x.id === updated.id ? updated : x)));
+        this.toast.success('Saved', `“${updated.name}” definition updated.`);
+      },
+      error: (err) => reportWriteError(this.toast, err, 'Save'),
+    });
   }
 
   protected toggleUsage(c: Capability): void {
