@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
 import { STARTER_TEMPLATES, STARTER_ROUTE, type StarterTemplate } from '../starters';
@@ -16,7 +17,7 @@ interface StarterGroup { readonly kind: string; readonly label: string; readonly
 @Component({
   selector: 'aes-starter-gallery',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatIconModule],
+  imports: [MatProgressSpinnerModule, MatIconModule],
   template: `
     <div class="page">
       <div class="page-header" style="margin-top:var(--s4)">
@@ -39,7 +40,7 @@ interface StarterGroup { readonly kind: string; readonly label: string; readonly
                 </div>
                 <p class="desc">{{ t.description }}</p>
                 <button class="btn btn-primary" type="button" (click)="use(t)" [disabled]="busy() === t.id">
-                  @if (busy() === t.id) { <span class="spinner" aria-hidden="true"></span> Creating… }
+                  @if (busy() === t.id) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Creating… }
                   @else { Use this template }
                 </button>
               </article>
@@ -50,6 +51,7 @@ interface StarterGroup { readonly kind: string; readonly label: string; readonly
     </div>
   `,
   styles: [`
+    .btn-spin { --mdc-circular-progress-active-indicator-color: currentColor; display:inline-block; vertical-align:middle; margin-right:6px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:var(--s4); }
     .tpl { display:flex; flex-direction:column; gap:var(--s2); }
     .tpl-head { display:flex; align-items:center; gap:var(--s3); }

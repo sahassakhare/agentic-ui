@@ -1,4 +1,5 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import {
@@ -26,7 +27,7 @@ import { PreviewHostComponent } from '../preview-host.component';
  */
 @Component({
   selector: 'aes-experience-detail',
-  imports: [RouterLink, FormsModule, GraphViewComponent, JourneyFlowComponent, RequirementsBuilderComponent, PreviewHostComponent],
+  imports: [MatProgressSpinnerModule, RouterLink, FormsModule, GraphViewComponent, JourneyFlowComponent, RequirementsBuilderComponent, PreviewHostComponent],
   template: `
     <div class="page wide">
       <a routerLink="/experiences" class="back">
@@ -69,7 +70,7 @@ import { PreviewHostComponent } from '../preview-host.component';
             </div>
             <div class="row" style="margin-top:var(--s5)">
               <button class="btn btn-primary" type="submit" [disabled]="saving()">
-                @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… } @else { Save changes }
+                @if (saving()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Saving… } @else { Save changes }
               </button>
               <button class="btn btn-ghost" type="button" (click)="editing.set(false)">Cancel</button>
             </div>
@@ -133,7 +134,7 @@ import { PreviewHostComponent } from '../preview-host.component';
                 [disabled]="transitioning()" (click)="transition(a)" style="text-transform:capitalize">{{ a }}</button>
             }
             <button class="btn btn-primary btn-sm" type="button" (click)="runPlan()" [disabled]="planning()">
-              @if (planning()) { <span class="spinner" aria-hidden="true"></span> Resolving… } @else { Resolve plan }
+              @if (planning()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Resolving… } @else { Resolve plan }
             </button>
           </div>
         </div>
@@ -170,7 +171,7 @@ import { PreviewHostComponent } from '../preview-host.component';
                      placeholder="https://portal.acme.com, https://intranet.acme.com" autocomplete="off" spellcheck="false" />
             </div>
             <button class="btn btn-primary btn-sm" type="button" style="margin-top:var(--s3)" (click)="publish()" [disabled]="publishing()">
-              @if (publishing()) { <span class="spinner" aria-hidden="true"></span> Publishing… } @else { Publish for embedding }
+              @if (publishing()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Publishing… } @else { Publish for embedding }
             </button>
           }
 
@@ -203,7 +204,7 @@ import { PreviewHostComponent } from '../preview-host.component';
               </span>
             } @else {
               <button class="btn btn-primary btn-sm" type="button" (click)="runPlan()" [disabled]="planning()">
-                @if (planning()) { <span class="spinner" aria-hidden="true"></span> Resolving… } @else { Resolve plan }
+                @if (planning()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Resolving… } @else { Resolve plan }
               </button>
             }
           </div>
@@ -273,6 +274,7 @@ import { PreviewHostComponent } from '../preview-host.component';
     </div>
   `,
   styles: [`
+    .btn-spin { --mdc-circular-progress-active-indicator-color: currentColor; display:inline-block; vertical-align:middle; margin-right:6px; }
     .back { display: inline-flex; align-items: center; gap: var(--s1); color: var(--text-muted); font-size: var(--fs-sm); text-decoration: none; }
     .back:hover { color: var(--text); text-decoration: none; }
     .actionbar { display: flex; align-items: center; gap: var(--s4); flex-wrap: wrap; }

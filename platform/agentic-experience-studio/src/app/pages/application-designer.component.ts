@@ -6,6 +6,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatIconModule } from '@angular/material/icon';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { buildTree, flattenTree, normalizeDepths, type NavEntry, type NavRow } from './application-nav';
@@ -32,7 +33,7 @@ interface PageItem { name: string; title: string }
   selector: 'aes-application-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, MatButtonModule, MatIconModule],
+    MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, MatButtonModule, MatIconModule, MatTooltipModule],
   template: `
     <div class="wrap">
       <header class="head">
@@ -103,7 +104,7 @@ interface PageItem { name: string; title: string }
                     <span class="navctrls">
                       <button class="mv" (click)="outdent(i)" [disabled]="n.depth === 0" title="Outdent" aria-label="Outdent">←</button>
                       <button class="mv" (click)="indent(i)" [disabled]="!canIndent(i)" title="Indent (nest under previous)" aria-label="Indent">→</button>
-                      <button class="x" (click)="remove(i)" aria-label="Remove"><mat-icon>close</mat-icon></button>
+                      <button class="x" (click)="remove(i)" aria-label="Remove" matTooltip="Remove"><mat-icon>close</mat-icon></button>
                     </span>
                   </li>
                 }

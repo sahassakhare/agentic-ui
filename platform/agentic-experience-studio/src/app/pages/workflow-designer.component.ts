@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, HostListener, inject, input, signal } from '@angular/core';
 import { CdkDrag, CdkDragHandle, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
@@ -46,7 +47,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
 @Component({
   selector: 'aes-workflow-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatIconModule, MatChipsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
+  imports: [MatProgressSpinnerModule, FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatIconModule, MatChipsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
   template: `
     <div class="page wide">
       <a routerLink="/workflows" class="back">
@@ -62,7 +63,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
           <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
             [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
           <button matButton="filled" type="button" (click)="save()" [disabled]="saving()">
-            @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… } @else { Save workflow }
+            @if (saving()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Saving… } @else { Save workflow }
           </button>
         </div>
       </div>
@@ -231,6 +232,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
     </div>
   `,
   styles: [`
+    .btn-spin { --mdc-circular-progress-active-indicator-color: currentColor; display:inline-block; vertical-align:middle; margin-right:6px; }
     .back { display:inline-flex; align-items:center; gap:var(--s1); color:var(--text-muted); font-size:var(--fs-sm); text-decoration:none; }
     .back:hover { color:var(--text); }
     .designer { display:grid; grid-template-columns: 240px minmax(0, 1fr) minmax(360px, 460px); gap:var(--s4); align-items:start; }

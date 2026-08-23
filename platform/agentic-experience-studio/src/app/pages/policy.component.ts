@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -15,7 +16,7 @@ import { ToastService } from '../services/toast.service';
  */
 @Component({
   selector: 'aes-policy',
-  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatCheckboxModule],
+  imports: [MatProgressSpinnerModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatCheckboxModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -53,7 +54,7 @@ import { ToastService } from '../services/toast.service';
           @if (!editTarget()) { <mat-checkbox name="act" [(ngModel)]="activateNow" style="margin-top:var(--s4)">Activate on create (replaces the current active bundle)</mat-checkbox> }
           <div class="row" style="margin-top:var(--s5)">
             <button matButton="filled" type="submit" [disabled]="!canSave() || saving()">
-              @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… }
+              @if (saving()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Saving… }
               @else if (editTarget()) { Save changes } @else { Create bundle }
             </button>
             <button matButton type="button" (click)="cancelForm()">Cancel</button>
@@ -93,6 +94,7 @@ import { ToastService } from '../services/toast.service';
     </div>
   `,
   styles: [`
+    .btn-spin { --mdc-circular-progress-active-indicator-color: currentColor; display:inline-block; vertical-align:middle; margin-right:6px; }
     .mf { width: 100%; }
     .danger-btn { color: var(--danger); }
     .create { margin-bottom: var(--s5); }

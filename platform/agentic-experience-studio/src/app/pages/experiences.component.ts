@@ -5,6 +5,7 @@ import { ExperienceCatalogService, type CapabilityRequirement, type Experience }
 import { ToastService } from '../services/toast.service';
 import { RequirementsBuilderComponent } from '../requirements-builder.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -19,7 +20,7 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
  */
 @Component({
   selector: 'aes-experiences',
-  imports: [RouterLink, FormsModule, RequirementsBuilderComponent, MatFormFieldModule, MatInputModule, MatButtonModule, MatButtonToggleModule],
+  imports: [MatProgressSpinnerModule, RouterLink, FormsModule, RequirementsBuilderComponent, MatFormFieldModule, MatInputModule, MatButtonModule, MatButtonToggleModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -60,7 +61,7 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
           </div>
           <div class="row" style="margin-top:var(--s5)">
             <button matButton="filled" type="submit" [disabled]="saving()">
-              @if (saving()) { <span class="spinner" aria-hidden="true"></span> Creating… } @else { Create as draft }
+              @if (saving()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Creating… } @else { Create as draft }
             </button>
             <button matButton type="button" (click)="cancelCreate()">Cancel</button>
           </div>
@@ -131,6 +132,7 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
     </div>
   `,
   styles: [`
+    .btn-spin { --mdc-circular-progress-active-indicator-color: currentColor; display:inline-block; vertical-align:middle; margin-right:6px; }
     .create { margin-bottom: var(--s5); }
     .mf { width: 100%; }
     .toolbar { display: flex; align-items: center; gap: var(--s4); margin: var(--s5) 0 var(--s4); flex-wrap: wrap; }

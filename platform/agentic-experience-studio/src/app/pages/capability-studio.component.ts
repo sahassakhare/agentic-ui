@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -52,7 +53,7 @@ export interface StudioConfig {
  */
 @Component({
   selector: 'aes-capability-studio',
-  imports: [FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatIconModule, MatChipsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
+  imports: [MatProgressSpinnerModule, FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatIconModule, MatChipsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -137,7 +138,7 @@ export interface StudioConfig {
 
           <div class="row" style="margin-top:var(--s5)">
             <button matButton="filled" type="submit" [disabled]="saving()">
-              @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… }
+              @if (saving()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Saving… }
               @else if (editTarget()) { Save changes } @else { Create {{ cfg().noun }} }
             </button>
             <button matButton type="button" (click)="cancelForm()">Cancel</button>
@@ -283,7 +284,7 @@ export interface StudioConfig {
           <div class="actions">
             <button matButton type="button" (click)="pendingDelete.set(null)">Cancel</button>
             <button matButton class="danger-btn" type="button" (click)="confirmDelete(target)" [disabled]="deleting()">
-              @if (deleting()) { <span class="spinner" aria-hidden="true"></span> Deleting… } @else { Delete }
+              @if (deleting()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Deleting… } @else { Delete }
             </button>
           </div>
         </div>
@@ -292,6 +293,7 @@ export interface StudioConfig {
     @if (historyFor(); as hid) { <aes-history-panel [capabilityId]="hid" (close)="historyFor.set(null)" (changed)="onHistoryChanged(hid)" /> }
   `,
   styles: [`
+    .btn-spin { --mdc-circular-progress-active-indicator-color: currentColor; display:inline-block; vertical-align:middle; margin-right:6px; }
     .danger-btn { --mat-sys-primary: var(--danger); color: var(--danger); }
     .mf { width: 100%; }
     .err-hint { color: var(--danger); }
