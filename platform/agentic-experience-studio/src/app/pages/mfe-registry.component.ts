@@ -37,8 +37,8 @@ interface RemoteRecord {
           <p class="muted sm">Remotes the Hub loads at boot. Built by the ingest service; managed here.</p>
         </div>
         <div class="head-actions">
-          <button class="btn" (click)="load()" [disabled]="busy()">↻ Refresh</button>
-          <a class="btn primary" routerLink="/components/upload">⬆ Upload library</a>
+          <button matButton (click)="load()" [disabled]="busy()">↻ Refresh</button>
+          <a matButton="filled" routerLink="/components/upload">⬆ Upload library</a>
         </div>
       </div>
 
