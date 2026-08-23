@@ -4,6 +4,9 @@ import { RouterLink } from '@angular/router';
 import { CdkDrag, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ExperienceCatalogService } from '../services/experience-catalog.service';
 import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
@@ -61,7 +64,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 @Component({
   selector: 'aes-page-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule, MatButtonModule],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule],
   template: `
     <div class="wrap">
       <header class="head">
@@ -88,10 +91,14 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                 <div class="templates">
                   @for (l of contentLayouts; track l) { <button class="tpl" [class.on]="layout() === l" (click)="setLayout(l)">{{ l }}</button> }
                 </div>
-                <label class="lbl">Access — personas</label>
-                <input class="input" [(ngModel)]="personas" placeholder="admin, ops-manager" />
-                <label class="lbl">Access — scopes</label>
-                <input class="input" [(ngModel)]="scopes" placeholder="ops:read" />
+                <mat-form-field appearance="outline" class="af" style="width:100%">
+                  <mat-label>Access — personas</mat-label>
+                  <input matInput [(ngModel)]="personas" placeholder="admin, ops-manager" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="af" style="width:100%">
+                  <mat-label>Access — scopes</mat-label>
+                  <input matInput [(ngModel)]="scopes" placeholder="ops:read" />
+                </mat-form-field>
               </section>
             }
 
@@ -117,10 +124,12 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                 <div class="eyebrow">Properties · {{ sel.name }} <span class="muted sm">{{ sel.kind }}</span></div>
 
                 @if (regionNames().length > 1) {
-                  <label class="lbl">Region</label>
-                  <select class="input" [ngModel]="selection()?.region" (ngModelChange)="moveToRegion($event)" aria-label="Move to region">
-                    @for (r of regionNames(); track r) { <option [value]="r">{{ r }}</option> }
-                  </select>
+                  <mat-form-field appearance="outline" class="af" style="width:100%">
+                    <mat-label>Region</mat-label>
+                    <mat-select [ngModel]="selection()?.region" (ngModelChange)="moveToRegion($event)">
+                      @for (r of regionNames(); track r) { <mat-option [value]="r">{{ r }}</mat-option> }
+                    </mat-select>
+                  </mat-form-field>
                 }
 
                 @if (propFields(sel.name).length) {
@@ -131,14 +140,14 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                         <label class="lbl">{{ f.label }}</label>
                         @for (l of asLinks(propVal(sel, f.key)); track $index) {
                           <div class="linkrow">
-                            <input class="input sm" [ngModel]="l.label" (ngModelChange)="editLink($index, 'label', $event)" placeholder="Label" />
-                            <input class="input sm" [ngModel]="l.href" (ngModelChange)="editLink($index, 'href', $event)" placeholder="https://…" />
+                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>Label</mat-label><input matInput [ngModel]="l.label" (ngModelChange)="editLink($index, 'label', $event)" /></mat-form-field>
+                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>URL</mat-label><input matInput [ngModel]="l.href" (ngModelChange)="editLink($index, 'href', $event)" placeholder="https://…" /></mat-form-field>
                             <button class="x" (click)="removeLink($index)">✕</button>
                           </div>
                         }
                         <button matButton (click)="addLink()">＋ Add link</button>
                       }
-                      @default { <label class="lbl">{{ f.label }}</label><input class="input" [ngModel]="propVal(sel, f.key)" (ngModelChange)="setProp(f.key, $event)" /> }
+                      @default { <mat-form-field appearance="outline" class="af" style="width:100%"><mat-label>{{ f.label }}</mat-label><input matInput [ngModel]="propVal(sel, f.key)" (ngModelChange)="setProp(f.key, $event)" /></mat-form-field> }
                     }
                   }
                 } @else {
@@ -149,13 +158,13 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                   @for (row of propEntries(sel); track row.key) {
                     <div class="proprow">
                       <span class="pkey" [title]="row.key">{{ row.key }}</span>
-                      <input class="input sm" [ngModel]="displayVal(row.value)" (ngModelChange)="setPropRaw(row.key, $event)" [attr.aria-label]="row.key + ' value'" />
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>value</mat-label><input matInput [ngModel]="displayVal(row.value)" (ngModelChange)="setPropRaw(row.key, $event)" /></mat-form-field>
                       <button class="x" (click)="removeProp(row.key)" aria-label="Remove property">✕</button>
                     </div>
                   }
                   <div class="proprow add">
-                    <input class="input sm" [ngModel]="newPropKey()" (ngModelChange)="newPropKey.set($event)" placeholder="prop name" aria-label="New property name" />
-                    <input class="input sm" [ngModel]="newPropValue()" (ngModelChange)="newPropValue.set($event)" placeholder="value / JSON" aria-label="New property value" />
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>prop name</mat-label><input matInput [ngModel]="newPropKey()" (ngModelChange)="newPropKey.set($event)" /></mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>value / JSON</mat-label><input matInput [ngModel]="newPropValue()" (ngModelChange)="newPropValue.set($event)" /></mat-form-field>
                     <button matButton class="addp" (click)="addProp()" [disabled]="!newPropKey().trim()" aria-label="Add property">＋</button>
                   </div>
                   @if (sel.kind === 'form') { <p class="muted sm">Add <code>initialValues</code> or <code>context</code> (a JSON object) to prefill the form.</p> }
