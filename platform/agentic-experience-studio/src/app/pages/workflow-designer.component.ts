@@ -2,6 +2,10 @@ import { ChangeDetectionStrategy, Component, computed, HostListener, inject, inp
 import { CdkDrag, CdkDragHandle, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
@@ -40,7 +44,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
 @Component({
   selector: 'aes-workflow-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule],
+  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
   template: `
     <div class="page wide">
       <a routerLink="/workflows" class="back">
@@ -75,7 +79,10 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
       <div class="designer">
         <aside class="palette card card-pad">
           <div class="eyebrow" style="margin-bottom:var(--s2)">Components &amp; forms</div>
-          <input class="input" [(ngModel)]="q" placeholder="Search…" autocomplete="off" />
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af" style="width:100%">
+            <mat-label>Search…</mat-label>
+            <input matInput [(ngModel)]="q" autocomplete="off" />
+          </mat-form-field>
           <div class="pal-list" cdkDropList id="wf-palette" [cdkDropListData]="paletteSource"
                [cdkDropListConnectedTo]="['wf-canvas']" [cdkDropListSortingDisabled]="true">
             @for (c of palette(); track c.name) {
@@ -100,25 +107,35 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
               <div class="srow">
                 <span class="grip" cdkDragHandle>⋮⋮</span>
                 <span class="num">{{ s.decision ? '◇' : i + 1 }}</span>
-                <input class="input flex" [ngModel]="s.section" (ngModelChange)="patch(i, { section: $event })" placeholder="Step title" />
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex">
+                  <mat-label>Step title</mat-label>
+                  <input matInput [ngModel]="s.section" (ngModelChange)="patch(i, { section: $event })" />
+                </mat-form-field>
                 <span class="wchip">⛃ {{ s.widget }}</span>
-                <label class="dec"><input type="checkbox" [ngModel]="s.decision" (ngModelChange)="patch(i, { decision: $event })" /> decision</label>
+                <mat-checkbox [ngModel]="s.decision" (ngModelChange)="patch(i, { decision: $event })">decision</mat-checkbox>
                 <button class="rm" type="button" (click)="remove(i)" aria-label="Remove">✕</button>
               </div>
               @if (s.decision) {
                 <div class="branches">
                   <div class="branch">
                     <span class="when">branch on</span>
-                    <select class="input o" style="width:auto" [ngModel]="s.mode" (ngModelChange)="patch(i, { mode: $event })">
-                      <option value="state">state fields</option>
-                      <option value="decision">a decision</option>
-                    </select>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af o">
+                      <mat-select [ngModel]="s.mode" (ngModelChange)="patch(i, { mode: $event })">
+                        <mat-option value="state">state fields</mat-option>
+                        <mat-option value="decision">a decision</mat-option>
+                      </mat-select>
+                    </mat-form-field>
                     @if (s.mode === 'decision') {
-                      <select class="input g" [ngModel]="s.decisionRef" (ngModelChange)="patch(i, { decisionRef: $event })" title="Governed decision to evaluate">
-                        <option value="" disabled>decision…</option>
-                        @for (d of decisions(); track d.name) { <option [value]="d.name">◆ {{ d.name }}</option> }
-                      </select>
-                      <input class="input f" [ngModel]="s.output" (ngModelChange)="patch(i, { output: $event })" placeholder="output (opt)" title="Which decision output to branch on (blank = first)" />
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af g">
+                        <mat-label>Decision</mat-label>
+                        <mat-select [ngModel]="s.decisionRef" (ngModelChange)="patch(i, { decisionRef: $event })">
+                          @for (d of decisions(); track d.name) { <mat-option [value]="d.name">◆ {{ d.name }}</mat-option> }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af f">
+                        <mat-label>Output</mat-label>
+                        <input matInput [ngModel]="s.output" (ngModelChange)="patch(i, { output: $event })" placeholder="opt" />
+                      </mat-form-field>
                     }
                   </div>
                 </div>
@@ -128,21 +145,29 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                   @for (c of s.cases; track $index; let ci = $index) {
                     <div class="branch">
                       <span class="when">when =</span>
-                      <input class="input v" [ngModel]="c.value" (ngModelChange)="patchCase(i, ci, { value: $event })" placeholder="output value" />
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af v">
+                        <mat-label>value</mat-label>
+                        <input matInput [ngModel]="c.value" (ngModelChange)="patchCase(i, ci, { value: $event })" />
+                      </mat-form-field>
                       <span class="arr">→</span>
-                      <select class="input g" [ngModel]="c.goto" (ngModelChange)="patchCase(i, ci, { goto: $event })">
-                        <option value="" disabled>go to…</option>
-                        @for (t of steps(); track t.id) { <option [value]="t.id">{{ t.section || t.id }}</option> }
-                      </select>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af g">
+                        <mat-label>go to</mat-label>
+                        <mat-select [ngModel]="c.goto" (ngModelChange)="patchCase(i, ci, { goto: $event })">
+                          @for (t of steps(); track t.id) { <mat-option [value]="t.id">{{ t.section || t.id }}</mat-option> }
+                        </mat-select>
+                      </mat-form-field>
                       <button class="rm sm" type="button" (click)="removeCase(i, ci)">✕</button>
                     </div>
                   }
                   <div class="branch">
                     <span class="when">else →</span>
-                    <select class="input g" [ngModel]="s.defaultNext" (ngModelChange)="patch(i, { defaultNext: $event })">
-                      <option value="">End</option>
-                      @for (t of steps(); track t.id) { <option [value]="t.id">{{ t.section || t.id }}</option> }
-                    </select>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af g">
+                      <mat-label>default</mat-label>
+                      <mat-select [ngModel]="s.defaultNext" (ngModelChange)="patch(i, { defaultNext: $event })">
+                        <mat-option value="">End</mat-option>
+                        @for (t of steps(); track t.id) { <mat-option [value]="t.id">{{ t.section || t.id }}</mat-option> }
+                      </mat-select>
+                    </mat-form-field>
                     <button matButton type="button" (click)="addCase(i)">+ Case</button>
                   </div>
                 </div>
@@ -152,27 +177,40 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                   @for (br of s.branches; track $index; let bi = $index) {
                     <div class="branch">
                       <span class="when">when</span>
-                      <input class="input f" [ngModel]="br.field" (ngModelChange)="patchBranch(i, bi, { field: $event })" placeholder="field" />
-                      <select class="input o" [ngModel]="br.op" (ngModelChange)="patchBranch(i, bi, { op: $event })">
-                        @for (o of ops; track o) { <option [value]="o">{{ o }}</option> }
-                      </select>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af f">
+                        <mat-label>field</mat-label>
+                        <input matInput [ngModel]="br.field" (ngModelChange)="patchBranch(i, bi, { field: $event })" />
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af o">
+                        <mat-select [ngModel]="br.op" (ngModelChange)="patchBranch(i, bi, { op: $event })">
+                          @for (o of ops; track o) { <mat-option [value]="o">{{ o }}</mat-option> }
+                        </mat-select>
+                      </mat-form-field>
                       @if (br.op !== 'truthy' && br.op !== 'falsy') {
-                        <input class="input v" [ngModel]="br.value" (ngModelChange)="patchBranch(i, bi, { value: $event })" placeholder="value" />
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af v">
+                          <mat-label>value</mat-label>
+                          <input matInput [ngModel]="br.value" (ngModelChange)="patchBranch(i, bi, { value: $event })" />
+                        </mat-form-field>
                       }
                       <span class="arr">→</span>
-                      <select class="input g" [ngModel]="br.goto" (ngModelChange)="patchBranch(i, bi, { goto: $event })">
-                        <option value="" disabled>go to…</option>
-                        @for (t of steps(); track t.id) { <option [value]="t.id">{{ t.section || t.id }}</option> }
-                      </select>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af g">
+                        <mat-label>go to</mat-label>
+                        <mat-select [ngModel]="br.goto" (ngModelChange)="patchBranch(i, bi, { goto: $event })">
+                          @for (t of steps(); track t.id) { <mat-option [value]="t.id">{{ t.section || t.id }}</mat-option> }
+                        </mat-select>
+                      </mat-form-field>
                       <button class="rm sm" type="button" (click)="removeBranch(i, bi)">✕</button>
                     </div>
                   }
                   <div class="branch">
                     <span class="when">else →</span>
-                    <select class="input g" [ngModel]="s.defaultNext" (ngModelChange)="patch(i, { defaultNext: $event })">
-                      <option value="">End</option>
-                      @for (t of steps(); track t.id) { <option [value]="t.id">{{ t.section || t.id }}</option> }
-                    </select>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af g">
+                      <mat-label>default</mat-label>
+                      <mat-select [ngModel]="s.defaultNext" (ngModelChange)="patch(i, { defaultNext: $event })">
+                        <mat-option value="">End</mat-option>
+                        @for (t of steps(); track t.id) { <mat-option [value]="t.id">{{ t.section || t.id }}</mat-option> }
+                      </mat-select>
+                    </mat-form-field>
                     <button matButton type="button" (click)="addBranch(i)">+ Branch</button>
                   </div>
                 </div>
