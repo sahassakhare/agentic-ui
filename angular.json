@@ -1201,6 +1201,7 @@
             "tsConfig": "platform/agentic-experience-studio/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "styles": [
+              "node_modules/material-icons/iconfont/material-icons.css",
               "platform/agentic-experience-studio/src/styles.scss"
             ]
           },
