@@ -9,6 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ExperienceCatalogService } from '../services/experience-catalog.service';
+import { SchemaFormComponent } from '../schema-form.component';
 import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
 import { HistoryPanelComponent } from '../history-panel.component';
 import { applyCapability, canApproveWith, handleBarAction, reportWriteError, type GovState } from '../governance-actions';
@@ -64,7 +65,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 @Component({
   selector: 'aes-page-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, SchemaFormComponent],
   template: `
     <div class="wrap">
       <header class="head">
@@ -210,7 +211,36 @@ const PROP_FIELDS: Record<string, PropField[]> = {
           </main>
 
           <aside class="preview">
-            <div class="eyebrow">Preview <span class="muted sm">— layout &amp; composition</span></div>
+            <div class="pv-head">
+              <div class="eyebrow">Preview <span class="muted sm">— {{ livePreview() ? 'live surfaces' : 'layout & composition' }}</span></div>
+              <div class="pv-seg" role="group" aria-label="Preview mode">
+                <button type="button" class="seg" [class.on]="!livePreview()" (click)="livePreview.set(false)" matTooltip="Structural wireframe">Structure</button>
+                <button type="button" class="seg" [class.on]="livePreview()" (click)="livePreview.set(true)" matTooltip="Render surfaces live">Live</button>
+              </div>
+            </div>
+            @if (livePreview()) {
+              <div class="pv-live" [attr.data-layout]="type() === 'shell' ? 'shell' : layout()">
+                @for (r of regionNames(); track r) {
+                  <div class="pvl-r" [style.grid-area]="type() === 'shell' ? null : r">
+                    <div class="pv-rlbl">{{ r }}</div>
+                    @for (s of tilesFor(r); track $index) {
+                      @if (s.kind === 'form' && formBody(s.name)) {
+                        <div class="pvl-surface"><div class="pvl-cap">{{ km(s.kind).glyph }} {{ s.name }}</div>
+                          <aes-schema-form [body]="formBody(s.name)!" /></div>
+                      } @else {
+                        <div class="pvl-card" [style.--h]="km(s.kind).hue">
+                          <span class="pvl-glyph">{{ km(s.kind).glyph }}</span>
+                          <span class="pvl-meta"><span class="pvl-nm">{{ s.name }}</span><span class="pvl-kind">{{ km(s.kind).label }}</span></span>
+                          <span class="pvl-hub">renders in Hub</span>
+                        </div>
+                      }
+                    } @empty { <span class="pv-empty">empty</span> }
+                  </div>
+                }
+                @if (type() === 'shell') { <div class="pvl-r pvl-outlet">Page content <span class="muted sm">router-outlet</span></div> }
+              </div>
+              <div class="muted sm pv-note">Forms render live from the catalog. Experiences, dashboards, workflows &amp; components render in the Hub runtime.</div>
+            } @else {
             <div class="pv-frame" [attr.data-layout]="type() === 'shell' ? 'shell' : layout()">
               @if (type() === 'shell') {
                 <div class="pv-r pv-header"><div class="pv-rlbl">header</div>
@@ -234,7 +264,8 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                 }
               }
             </div>
-            <div class="muted sm pv-note">Structural preview — surfaces render live in the Hub.</div>
+            <div class="muted sm pv-note">Structural preview — switch to <strong>Live</strong> to render surfaces.</div>
+            }
           </aside>
         </div>
       }
@@ -273,6 +304,33 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     .pv-mid { display:grid; grid-template-columns:56px 1fr 56px; gap:8px; }
     .pv-content { display:grid; place-content:center; text-align:center; gap:2px; min-height:80px; font-size:11px; opacity:.65; }
     .pv-note { margin-top:8px; text-align:center; }
+    /* preview header + mode toggle */
+    .pv-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .pv-head .eyebrow { margin-bottom:0; }
+    .pv-seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+    .pv-seg .seg { font-size:11px; padding:3px 10px; background:var(--surface); color:var(--text-muted); border:0; cursor:pointer; }
+    .pv-seg .seg + .seg { border-left:1px solid var(--border); }
+    .pv-seg .seg.on { background:var(--brand); color:#fff; }
+    /* live preview render */
+    .pv-live { display:grid; gap:10px; margin-top:8px; padding:10px; min-height:200px; border:1px solid var(--border); border-radius:12px; background:var(--surface-2); }
+    .pv-live[data-layout='two-column']{ grid-template-areas:'left right'; grid-template-columns:1fr 1fr; }
+    .pv-live[data-layout='sidebar-right']{ grid-template-areas:'main aside'; grid-template-columns:2fr 1fr; }
+    .pv-live[data-layout='sidebar-left']{ grid-template-areas:'aside main'; grid-template-columns:1fr 2fr; }
+    .pv-live[data-layout='stacked']{ grid-template-areas:'top' 'main'; }
+    .pv-live[data-layout='grid']{ grid-template-areas:'a a' 'b c'; grid-template-columns:1fr 1fr; }
+    .pvl-r { display:flex; flex-direction:column; gap:8px; min-width:0; }
+    .pvl-surface { border:1px solid var(--border); border-radius:10px; background:var(--surface); padding:12px; min-width:0; }
+    .pvl-cap { font-size:11px; color:var(--text-muted); margin-bottom:8px; display:flex; align-items:center; gap:5px; }
+    .pvl-card { display:flex; align-items:center; gap:10px; padding:12px; border:1px solid var(--border); border-radius:10px;
+      background:linear-gradient(0deg, hsl(var(--h) 55% 50% / .06), hsl(var(--h) 55% 50% / .06)), var(--surface); }
+    .pvl-glyph { display:grid; place-items:center; width:30px; height:30px; border-radius:8px; font-size:15px; flex:none;
+      background:hsl(var(--h) 55% 50% / .16); color:hsl(var(--h) 55% 45%); }
+    .pvl-meta { display:flex; flex-direction:column; min-width:0; flex:1; }
+    .pvl-nm { font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pvl-kind { font-size:11px; color:var(--text-muted); text-transform:capitalize; }
+    .pvl-hub { font-size:10px; color:var(--text-faint); border:1px solid var(--border); border-radius:999px; padding:2px 7px; flex:none; }
+    .pvl-outlet { display:grid; place-content:center; text-align:center; gap:2px; min-height:80px; font-size:12px;
+      border:1px dashed var(--border); border-radius:8px; background:var(--surface); opacity:.7; }
     .card { border:1px solid rgba(120,120,140,.18); border-radius:14px; padding:16px; margin-bottom:16px; }
     .eyebrow { font-size:11px; text-transform:uppercase; letter-spacing:.06em; opacity:.55; margin-bottom:10px; }
     .muted { opacity:.6; } .sm { font-size:12px; }
@@ -337,6 +395,10 @@ export class PageDesignerComponent implements HasUnsavedChanges {
   protected readonly newPropKey = signal('');
   protected readonly newPropValue = signal('');
   protected readonly surfacePalette = signal<PaletteGroup[]>([]);
+  /** Form capability bodies (name → body) so form surfaces render live in the preview. */
+  protected readonly formBodies = signal<Record<string, Record<string, unknown>>>({});
+  /** Preview mode: structural wireframe (default) vs live surface render. */
+  protected readonly livePreview = signal(false);
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
@@ -417,6 +479,8 @@ export class PageDesignerComponent implements HasUnsavedChanges {
   protected glyph(kind: string): string { return KIND_GLYPH[kind] ?? '›'; }
   protected readonly km = kindMeta;
   protected tilesFor(r: string): Surface[] { return this.regions()[r] ?? []; }
+  /** The catalog body for a form surface (by name), or null if not yet loaded / not a form. */
+  protected formBody(name: string): Record<string, unknown> | null { return this.formBodies()[name] ?? null; }
   protected propFields(name: string): PropField[] { return PROP_FIELDS[name] ?? []; }
   protected asLinks(v: unknown): { label: string; href: string }[] { return (Array.isArray(v) ? v : []) as { label: string; href: string }[]; }
   protected propVal(s: Surface, key: string): unknown { return s.props[key]; }
@@ -435,7 +499,12 @@ export class PageDesignerComponent implements HasUnsavedChanges {
       commit();
     });
     const kinds: [SurfaceKind, number][] = [['form', 2], ['workflow', 3], ['component', 4]];
-    for (const [k, gi] of kinds) this.caps.listByKind(k).subscribe((r) => { for (const c of r.items) groups[gi].items.push({ kind: k, name: c.name, title: (c.body?.['title'] as string) ?? c.name }); commit(); });
+    for (const [k, gi] of kinds) this.caps.listByKind(k).subscribe((r) => {
+      for (const c of r.items) groups[gi].items.push({ kind: k, name: c.name, title: (c.body?.['title'] as string) ?? c.name });
+      // Keep form bodies so the live preview can render each form surface for real.
+      if (k === 'form') this.formBodies.update((m) => { const next = { ...m }; for (const c of r.items) next[c.name] = c.body ?? {}; return next; });
+      commit();
+    });
 
     this.caps.get(this.id()).subscribe((c) => {
       const b = c.body as { title?: string; type?: PageType; layout?: PageLayout; regions?: Record<string, Surface[]>; access?: { personas?: string[]; scopes?: string[] } };
