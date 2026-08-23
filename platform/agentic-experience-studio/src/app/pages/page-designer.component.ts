@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, HostListener, inj
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CdkDrag, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ExperienceCatalogService } from '../services/experience-catalog.service';
 import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
@@ -59,7 +60,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 @Component({
   selector: 'aes-page-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule],
   template: `
     <div class="wrap">
       <header class="head">
@@ -170,8 +171,8 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                   @else { Regions · <span class="muted">{{ layout() }}</span> }
                 </span>
                 <span class="hbtns">
-                  <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" title="Undo (⌘Z)" aria-label="Undo">↶</button>
-                  <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" title="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
+                  <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" matTooltip="Undo (⌘Z)" aria-label="Undo">↶</button>
+                  <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" matTooltip="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
                 </span>
               </div>
               <div class="regions" [attr.data-shell]="type() === 'shell'">
@@ -185,8 +186,8 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                         <span class="ic" [class.dash]="s.kind === 'dashboard'">{{ glyph(s.kind) }}</span>
                         <span class="bm"><span class="nm">{{ s.name }}</span><span class="gl">{{ s.kind }}</span></span>
                         <span class="ctrls">
-                          <button class="mv" (click)="moveSurface(r, $index, -1, $event)" [disabled]="$index === 0" title="Move up" aria-label="Move up">▲</button>
-                          <button class="mv" (click)="moveSurface(r, $index, 1, $event)" [disabled]="$index === (regions()[r] || []).length - 1" title="Move down" aria-label="Move down">▼</button>
+                          <button class="mv" (click)="moveSurface(r, $index, -1, $event)" [disabled]="$index === 0" matTooltip="Move up" aria-label="Move up">▲</button>
+                          <button class="mv" (click)="moveSurface(r, $index, 1, $event)" [disabled]="$index === (regions()[r] || []).length - 1" matTooltip="Move down" aria-label="Move down">▼</button>
                           <button class="x" (click)="remove(r, $index, $event)" aria-label="Remove">✕</button>
                         </span>
                       </div>

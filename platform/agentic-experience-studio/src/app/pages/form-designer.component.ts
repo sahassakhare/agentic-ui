@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, HostListener, inject, input, signal } from '@angular/core';
 import { CdkDrag, CdkDragHandle, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
@@ -39,7 +40,7 @@ interface DesignerAction {
 @Component({
   selector: 'aes-form-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle],
+  imports: [FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule],
   template: `
     <div class="page wide">
       <a routerLink="/forms" class="back">
@@ -133,8 +134,8 @@ interface DesignerAction {
           <div class="eyebrow rowbar" style="margin-bottom:var(--s3)">
             <span>Canvas · {{ fields().length }} field{{ fields().length === 1 ? '' : 's' }}</span>
             <span class="hbtns">
-              <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" title="Undo (⌘Z)" aria-label="Undo">↶</button>
-              <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" title="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
+              <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" matTooltip="Undo (⌘Z)" aria-label="Undo">↶</button>
+              <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" matTooltip="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
             </span>
           </div>
           @if (!fields().length) {
