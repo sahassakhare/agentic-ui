@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, HostListener, inject, input, signal } from '@angular/core';
 import { CdkDrag, CdkDragHandle, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
@@ -38,7 +39,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
 @Component({
   selector: 'aes-workflow-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle],
+  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule],
   template: `
     <div class="page wide">
       <a routerLink="/workflows" class="back">
@@ -88,8 +89,8 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
           <div class="eyebrow rowbar" style="margin-bottom:var(--s3)">
             <span>Canvas · {{ steps().length }} step{{ steps().length === 1 ? '' : 's' }}</span>
             <span class="hbtns">
-              <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" title="Undo (⌘Z)" aria-label="Undo">↶</button>
-              <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" title="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
+              <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" matTooltip="Undo (⌘Z)" aria-label="Undo">↶</button>
+              <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" matTooltip="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
             </span>
           </div>
           @if (!steps().length) { <div class="drop-empty">Drag components here to add steps.</div> }
