@@ -4,6 +4,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { CodeViewComponent } from '../components/code-view.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -53,7 +55,7 @@ export interface StudioConfig {
  */
 @Component({
   selector: 'aes-capability-studio',
-  imports: [MatProgressSpinnerModule, FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatIconModule, MatChipsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
+  imports: [MatProgressSpinnerModule, FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatIconModule, MatChipsModule, MatTooltipModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, CodeViewComponent],
   template: `
     <div class="page">
       <div class="page-header">
@@ -223,9 +225,15 @@ export interface StudioConfig {
                     </div>
                   }
                 }
+                @if (expandedCode() === c.id) {
+                  <aes-code-view class="row-code" [value]="c.body" [label]="c.kind + ' · ' + c.name" />
+                }
               </div>
               @for (t of c.tags; track t) { <span class="badge plain badge-brand">{{ t }}</span> }
               <div class="row" style="gap:var(--s2)">
+                <button matButton type="button" (click)="toggleCode(c)" [attr.aria-expanded]="expandedCode() === c.id" matTooltip="View the JSON definition">
+                  <mat-icon>code</mat-icon> Code
+                </button>
                 <button matButton type="button" (click)="preview(c)">Preview</button>
                 @if (cfg().kind === 'form') { <a matButton [routerLink]="['/forms', c.id, 'design']">Design</a> }
                 @if (cfg().kind === 'application') { <a matButton [routerLink]="['/applications', c.id, 'design']">Design</a> }
@@ -304,6 +312,8 @@ export interface StudioConfig {
     .usebtn:hover { color: var(--text); }
     .usebtn .unmet { color: var(--danger); font-weight: 600; }
     .usedetail { margin-top: 7px; display: flex; flex-direction: column; gap: 6px; padding: 9px 11px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; }
+    .row-code { display: block; margin-top: 8px; }
+    .row-code + * { margin-top: 0; }
     .ugrp { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .ulbl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; opacity: .55; min-width: 52px; }
     .ulbl.unmet { color: var(--danger); opacity: 1; }
@@ -347,6 +357,8 @@ export class CapabilityStudioComponent {
   private readonly auth = inject(AuthService);
   protected readonly km = kindMeta;
   protected readonly expandedUsage = signal<string | null>(null);
+  /** Capability id whose JSON code view is expanded (null = none). */
+  protected readonly expandedCode = signal<string | null>(null);
   readonly canApprove = computed(() => canApproveWith(this.auth.roles()));
   readonly historyFor = signal<string | null>(null);
 
@@ -488,6 +500,10 @@ export class CapabilityStudioComponent {
     this.graph.version();   // re-read when the graph (re)builds
     return this.graph.usage(c);
   }
+  protected toggleCode(c: Capability): void {
+    this.expandedCode.set(this.expandedCode() === c.id ? null : c.id);
+  }
+
   protected toggleUsage(c: Capability): void {
     const k = `${c.kind}:${c.name}`;
     this.expandedUsage.set(this.expandedUsage() === k ? null : k);

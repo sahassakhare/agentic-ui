@@ -12,6 +12,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ExperienceCatalogService } from '../services/experience-catalog.service';
 import { SchemaFormComponent } from '../schema-form.component';
+import { CodeViewComponent } from '../components/code-view.component';
 import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
 import { HistoryPanelComponent } from '../history-panel.component';
 import { applyCapability, canApproveWith, handleBarAction, reportWriteError, type GovState } from '../governance-actions';
@@ -66,7 +67,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 @Component({
   selector: 'aes-page-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule, MatButtonModule, MatButtonToggleModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, SchemaFormComponent],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule, MatButtonModule, MatButtonToggleModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, SchemaFormComponent, CodeViewComponent],
   template: `
     <div class="wrap">
       <header class="head">
@@ -213,14 +214,17 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 
           <aside class="preview">
             <div class="pv-head">
-              <div class="eyebrow">Preview <span class="muted sm">— {{ livePreview() ? 'live surfaces' : 'layout & composition' }}</span></div>
-              <mat-button-toggle-group class="pv-seg" [value]="livePreview() ? 'live' : 'struct'"
-                (change)="livePreview.set($event.value === 'live')" hideSingleSelectionIndicator aria-label="Preview mode">
+              <div class="eyebrow">Preview <span class="muted sm">— {{ previewMode() === 'code' ? 'JSON body' : previewMode() === 'live' ? 'live surfaces' : 'layout & composition' }}</span></div>
+              <mat-button-toggle-group class="pv-seg" [value]="previewMode()"
+                (change)="previewMode.set($event.value)" hideSingleSelectionIndicator aria-label="Preview mode">
                 <mat-button-toggle value="struct" matTooltip="Structural wireframe">Structure</mat-button-toggle>
                 <mat-button-toggle value="live" matTooltip="Render surfaces live">Live</mat-button-toggle>
+                <mat-button-toggle value="code" matTooltip="View the page JSON">Code</mat-button-toggle>
               </mat-button-toggle-group>
             </div>
-            @if (livePreview()) {
+            @if (previewMode() === 'code') {
+              <aes-code-view [value]="currentBody()" [label]="name() || 'page'" />
+            } @else if (livePreview()) {
               <div class="pv-live" [attr.data-layout]="type() === 'shell' ? 'shell' : layout()">
                 @for (r of regionNames(); track r) {
                   <div class="pvl-r" [style.grid-area]="type() === 'shell' ? null : r">
@@ -404,7 +408,9 @@ export class PageDesignerComponent implements HasUnsavedChanges {
   /** Form capability bodies (name → body) so form surfaces render live in the preview. */
   protected readonly formBodies = signal<Record<string, Record<string, unknown>>>({});
   /** Preview mode: structural wireframe (default) vs live surface render. */
-  protected readonly livePreview = signal(false);
+  /** Preview mode: structural wireframe, live surface render, or the JSON body. */
+  protected readonly previewMode = signal<'struct' | 'live' | 'code'>('struct');
+  protected readonly livePreview = computed(() => this.previewMode() === 'live');
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
@@ -668,14 +674,19 @@ export class PageDesignerComponent implements HasUnsavedChanges {
   protected removeLink(i: number): void { this.updateSelected((p) => { p['links'] = this.asLinks(p['links']).filter((_, idx) => idx !== i); return p; }); }
   protected editLink(i: number, key: 'label' | 'href', v: string): void { this.updateSelected((p) => { p['links'] = this.asLinks(p['links']).map((l, idx) => (idx === i ? { ...l, [key]: v } : l)); return p; }); }
 
-  protected save(): void {
-    this.saving.set(true);
+  /** The page body as it would be saved — also drives the preview's Code view. */
+  protected readonly currentBody = computed<Record<string, unknown>>(() => {
     const list = (s: string) => s.split(/[\s,]+/).filter(Boolean);
     const regions: Record<string, Surface[]> = {};
     for (const r of this.regionNames()) if (this.regions()[r]?.length) regions[r] = this.regions()[r];
-    const body: Record<string, unknown> = this.type() === 'shell'
+    return this.type() === 'shell'
       ? { title: this.name(), type: 'shell', regions }
       : { title: this.name(), type: 'content', layout: this.layout(), regions, access: { personas: list(this.personas()), scopes: list(this.scopes()) } };
+  });
+
+  protected save(): void {
+    this.saving.set(true);
+    const body = this.currentBody();
     this.caps.update(this.id(), { body }, this.capVersion()).subscribe({
       next: (c) => { this.saving.set(false); this.saved.set(true); this.pristine = this.snapshot(); applyCapability(this.gov(), c); },
       error: (e) => { this.saving.set(false); reportWriteError(this.toast, e); },

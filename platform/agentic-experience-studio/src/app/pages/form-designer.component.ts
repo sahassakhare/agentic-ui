@@ -5,6 +5,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { CodeViewComponent } from '../components/code-view.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -48,7 +50,7 @@ interface DesignerAction {
 @Component({
   selector: 'aes-form-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatProgressSpinnerModule, FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatIconModule, MatChipsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
+  imports: [MatProgressSpinnerModule, FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatIconModule, MatChipsModule, MatButtonToggleModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, CodeViewComponent],
   template: `
     <div class="page wide">
       <a routerLink="/forms" class="back">
@@ -214,8 +216,19 @@ interface DesignerAction {
 
         <!-- Live preview -->
         <div class="preview card card-pad">
-          <div class="eyebrow" style="margin-bottom:var(--s3)">Live preview</div>
-          <aes-schema-form [body]="previewBody()" />
+          <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:var(--s3)">
+            <div class="eyebrow" style="margin-bottom:0">{{ previewMode() === 'code' ? 'Form JSON' : 'Live preview' }}</div>
+            <mat-button-toggle-group [value]="previewMode()" (change)="previewMode.set($event.value)"
+              hideSingleSelectionIndicator aria-label="Preview mode" style="--mat-standard-button-toggle-height:30px; font-size:12px">
+              <mat-button-toggle value="live" matTooltip="Rendered form">Preview</mat-button-toggle>
+              <mat-button-toggle value="code" matTooltip="View the form JSON">Code</mat-button-toggle>
+            </mat-button-toggle-group>
+          </div>
+          @if (previewMode() === 'code') {
+            <aes-code-view [value]="previewBody()" [label]="form()?.name ?? 'form'" />
+          } @else {
+            <aes-schema-form [body]="previewBody()" />
+          }
         </div>
       </div>
       @if (showHistory()) { <aes-history-panel [capabilityId]="id()" (close)="showHistory.set(false)" (changed)="reload()" /> }
@@ -300,6 +313,8 @@ export class FormDesignerComponent implements HasUnsavedChanges {
     return this.components().filter((c) => !query || c.name.toLowerCase().includes(query));
   });
   readonly toolSources = computed(() => this.sources().filter((c) => c.kind === 'tool'));
+  /** Form preview mode: the rendered form, or its JSON body. */
+  protected readonly previewMode = signal<'live' | 'code'>('live');
   readonly previewBody = computed(() => ({
     schema: { fields: this.fields(), actions: this.actions(), submit: legacySubmit(this.actions()) },
   }));
