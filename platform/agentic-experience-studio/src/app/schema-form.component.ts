@@ -1,4 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatRadioModule } from '@angular/material/radio';
+import { MatButtonModule } from '@angular/material/button';
 
 /**
  * Renders a form LIVE from its declarative JSON schema (`body.schema`) — the same
@@ -51,6 +57,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 @Component({
   selector: 'aes-schema-form',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, MatRadioModule, MatButtonModule],
   template: `
     @if (fields().length) {
       <form class="sf" (submit)="$event.preventDefault()">
@@ -66,22 +73,41 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
               @for (v of f.validators ?? []; track v) { <span class="sf-val" title="Validated by the ‘{{ v }}’ rule (resolved at runtime)">⛨ {{ v }}</span> }
             </label>
             @switch (f.type) {
-              @case ('textarea') { <textarea class="sf-in" [class.bad]="err(f)" [id]="'sf-'+f.name" rows="3" [placeholder]="f.placeholder ?? ''" [value]="val(f.name)" (input)="set(f.name, $event)" (blur)="touch(f.name)"></textarea> }
+              @case ('textarea') {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sf-mf">
+                  <textarea matInput rows="3" [placeholder]="f.placeholder ?? ''" [value]="val(f.name)" (input)="set(f.name, $event)" (blur)="touch(f.name)"></textarea>
+                </mat-form-field>
+              }
               @case ('select') {
-                <select class="sf-in" [class.bad]="err(f)" [id]="'sf-'+f.name" [value]="val(f.name)" (change)="set(f.name, $event)" (blur)="touch(f.name)">
-                  <option value="" disabled selected>{{ f.source && !(f.options?.length) ? 'from ' + f.source + '…' : 'Choose…' }}</option>
-                  @for (o of f.options ?? []; track o) { <option [value]="o">{{ o }}</option> }
-                </select>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sf-mf">
+                  <mat-select [value]="val(f.name)" (selectionChange)="setVal(f.name, $event.value)">
+                    @for (o of f.options ?? []; track o) { <mat-option [value]="o">{{ o }}</mat-option> }
+                  </mat-select>
+                </mat-form-field>
               }
-              @case ('checkbox') { <label class="sf-check"><input type="checkbox" [id]="'sf-'+f.name" [checked]="!!val(f.name)" (change)="set(f.name, $event)" /> {{ f.placeholder ?? 'Yes' }}</label> }
+              @case ('checkbox') {
+                <mat-checkbox [checked]="!!val(f.name)" (change)="setVal(f.name, $event.checked)">{{ f.placeholder ?? 'Yes' }}</mat-checkbox>
+              }
               @case ('radio') {
-                <div class="sf-radios">
-                  @for (o of f.options ?? []; track o) { <label class="sf-radio"><input type="radio" [name]="f.name" [value]="o" (change)="set(f.name, $event)" /> {{ o }}</label> }
-                </div>
+                <mat-radio-group class="sf-radios" [value]="val(f.name)" (change)="setVal(f.name, $event.value)">
+                  @for (o of f.options ?? []; track o) { <mat-radio-button [value]="o">{{ o }}</mat-radio-button> }
+                </mat-radio-group>
               }
-              @case ('number') { <input class="sf-in" [class.bad]="err(f)" type="number" [id]="'sf-'+f.name" [placeholder]="f.placeholder ?? ''" [value]="val(f.name)" (input)="set(f.name, $event)" (blur)="touch(f.name)" /> }
-              @case ('date') { <input class="sf-in" [class.bad]="err(f)" type="date" [id]="'sf-'+f.name" [value]="val(f.name)" (input)="set(f.name, $event)" (blur)="touch(f.name)" /> }
-              @default { <input class="sf-in" [class.bad]="err(f)" [type]="f.type ?? 'text'" [id]="'sf-'+f.name" [placeholder]="f.placeholder ?? ''" [value]="val(f.name)" (input)="set(f.name, $event)" (blur)="touch(f.name)" /> }
+              @case ('number') {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sf-mf">
+                  <input matInput type="number" [placeholder]="f.placeholder ?? ''" [value]="val(f.name)" (input)="set(f.name, $event)" (blur)="touch(f.name)" />
+                </mat-form-field>
+              }
+              @case ('date') {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sf-mf">
+                  <input matInput type="date" [value]="val(f.name)" (input)="set(f.name, $event)" (blur)="touch(f.name)" />
+                </mat-form-field>
+              }
+              @default {
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="sf-mf">
+                  <input matInput [type]="f.type ?? 'text'" [placeholder]="f.placeholder ?? ''" [value]="val(f.name)" (input)="set(f.name, $event)" (blur)="touch(f.name)" />
+                </mat-form-field>
+              }
             }
             @if (err(f); as e) { <span class="sf-err">{{ e }}</span> }
             @else if (hint(f); as h) { <span class="sf-hint">{{ h }}</span> }
@@ -90,9 +116,9 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
         }
         <div class="sf-actions">
           @for (a of actions(); track $index) {
-            <button class="sf-submit" type="button"
-              [class.secondary]="a.style === 'secondary'"
-              [class.danger]="a.style === 'danger'">{{ a.label }}</button>
+            <button matButton="filled" type="button"
+              [class.sf-secondary]="a.style === 'secondary'"
+              [class.sf-danger]="a.style === 'danger'">{{ a.label }}</button>
           }
         </div>
       </form>
@@ -106,6 +132,9 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
       border-radius: var(--r-md); background: var(--surface); }
     .sf-section { font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--brand); padding-top: var(--s2); border-top: 1px solid var(--border); }
     .sf-field { display: flex; flex-direction: column; gap: 5px; }
+    .sf-mf { width: 100%; }
+    .sf-secondary { --mat-sys-primary: var(--surface-2); --mat-sys-on-primary: var(--text); }
+    .sf-danger { --mat-sys-primary: var(--danger); --mat-sys-on-primary: #fff; }
     .sf-lbl { font-size: var(--fs-sm); font-weight: 500; display: flex; align-items: center; gap: var(--s2); flex-wrap: wrap; }
     .sf-req { color: var(--danger); }
     .sf-widget { font-family: var(--font-mono); font-size: 10px; color: var(--brand); background: var(--brand-soft); padding: 1px 6px; border-radius: var(--r-full); }
@@ -156,6 +185,8 @@ export class SchemaFormComponent {
     const v = t.type === 'checkbox' ? t.checked : t.value;
     this.values.update((m) => ({ ...m, [name]: v }));
   }
+  /** Set a value directly (for Material controls whose change events aren't native DOM events). */
+  setVal(name: string, v: unknown): void { this.values.update((m) => ({ ...m, [name]: v })); this.touch(name); }
   touch(name: string): void { this.touched.update((s) => new Set(s).add(name)); }
 
   /** Inline-constraint description for the field (governed validators show as chips). */
