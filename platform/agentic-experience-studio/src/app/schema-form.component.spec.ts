@@ -43,7 +43,7 @@ describe('SchemaFormComponent rendering', () => {
     expect(el.querySelectorAll('mat-select').length).toBe(2);       // select + multiselect
     expect(el.querySelector('mat-slider')).toBeTruthy();            // range
     expect(el.querySelector('input[type=number]')).toBeTruthy();
-    expect(el.querySelector('input[type=date]')).toBeTruthy();
+    expect(el.querySelector('mat-datepicker-toggle')).toBeTruthy(); // date → Material datepicker
     expect(el.querySelector('input[type=time]')).toBeTruthy();
     expect(el.querySelector('textarea')).toBeTruthy();
   });
@@ -73,6 +73,13 @@ describe('SchemaFormComponent rendering', () => {
     const el = render([{ name: 'priority', type: 'select', widget: 'priority-picker', options: ['Low', 'High'] }]);
     expect(el.querySelector('mat-select')).toBeTruthy();
     expect(el.querySelector('.sf-slot')).toBeNull();
+  });
+
+  it('keeps the submit action disabled while a required field is invalid', () => {
+    const el = render([{ name: 'email', type: 'email', required: true }]);
+    const submit = el.querySelector('button[type=submit]') as HTMLButtonElement | null;
+    expect(submit).toBeTruthy();
+    expect(submit!.disabled).toBe(true);
   });
 
   it('falls back to a text input for unknown types rather than an invalid input type', () => {
