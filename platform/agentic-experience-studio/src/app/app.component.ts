@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { AuthService } from './services/auth.service';
 import { ToastHostComponent } from './components/toast-host.component';
+import { CommandPaletteComponent } from './components/command-palette.component';
 
 const NAV = [
   { path: '/experiences', label: 'Experiences' },
@@ -31,7 +32,7 @@ const NAV = [
  */
 @Component({
   selector: 'aes-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastHostComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastHostComponent, CommandPaletteComponent],
   template: `
     <header class="topbar">
       <a class="brand" routerLink="/experiences" aria-label="Experience Studio home">
@@ -72,6 +73,7 @@ const NAV = [
 
     <main><router-outlet /></main>
     <aes-toast-host />
+    <aes-command-palette />
   `,
   styles: [`
     :host { display: block; min-height: 100%; }
