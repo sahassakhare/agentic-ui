@@ -23,6 +23,7 @@
     "docs:compodoc:serve": "npm run docs:compodoc:prepare && compodoc -c .compodocrc.json -s",
     "test:e2e": "playwright test --config e2e/playwright.config.ts",
     "test:e2e:ui": "playwright test --config e2e/playwright.config.ts --ui",
+    "test:e2e:studio": "playwright test --config e2e/studio.config.ts",
     "test:e2e:install": "playwright install chromium",
     "build:ediscovery-shared": "npm --prefix examples/demo-ediscovery-shared run build",
     "build:ediscovery-server": "npm --prefix examples/demo-ediscovery-server run build"
