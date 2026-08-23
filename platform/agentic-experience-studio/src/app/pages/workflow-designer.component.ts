@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, HostListener, inject, input, signal } from '@angular/core';
+import { CdkDrag, CdkDragHandle, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
@@ -37,7 +38,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
 @Component({
   selector: 'aes-workflow-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent],
+  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle],
   template: `
     <div class="page wide">
       <a routerLink="/workflows" class="back">
@@ -73,24 +74,29 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
         <aside class="palette card card-pad">
           <div class="eyebrow" style="margin-bottom:var(--s2)">Components &amp; forms</div>
           <input class="input" [(ngModel)]="q" placeholder="Search…" autocomplete="off" />
-          <div class="pal-list">
+          <div class="pal-list" cdkDropList id="wf-palette" [cdkDropListData]="paletteSource"
+               [cdkDropListConnectedTo]="['wf-canvas']" [cdkDropListSortingDisabled]="true">
             @for (c of palette(); track c.name) {
-              <div class="pal-item" draggable="true" (dragstart)="startPaletteDrag(c.name)" (dragend)="drag.set(null)">
+              <div class="pal-item" cdkDrag [cdkDragData]="c.name">
                 <span class="grip">⋮⋮</span> {{ c.name }} <span class="kind">{{ c.kind }}</span>
               </div>
             }
           </div>
         </aside>
 
-        <div class="canvas card card-pad" (dragover)="allow($event)" (drop)="dropOnCanvas($event)">
-          <div class="eyebrow" style="margin-bottom:var(--s3)">Canvas · {{ steps().length }} step{{ steps().length === 1 ? '' : 's' }}</div>
+        <div class="canvas card card-pad" cdkDropList id="wf-canvas" [cdkDropListData]="steps()" (cdkDropListDropped)="onDrop($event)">
+          <div class="eyebrow rowbar" style="margin-bottom:var(--s3)">
+            <span>Canvas · {{ steps().length }} step{{ steps().length === 1 ? '' : 's' }}</span>
+            <span class="hbtns">
+              <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" title="Undo (⌘Z)" aria-label="Undo">↶</button>
+              <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" title="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
+            </span>
+          </div>
           @if (!steps().length) { <div class="drop-empty">Drag components here to add steps.</div> }
           @for (s of steps(); track s.id; let i = $index) {
-            <div class="step" [class.decision]="s.decision" draggable="true"
-                 (dragstart)="startStepDrag(i, $event)" (dragend)="drag.set(null)"
-                 (dragover)="allow($event)" (drop)="dropOnStep(i, $event)">
+            <div class="step" [class.decision]="s.decision" cdkDrag [cdkDragData]="i">
               <div class="srow">
-                <span class="grip">⋮⋮</span>
+                <span class="grip" cdkDragHandle>⋮⋮</span>
                 <span class="num">{{ s.decision ? '◇' : i + 1 }}</span>
                 <input class="input flex" [ngModel]="s.section" (ngModelChange)="patch(i, { section: $event })" placeholder="Step title" />
                 <span class="wchip">⛃ {{ s.widget }}</span>
@@ -206,6 +212,17 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
     .dec { display:inline-flex; align-items:center; gap:5px; font-size:var(--fs-xs); color:var(--text-muted); white-space:nowrap; }
     .rm { border:1px solid var(--border); background:var(--surface); border-radius:var(--r-sm); width:26px; height:26px; cursor:pointer; color:var(--text-muted); }
     .rm:hover { border-color:var(--danger); color:var(--danger); } .rm.sm { width:22px; height:22px; }
+    /* CDK drag-drop states + undo toolbar (Studio-token styled). */
+    .step.cdk-drag-preview { box-shadow:0 8px 24px -8px rgba(0,0,0,.35); border-color:var(--brand); background:var(--surface); }
+    .step.cdk-drag-placeholder { opacity:.35; border-style:dashed; }
+    .grip[cdkdraghandle] { cursor:grab; } .step.cdk-drag-dragging .grip { cursor:grabbing; }
+    .canvas.cdk-drop-list-dragging { outline:1px dashed var(--brand); outline-offset:2px; }
+    .cdk-drag-animating { transition:transform .18s cubic-bezier(0,0,.2,1); }
+    .rowbar { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .hbtns { display:inline-flex; gap:4px; }
+    .hb { border:1px solid var(--border); background:var(--surface); color:var(--text-muted); border-radius:var(--r-sm); width:26px; height:24px; font-size:14px; line-height:1; cursor:pointer; }
+    .hb:hover:not([disabled]) { border-color:var(--brand); color:var(--brand); }
+    .hb[disabled] { opacity:.35; cursor:default; }
     .branches { display:flex; flex-direction:column; gap:5px; margin:8px 0 2px 34px; }
     .branch { display:flex; align-items:center; gap:5px; flex-wrap:wrap; font-size:var(--fs-sm); }
     .branch .input { padding:5px 7px; font-size:var(--fs-xs); } .branch .f{width:90px} .branch .o{width:64px} .branch .v{width:80px} .branch .g{width:130px}
@@ -237,7 +254,6 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
   private readonly auth = inject(AuthService);
   readonly canApprove = computed(() => canApproveWith(this.auth.roles()));
   private pristine = '';
-  readonly drag = signal<{ kind: 'palette'; widget: string } | { kind: 'step'; index: number } | null>(null);
   q = '';
 
   readonly palette = computed(() => {
@@ -285,6 +301,7 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
         const body = c.body as { workflow?: { steps?: unknown[] }; steps?: unknown[] };
         const raw = (body.workflow?.steps ?? body.steps ?? []) as Array<Record<string, unknown>>;
         this.steps.set(raw.map((r, i) => this.fromRaw(r, i)));
+        this.past.set([]); this.future.set([]); // fresh undo history from the loaded workflow
         applyCapability(this.gov(), c);
         this.pristine = this.snapshot();
       },
@@ -316,23 +333,48 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
     };
   }
 
-  // drag + drop
-  allow(e: DragEvent): void { e.preventDefault(); }
-  startPaletteDrag(widget: string): void { this.drag.set({ kind: 'palette', widget }); }
-  startStepDrag(index: number, e: DragEvent): void { e.stopPropagation(); this.drag.set({ kind: 'step', index }); }
-  dropOnCanvas(e: DragEvent): void { e.preventDefault(); const d = this.drag(); if (d?.kind === 'palette') this.insert(this.steps().length, d.widget); this.drag.set(null); }
-  dropOnStep(target: number, e: DragEvent): void {
-    e.preventDefault(); e.stopPropagation();
-    const d = this.drag();
-    if (d?.kind === 'palette') this.insert(target, d.widget);
-    else if (d?.kind === 'step') this.move(d.index, target);
-    this.drag.set(null);
+  // ── drag + drop (CDK) — reorder within the canvas, or copy from the palette ──
+  protected readonly paletteSource: readonly string[] = [];
+  protected onDrop(event: CdkDragDrop<Step[]>): void {
+    if (event.previousContainer === event.container) this.move(event.previousIndex, event.currentIndex);
+    else this.insert(event.currentIndex, event.item.data as string);
+  }
+
+  // ── undo / redo over steps() (structural edits: add / move / remove) ─────────
+  private readonly past = signal<Step[][]>([]);
+  private readonly future = signal<Step[][]>([]);
+  readonly canUndo = computed(() => this.past().length > 0);
+  readonly canRedo = computed(() => this.future().length > 0);
+  private pushHistory(): void { this.past.update((h) => [...h.slice(-49), this.steps()]); this.future.set([]); }
+  undo(): void {
+    const h = this.past();
+    if (!h.length) return;
+    this.future.update((f) => [this.steps(), ...f]);
+    this.past.set(h.slice(0, -1));
+    this.steps.set(h[h.length - 1]!);
+  }
+  redo(): void {
+    const f = this.future();
+    if (!f.length) return;
+    this.past.update((p) => [...p, this.steps()]);
+    this.future.set(f.slice(1));
+    this.steps.set(f[0]!);
+  }
+  @HostListener('document:keydown', ['$event'])
+  protected onKey(e: KeyboardEvent): void {
+    const el = e.target as HTMLElement | null;
+    if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+    if (!(e.metaKey || e.ctrlKey)) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(); }
+    else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); this.redo(); }
   }
 
   private insert(at: number, widget: string): void {
+    this.pushHistory();
     this.steps.update((s) => { const next = [...s]; next.splice(at, 0, { id: this.newId(s), section: humanize(widget), widget, decision: false, mode: 'state', branches: [], defaultNext: '', decisionRef: '', output: '', cases: [] }); return next; });
   }
-  private move(from: number, to: number): void { if (from === to) return; this.steps.update((s) => { const n = [...s]; const [x] = n.splice(from, 1); n.splice(to, 0, x!); return n; }); }
+  private move(from: number, to: number): void { if (from === to) return; this.pushHistory(); this.steps.update((s) => { const n = [...s]; const [x] = n.splice(from, 1); n.splice(to, 0, x!); return n; }); }
   patch(i: number, part: Partial<Step>): void {
     this.steps.update((s) => s.map((st, idx) => {
       if (idx !== i) return st;
@@ -350,7 +392,7 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
   patchCase(i: number, ci: number, part: Partial<Case>): void {
     this.steps.update((s) => s.map((st, idx) => (idx === i ? { ...st, cases: st.cases.map((c, x) => (x === ci ? { ...c, ...part } : c)) } : st)));
   }
-  remove(i: number): void { this.steps.update((s) => s.filter((_, idx) => idx !== i)); }
+  remove(i: number): void { this.pushHistory(); this.steps.update((s) => s.filter((_, idx) => idx !== i)); }
   addBranch(i: number): void { this.steps.update((s) => s.map((st, idx) => (idx === i ? { ...st, branches: [...st.branches, { field: '', op: '==', value: '', goto: '' }] } : st))); }
   removeBranch(i: number, bi: number): void { this.steps.update((s) => s.map((st, idx) => (idx === i ? { ...st, branches: st.branches.filter((_, x) => x !== bi) } : st))); }
   patchBranch(i: number, bi: number, part: Partial<Branch>): void {
