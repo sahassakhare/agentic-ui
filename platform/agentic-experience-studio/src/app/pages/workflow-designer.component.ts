@@ -3,6 +3,7 @@ import { CdkDrag, CdkDragHandle, CdkDropList, type CdkDragDrop } from '@angular/
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -45,7 +46,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
 @Component({
   selector: 'aes-workflow-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
+  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatIconModule, MatChipsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
   template: `
     <div class="page wide">
       <a routerLink="/workflows" class="back">
@@ -112,7 +113,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                   <mat-label>Step title</mat-label>
                   <input matInput [ngModel]="s.section" (ngModelChange)="patch(i, { section: $event })" />
                 </mat-form-field>
-                <span class="wchip">◫ {{ s.widget }}</span>
+                <mat-chip-set class="wchip-set"><mat-chip class="wchip"><mat-icon matChipAvatar>widgets</mat-icon>{{ s.widget }}</mat-chip></mat-chip-set>
                 <mat-checkbox [ngModel]="s.decision" (ngModelChange)="patch(i, { decision: $event })">decision</mat-checkbox>
                 <button class="rm" type="button" (click)="remove(i)" aria-label="Remove"><mat-icon>close</mat-icon></button>
               </div>
@@ -249,7 +250,10 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
     .num { width:24px; height:24px; border-radius:50%; background:var(--brand-soft); color:var(--brand); display:grid; place-items:center; font-size:var(--fs-xs); font-weight:650; flex:none; }
     .step.decision .num { background:var(--warn-soft); color:var(--warn); }
     .srow .flex { flex:1; min-width:0; } .srow .input { padding:7px 9px; font-size:var(--fs-sm); }
-    .wchip { font-family:var(--font-mono); font-size:10px; color:var(--brand); background:var(--brand-soft); padding:2px 7px; border-radius:var(--r-full); white-space:nowrap; }
+    .wchip-set { display:inline-flex; }
+    .wchip.mat-mdc-chip { --mdc-chip-container-height:22px; --mdc-chip-elevated-container-color:var(--brand-soft); --mdc-chip-label-text-color:var(--brand);
+      font-family:var(--font-mono); font-size:10px; }
+    .wchip .mat-mdc-chip-avatar { font-size:13px; width:13px; height:13px; color:var(--brand); }
     .dec { display:inline-flex; align-items:center; gap:5px; font-size:var(--fs-xs); color:var(--text-muted); white-space:nowrap; }
     .rm { border:1px solid var(--border); background:var(--surface); border-radius:var(--r-sm); width:26px; height:26px; cursor:pointer; color:var(--text-muted); }
     .rm:hover { border-color:var(--danger); color:var(--danger); } .rm.sm { width:22px; height:22px; }

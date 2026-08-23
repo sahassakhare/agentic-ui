@@ -2,6 +2,7 @@ import { Component, computed, inject, input, signal, effect } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -51,7 +52,7 @@ export interface StudioConfig {
  */
 @Component({
   selector: 'aes-capability-studio',
-  imports: [FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
+  imports: [FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatIconModule, MatChipsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -202,15 +203,21 @@ export interface StudioConfig {
                     <div class="usedetail">
                       @if (u.uses.length) {
                         <div class="ugrp"><span class="ulbl">Uses</span>
-                          @for (r of u.uses; track r.kind + r.name) { <span class="kchip" [style.--h]="km(r.kind).hue"><mat-icon class="kchip-ic">{{ km(r.kind).icon }}</mat-icon> {{ r.name }} <em>{{ km(r.kind).label }}</em></span> }</div>
+                          <mat-chip-set>
+                            @for (r of u.uses; track r.kind + r.name) { <mat-chip class="kchip" [style.--h]="km(r.kind).hue"><mat-icon matChipAvatar>{{ km(r.kind).icon }}</mat-icon> {{ r.name }} <em>{{ km(r.kind).label }}</em></mat-chip> }
+                          </mat-chip-set></div>
                       }
                       @if (u.unmet.length) {
                         <div class="ugrp"><span class="ulbl unmet">Unmet</span>
-                          @for (r of u.unmet; track r.kind + r.name) { <span class="kchip unmet" [style.--h]="km(r.kind).hue"><mat-icon class="kchip-ic">{{ km(r.kind).icon }}</mat-icon> {{ r.name }} <em>{{ km(r.kind).label }}?</em></span> }</div>
+                          <mat-chip-set>
+                            @for (r of u.unmet; track r.kind + r.name) { <mat-chip class="kchip unmet" [style.--h]="km(r.kind).hue"><mat-icon matChipAvatar>{{ km(r.kind).icon }}</mat-icon> {{ r.name }} <em>{{ km(r.kind).label }}?</em></mat-chip> }
+                          </mat-chip-set></div>
                       }
                       @if (u.usedBy.length) {
                         <div class="ugrp"><span class="ulbl">Used by</span>
-                          @for (r of u.usedBy; track r.kind + r.name) { <span class="kchip" [style.--h]="km(r.kind).hue"><mat-icon class="kchip-ic">{{ km(r.kind).icon }}</mat-icon> {{ r.name }} <em>{{ km(r.kind).label }}</em></span> }</div>
+                          <mat-chip-set>
+                            @for (r of u.usedBy; track r.kind + r.name) { <mat-chip class="kchip" [style.--h]="km(r.kind).hue"><mat-icon matChipAvatar>{{ km(r.kind).icon }}</mat-icon> {{ r.name }} <em>{{ km(r.kind).label }}</em></mat-chip> }
+                          </mat-chip-set></div>
                       }
                     </div>
                   }
@@ -298,11 +305,12 @@ export interface StudioConfig {
     .ugrp { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .ulbl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; opacity: .55; min-width: 52px; }
     .ulbl.unmet { color: var(--danger); opacity: 1; }
-    .kchip-ic { font-size: 14px; width: 14px; height: 14px; }
-    .kchip { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 2px 9px; border-radius: 999px;
-      background: hsl(var(--h) 55% 50% / .15); color: var(--text); }
-    .kchip em { opacity: .6; font-style: normal; font-size: 10.5px; }
-    .kchip.unmet { background: hsl(2 60% 50% / .1); color: var(--danger); border: 1px dashed hsl(2 55% 50% / .5); }
+    /* compact, hue-tinted mat-chips for the dependency taxonomy */
+    .kchip.mat-mdc-chip { --mdc-chip-container-height: 24px; font-size: 11.5px;
+      --mdc-chip-elevated-container-color: hsl(var(--h) 55% 50% / .15); --mdc-chip-label-text-color: var(--text); }
+    .kchip .mat-mdc-chip-avatar { font-size: 14px; width: 14px; height: 14px; color: hsl(var(--h) 55% 45%); }
+    .kchip em { opacity: .6; font-style: normal; font-size: 10.5px; margin-left: 3px; }
+    .kchip.unmet.mat-mdc-chip { --mdc-chip-elevated-container-color: hsl(2 60% 50% / .1); --mdc-chip-label-text-color: var(--danger); }
     .subtabs { display: flex; gap: var(--s1); margin: var(--s3) 0 0; border-bottom: 1px solid var(--border); }
     .subtabs a { font-size: var(--fs-sm); font-weight: 550; color: var(--text-muted); text-decoration: none;
       padding: .5rem .8rem; border-bottom: 2px solid transparent; }

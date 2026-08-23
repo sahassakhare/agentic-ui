@@ -3,6 +3,7 @@ import { CdkDrag, CdkDragHandle, CdkDropList, moveItemInArray, type CdkDragDrop 
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -46,7 +47,7 @@ interface DesignerAction {
 @Component({
   selector: 'aes-form-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
+  imports: [FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatIconModule, MatChipsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
   template: `
     <div class="page wide">
       <a routerLink="/forms" class="back">
@@ -203,7 +204,7 @@ interface DesignerAction {
                     @for (v of validators(); track v.name) { <mat-option [value]="v.name">✓ {{ v.name }}</mat-option> }
                   </mat-select>
                 </mat-form-field>
-                @if (f.widget) { <span class="wchip" title="Composed from the ‘{{ f.widget }}’ component">◫ {{ f.widget }}</span> }
+                @if (f.widget) { <mat-chip-set class="wchip-set"><mat-chip class="wchip" matTooltip="Composed from the ‘{{ f.widget }}’ component"><mat-icon matChipAvatar>widgets</mat-icon>{{ f.widget }}</mat-chip></mat-chip-set> }
               }
               <button class="rm" type="button" (click)="remove($index)" aria-label="Remove"><mat-icon>close</mat-icon></button>
             </div>
@@ -238,7 +239,10 @@ interface DesignerAction {
     .frow .flex { flex:1; min-width:0; } .frow .sec { flex:1; font-weight:600; } .frow .ty { width:100px; } .frow .src { width:120px; } .frow .val { width:110px; } .frow .input { padding:7px 9px; font-size:var(--fs-sm); }
     .frow { flex-wrap: wrap; }
     .req { display:inline-flex; align-items:center; gap:5px; font-size:var(--fs-xs); color:var(--text-muted); white-space:nowrap; }
-    .wchip { font-family:var(--font-mono); font-size:10px; color:var(--brand); background:var(--brand-soft); padding:2px 7px; border-radius:var(--r-full); white-space:nowrap; }
+    .wchip-set { display:inline-flex; }
+    .wchip.mat-mdc-chip { --mdc-chip-container-height:22px; --mdc-chip-elevated-container-color:var(--brand-soft); --mdc-chip-label-text-color:var(--brand);
+      font-family:var(--font-mono); font-size:10px; }
+    .wchip .mat-mdc-chip-avatar { font-size:13px; width:13px; height:13px; color:var(--brand); }
     .rm { border:1px solid var(--border); background:var(--surface); border-radius:var(--r-sm); width:28px; height:28px; cursor:pointer; color:var(--text-muted); }
     .rm:hover { border-color:var(--danger); color:var(--danger); }
     /* CDK drag-drop states + undo toolbar (Studio-token styled). */
