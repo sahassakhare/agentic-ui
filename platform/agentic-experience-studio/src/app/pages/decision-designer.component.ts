@@ -6,6 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
+import { CodeViewComponent } from '../components/code-view.component';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import {
   evaluateDecision, opsForType,
@@ -32,7 +33,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
 @Component({
   selector: 'aes-decision-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatIconModule, MatFormFieldModule, MatSelectModule, MatTooltipModule],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatIconModule, MatFormFieldModule, MatSelectModule, MatTooltipModule, CodeViewComponent],
   template: `
     <div class="wrap">
       <header class="head">
@@ -46,6 +47,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
         <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
           [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
+        <button matButton type="button" (click)="showCode.set(!showCode())" [attr.aria-pressed]="showCode()" matTooltip="View the decision JSON"><mat-icon>code</mat-icon> Code</button>
         <button matButton="filled" (click)="save()" [disabled]="saving()">Save decision</button>
       </header>
 
@@ -127,6 +129,13 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
             @else { <div class="res no">no rule matched</div> }
           }
         </section>
+
+        @if (showCode()) {
+          <section class="card">
+            <div class="eyebrow" style="margin-bottom:var(--s3)">Decision JSON</div>
+            <aes-code-view [value]="currentBody()" [label]="name() || 'decision'" />
+          </section>
+        }
       }
       @if (showHistory()) { <aes-history-panel [capabilityId]="id()" (close)="showHistory.set(false)" (changed)="reload()" /> }
     </div>
@@ -181,7 +190,12 @@ export class DecisionDesignerComponent implements HasUnsavedChanges {
   protected readonly approvalState = signal<ApprovalState>('draft');
   protected readonly capVersion = signal(0);
   protected readonly showHistory = signal(false);
+  protected readonly showCode = signal(false);
   protected readonly canApprove = computed(() => canApproveWith(this.auth.roles()));
+  /** The decision body as it would be saved — drives the Code section. */
+  protected readonly currentBody = computed<Record<string, unknown>>(() => ({
+    description: this.description, hitPolicy: this.hitPolicy(), inputs: this.inputs(), outputs: this.outputs(), rules: this.rules(),
+  }));
   private pristine = '';
 
   constructor() { queueMicrotask(() => this.load()); }

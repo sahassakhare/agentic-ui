@@ -5,6 +5,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { CodeViewComponent } from '../components/code-view.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -47,7 +49,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
 @Component({
   selector: 'aes-workflow-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatProgressSpinnerModule, FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatIconModule, MatChipsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
+  imports: [MatProgressSpinnerModule, FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatIconModule, MatChipsModule, MatButtonToggleModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, CodeViewComponent],
   template: `
     <div class="page wide">
       <a routerLink="/workflows" class="back">
@@ -223,8 +225,17 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
         </div>
 
         <div class="preview card card-pad">
-          <div class="eyebrow" style="margin-bottom:var(--s3)">Live journey</div>
-          @if (resolved().length) { <aes-journey-flow [steps]="resolved()" /> }
+          <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:var(--s3)">
+            <div class="eyebrow" style="margin-bottom:0">{{ previewMode() === 'code' ? 'Workflow JSON' : 'Live journey' }}</div>
+            <mat-button-toggle-group [value]="previewMode()" (change)="previewMode.set($event.value)"
+              hideSingleSelectionIndicator aria-label="Preview mode" style="--mat-standard-button-toggle-height:30px; font-size:12px">
+              <mat-button-toggle value="flow" matTooltip="Journey diagram">Journey</mat-button-toggle>
+              <mat-button-toggle value="code" matTooltip="View the workflow JSON">Code</mat-button-toggle>
+            </mat-button-toggle-group>
+          </div>
+          @if (previewMode() === 'code') {
+            <aes-code-view [value]="currentBody()" [label]="wf()?.name ?? 'workflow'" />
+          } @else if (resolved().length) { <aes-journey-flow [steps]="resolved()" /> }
           @else { <div class="muted" style="font-size:var(--fs-sm)">Add steps to see the journey.</div> }
         </div>
       </div>
@@ -316,6 +327,15 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
   readonly issues = computed(() => validateWorkflow(this.resolved()));
   readonly errorCount = computed(() => this.issues().filter((i) => i.level === 'error').length);
   readonly warnCount = computed(() => this.issues().filter((i) => i.level === 'warn').length);
+
+  /** Preview mode: the journey diagram, or the workflow JSON body. */
+  protected readonly previewMode = signal<'flow' | 'code'>('flow');
+  /** The workflow body as it would be saved — drives the Code preview. */
+  protected readonly currentBody = computed<Record<string, unknown>>(() => {
+    const base = { ...(this.wf()?.body ?? {}) } as Record<string, unknown>;
+    delete base['steps']; // canonicalize on workflow.steps
+    return { ...base, workflow: { steps: this.resolved() } };
+  });
 
   /** Resolve drafts → JourneyFlowStep[] (next auto-chains, or encodes branches). */
   readonly resolved = computed<JourneyFlowStep[]>(() => {
