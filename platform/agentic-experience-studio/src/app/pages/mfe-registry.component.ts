@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
+import { ConfirmService } from '../services/confirm.service';
 
 interface RemoteRecord {
   remoteName: string;
@@ -105,6 +106,7 @@ export class MfeRegistryComponent {
   private readonly base = environment.ingestUrl;
   private readonly catalog = inject(CapabilityCatalogService);
   private readonly toast = inject(ToastService);
+  private readonly confirm = inject(ConfirmService);
 
   protected readonly remotes = signal<RemoteRecord[]>([]);
   protected readonly error = signal<string | null>(null);
@@ -153,8 +155,14 @@ export class MfeRegistryComponent {
       .finally(() => this.mark(r.remoteName, false));
   }
 
-  protected remove(r: RemoteRecord): void {
-    if (!confirm(`Remove remote “${r.remoteName}”? This deletes its served artifacts and its catalog component rows.`)) return;
+  protected async remove(r: RemoteRecord): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Remove remote?',
+      message: `Remove “${r.remoteName}”? This deletes its served artifacts and its catalog component rows.`,
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!ok) return;
     this.mark(r.remoteName, true);
     fetch(`${this.base}/admin/remotes/${encodeURIComponent(r.remoteName)}`, { method: 'DELETE' })
       .then((res) => res.json().then((d) => ({ ok: res.ok, d })))
