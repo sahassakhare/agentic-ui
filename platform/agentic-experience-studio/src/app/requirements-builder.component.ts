@@ -1,5 +1,9 @@
 import { ChangeDetectionStrategy, Component, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { CapabilityCatalogService } from './services/capability-catalog.service';
 import type { CapabilityRequirement } from './services/experience-catalog.service';
 
@@ -20,7 +24,7 @@ export const REQ_KINDS: readonly string[] = [
 @Component({
   selector: 'aes-requirements-builder',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, MatButtonModule, MatFormFieldModule, MatSelectModule, MatCheckboxModule],
   template: `
     <div class="reqs">
       @for (r of rows; track $index) {
@@ -34,23 +38,28 @@ export const REQ_KINDS: readonly string[] = [
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
-          <select class="input rk" [ngModel]="r.kind" (ngModelChange)="setKind($index, $event)" [name]="'rk'+$index" aria-label="Capability kind">
-            @for (k of kinds; track k) { <option [value]="k">{{ k }}</option> }
-          </select>
-          <select class="input rn" [ngModel]="r.selector" (ngModelChange)="setSelector($index, $event)" [name]="'rn'+$index" aria-label="Registry entry">
-            <option value="" disabled>{{ capsFor(r.kind).length ? 'select a ' + r.kind + '…' : 'no ' + r.kind + ' in the registry' }}</option>
-            @for (n of optionsFor(r); track n) {
-              <option [value]="n">{{ n }}{{ isOrphan(r, n) ? ' — not in registry' : '' }}</option>
-            }
-          </select>
-          <label class="opt"><input type="checkbox" [ngModel]="r.optional" (ngModelChange)="setOptional($index, $event)" [name]="'ro'+$index" /> optional</label>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af rk">
+            <mat-label>Kind</mat-label>
+            <mat-select [ngModel]="r.kind" (ngModelChange)="setKind($index, $event)" [name]="'rk'+$index">
+              @for (k of kinds; track k) { <mat-option [value]="k">{{ k }}</mat-option> }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af rn">
+            <mat-label>{{ capsFor(r.kind).length ? r.kind : 'no ' + r.kind }}</mat-label>
+            <mat-select [ngModel]="r.selector" (ngModelChange)="setSelector($index, $event)" [name]="'rn'+$index">
+              @for (n of optionsFor(r); track n) {
+                <mat-option [value]="n">{{ n }}{{ isOrphan(r, n) ? ' — not in registry' : '' }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-checkbox [ngModel]="r.optional" (ngModelChange)="setOptional($index, $event)" [name]="'ro'+$index">optional</mat-checkbox>
           <button type="button" class="rrm" (click)="removeReq($index)" aria-label="Remove requirement">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
         </div>
       }
     </div>
-    <button type="button" class="btn btn-ghost btn-add" (click)="addReq()">
+    <button type="button" matButton class="btn-add" (click)="addReq()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       Add requirement
     </button>
