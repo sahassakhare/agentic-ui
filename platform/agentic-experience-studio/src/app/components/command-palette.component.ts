@@ -15,7 +15,8 @@ interface Cmd {
 
 /** Primary sections — mirrors the top-nav; each becomes a "Go to …" command. */
 const SECTIONS: ReadonlyArray<{ path: string; label: string }> = [
-  { path: '/experiences', label: 'Experiences' }, { path: '/applications', label: 'Applications' },
+  { path: '/experiences', label: 'Experiences' }, { path: '/templates', label: 'Templates' },
+  { path: '/applications', label: 'Applications' },
   { path: '/pages', label: 'Pages' }, { path: '/components', label: 'Components' },
   { path: '/mfes', label: 'MFEs' }, { path: '/forms', label: 'Forms' },
   { path: '/workflows', label: 'Workflows' }, { path: '/decisions', label: 'Decisions' },

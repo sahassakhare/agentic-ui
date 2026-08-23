@@ -34,6 +34,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/experiences.component').then((m) => m.ExperiencesComponent),
   },
   {
+    path: 'templates',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/starter-gallery.component').then((m) => m.StarterGalleryComponent),
+  },
+  {
     path: 'experiences/:id',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/experience-detail.component').then((m) => m.ExperienceDetailComponent),
