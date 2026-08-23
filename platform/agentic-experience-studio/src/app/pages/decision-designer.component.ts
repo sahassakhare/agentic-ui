@@ -1,5 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import {
@@ -27,20 +30,21 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
 @Component({
   selector: 'aes-decision-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatFormFieldModule, MatSelectModule],
   template: `
     <div class="wrap">
       <header class="head">
         <a routerLink="/decisions" class="back">← Decisions</a>
         <h1>{{ name() || 'Decision' }} · Table</h1>
-        <label class="hp">Hit policy
-          <select [(ngModel)]="hitPolicy">@for (h of hitPolicies; track h) { <option [value]="h">{{ h }}</option> }</select>
-        </label>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="hp-mf">
+          <mat-label>Hit policy</mat-label>
+          <mat-select [(ngModel)]="hitPolicy">@for (h of hitPolicies; track h) { <mat-option [value]="h">{{ h }}</mat-option> }</mat-select>
+        </mat-form-field>
         <span class="sp"></span>
         <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
           [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
-        <button class="btn primary" (click)="save()" [disabled]="saving()">Save decision</button>
+        <button matButton="filled" (click)="save()" [disabled]="saving()">Save decision</button>
       </header>
 
       @if (loading()) { <p class="muted">Loading…</p> }
@@ -102,7 +106,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
               </tbody>
             </table>
           </div>
-          <button class="btn ghost sm" (click)="addRule()">＋ Add rule</button>
+          <button matButton (click)="addRule()">＋ Add rule</button>
         </section>
 
         <section class="card test">
@@ -111,7 +115,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
             @for (f of inputs(); track f.name) {
               <label class="tin">{{ f.name }} <span class="tybadge">{{ f.type ?? 'string' }}</span><input [type]="testType(f)" [ngModel]="testInput()[f.name] || ''" (ngModelChange)="setTest(f.name, $event)" /></label>
             }
-            <button class="btn" (click)="runTest()">Evaluate →</button>
+            <button matButton (click)="runTest()">Evaluate →</button>
           </div>
           @if (result(); as res) {
             @if (res.outputs) {
