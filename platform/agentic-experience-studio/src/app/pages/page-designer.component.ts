@@ -341,11 +341,14 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     .cat { font-size:11px; text-transform:uppercase; letter-spacing:.05em; opacity:.5; margin:12px 0 4px; }
     .palette { display:flex; align-items:center; gap:10px; width:100%; padding:8px 10px; margin-top:6px; border:1px solid rgba(120,120,140,.22); border-radius:9px; background:transparent; color:inherit; cursor:pointer; text-align:left; } .palette:hover { background:rgba(103,80,164,.06); } .palette .plus { margin-left:auto; opacity:.5; }
     .ic { display:grid; place-items:center; width:24px; height:24px; border-radius:6px; background:rgba(120,120,140,.14); font-size:12px; } .ic.dash { background:rgba(103,80,164,.18); color:#6750a4; }
-    .pt, .bm { display:flex; flex-direction:column; min-width:0; } .nm { font-size:13px; font-weight:600; } .gl { font-size:11px; opacity:.55; }
+    .pt, .bm { display:flex; flex-direction:column; min-width:0; flex:1 1 auto; }
+    .nm, .gl { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; } .nm { font-size:13px; font-weight:600; } .gl { font-size:11px; opacity:.55; }
+    .ic { flex:none; }
+    .block .ctrls { flex:none; }
     .linkrow { display:grid; grid-template-columns:1fr 1.3fr auto; gap:6px; margin-top:6px; align-items:center; } .linkrow .x { border:none; background:transparent; color:inherit; opacity:.5; cursor:pointer; }
-    .regions { display:grid; gap:14px; }
-    .regions[data-shell='true'] { grid-template-columns:1fr 1fr; }
-    .region { border:1.5px dashed rgba(120,120,140,.3); border-radius:12px; padding:12px; min-height:80px; cursor:pointer; } .region.on { border-color:#6750a4; background:rgba(103,80,164,.05); }
+    .regions { display:grid; gap:14px; min-width:0; }
+    .regions[data-shell='true'] { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+    .region { border:1.5px dashed rgba(120,120,140,.3); border-radius:12px; padding:12px; min-height:80px; cursor:pointer; min-width:0; } .region.on { border-color:#6750a4; background:rgba(103,80,164,.05); }
     .region.content { grid-column:1 / -1; background:rgba(120,120,140,.04); cursor:default; }
     .rhead { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; opacity:.7; margin-bottom:8px; }
     .block { display:flex; align-items:center; gap:9px; padding:8px 10px; margin-top:6px; border:1px solid rgba(120,120,140,.2); border-radius:9px; background:rgba(120,120,140,.03); } .block.sel { border-color:#6750a4; background:rgba(103,80,164,.08); }
