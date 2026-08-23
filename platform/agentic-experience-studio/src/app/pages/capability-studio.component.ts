@@ -1,5 +1,10 @@
 import { Component, computed, inject, input, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { CapabilityGraphService, type Usage } from '../services/capability-graph.service';
@@ -45,7 +50,7 @@ export interface StudioConfig {
  */
 @Component({
   selector: 'aes-capability-studio',
-  imports: [FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent],
+  imports: [FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -56,8 +61,8 @@ export interface StudioConfig {
             An Experience resolves against whatever is published here.</p>
         </div>
         <div class="row" style="gap:var(--s2); align-items:center">
-          @if (cfg().kind === 'component') { <a class="btn" routerLink="/components/upload">⬆ Upload library</a> }
-          <button class="btn btn-primary" type="button" (click)="toggleCreate()" [attr.aria-expanded]="createOpen()">
+          @if (cfg().kind === 'component') { <a matButton="outlined" routerLink="/components/upload">⬆ Upload library</a> }
+          <button matButton="filled" type="button" (click)="toggleCreate()" [attr.aria-expanded]="createOpen()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             New {{ cfg().noun }}
           </button>
@@ -76,48 +81,42 @@ export interface StudioConfig {
         <form class="card card-pad create" (ngSubmit)="save()">
           @if (editTarget()) { <div class="eyebrow" style="margin-bottom:var(--s3)">Editing · {{ editTarget()!.name }}</div> }
           <div class="grid-2">
-            <div class="field" [class.wide]="false">
-              <label class="label" [attr.for]="fid('name')">Name (id) @if (!editTarget()) { <span class="req" aria-hidden="true">*</span> }</label>
-              <input class="input" [id]="fid('name')" name="name" [(ngModel)]="values['name']" [disabled]="!!editTarget()"
-                     [attr.aria-invalid]="touched() && !editTarget() && !nameValid()" [placeholder]="cfg().noun + 'Name'"
-                     autocomplete="off" spellcheck="false" />
-              @if (editTarget()) { <span class="help">Name and kind are immutable.</span> }
-              @else if (touched() && !nameValid()) { <span class="err">A unique name is required.</span> }
-            </div>
+            <mat-form-field appearance="outline" class="mf">
+              <mat-label>Name (id)</mat-label>
+              <input matInput name="name" [(ngModel)]="values['name']" [disabled]="!!editTarget()"
+                     [placeholder]="cfg().noun + 'Name'" autocomplete="off" spellcheck="false" />
+              @if (editTarget()) { <mat-hint>Name and kind are immutable.</mat-hint> }
+              @else if (touched() && !nameValid()) { <mat-hint class="err-hint">A unique name is required.</mat-hint> }
+            </mat-form-field>
             @for (f of cfg().bodyFields; track f.key) {
-              <div class="field" [style.grid-column]="isWide(f) ? '1 / -1' : null">
-                <label class="label" [attr.for]="fid(f.key)">
-                  {{ f.label }} @if (f.required) { <span class="req" aria-hidden="true">*</span> }
-                </label>
-                @switch (f.type) {
-                  @case ('textarea') {
-                    <textarea class="textarea" rows="4" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]"
-                      [attr.aria-invalid]="touched() && f.required && !filled(f.key)" [placeholder]="f.placeholder ?? ''"></textarea>
+              @if (f.type === 'checkbox') {
+                <mat-checkbox class="field" [style.grid-column]="isWide(f) ? '1 / -1' : null" [name]="f.key" [(ngModel)]="values[f.key]">{{ f.label }}</mat-checkbox>
+              } @else {
+                <mat-form-field appearance="outline" class="mf" [style.grid-column]="isWide(f) ? '1 / -1' : null">
+                  <mat-label>{{ f.label }}</mat-label>
+                  @switch (f.type) {
+                    @case ('textarea') {
+                      <textarea matInput rows="4" [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''"></textarea>
+                    }
+                    @case ('list') {
+                      <textarea matInput rows="2" [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''"></textarea>
+                      <mat-hint>Separate with spaces or commas.</mat-hint>
+                    }
+                    @case ('json') {
+                      <textarea matInput class="mono" rows="10" [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? '{ }'" spellcheck="false" autocomplete="off"></textarea>
+                      @if (!jsonOk(f.key)) { <mat-hint class="err-hint">Invalid JSON.</mat-hint> }
+                      @else { <mat-hint>Declarative JSON — the shape the renderer and agents consume.</mat-hint> }
+                    }
+                    @case ('number') {
+                      <input matInput type="number" [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''" />
+                    }
+                    @default {
+                      <input matInput [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''" autocomplete="off" />
+                    }
                   }
-                  @case ('list') {
-                    <textarea class="textarea" rows="2" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]"
-                      [attr.aria-invalid]="touched() && f.required && !filled(f.key)" [placeholder]="f.placeholder ?? ''"></textarea>
-                    <span class="help">Separate with spaces or commas.</span>
-                  }
-                  @case ('json') {
-                    <textarea class="textarea mono" rows="10" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]"
-                      [attr.aria-invalid]="!jsonOk(f.key)" [placeholder]="f.placeholder ?? '{ }'" spellcheck="false" autocomplete="off"></textarea>
-                    @if (!jsonOk(f.key)) { <span class="err">Invalid JSON.</span> }
-                    @else { <span class="help">Declarative JSON — the same shape the renderer, agents, and cross-registry composition consume.</span> }
-                  }
-                  @case ('checkbox') {
-                    <label class="checkbox"><input type="checkbox" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]" /> Enabled</label>
-                  }
-                  @case ('number') {
-                    <input class="input" type="number" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''" />
-                  }
-                  @default {
-                    <input class="input" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]"
-                      [attr.aria-invalid]="touched() && f.required && !filled(f.key)" [placeholder]="f.placeholder ?? ''" autocomplete="off" />
-                  }
-                }
-                @if (touched() && f.required && !filled(f.key)) { <span class="err">{{ f.label }} is required.</span> }
-              </div>
+                  @if (f.type !== 'json' && touched() && f.required && !filled(f.key)) { <mat-hint class="err-hint">{{ f.label }} is required.</mat-hint> }
+                </mat-form-field>
+              }
             }
           </div>
 
@@ -135,11 +134,11 @@ export interface StudioConfig {
           }
 
           <div class="row" style="margin-top:var(--s5)">
-            <button class="btn btn-primary" type="submit" [disabled]="saving()">
+            <button matButton="filled" type="submit" [disabled]="saving()">
               @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… }
               @else if (editTarget()) { Save changes } @else { Create {{ cfg().noun }} }
             </button>
-            <button class="btn btn-ghost" type="button" (click)="cancelForm()">Cancel</button>
+            <button matButton type="button" (click)="cancelForm()">Cancel</button>
           </div>
         </form>
       }
@@ -147,7 +146,10 @@ export interface StudioConfig {
       <div class="toolbar">
         <div class="search">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <input class="input" type="search" [(ngModel)]="query" [attr.aria-label]="'Search ' + cfg().noun + 's'" [placeholder]="'Search ' + cfg().noun + 's…'" />
+          <mat-form-field appearance="outline" class="mf search-mf" subscriptSizing="dynamic">
+            <mat-label>Search {{ cfg().noun }}s</mat-label>
+            <input matInput type="search" [(ngModel)]="query" />
+          </mat-form-field>
         </div>
         <span class="count faint">{{ filtered().length }} of {{ items().length }}</span>
       </div>
@@ -161,7 +163,7 @@ export interface StudioConfig {
           <div class="empty-icon" style="background:var(--danger-soft);color:var(--danger)">!</div>
           <h3>Couldn’t load {{ cfg().noun }}s</h3>
           <p class="muted">{{ error() }}</p>
-          <button class="btn" type="button" (click)="refresh()">Retry</button>
+          <button matButton="outlined" type="button" (click)="refresh()">Retry</button>
         </div>
       } @else if (items().length === 0) {
         <div class="empty">
@@ -170,13 +172,13 @@ export interface StudioConfig {
           </div>
           <h3>No {{ cfg().noun }}s yet</h3>
           <p>Create your first {{ cfg().noun }} — it becomes available to every Experience in this tenant.</p>
-          <button class="btn btn-primary" type="button" (click)="openCreate()">New {{ cfg().noun }}</button>
+          <button matButton="filled" type="button" (click)="openCreate()">New {{ cfg().noun }}</button>
         </div>
       } @else if (filtered().length === 0) {
         <div class="empty">
           <h3>No matches</h3>
           <p>Nothing matches “{{ query() }}”.</p>
-          <button class="btn btn-ghost" type="button" (click)="query.set('')">Clear search</button>
+          <button matButton type="button" (click)="query.set('')">Clear search</button>
         </div>
       } @else {
         <ul class="rows">
@@ -215,14 +217,14 @@ export interface StudioConfig {
               </div>
               @for (t of c.tags; track t) { <span class="badge plain badge-brand">{{ t }}</span> }
               <div class="row" style="gap:var(--s2)">
-                <button class="btn btn-ghost btn-sm" type="button" (click)="preview(c)">Preview</button>
-                @if (cfg().kind === 'form') { <a class="btn btn-sm" [routerLink]="['/forms', c.id, 'design']">Design</a> }
-                @if (cfg().kind === 'application') { <a class="btn btn-sm" [routerLink]="['/applications', c.id, 'design']">Design</a> }
-                @if (cfg().kind === 'page') { <a class="btn btn-sm" [routerLink]="['/pages', c.id, 'design']">Design</a> }
-                @if (cfg().kind === 'decision') { <a class="btn btn-sm" [routerLink]="['/decisions', c.id, 'design']">Design</a> }
-                @if (cfg().kind === 'theme') { <a class="btn btn-sm" [routerLink]="['/themes', c.id, 'design']">Design</a> }
-                <button class="btn btn-sm" type="button" (click)="startEdit(c)">Edit</button>
-                <button class="btn btn-danger btn-sm" type="button" (click)="askDelete(c)">Delete</button>
+                <button matButton type="button" (click)="preview(c)">Preview</button>
+                @if (cfg().kind === 'form') { <a matButton [routerLink]="['/forms', c.id, 'design']">Design</a> }
+                @if (cfg().kind === 'application') { <a matButton [routerLink]="['/applications', c.id, 'design']">Design</a> }
+                @if (cfg().kind === 'page') { <a matButton [routerLink]="['/pages', c.id, 'design']">Design</a> }
+                @if (cfg().kind === 'decision') { <a matButton [routerLink]="['/decisions', c.id, 'design']">Design</a> }
+                @if (cfg().kind === 'theme') { <a matButton [routerLink]="['/themes', c.id, 'design']">Design</a> }
+                <button matButton type="button" (click)="startEdit(c)">Edit</button>
+                <button matButton class="danger-btn" type="button" (click)="askDelete(c)">Delete</button>
               </div>
             </li>
           }
@@ -258,8 +260,8 @@ export interface StudioConfig {
             <pre>{{ pretty(pv.body) }}</pre>
           </details>
           <div class="actions">
-            <button class="btn btn-ghost" type="button" (click)="previewTarget.set(null)">Close</button>
-            <button class="btn btn-primary" type="button" (click)="editFromPreview(pv)">Edit</button>
+            <button matButton type="button" (click)="previewTarget.set(null)">Close</button>
+            <button matButton="filled" type="button" (click)="editFromPreview(pv)">Edit</button>
           </div>
         </div>
       </div>
@@ -271,8 +273,8 @@ export interface StudioConfig {
           <h3 id="del-title">Delete “{{ target.name }}”?</h3>
           <p>This {{ cfg().noun }} will be removed from the catalog. Experiences that require it will show it as unmet. You can undo right after.</p>
           <div class="actions">
-            <button class="btn btn-ghost" type="button" (click)="pendingDelete.set(null)">Cancel</button>
-            <button class="btn btn-danger" type="button" (click)="confirmDelete(target)" [disabled]="deleting()">
+            <button matButton type="button" (click)="pendingDelete.set(null)">Cancel</button>
+            <button matButton class="danger-btn" type="button" (click)="confirmDelete(target)" [disabled]="deleting()">
               @if (deleting()) { <span class="spinner" aria-hidden="true"></span> Deleting… } @else { Delete }
             </button>
           </div>
@@ -282,6 +284,11 @@ export interface StudioConfig {
     @if (historyFor(); as hid) { <aes-history-panel [capabilityId]="hid" (close)="historyFor.set(null)" (changed)="onHistoryChanged(hid)" /> }
   `,
   styles: [`
+    .danger-btn { --mat-sys-primary: var(--danger); color: var(--danger); }
+    .mf { width: 100%; }
+    .err-hint { color: var(--danger); }
+    .search-mf { max-width: 340px; }
+    mat-checkbox.field { display: inline-flex; align-items: center; }
     .usebtn { margin-top: 4px; border: none; background: none; padding: 0; cursor: pointer; display: inline-flex; gap: 12px; font-size: 11.5px; color: var(--text-muted); }
     .usebtn span { display: inline-flex; align-items: center; gap: 3px; }
     .usebtn:hover { color: var(--text); }
