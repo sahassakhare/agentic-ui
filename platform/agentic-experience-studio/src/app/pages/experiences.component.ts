@@ -4,6 +4,9 @@ import { FormsModule } from '@angular/forms';
 import { ExperienceCatalogService, type CapabilityRequirement, type Experience } from '../services/experience-catalog.service';
 import { ToastService } from '../services/toast.service';
 import { RequirementsBuilderComponent } from '../requirements-builder.component';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
 
 type StateFilter = 'all' | 'draft' | 'review' | 'approved' | 'rejected' | 'deprecated';
 const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', 'rejected', 'deprecated'];
@@ -15,7 +18,7 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
  */
 @Component({
   selector: 'aes-experiences',
-  imports: [RouterLink, FormsModule, RequirementsBuilderComponent],
+  imports: [RouterLink, FormsModule, RequirementsBuilderComponent, MatFormFieldModule, MatInputModule, MatButtonModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -34,34 +37,31 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
       @if (createOpen()) {
         <form class="card card-pad create" (ngSubmit)="create()">
           <div class="grid-2">
-            <div class="field">
-              <label class="label" for="e-name">Name (id) <span class="req" aria-hidden="true">*</span></label>
-              <input class="input" id="e-name" name="name" [(ngModel)]="newName" placeholder="legalIntake"
-                     [attr.aria-invalid]="touched() && !newName.trim()" autocomplete="off" spellcheck="false" />
-              @if (touched() && !newName.trim()) { <span class="err">A unique name is required.</span> }
-            </div>
-            <div class="field">
-              <label class="label" for="e-title">Title <span class="req" aria-hidden="true">*</span></label>
-              <input class="input" id="e-title" name="title" [(ngModel)]="newTitle" placeholder="Legal Intake"
-                     [attr.aria-invalid]="touched() && !newTitle.trim()" autocomplete="off" />
-              @if (touched() && !newTitle.trim()) { <span class="err">A title is required.</span> }
-            </div>
-            <div class="field" style="grid-column:1 / -1">
-              <label class="label" for="e-goal">Goal <span class="req" aria-hidden="true">*</span></label>
-              <input class="input" id="e-goal" name="goal" [(ngModel)]="newGoal" placeholder="Create Legal Matter"
-                     [attr.aria-invalid]="touched() && !newGoal.trim()" />
-              @if (touched() && !newGoal.trim()) { <span class="err">A goal is required.</span> }
-            </div>
+            <mat-form-field appearance="outline" class="mf">
+              <mat-label>Name (id)</mat-label>
+              <input matInput name="name" [(ngModel)]="newName" placeholder="legalIntake" autocomplete="off" spellcheck="false" required />
+              @if (touched() && !newName.trim()) { <mat-error>A unique name is required.</mat-error> }
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="mf">
+              <mat-label>Title</mat-label>
+              <input matInput name="title" [(ngModel)]="newTitle" placeholder="Legal Intake" autocomplete="off" required />
+              @if (touched() && !newTitle.trim()) { <mat-error>A title is required.</mat-error> }
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="mf" style="grid-column:1 / -1">
+              <mat-label>Goal</mat-label>
+              <input matInput name="goal" [(ngModel)]="newGoal" placeholder="Create Legal Matter" required />
+              @if (touched() && !newGoal.trim()) { <mat-error>A goal is required.</mat-error> }
+            </mat-form-field>
             <div class="field" style="grid-column:1 / -1">
               <label class="label">Requirements <span class="help">— pick a kind, then a registry entry of that kind</span></label>
               <aes-requirements-builder [initial]="[]" (requirementsChange)="newRequires = $event" />
             </div>
           </div>
           <div class="row" style="margin-top:var(--s5)">
-            <button class="btn btn-primary" type="submit" [disabled]="saving()">
+            <button matButton="filled" type="submit" [disabled]="saving()">
               @if (saving()) { <span class="spinner" aria-hidden="true"></span> Creating… } @else { Create as draft }
             </button>
-            <button class="btn btn-ghost" type="button" (click)="cancelCreate()">Cancel</button>
+            <button matButton type="button" (click)="cancelCreate()">Cancel</button>
           </div>
         </form>
       }
@@ -130,6 +130,7 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
   `,
   styles: [`
     .create { margin-bottom: var(--s5); }
+    .mf { width: 100%; }
     .toolbar { display: flex; align-items: center; gap: var(--s4); margin: var(--s5) 0 var(--s4); flex-wrap: wrap; }
     .segmented { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-sm); }
     .seg { font: inherit; font-size: var(--fs-sm); text-transform: capitalize; color: var(--text-muted);

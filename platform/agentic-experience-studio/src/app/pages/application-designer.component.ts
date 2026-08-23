@@ -1,6 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatButtonModule } from '@angular/material/button';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { buildTree, flattenTree, normalizeDepths, type NavEntry, type NavRow } from './application-nav';
 import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
@@ -25,7 +30,8 @@ interface PageItem { name: string; title: string }
 @Component({
   selector: 'aes-application-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent,
+    MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, MatButtonModule],
   template: `
     <div class="wrap">
       <header class="head">
@@ -35,7 +41,7 @@ interface PageItem { name: string; title: string }
         <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
           [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
-        <button class="btn primary" (click)="save()" [disabled]="saving()">Save application</button>
+        <button matButton="filled" (click)="save()" [disabled]="saving()">Save application</button>
       </header>
 
       @if (loading()) { <p class="muted">Loading…</p> }
@@ -44,16 +50,23 @@ interface PageItem { name: string; title: string }
           <aside class="col">
             <section class="card">
               <div class="eyebrow">Settings</div>
-              <label class="lbl">Title</label>
-              <input class="input" [(ngModel)]="title" placeholder="Acme Operations Workspace" />
-              <label class="lbl">Description</label>
-              <textarea class="input" rows="2" [(ngModel)]="description"></textarea>
-              <label class="lbl">Master page (shell) <span class="muted sm">— header · menu · footer</span></label>
-              <select class="input" [(ngModel)]="master">
-                <option value="">— built-in default shell —</option>
-                @for (m of masters(); track m.name) { <option [value]="m.name">{{ m.title }}</option> }
-              </select>
-              <label class="chk"><input type="checkbox" [(ngModel)]="assistantEnabled" /> Enable the AI assistant (ag-ui)</label>
+              <mat-form-field appearance="outline" class="mf">
+                <mat-label>Title</mat-label>
+                <input matInput [(ngModel)]="title" placeholder="Acme Operations Workspace" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="mf">
+                <mat-label>Description</mat-label>
+                <textarea matInput rows="2" [(ngModel)]="description"></textarea>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="mf">
+                <mat-label>Master page (shell)</mat-label>
+                <mat-select [(ngModel)]="master">
+                  <mat-option value="">— built-in default shell —</mat-option>
+                  @for (m of masters(); track m.name) { <mat-option [value]="m.name">{{ m.title }}</mat-option> }
+                </mat-select>
+                <mat-hint>header · menu · footer</mat-hint>
+              </mat-form-field>
+              <mat-checkbox [(ngModel)]="assistantEnabled">Enable the AI assistant (ag-ui)</mat-checkbox>
             </section>
 
             <section class="card">
@@ -110,6 +123,7 @@ interface PageItem { name: string; title: string }
     .btn.primary { background:#6750a4; color:#fff; border-color:#6750a4; font-weight:600; } .btn[disabled] { opacity:.5; }
     .grid { display:grid; grid-template-columns:320px 1fr; gap:18px; }
     .card { border:1px solid rgba(120,120,140,.18); border-radius:14px; padding:16px; margin-bottom:16px; }
+    .mf { width:100%; display:block; }
     .eyebrow { font-size:11px; text-transform:uppercase; letter-spacing:.06em; opacity:.55; margin-bottom:10px; }
     .muted { opacity:.6; } .sm { font-size:12px; }
     .lbl { display:block; font-size:12px; font-weight:600; margin:10px 0 5px; opacity:.8; }
