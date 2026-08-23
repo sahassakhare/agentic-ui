@@ -4,6 +4,8 @@ import { environment } from '../../environments/environment';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
 import { ConfirmService } from '../services/confirm.service';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatButtonModule } from '@angular/material/button';
 
 interface RemoteRecord {
   remoteName: string;
@@ -26,7 +28,7 @@ interface RemoteRecord {
 @Component({
   selector: 'aes-mfe-registry',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink],
+  imports: [RouterLink, MatMenuModule, MatButtonModule],
   template: `
     <div class="wrap">
       <div class="head">
@@ -58,9 +60,14 @@ interface RemoteRecord {
                 @if (r.disabled) { <span class="chip off">disabled</span> }
               </div>
               <div class="acts">
-                <button class="btn sm" (click)="toggle(r)" [disabled]="pending().has(r.remoteName)">{{ r.disabled ? 'Enable' : 'Disable' }}</button>
-                <button class="btn sm" (click)="reingest(r)" [disabled]="pending().has(r.remoteName) || !reingestable(r)" [title]="reingestable(r) ? 'Rebuild from source' : 'No stored source — re-upload'">↺ Re-ingest</button>
-                <button class="btn sm danger" (click)="remove(r)" [disabled]="pending().has(r.remoteName)">Remove</button>
+                <button matIconButton [matMenuTriggerFor]="menu" [disabled]="pending().has(r.remoteName)"
+                        [attr.aria-label]="'Actions for ' + r.remoteName">⋯</button>
+                <mat-menu #menu="matMenu">
+                  <button mat-menu-item (click)="toggle(r)">{{ r.disabled ? 'Enable' : 'Disable' }}</button>
+                  <button mat-menu-item (click)="reingest(r)" [disabled]="!reingestable(r)"
+                          [title]="reingestable(r) ? 'Rebuild from source' : 'No stored source — re-upload'">↺ Re-ingest</button>
+                  <button mat-menu-item class="danger-item" (click)="remove(r)">Remove</button>
+                </mat-menu>
               </div>
             </div>
             <div class="meta muted sm">
@@ -96,6 +103,8 @@ interface RemoteRecord {
     .ver { font-family:ui-monospace,Menlo,monospace; font-size:12px; opacity:.7; }
     .chip { font-size:11px; padding:2px 8px; border-radius:999px; background:rgba(103,80,164,.14); color:#6750a4; } .chip.off { background:rgba(192,57,43,.14); color:#c0392b; }
     .acts { display:flex; gap:6px; }
+    /* MatMenu renders in an overlay outside this view — reach the destructive item. */
+    ::ng-deep .mat-mdc-menu-item.danger-item { color: var(--danger); }
     .meta { margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; } .meta a { color:inherit; }
     .comps { margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
     .eyebrow { font-size:10px; text-transform:uppercase; letter-spacing:.06em; opacity:.55; margin-right:4px; }
