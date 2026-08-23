@@ -2,6 +2,10 @@ import { ChangeDetectionStrategy, Component, computed, HostListener, inject, inp
 import { CdkDrag, CdkDragHandle, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
@@ -41,7 +45,7 @@ interface DesignerAction {
 @Component({
   selector: 'aes-form-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule],
+  imports: [FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
   template: `
     <div class="page wide">
       <a routerLink="/forms" class="back">
@@ -76,39 +80,58 @@ interface DesignerAction {
         }
         @for (a of actions(); track $index) {
           <div class="arow">
-            <input class="input flex" [ngModel]="a.label" (ngModelChange)="patchAction($index, { label: $event })" placeholder="Button label" aria-label="Button label" />
-            <select class="input akind" [ngModel]="a.kind" (ngModelChange)="setActionKind($index, $event)" aria-label="Action kind">
-              @for (k of actionKinds; track k) { <option [value]="k">{{ k }}</option> }
-            </select>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex">
+              <mat-label>Label</mat-label>
+              <input matInput [ngModel]="a.label" (ngModelChange)="patchAction($index, { label: $event })" placeholder="Button label" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af akind">
+              <mat-label>Kind</mat-label>
+              <mat-select [ngModel]="a.kind" (ngModelChange)="setActionKind($index, $event)">
+                @for (k of actionKinds; track k) { <mat-option [value]="k">{{ k }}</mat-option> }
+              </mat-select>
+            </mat-form-field>
             @switch (a.kind) {
               @case ('tool') {
-                <select class="input atgt" [ngModel]="a.tool ?? ''" (ngModelChange)="patchAction($index, { tool: $event })" aria-label="Tool">
-                  <option value="" disabled>tool…</option>
-                  @for (t of toolSources(); track t.name) { <option [value]="t.name">⚙ {{ t.name }}</option> }
-                  @for (d of decisions(); track d.name) { <option [value]="d.name">◆ {{ d.name }} (decision)</option> }
-                </select>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af atgt">
+                  <mat-label>Tool</mat-label>
+                  <mat-select [ngModel]="a.tool ?? ''" (ngModelChange)="patchAction($index, { tool: $event })">
+                    @for (t of toolSources(); track t.name) { <mat-option [value]="t.name">⚙ {{ t.name }}</mat-option> }
+                    @for (d of decisions(); track d.name) { <mat-option [value]="d.name">◆ {{ d.name }} (decision)</mat-option> }
+                  </mat-select>
+                </mat-form-field>
               }
               @case ('action') {
-                <select class="input atgt" [ngModel]="a.action ?? ''" (ngModelChange)="patchAction($index, { action: $event })" aria-label="Action">
-                  <option value="" disabled>action…</option>
-                  @for (ac of actionSources(); track ac.name) { <option [value]="ac.name">⚡ {{ ac.name }}</option> }
-                </select>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af atgt">
+                  <mat-label>Action</mat-label>
+                  <mat-select [ngModel]="a.action ?? ''" (ngModelChange)="patchAction($index, { action: $event })">
+                    @for (ac of actionSources(); track ac.name) { <mat-option [value]="ac.name">⚡ {{ ac.name }}</mat-option> }
+                  </mat-select>
+                </mat-form-field>
               }
               @case ('navigate') {
-                <input class="input atgt" [ngModel]="a.to ?? ''" (ngModelChange)="patchAction($index, { to: $event })" placeholder="/route or url" aria-label="Navigate target" />
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af atgt">
+                  <mat-label>Target</mat-label>
+                  <input matInput [ngModel]="a.to ?? ''" (ngModelChange)="patchAction($index, { to: $event })" placeholder="/route or url" />
+                </mat-form-field>
               }
               @case ('emit') {
-                <input class="input atgt" [ngModel]="a.event ?? ''" (ngModelChange)="patchAction($index, { event: $event })" placeholder="event name" aria-label="Event name" />
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af atgt">
+                  <mat-label>Event</mat-label>
+                  <input matInput [ngModel]="a.event ?? ''" (ngModelChange)="patchAction($index, { event: $event })" placeholder="event name" />
+                </mat-form-field>
               }
               @default {
                 <span class="atgt muted" style="font-size:var(--fs-xs); align-self:center">{{ a.kind }} — no target</span>
               }
             }
-            <select class="input astyle" [ngModel]="a.style ?? 'primary'" (ngModelChange)="patchAction($index, { style: $event })" title="Button style" aria-label="Button style">
-              <option value="primary">primary</option>
-              <option value="secondary">secondary</option>
-              <option value="danger">danger</option>
-            </select>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af astyle">
+              <mat-label>Style</mat-label>
+              <mat-select [ngModel]="a.style ?? 'primary'" (ngModelChange)="patchAction($index, { style: $event })">
+                <mat-option value="primary">primary</mat-option>
+                <mat-option value="secondary">secondary</mat-option>
+                <mat-option value="danger">danger</mat-option>
+              </mat-select>
+            </mat-form-field>
             <button class="rm" type="button" (click)="removeAction($index)" aria-label="Remove action">✕</button>
           </div>
         }
@@ -118,7 +141,10 @@ interface DesignerAction {
         <!-- Palette: the Component registry -->
         <aside class="palette card card-pad">
           <div class="eyebrow" style="margin-bottom:var(--s2)">Components</div>
-          <input class="input" [(ngModel)]="q" placeholder="Search components…" autocomplete="off" />
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af" style="width:100%">
+            <mat-label>Search components</mat-label>
+            <input matInput [(ngModel)]="q" autocomplete="off" />
+          </mat-form-field>
           <div class="pal-list" cdkDropList id="form-palette" [cdkDropListData]="paletteSource"
                [cdkDropListConnectedTo]="['form-canvas']" [cdkDropListSortingDisabled]="true">
             @for (c of palette(); track c.name) {
@@ -146,21 +172,36 @@ interface DesignerAction {
             <div class="frow" [class.section]="f.type === 'section'" cdkDrag [cdkDragData]="$index">
               <span class="grip" cdkDragHandle>⋮⋮</span>
               @if (f.type === 'section') {
-                <input class="input sec" [ngModel]="f.label" (ngModelChange)="patch($index, { label: $event })" placeholder="Section title" />
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex">
+                  <mat-label>Section title</mat-label>
+                  <input matInput [ngModel]="f.label" (ngModelChange)="patch($index, { label: $event })" />
+                </mat-form-field>
               } @else {
-                <input class="input flex" [ngModel]="f.label" (ngModelChange)="patch($index, { label: $event })" placeholder="Label" />
-                <select class="input ty" [ngModel]="f.type" (ngModelChange)="patch($index, { type: $event })">
-                  @for (t of fieldTypes; track t) { <option [value]="t">{{ t }}</option> }
-                </select>
-                <label class="req"><input type="checkbox" [ngModel]="f.required" (ngModelChange)="patch($index, { required: $event })" /> req</label>
-                <select class="input src" [ngModel]="f.source ?? ''" (ngModelChange)="patch($index, { source: $event || undefined })" title="Bind this field's data to a governed source">
-                  <option value="">no source</option>
-                  @for (s of sources(); track s.name) { <option [value]="s.name">⇄ {{ s.name }}</option> }
-                </select>
-                <select class="input val" [ngModel]="firstValidator(f)" (ngModelChange)="patch($index, { validators: $event ? [$event] : [] })" title="Attach a governed validation rule">
-                  <option value="">no rule</option>
-                  @for (v of validators(); track v.name) { <option [value]="v.name">⛨ {{ v.name }}</option> }
-                </select>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex">
+                  <mat-label>Label</mat-label>
+                  <input matInput [ngModel]="f.label" (ngModelChange)="patch($index, { label: $event })" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af ty">
+                  <mat-label>Type</mat-label>
+                  <mat-select [ngModel]="f.type" (ngModelChange)="patch($index, { type: $event })">
+                    @for (t of fieldTypes; track t) { <mat-option [value]="t">{{ t }}</mat-option> }
+                  </mat-select>
+                </mat-form-field>
+                <mat-checkbox [ngModel]="f.required" (ngModelChange)="patch($index, { required: $event })">req</mat-checkbox>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af src">
+                  <mat-label>Source</mat-label>
+                  <mat-select [ngModel]="f.source ?? ''" (ngModelChange)="patch($index, { source: $event || undefined })">
+                    <mat-option value="">no source</mat-option>
+                    @for (s of sources(); track s.name) { <mat-option [value]="s.name">⇄ {{ s.name }}</mat-option> }
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af val">
+                  <mat-label>Rule</mat-label>
+                  <mat-select [ngModel]="firstValidator(f)" (ngModelChange)="patch($index, { validators: $event ? [$event] : [] })">
+                    <mat-option value="">no rule</mat-option>
+                    @for (v of validators(); track v.name) { <mat-option [value]="v.name">⛨ {{ v.name }}</mat-option> }
+                  </mat-select>
+                </mat-form-field>
                 @if (f.widget) { <span class="wchip" title="Composed from the ‘{{ f.widget }}’ component">⛃ {{ f.widget }}</span> }
               }
               <button class="rm" type="button" (click)="remove($index)" aria-label="Remove">✕</button>
