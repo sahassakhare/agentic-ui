@@ -35,7 +35,7 @@ describe('CommandPaletteComponent', () => {
   it('lists all sections when open with an empty query', () => {
     const c = make();
     c.open.set(true);
-    expect(c.results().length).toBe(18);
+    expect(c.results().length).toBe(19);
     expect(c.results()[0]!.label).toContain('Go to');
   });
 

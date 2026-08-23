@@ -6,6 +6,7 @@ import { CommandPaletteComponent } from './components/command-palette.component'
 
 const NAV = [
   { path: '/experiences', label: 'Experiences' },
+  { path: '/templates', label: 'Templates' },
   { path: '/applications', label: 'Applications' },
   { path: '/pages', label: 'Pages' },
   { path: '/components', label: 'Components' },
