@@ -49,8 +49,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     </div>
   `,
   styles: [`
-    :host { display: block; }
-    .cv { border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; background: var(--surface-2); }
+    :host { display: block; min-width: 0; max-width: 100%; }
+    .cv { border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; background: var(--surface-2); min-width: 0; max-width: 100%; }
     .cv.editing { border-color: var(--brand); }
     .cv-bar { display: flex; align-items: center; gap: var(--s2); padding: 4px 6px 4px 12px; border-bottom: 1px solid var(--border); background: var(--surface); flex-wrap: wrap; }
     .cv-lang { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--brand);

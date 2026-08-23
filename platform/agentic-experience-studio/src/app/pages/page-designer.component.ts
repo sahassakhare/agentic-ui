@@ -280,19 +280,19 @@ const PROP_FIELDS: Record<string, PropField[]> = {
   `,
   styles: [`
     .wrap { padding:20px 24px; max-width:1150px; margin:0 auto; }
-    .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
-    .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; }
-    .typetoggle { --mat-standard-button-toggle-height:34px; }
+    .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; flex-wrap:wrap; }
+    .head h1 { font-size:18px; margin:0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; }
+    .typetoggle { --mat-standard-button-toggle-height:34px; flex:none; }
     .ok { color:#0a7d32; font-size:13px; }
     .btn { font:inherit; padding:9px 16px; border-radius:9px; border:1px solid rgba(120,120,140,.3); background:transparent; color:inherit; cursor:pointer; }
     .btn.primary { background:#6750a4; color:#fff; border-color:#6750a4; font-weight:600; } .btn[disabled] { opacity:.5; }
     .btn.ghost.sm { font-size:12px; padding:6px 10px; margin-top:8px; }
     .grid { display:grid; grid-template-columns:300px minmax(0,1fr) minmax(280px,360px); gap:16px; align-items:start; }
-    .col { position:sticky; top:16px; }
+    .col { position:sticky; top:16px; min-width:0; }
     .palscroll { max-height:46vh; overflow-y:auto; margin-top:6px; }
     @media (max-width:1180px){ .grid { grid-template-columns:280px minmax(0,1fr); } .preview { grid-column:1 / -1; } }
     @media (max-width:820px){ .grid { grid-template-columns:1fr; } .col,.preview { position:static; } .palscroll { max-height:none; } }
-    .preview { position:sticky; top:16px; align-self:start; }
+    .preview { position:sticky; top:16px; align-self:start; min-width:0; }
     .pv-frame { display:grid; gap:8px; margin-top:8px; padding:10px; min-height:200px; border:1px solid var(--border); border-radius:12px; background:var(--surface-2); }
     .pv-frame[data-layout='single']{ grid-template-areas:'main'; }
     .pv-frame[data-layout='two-column']{ grid-template-areas:'left right'; grid-template-columns:1fr 1fr; }
@@ -309,7 +309,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     .pv-content { display:grid; place-content:center; text-align:center; gap:2px; min-height:80px; font-size:11px; opacity:.65; }
     .pv-note { margin-top:8px; text-align:center; }
     /* preview header + mode toggle */
-    .pv-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .pv-head { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
     .pv-head .eyebrow { margin-bottom:0; }
     .pv-seg { --mat-standard-button-toggle-height:28px; font-size:11px; }
     /* live preview render */
