@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, HostListener, inject, input, signal } from '@angular/core';
 import { CdkDrag, CdkDragHandle, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatButtonModule } from '@angular/material/button';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
@@ -40,7 +41,7 @@ interface DesignerAction {
 @Component({
   selector: 'aes-form-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule],
+  imports: [FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule],
   template: `
     <div class="page wide">
       <a routerLink="/forms" class="back">
@@ -55,8 +56,8 @@ interface DesignerAction {
         <div class="row" style="gap:var(--s2); align-items:center">
           <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
             [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
-          <button class="btn" type="button" (click)="addSection()">+ Section</button>
-          <button class="btn btn-primary" type="button" (click)="save()" [disabled]="saving()">
+          <button matButton type="button" (click)="addSection()">+ Section</button>
+          <button matButton="filled" type="button" (click)="save()" [disabled]="saving()">
             @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… } @else { Save form }
           </button>
         </div>
@@ -68,7 +69,7 @@ interface DesignerAction {
             <span class="eyebrow">Action buttons</span>
             <span class="muted" style="font-size:var(--fs-xs); margin-left:var(--s2)">each bound to a governed capability — add as many as you need</span>
           </div>
-          <button class="btn" type="button" (click)="addAction()">+ Action</button>
+          <button matButton type="button" (click)="addAction()">+ Action</button>
         </div>
         @if (!actions().length) {
           <div class="muted" style="font-size:var(--fs-sm)">No buttons — a single Submit is added automatically.</div>

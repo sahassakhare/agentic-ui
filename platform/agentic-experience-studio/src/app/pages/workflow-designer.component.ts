@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, HostListener, inject, input, signal } from '@angular/core';
 import { CdkDrag, CdkDragHandle, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatButtonModule } from '@angular/material/button';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
@@ -39,7 +40,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
 @Component({
   selector: 'aes-workflow-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule],
+  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule],
   template: `
     <div class="page wide">
       <a routerLink="/workflows" class="back">
@@ -54,7 +55,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
         <div style="display:flex; gap:var(--s3); align-items:center">
           <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
             [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
-          <button class="btn btn-primary" type="button" (click)="save()" [disabled]="saving()">
+          <button matButton="filled" type="button" (click)="save()" [disabled]="saving()">
             @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… } @else { Save workflow }
           </button>
         </div>
@@ -142,7 +143,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                       <option value="">End</option>
                       @for (t of steps(); track t.id) { <option [value]="t.id">{{ t.section || t.id }}</option> }
                     </select>
-                    <button class="btn btn-ghost btn-sm" type="button" (click)="addCase(i)">+ Case</button>
+                    <button matButton type="button" (click)="addCase(i)">+ Case</button>
                   </div>
                 </div>
                 }
@@ -172,7 +173,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                       <option value="">End</option>
                       @for (t of steps(); track t.id) { <option [value]="t.id">{{ t.section || t.id }}</option> }
                     </select>
-                    <button class="btn btn-ghost btn-sm" type="button" (click)="addBranch(i)">+ Branch</button>
+                    <button matButton type="button" (click)="addBranch(i)">+ Branch</button>
                   </div>
                 </div>
               }

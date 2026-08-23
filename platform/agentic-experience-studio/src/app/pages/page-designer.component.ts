@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CdkDrag, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatButtonModule } from '@angular/material/button';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ExperienceCatalogService } from '../services/experience-catalog.service';
 import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
@@ -60,7 +61,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 @Component({
   selector: 'aes-page-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule, MatButtonModule],
   template: `
     <div class="wrap">
       <header class="head">
@@ -74,7 +75,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
         <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
           [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
-        <button class="btn primary" (click)="save()" [disabled]="saving()">Save page</button>
+        <button matButton="filled" (click)="save()" [disabled]="saving()">Save page</button>
       </header>
 
       @if (loading()) { <p class="muted">Loading…</p> }
@@ -135,7 +136,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                             <button class="x" (click)="removeLink($index)">✕</button>
                           </div>
                         }
-                        <button class="btn ghost sm" (click)="addLink()">＋ Add link</button>
+                        <button matButton (click)="addLink()">＋ Add link</button>
                       }
                       @default { <label class="lbl">{{ f.label }}</label><input class="input" [ngModel]="propVal(sel, f.key)" (ngModelChange)="setProp(f.key, $event)" /> }
                     }
@@ -155,7 +156,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                   <div class="proprow add">
                     <input class="input sm" [ngModel]="newPropKey()" (ngModelChange)="newPropKey.set($event)" placeholder="prop name" aria-label="New property name" />
                     <input class="input sm" [ngModel]="newPropValue()" (ngModelChange)="newPropValue.set($event)" placeholder="value / JSON" aria-label="New property value" />
-                    <button class="btn ghost sm addp" (click)="addProp()" [disabled]="!newPropKey().trim()" aria-label="Add property">＋</button>
+                    <button matButton class="addp" (click)="addProp()" [disabled]="!newPropKey().trim()" aria-label="Add property">＋</button>
                   </div>
                   @if (sel.kind === 'form') { <p class="muted sm">Add <code>initialValues</code> or <code>context</code> (a JSON object) to prefill the form.</p> }
                 }
