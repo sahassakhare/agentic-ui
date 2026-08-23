@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { CdkDrag, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -65,16 +66,16 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 @Component({
   selector: 'aes-page-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, SchemaFormComponent],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule, MatButtonModule, MatButtonToggleModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, SchemaFormComponent],
   template: `
     <div class="wrap">
       <header class="head">
         <a routerLink="/pages" class="back">← Pages</a>
         <h1>{{ name() || 'Page' }} · Designer</h1>
-        <div class="typetoggle">
-          <button [class.on]="type() === 'content'" (click)="setType('content')">Content page</button>
-          <button [class.on]="type() === 'shell'" (click)="setType('shell')">Master (shell)</button>
-        </div>
+        <mat-button-toggle-group class="typetoggle" [value]="type()" (change)="setType($event.value)" hideSingleSelectionIndicator aria-label="Page type">
+          <mat-button-toggle value="content">Content page</mat-button-toggle>
+          <mat-button-toggle value="shell">Master (shell)</mat-button-toggle>
+        </mat-button-toggle-group>
         <span class="sp"></span>
         <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
           [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
@@ -213,10 +214,11 @@ const PROP_FIELDS: Record<string, PropField[]> = {
           <aside class="preview">
             <div class="pv-head">
               <div class="eyebrow">Preview <span class="muted sm">— {{ livePreview() ? 'live surfaces' : 'layout & composition' }}</span></div>
-              <div class="pv-seg" role="group" aria-label="Preview mode">
-                <button type="button" class="seg" [class.on]="!livePreview()" (click)="livePreview.set(false)" matTooltip="Structural wireframe">Structure</button>
-                <button type="button" class="seg" [class.on]="livePreview()" (click)="livePreview.set(true)" matTooltip="Render surfaces live">Live</button>
-              </div>
+              <mat-button-toggle-group class="pv-seg" [value]="livePreview() ? 'live' : 'struct'"
+                (change)="livePreview.set($event.value === 'live')" hideSingleSelectionIndicator aria-label="Preview mode">
+                <mat-button-toggle value="struct" matTooltip="Structural wireframe">Structure</mat-button-toggle>
+                <mat-button-toggle value="live" matTooltip="Render surfaces live">Live</mat-button-toggle>
+              </mat-button-toggle-group>
             </div>
             @if (livePreview()) {
               <div class="pv-live" [attr.data-layout]="type() === 'shell' ? 'shell' : layout()">
@@ -276,9 +278,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     .wrap { padding:20px 24px; max-width:1150px; margin:0 auto; }
     .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
     .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; }
-    .typetoggle { display:inline-flex; border:1px solid rgba(120,120,140,.3); border-radius:9px; overflow:hidden; }
-    .typetoggle button { font:inherit; font-size:12.5px; padding:6px 12px; border:none; background:transparent; color:inherit; cursor:pointer; }
-    .typetoggle button.on { background:#6750a4; color:#fff; }
+    .typetoggle { --mat-standard-button-toggle-height:34px; }
     .ok { color:#0a7d32; font-size:13px; }
     .btn { font:inherit; padding:9px 16px; border-radius:9px; border:1px solid rgba(120,120,140,.3); background:transparent; color:inherit; cursor:pointer; }
     .btn.primary { background:#6750a4; color:#fff; border-color:#6750a4; font-weight:600; } .btn[disabled] { opacity:.5; }
@@ -307,10 +307,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     /* preview header + mode toggle */
     .pv-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
     .pv-head .eyebrow { margin-bottom:0; }
-    .pv-seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
-    .pv-seg .seg { font-size:11px; padding:3px 10px; background:var(--surface); color:var(--text-muted); border:0; cursor:pointer; }
-    .pv-seg .seg + .seg { border-left:1px solid var(--border); }
-    .pv-seg .seg.on { background:var(--brand); color:#fff; }
+    .pv-seg { --mat-standard-button-toggle-height:28px; font-size:11px; }
     /* live preview render */
     .pv-live { display:grid; gap:10px; margin-top:8px; padding:10px; min-height:200px; border:1px solid var(--border); border-radius:12px; background:var(--surface-2); }
     .pv-live[data-layout='two-column']{ grid-template-areas:'left right'; grid-template-columns:1fr 1fr; }
