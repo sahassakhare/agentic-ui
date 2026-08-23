@@ -199,10 +199,10 @@ interface DesignerAction {
                   <mat-label>Rule</mat-label>
                   <mat-select [ngModel]="firstValidator(f)" (ngModelChange)="patch($index, { validators: $event ? [$event] : [] })">
                     <mat-option value="">no rule</mat-option>
-                    @for (v of validators(); track v.name) { <mat-option [value]="v.name">⛨ {{ v.name }}</mat-option> }
+                    @for (v of validators(); track v.name) { <mat-option [value]="v.name">✓ {{ v.name }}</mat-option> }
                   </mat-select>
                 </mat-form-field>
-                @if (f.widget) { <span class="wchip" title="Composed from the ‘{{ f.widget }}’ component">⛃ {{ f.widget }}</span> }
+                @if (f.widget) { <span class="wchip" title="Composed from the ‘{{ f.widget }}’ component">◫ {{ f.widget }}</span> }
               }
               <button class="rm" type="button" (click)="remove($index)" aria-label="Remove">✕</button>
             </div>

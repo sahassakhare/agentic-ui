@@ -33,7 +33,7 @@ const DESIGNER_ROUTE: Readonly<Record<string, string>> = {
   workflow: 'workflows', decision: 'decisions', theme: 'themes',
 };
 const KIND_GLYPH: Readonly<Record<string, string>> = {
-  application: '▤', page: '▦', form: '▤', workflow: '⇉', decision: '◇', theme: '◑',
+  application: '▤', page: '▦', form: '▤', workflow: '▸', decision: '◇', theme: '◑',
 };
 
 /**

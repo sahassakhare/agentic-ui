@@ -111,7 +111,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                   <mat-label>Step title</mat-label>
                   <input matInput [ngModel]="s.section" (ngModelChange)="patch(i, { section: $event })" />
                 </mat-form-field>
-                <span class="wchip">⛃ {{ s.widget }}</span>
+                <span class="wchip">◫ {{ s.widget }}</span>
                 <mat-checkbox [ngModel]="s.decision" (ngModelChange)="patch(i, { decision: $event })">decision</mat-checkbox>
                 <button class="rm" type="button" (click)="remove(i)" aria-label="Remove">✕</button>
               </div>

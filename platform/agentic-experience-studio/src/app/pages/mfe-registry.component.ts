@@ -79,7 +79,7 @@ interface RemoteRecord {
             @if (componentsOf(r.remoteName).length) {
               <div class="comps">
                 <span class="eyebrow">{{ componentsOf(r.remoteName).length }} component(s)</span>
-                @for (name of componentsOf(r.remoteName); track name) { <span class="wchip">⛃ {{ name }}</span> }
+                @for (name of componentsOf(r.remoteName); track name) { <span class="wchip">◫ {{ name }}</span> }
               </div>
             }
           </section>

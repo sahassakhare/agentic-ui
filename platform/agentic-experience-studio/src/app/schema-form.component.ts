@@ -68,9 +68,9 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
           <div class="sf-field">
             <label class="sf-lbl" [attr.for]="'sf-'+f.name">
               {{ f.label ?? f.name }} @if (f.required) { <span class="sf-req">*</span> }
-              @if (f.widget) { <span class="sf-widget" title="Rendered by the ‘{{ f.widget }}’ component">⛃ {{ f.widget }}</span> }
+              @if (f.widget) { <span class="sf-widget" title="Rendered by the ‘{{ f.widget }}’ component">◫ {{ f.widget }}</span> }
               @if (f.source) { <span class="sf-source" title="Data from the ‘{{ f.source }}’ source (resolved by the platform)">⇄ {{ f.source }}</span> }
-              @for (v of f.validators ?? []; track v) { <span class="sf-val" title="Validated by the ‘{{ v }}’ rule (resolved at runtime)">⛨ {{ v }}</span> }
+              @for (v of f.validators ?? []; track v) { <span class="sf-val" title="Validated by the ‘{{ v }}’ rule (resolved at runtime)">✓ {{ v }}</span> }
             </label>
             @switch (f.type) {
               @case ('textarea') {

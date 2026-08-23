@@ -33,7 +33,7 @@ const TEMPLATE_REGIONS: Record<PageLayout, string[]> = {
 };
 const CONTENT_LAYOUTS = Object.keys(TEMPLATE_REGIONS) as PageLayout[];
 const SHELL_REGIONS = ['header', 'sidenav', 'aside', 'footer'];
-const KIND_GLYPH: Record<string, string> = { dashboard: '▦', experience: '›', form: '▤', workflow: '⇉', component: '◫', layout: '◧' };
+const KIND_GLYPH: Record<string, string> = { dashboard: '▦', experience: '›', form: '▤', workflow: '▸', component: '◫', layout: '◧' };
 
 // Shell components + their editable props (shell mode).
 const SHELL_COMPONENTS: PaletteItem[] = [
