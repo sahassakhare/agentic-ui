@@ -6,6 +6,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { buildTree, flattenTree, normalizeDepths, type NavEntry, type NavRow } from './application-nav';
 import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
@@ -31,7 +32,7 @@ interface PageItem { name: string; title: string }
   selector: 'aes-application-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent,
-    MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, MatButtonModule],
+    MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, MatButtonModule, MatIconModule],
   template: `
     <div class="wrap">
       <header class="head">
@@ -102,7 +103,7 @@ interface PageItem { name: string; title: string }
                     <span class="navctrls">
                       <button class="mv" (click)="outdent(i)" [disabled]="n.depth === 0" title="Outdent" aria-label="Outdent">←</button>
                       <button class="mv" (click)="indent(i)" [disabled]="!canIndent(i)" title="Indent (nest under previous)" aria-label="Indent">→</button>
-                      <button class="x" (click)="remove(i)" aria-label="Remove">✕</button>
+                      <button class="x" (click)="remove(i)" aria-label="Remove"><mat-icon>close</mat-icon></button>
                     </span>
                   </li>
                 }
@@ -115,6 +116,8 @@ interface PageItem { name: string; title: string }
     </div>
   `,
   styles: [`
+    button mat-icon { font-size:16px; width:16px; height:16px; vertical-align:middle; }
+    .navctrls .x, .row .x { display:inline-grid; place-items:center; }
     .wrap { padding:20px 24px; max-width:1100px; margin:0 auto; }
     .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
     .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; }

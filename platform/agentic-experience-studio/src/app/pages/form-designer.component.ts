@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, HostListener, inject, inp
 import { CdkDrag, CdkDragHandle, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -45,7 +46,7 @@ interface DesignerAction {
 @Component({
   selector: 'aes-form-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
+  imports: [FormsModule, RouterLink, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
   template: `
     <div class="page wide">
       <a routerLink="/forms" class="back">
@@ -132,7 +133,7 @@ interface DesignerAction {
                 <mat-option value="danger">danger</mat-option>
               </mat-select>
             </mat-form-field>
-            <button class="rm" type="button" (click)="removeAction($index)" aria-label="Remove action">✕</button>
+            <button class="rm" type="button" (click)="removeAction($index)" aria-label="Remove action"><mat-icon>close</mat-icon></button>
           </div>
         }
       </div>
@@ -161,8 +162,8 @@ interface DesignerAction {
           <div class="eyebrow rowbar" style="margin-bottom:var(--s3)">
             <span>Canvas · {{ fields().length }} field{{ fields().length === 1 ? '' : 's' }}</span>
             <span class="hbtns">
-              <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" matTooltip="Undo (⌘Z)" aria-label="Undo">↶</button>
-              <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" matTooltip="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
+              <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" matTooltip="Undo (⌘Z)" aria-label="Undo"><mat-icon>undo</mat-icon></button>
+              <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" matTooltip="Redo (⌘⇧Z)" aria-label="Redo"><mat-icon>redo</mat-icon></button>
             </span>
           </div>
           @if (!fields().length) {
@@ -204,7 +205,7 @@ interface DesignerAction {
                 </mat-form-field>
                 @if (f.widget) { <span class="wchip" title="Composed from the ‘{{ f.widget }}’ component">◫ {{ f.widget }}</span> }
               }
-              <button class="rm" type="button" (click)="remove($index)" aria-label="Remove">✕</button>
+              <button class="rm" type="button" (click)="remove($index)" aria-label="Remove"><mat-icon>close</mat-icon></button>
             </div>
           }
         </div>
@@ -251,6 +252,8 @@ interface DesignerAction {
     .hb { border:1px solid var(--border); background:var(--surface); color:var(--text-muted); border-radius:var(--r-sm); width:26px; height:24px; font-size:14px; line-height:1; cursor:pointer; }
     .hb:hover:not([disabled]) { border-color:var(--brand); color:var(--brand); }
     .hb[disabled] { opacity:.35; cursor:default; }
+    .rm, .hb { display:inline-grid; place-items:center; }
+    .rm mat-icon, .hb mat-icon { font-size:16px; width:16px; height:16px; }
     .arow { display:flex; align-items:center; gap:var(--s2); padding:8px; border:1px solid var(--border); border-radius:var(--r-sm); background:var(--surface); margin-top:var(--s2); flex-wrap:wrap; }
     .arow .flex { flex:1; min-width:120px; } .arow .akind { width:110px; } .arow .atgt { width:150px; } .arow .astyle { width:110px; } .arow .input { padding:7px 9px; font-size:var(--fs-sm); }
   `],

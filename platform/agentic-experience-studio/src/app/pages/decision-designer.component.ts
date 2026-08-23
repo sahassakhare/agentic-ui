@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
@@ -30,7 +31,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
 @Component({
   selector: 'aes-decision-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatFormFieldModule, MatSelectModule],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatIconModule, MatFormFieldModule, MatSelectModule],
   template: `
     <div class="wrap">
       <header class="head">
@@ -57,7 +58,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
                 <span class="chip in">
                   <input [ngModel]="f.name" (ngModelChange)="rename('inputs', $index, $event)" aria-label="Input name" />
                   <select class="ty" [ngModel]="f.type ?? 'string'" (ngModelChange)="setColType('inputs', $index, $event)" title="Data type" aria-label="Input type">@for (t of types; track t) { <option [value]="t">{{ t }}</option> }</select>
-                  <button (click)="delCol('inputs', $index)" aria-label="Remove input">✕</button>
+                  <button (click)="delCol('inputs', $index)" aria-label="Remove input"><mat-icon>close</mat-icon></button>
                 </span>
               }
               <button class="add" (click)="addCol('inputs')">＋ input</button>
@@ -68,7 +69,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
                 <span class="chip out">
                   <input [ngModel]="f.name" (ngModelChange)="rename('outputs', $index, $event)" aria-label="Output name" />
                   <select class="ty" [ngModel]="f.type ?? 'string'" (ngModelChange)="setColType('outputs', $index, $event)" title="Data type" aria-label="Output type">@for (t of types; track t) { <option [value]="t">{{ t }}</option> }</select>
-                  <button (click)="delCol('outputs', $index)" aria-label="Remove output">✕</button>
+                  <button (click)="delCol('outputs', $index)" aria-label="Remove output"><mat-icon>close</mat-icon></button>
                 </span>
               }
               <button class="add" (click)="addCol('outputs')">＋ output</button>
@@ -100,7 +101,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
                       <td class="out"><input [ngModel]="thenVal(ri, f.name)" (ngModelChange)="setThen(ri, f.name, $event)" placeholder="value" /></td>
                     }
                     <td class="note"><input [ngModel]="annVal(ri)" (ngModelChange)="setAnnotation(ri, $event)" placeholder="note" aria-label="Rule note" /></td>
-                    <td><button class="x" (click)="delRule(ri)">✕</button></td>
+                    <td><button class="x" (click)="delRule(ri)"><mat-icon>close</mat-icon></button></td>
                   </tr>
                 }
               </tbody>
@@ -130,6 +131,8 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
     </div>
   `,
   styles: [`
+    button mat-icon { font-size:15px; width:15px; height:15px; vertical-align:middle; }
+    .dt .x, .colhead button { display:inline-grid; place-items:center; }
     .wrap { padding:20px 24px; max-width:1150px; margin:0 auto; }
     .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
     .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; }

@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { CdkDrag, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -33,7 +34,6 @@ const TEMPLATE_REGIONS: Record<PageLayout, string[]> = {
 };
 const CONTENT_LAYOUTS = Object.keys(TEMPLATE_REGIONS) as PageLayout[];
 const SHELL_REGIONS = ['header', 'sidenav', 'aside', 'footer'];
-const KIND_GLYPH: Record<string, string> = { dashboard: '▦', experience: '›', form: '▤', workflow: '▸', component: '◫', layout: '◧' };
 
 // Shell components + their editable props (shell mode).
 const SHELL_COMPONENTS: PaletteItem[] = [
@@ -65,7 +65,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 @Component({
   selector: 'aes-page-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, SchemaFormComponent],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, SchemaFormComponent],
   template: `
     <div class="wrap">
       <header class="head">
@@ -111,7 +111,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                   <div class="cat">{{ g.category }}</div>
                   @for (it of g.items; track it.kind + ':' + it.name) {
                     <button class="palette" cdkDrag [cdkDragData]="it" (click)="add(it)">
-                      <span class="ic" [class.dash]="it.kind === 'dashboard'">{{ glyph(it.kind) }}</span>
+                      <span class="ic" [class.dash]="it.kind === 'dashboard'"><mat-icon>{{ km(it.kind).icon }}</mat-icon></span>
                       <span class="pt"><span class="nm">{{ it.title }}</span><span class="gl">{{ it.kind }} · {{ it.name }}</span></span>
                       <span class="plus">＋</span>
                     </button>
@@ -143,7 +143,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                           <div class="linkrow">
                             <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>Label</mat-label><input matInput [ngModel]="l.label" (ngModelChange)="editLink($index, 'label', $event)" /></mat-form-field>
                             <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>URL</mat-label><input matInput [ngModel]="l.href" (ngModelChange)="editLink($index, 'href', $event)" placeholder="https://…" /></mat-form-field>
-                            <button class="x" (click)="removeLink($index)">✕</button>
+                            <button class="x" (click)="removeLink($index)" aria-label="Remove link"><mat-icon>close</mat-icon></button>
                           </div>
                         }
                         <button matButton (click)="addLink()">＋ Add link</button>
@@ -160,7 +160,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                     <div class="proprow">
                       <span class="pkey" [title]="row.key">{{ row.key }}</span>
                       <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>value</mat-label><input matInput [ngModel]="displayVal(row.value)" (ngModelChange)="setPropRaw(row.key, $event)" /></mat-form-field>
-                      <button class="x" (click)="removeProp(row.key)" aria-label="Remove property">✕</button>
+                      <button class="x" (click)="removeProp(row.key)" aria-label="Remove property"><mat-icon>close</mat-icon></button>
                     </div>
                   }
                   <div class="proprow add">
@@ -182,8 +182,8 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                   @else { Regions · <span class="muted">{{ layout() }}</span> }
                 </span>
                 <span class="hbtns">
-                  <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" matTooltip="Undo (⌘Z)" aria-label="Undo">↶</button>
-                  <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" matTooltip="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
+                  <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" matTooltip="Undo (⌘Z)" aria-label="Undo"><mat-icon>undo</mat-icon></button>
+                  <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" matTooltip="Redo (⌘⇧Z)" aria-label="Redo"><mat-icon>redo</mat-icon></button>
                 </span>
               </div>
               <div class="regions" [attr.data-shell]="type() === 'shell'">
@@ -194,12 +194,12 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                     <div class="rhead">{{ r }} <span class="muted sm">{{ (regions()[r] || []).length }}</span></div>
                     @for (s of regions()[r]; track $index) {
                       <div class="block" cdkDrag [cdkDragData]="s" [class.sel]="isSelected(r, $index)" (click)="select(r, $index, $event)">
-                        <span class="ic" [class.dash]="s.kind === 'dashboard'">{{ glyph(s.kind) }}</span>
+                        <span class="ic" [class.dash]="s.kind === 'dashboard'"><mat-icon>{{ km(s.kind).icon }}</mat-icon></span>
                         <span class="bm"><span class="nm">{{ s.name }}</span><span class="gl">{{ s.kind }}</span></span>
                         <span class="ctrls">
-                          <button class="mv" (click)="moveSurface(r, $index, -1, $event)" [disabled]="$index === 0" matTooltip="Move up" aria-label="Move up">▲</button>
-                          <button class="mv" (click)="moveSurface(r, $index, 1, $event)" [disabled]="$index === (regions()[r] || []).length - 1" matTooltip="Move down" aria-label="Move down">▼</button>
-                          <button class="x" (click)="remove(r, $index, $event)" aria-label="Remove">✕</button>
+                          <button class="mv" (click)="moveSurface(r, $index, -1, $event)" [disabled]="$index === 0" matTooltip="Move up" aria-label="Move up"><mat-icon>keyboard_arrow_up</mat-icon></button>
+                          <button class="mv" (click)="moveSurface(r, $index, 1, $event)" [disabled]="$index === (regions()[r] || []).length - 1" matTooltip="Move down" aria-label="Move down"><mat-icon>keyboard_arrow_down</mat-icon></button>
+                          <button class="x" (click)="remove(r, $index, $event)" aria-label="Remove"><mat-icon>close</mat-icon></button>
                         </span>
                       </div>
                     } @empty { <div class="drop">click, then add →</div> }
@@ -225,11 +225,11 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                     <div class="pv-rlbl">{{ r }}</div>
                     @for (s of tilesFor(r); track $index) {
                       @if (s.kind === 'form' && formBody(s.name)) {
-                        <div class="pvl-surface"><div class="pvl-cap">{{ km(s.kind).glyph }} {{ s.name }}</div>
+                        <div class="pvl-surface"><div class="pvl-cap"><mat-icon>{{ km(s.kind).icon }}</mat-icon> {{ s.name }}</div>
                           <aes-schema-form [body]="formBody(s.name)!" /></div>
                       } @else {
                         <div class="pvl-card" [style.--h]="km(s.kind).hue">
-                          <span class="pvl-glyph">{{ km(s.kind).glyph }}</span>
+                          <span class="pvl-glyph"><mat-icon>{{ km(s.kind).icon }}</mat-icon></span>
                           <span class="pvl-meta"><span class="pvl-nm">{{ s.name }}</span><span class="pvl-kind">{{ km(s.kind).label }}</span></span>
                           <span class="pvl-hub">renders in Hub</span>
                         </div>
@@ -244,21 +244,21 @@ const PROP_FIELDS: Record<string, PropField[]> = {
             <div class="pv-frame" [attr.data-layout]="type() === 'shell' ? 'shell' : layout()">
               @if (type() === 'shell') {
                 <div class="pv-r pv-header"><div class="pv-rlbl">header</div>
-                  @for (s of tilesFor('header'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue">{{ km(s.kind).glyph }} {{ s.name }}</span> }</div>
+                  @for (s of tilesFor('header'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue"><mat-icon class="pv-tile-ic">{{ km(s.kind).icon }}</mat-icon> {{ s.name }}</span> }</div>
                 <div class="pv-mid">
                   <div class="pv-r pv-side"><div class="pv-rlbl">sidenav</div>
-                    @for (s of tilesFor('sidenav'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue">{{ km(s.kind).glyph }}</span> }</div>
+                    @for (s of tilesFor('sidenav'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue"><mat-icon class="pv-tile-ic">{{ km(s.kind).icon }}</mat-icon></span> }</div>
                   <div class="pv-r pv-content">Page content<span class="muted sm">router-outlet</span></div>
                   <div class="pv-r pv-aside"><div class="pv-rlbl">aside</div>
-                    @for (s of tilesFor('aside'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue">{{ km(s.kind).glyph }}</span> }</div>
+                    @for (s of tilesFor('aside'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue"><mat-icon class="pv-tile-ic">{{ km(s.kind).icon }}</mat-icon></span> }</div>
                 </div>
                 <div class="pv-r pv-footer"><div class="pv-rlbl">footer</div>
-                  @for (s of tilesFor('footer'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue">{{ km(s.kind).glyph }} {{ s.name }}</span> }</div>
+                  @for (s of tilesFor('footer'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue"><mat-icon class="pv-tile-ic">{{ km(s.kind).icon }}</mat-icon> {{ s.name }}</span> }</div>
               } @else {
                 @for (r of regionNames(); track r) {
                   <div class="pv-r" [style.grid-area]="r">
                     <div class="pv-rlbl">{{ r }}</div>
-                    @for (s of tilesFor(r); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue" [title]="km(s.kind).label + ' · ' + s.name">{{ km(s.kind).glyph }} {{ s.name }}</span> }
+                    @for (s of tilesFor(r); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue" [title]="km(s.kind).label + ' · ' + s.name"><mat-icon class="pv-tile-ic">{{ km(s.kind).icon }}</mat-icon> {{ s.name }}</span> }
                     @empty { <span class="pv-empty">empty</span> }
                   </div>
                 }
@@ -367,6 +367,15 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     .hb { border:1px solid var(--border); background:var(--surface); color:var(--text-muted); border-radius:var(--r-sm); width:26px; height:24px; font-size:14px; line-height:1; cursor:pointer; }
     .hb:hover:not([disabled]) { border-color:var(--brand); color:var(--brand); }
     .hb[disabled] { opacity:.35; cursor:default; }
+    /* compact mat-icon sizing per context (custom-classed buttons keep their tight layout) */
+    .ic mat-icon { font-size:16px; width:16px; height:16px; }
+    .pvl-glyph mat-icon { font-size:18px; width:18px; height:18px; }
+    .pvl-cap mat-icon { font-size:14px; width:14px; height:14px; }
+    .pv-tile-ic { font-size:13px; width:13px; height:13px; }
+    .block .mv mat-icon, .block .x mat-icon, .linkrow .x mat-icon, .proprow .x mat-icon { font-size:16px; width:16px; height:16px; }
+    .hb mat-icon { font-size:16px; width:16px; height:16px; }
+    .block .mv, .block .x { display:inline-grid; place-items:center; }
+    .hb { display:inline-grid; place-items:center; }
     .proprow { display:grid; grid-template-columns:auto 1fr auto; gap:6px; margin-top:6px; align-items:center; }
     .proprow.add { grid-template-columns:1fr 1fr auto; }
     .pkey { font-size:12px; opacity:.8; max-width:96px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -475,8 +484,6 @@ export class PageDesignerComponent implements HasUnsavedChanges {
     if (k === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(); }
     else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); this.redo(); }
   }
-
-  protected glyph(kind: string): string { return KIND_GLYPH[kind] ?? '›'; }
   protected readonly km = kindMeta;
   protected tilesFor(r: string): Surface[] { return this.regions()[r] ?? []; }
   /** The catalog body for a form surface (by name), or null if not yet loaded / not a form. */

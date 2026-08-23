@@ -2,7 +2,9 @@ import { ChangeDetectionStrategy, Component, HostListener, computed, inject, sig
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { A11yModule } from '@angular/cdk/a11y';
+import { MatIconModule } from '@angular/material/icon';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
+import { kindMeta } from '../services/kind-meta';
 
 interface Cmd {
   readonly id: string;
@@ -32,8 +34,13 @@ const DESIGNER_ROUTE: Readonly<Record<string, string>> = {
   application: 'applications', page: 'pages', form: 'forms',
   workflow: 'workflows', decision: 'decisions', theme: 'themes',
 };
-const KIND_GLYPH: Readonly<Record<string, string>> = {
-  application: '▤', page: '▦', form: '▤', workflow: '▸', decision: '◇', theme: '◑',
+/** Material icon per section route (mirrors the kind taxonomy where it maps). */
+const SECTION_ICON: Readonly<Record<string, string>> = {
+  '/experiences': 'auto_awesome', '/templates': 'grid_view', '/applications': 'apps',
+  '/pages': 'article', '/components': 'widgets', '/mfes': 'extension', '/forms': 'dynamic_form',
+  '/workflows': 'account_tree', '/decisions': 'rule', '/themes': 'palette', '/prompts': 'format_quote',
+  '/skills': 'psychology', '/knowledge': 'menu_book', '/memory': 'memory', '/navigation': 'explore',
+  '/tools': 'build', '/datasources': 'storage', '/validations': 'fact_check', '/policy': 'policy',
 };
 
 /**
@@ -44,7 +51,7 @@ const KIND_GLYPH: Readonly<Record<string, string>> = {
 @Component({
   selector: 'aes-command-palette',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, A11yModule],
+  imports: [FormsModule, A11yModule, MatIconModule],
   template: `
     @if (open()) {
       <div class="cmdk-backdrop" (click)="close()"></div>
@@ -55,7 +62,7 @@ const KIND_GLYPH: Readonly<Record<string, string>> = {
           @for (r of results(); track r.id; let i = $index) {
             <li role="option" [id]="'cmdk-' + i" [class.sel]="i === active()" [attr.aria-selected]="i === active()"
                 (click)="run(r)" (mouseenter)="active.set(i)">
-              <span class="glyph" aria-hidden="true">{{ r.glyph }}</span>
+              <mat-icon class="glyph" aria-hidden="true">{{ r.glyph }}</mat-icon>
               <span class="lbl">{{ r.label }}</span>
               <span class="hint">{{ r.hint }}</span>
             </li>
@@ -77,7 +84,7 @@ const KIND_GLYPH: Readonly<Record<string, string>> = {
     .cmdk-list li { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:var(--r-sm); cursor:pointer; }
     .cmdk-list li.sel { background:var(--brand-soft); }
     .cmdk-list li.sel .lbl { color:var(--brand); }
-    .cmdk-list .glyph { width:22px; text-align:center; color:var(--text-muted); }
+    .cmdk-list .glyph { width:20px; height:20px; font-size:20px; color:var(--text-muted); flex:none; }
     .cmdk-list .lbl { flex:1; font-size:var(--fs-sm); font-weight:500; }
     .cmdk-list .hint { font-family:var(--font-mono); font-size:var(--fs-xs); color:var(--text-faint); }
     .cmdk-list .empty { color:var(--text-faint); padding:18px 12px; justify-content:center; }
@@ -101,7 +108,7 @@ export class CommandPaletteComponent {
     id: 'nav:' + s.path,
     label: 'Go to ' + s.label,
     hint: s.path,
-    glyph: '→',
+    glyph: SECTION_ICON[s.path] ?? 'arrow_forward',
     keywords: (s.label + ' ' + s.path).toLowerCase(),
     run: () => void this.router.navigateByUrl(s.path),
   }));
@@ -151,7 +158,7 @@ export class CommandPaletteComponent {
             id: 'cap:' + c.id,
             label: 'Design ' + c.name,
             hint: kind,
-            glyph: KIND_GLYPH[kind] ?? '›',
+            glyph: kindMeta(kind).icon,
             keywords: (c.name + ' ' + kind + ' design').toLowerCase(),
             run: () => void this.router.navigate(['/', route, c.id, 'design']),
           }));

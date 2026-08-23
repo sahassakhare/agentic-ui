@@ -1,6 +1,7 @@
 import { Component, computed, inject, input, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -50,7 +51,7 @@ export interface StudioConfig {
  */
 @Component({
   selector: 'aes-capability-studio',
-  imports: [FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
+  imports: [FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -201,15 +202,15 @@ export interface StudioConfig {
                     <div class="usedetail">
                       @if (u.uses.length) {
                         <div class="ugrp"><span class="ulbl">Uses</span>
-                          @for (r of u.uses; track r.kind + r.name) { <span class="kchip" [style.--h]="km(r.kind).hue">{{ km(r.kind).glyph }} {{ r.name }} <em>{{ km(r.kind).label }}</em></span> }</div>
+                          @for (r of u.uses; track r.kind + r.name) { <span class="kchip" [style.--h]="km(r.kind).hue"><mat-icon class="kchip-ic">{{ km(r.kind).icon }}</mat-icon> {{ r.name }} <em>{{ km(r.kind).label }}</em></span> }</div>
                       }
                       @if (u.unmet.length) {
                         <div class="ugrp"><span class="ulbl unmet">Unmet</span>
-                          @for (r of u.unmet; track r.kind + r.name) { <span class="kchip unmet" [style.--h]="km(r.kind).hue">{{ km(r.kind).glyph }} {{ r.name }} <em>{{ km(r.kind).label }}?</em></span> }</div>
+                          @for (r of u.unmet; track r.kind + r.name) { <span class="kchip unmet" [style.--h]="km(r.kind).hue"><mat-icon class="kchip-ic">{{ km(r.kind).icon }}</mat-icon> {{ r.name }} <em>{{ km(r.kind).label }}?</em></span> }</div>
                       }
                       @if (u.usedBy.length) {
                         <div class="ugrp"><span class="ulbl">Used by</span>
-                          @for (r of u.usedBy; track r.kind + r.name) { <span class="kchip" [style.--h]="km(r.kind).hue">{{ km(r.kind).glyph }} {{ r.name }} <em>{{ km(r.kind).label }}</em></span> }</div>
+                          @for (r of u.usedBy; track r.kind + r.name) { <span class="kchip" [style.--h]="km(r.kind).hue"><mat-icon class="kchip-ic">{{ km(r.kind).icon }}</mat-icon> {{ r.name }} <em>{{ km(r.kind).label }}</em></span> }</div>
                       }
                     </div>
                   }
@@ -297,6 +298,7 @@ export interface StudioConfig {
     .ugrp { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .ulbl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; opacity: .55; min-width: 52px; }
     .ulbl.unmet { color: var(--danger); opacity: 1; }
+    .kchip-ic { font-size: 14px; width: 14px; height: 14px; }
     .kchip { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 2px 9px; border-radius: 999px;
       background: hsl(var(--h) 55% 50% / .15); color: var(--text); }
     .kchip em { opacity: .6; font-style: normal; font-size: 10.5px; }

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, HostListener, inject, inp
 import { CdkDrag, CdkDragHandle, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -44,7 +45,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
 @Component({
   selector: 'aes-workflow-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
+  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule],
   template: `
     <div class="page wide">
       <a routerLink="/workflows" class="back">
@@ -70,7 +71,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
           <div class="eyebrow">Validation · {{ errorCount() }} error{{ errorCount() === 1 ? '' : 's' }}, {{ warnCount() }} warning{{ warnCount() === 1 ? '' : 's' }}</div>
           <ul>
             @for (iss of issues(); track $index) {
-              <li [class.err]="iss.level === 'error'"><span class="dot">{{ iss.level === 'error' ? '✕' : '⚠' }}</span> {{ iss.message }}</li>
+              <li [class.err]="iss.level === 'error'"><mat-icon class="dot">{{ iss.level === 'error' ? 'error' : 'warning' }}</mat-icon> {{ iss.message }}</li>
             }
           </ul>
         </div>
@@ -97,8 +98,8 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
           <div class="eyebrow rowbar" style="margin-bottom:var(--s3)">
             <span>Canvas · {{ steps().length }} step{{ steps().length === 1 ? '' : 's' }}</span>
             <span class="hbtns">
-              <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" matTooltip="Undo (⌘Z)" aria-label="Undo">↶</button>
-              <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" matTooltip="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
+              <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" matTooltip="Undo (⌘Z)" aria-label="Undo"><mat-icon>undo</mat-icon></button>
+              <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" matTooltip="Redo (⌘⇧Z)" aria-label="Redo"><mat-icon>redo</mat-icon></button>
             </span>
           </div>
           @if (!steps().length) { <div class="drop-empty">Drag components here to add steps.</div> }
@@ -113,7 +114,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                 </mat-form-field>
                 <span class="wchip">◫ {{ s.widget }}</span>
                 <mat-checkbox [ngModel]="s.decision" (ngModelChange)="patch(i, { decision: $event })">decision</mat-checkbox>
-                <button class="rm" type="button" (click)="remove(i)" aria-label="Remove">✕</button>
+                <button class="rm" type="button" (click)="remove(i)" aria-label="Remove"><mat-icon>close</mat-icon></button>
               </div>
               @if (s.decision) {
                 <div class="branches">
@@ -156,7 +157,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                           @for (t of steps(); track t.id) { <mat-option [value]="t.id">{{ t.section || t.id }}</mat-option> }
                         </mat-select>
                       </mat-form-field>
-                      <button class="rm sm" type="button" (click)="removeCase(i, ci)">✕</button>
+                      <button class="rm sm" type="button" (click)="removeCase(i, ci)"><mat-icon>close</mat-icon></button>
                     </div>
                   }
                   <div class="branch">
@@ -199,7 +200,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                           @for (t of steps(); track t.id) { <mat-option [value]="t.id">{{ t.section || t.id }}</mat-option> }
                         </mat-select>
                       </mat-form-field>
-                      <button class="rm sm" type="button" (click)="removeBranch(i, bi)">✕</button>
+                      <button class="rm sm" type="button" (click)="removeBranch(i, bi)"><mat-icon>close</mat-icon></button>
                     </div>
                   }
                   <div class="branch">
@@ -271,7 +272,11 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
     .issues.has-err { border-left-color:var(--danger); }
     .issues ul { list-style:none; margin:var(--s2) 0 0; padding:0; display:flex; flex-direction:column; gap:4px; }
     .issues li { font-size:var(--fs-sm); color:var(--warn); display:flex; gap:7px; align-items:baseline; }
-    .issues li.err { color:var(--danger); } .issues .dot { font-size:11px; }
+    .issues li.err { color:var(--danger); }
+    .issues .dot { font-size:15px; width:15px; height:15px; vertical-align:middle; color:var(--warn); }
+    .issues li.err .dot { color:var(--danger); }
+    .rm, .hb { display:inline-grid; place-items:center; }
+    .rm mat-icon, .hb mat-icon { font-size:15px; width:15px; height:15px; }
   `],
 })
 export class WorkflowDesignerComponent implements HasUnsavedChanges {
