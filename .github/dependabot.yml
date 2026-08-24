@@ -1,0 +1,55 @@
+# Keeps dependencies current automatically. Native to GitHub — no external app.
+# Tuned for a large Angular monorepo: weekly, grouped, Angular majors held for a
+# deliberate coordinated framework upgrade rather than an automated PR.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    labels:
+      - dependencies
+    groups:
+      angular:
+        patterns:
+          - "@angular/*"
+          - "@angular-*/*"
+          - "ng-packagr"
+          - "zone.js"
+      lint-toolchain:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
+          - "angular-eslint"
+          - "@angular-eslint/*"
+      types:
+        patterns:
+          - "@types/*"
+      test-toolchain:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+          - "@playwright/*"
+          - "jsdom"
+          - "fake-indexeddb"
+    ignore:
+      # Angular majors track the framework upgrade — take them deliberately,
+      # not via an automated PR (the whole workspace must move in lockstep).
+      - dependency-name: "@angular/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@angular-*/*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions
