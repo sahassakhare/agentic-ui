@@ -46,7 +46,7 @@
     "@softarc/native-federation-node": "^3.3.4",
     "cytoscape": "^3.33.3",
     "cytoscape-cose-bilkent": "^4.1.0",
-    "es-module-shims": "^1.5.12",
+    "es-module-shims": "^2.8.4",
     "material-icons": "^1.13.14",
     "rxjs": "7.8.1",
     "tslib": "^2.3.0",
