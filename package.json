@@ -14,6 +14,7 @@
     "test": "ng test",
     "lint": "ng lint",
     "lint:studio": "eslint platform/agentic-experience-studio/src",
+    "check:lib-versions": "node scripts/check-lib-versions.mjs",
     "build:lib": "ng build agentic-ui && npm run build:schematics",
     "watch:lib": "ng build agentic-ui --watch",
     "build:schematics": "tsc -p projects/agentic-ui/schematics/tsconfig.json && node scripts/copy-schematics-assets.mjs",

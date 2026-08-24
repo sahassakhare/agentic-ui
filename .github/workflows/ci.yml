@@ -16,6 +16,32 @@ permissions:
   contents: read
 
 jobs:
+  # Guard against library drift: publish.yml releases each package at whatever
+  # version its package.json holds and skips versions already on npm, so a lib
+  # change that forgets to bump its version silently never ships. Fail the PR
+  # when a publishable package's source changed but its version did not.
+  lib-version-guard:
+    name: Library version guard
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 5
+    steps:
+      - name: Checkout (full history for base diff)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19'
+
+      - name: Fetch base branch
+        run: git fetch origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}" --depth=1 || true
+
+      - name: Check publishable packages were bumped when changed
+        run: node scripts/check-lib-versions.mjs
+
   build-and-test:
     name: Build + test (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
