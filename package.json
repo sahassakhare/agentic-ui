@@ -48,7 +48,7 @@
     "cytoscape-cose-bilkent": "^4.1.0",
     "es-module-shims": "^1.5.12",
     "material-icons": "^1.13.14",
-    "rxjs": "7.8.1",
+    "rxjs": "7.8.2",
     "tslib": "^2.3.0",
     "zod": "^3.23.8",
     "zod-to-json-schema": "3.24.5"
