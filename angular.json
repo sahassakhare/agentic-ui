@@ -1201,6 +1201,7 @@
             "tsConfig": "platform/agentic-experience-studio/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "styles": [
+              "node_modules/material-icons/iconfont/material-icons.css",
               "platform/agentic-experience-studio/src/styles.scss"
             ]
           },
@@ -1209,13 +1210,13 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
+                  "maximumWarning": "700kB",
                   "maximumError": "1MB"
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumWarning": "10kB",
+                  "maximumError": "16kB"
                 }
               ],
               "outputHashing": "all",

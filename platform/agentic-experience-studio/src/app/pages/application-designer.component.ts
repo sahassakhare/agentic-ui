@@ -1,6 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatIconModule } from '@angular/material/icon';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { buildTree, flattenTree, normalizeDepths, type NavEntry, type NavRow } from './application-nav';
 import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
@@ -25,7 +32,8 @@ interface PageItem { name: string; title: string }
 @Component({
   selector: 'aes-application-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent,
+    MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, MatButtonModule, MatIconModule, MatTooltipModule],
   template: `
     <div class="wrap">
       <header class="head">
@@ -35,7 +43,7 @@ interface PageItem { name: string; title: string }
         <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
           [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
-        <button class="btn primary" (click)="save()" [disabled]="saving()">Save application</button>
+        <button matButton="filled" (click)="save()" [disabled]="saving()">Save application</button>
       </header>
 
       @if (loading()) { <p class="muted">Loading…</p> }
@@ -44,16 +52,23 @@ interface PageItem { name: string; title: string }
           <aside class="col">
             <section class="card">
               <div class="eyebrow">Settings</div>
-              <label class="lbl">Title</label>
-              <input class="input" [(ngModel)]="title" placeholder="Acme Operations Workspace" />
-              <label class="lbl">Description</label>
-              <textarea class="input" rows="2" [(ngModel)]="description"></textarea>
-              <label class="lbl">Master page (shell) <span class="muted sm">— header · menu · footer</span></label>
-              <select class="input" [(ngModel)]="master">
-                <option value="">— built-in default shell —</option>
-                @for (m of masters(); track m.name) { <option [value]="m.name">{{ m.title }}</option> }
-              </select>
-              <label class="chk"><input type="checkbox" [(ngModel)]="assistantEnabled" /> Enable the AI assistant (ag-ui)</label>
+              <mat-form-field appearance="outline" class="mf">
+                <mat-label>Title</mat-label>
+                <input matInput [(ngModel)]="title" placeholder="Acme Operations Workspace" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="mf">
+                <mat-label>Description</mat-label>
+                <textarea matInput rows="2" [(ngModel)]="description"></textarea>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="mf">
+                <mat-label>Master page (shell)</mat-label>
+                <mat-select [(ngModel)]="master">
+                  <mat-option value="">— built-in default shell —</mat-option>
+                  @for (m of masters(); track m.name) { <mat-option [value]="m.name">{{ m.title }}</mat-option> }
+                </mat-select>
+                <mat-hint>header · menu · footer</mat-hint>
+              </mat-form-field>
+              <mat-checkbox [(ngModel)]="assistantEnabled">Enable the AI assistant (ag-ui)</mat-checkbox>
             </section>
 
             <section class="card">
@@ -63,9 +78,9 @@ interface PageItem { name: string; title: string }
               }
               @for (p of available(); track p.name) {
                 <button class="palette" (click)="add(p)">
-                  <span class="ic">▤</span>
+                  <span class="ic"><mat-icon>article</mat-icon></span>
                   <span class="pt"><span class="nm">{{ p.title }}</span><span class="gl">page · {{ p.name }}</span></span>
-                  <span class="plus">＋</span>
+                  <span class="plus"><mat-icon>add</mat-icon></span>
                 </button>
               }
             </section>
@@ -79,7 +94,7 @@ interface PageItem { name: string; title: string }
                 @for (n of nav(); track $index; let i = $index) {
                   <li class="row" [class.child]="n.depth > 0" [style.marginLeft.px]="n.depth * 22"
                       draggable="true" (dragstart)="drag.set(i)" (dragover)="allow($event)" (drop)="drop(i)">
-                    <span class="grip">⋮⋮</span>
+                    <mat-icon class="grip">drag_indicator</mat-icon>
                     <input class="iconin" [ngModel]="n.icon ?? ''" (ngModelChange)="setIcon(i, $event)" placeholder="▤" title="Icon (emoji or glyph)" aria-label="Icon" maxlength="2" />
                     <span class="meta">
                       <input class="titlein" [ngModel]="n.title" (ngModelChange)="edit(i, 'title', $event)" placeholder="Label" />
@@ -87,9 +102,9 @@ interface PageItem { name: string; title: string }
                     </span>
                     <input class="personasin" [ngModel]="personasText(n)" (ngModelChange)="setPersonas(i, $event)" placeholder="all personas" title="Comma-separated personas; empty = visible to all" aria-label="Personas" />
                     <span class="navctrls">
-                      <button class="mv" (click)="outdent(i)" [disabled]="n.depth === 0" title="Outdent" aria-label="Outdent">←</button>
-                      <button class="mv" (click)="indent(i)" [disabled]="!canIndent(i)" title="Indent (nest under previous)" aria-label="Indent">→</button>
-                      <button class="x" (click)="remove(i)" aria-label="Remove">✕</button>
+                      <button class="mv" (click)="outdent(i)" [disabled]="n.depth === 0" matTooltip="Outdent" aria-label="Outdent"><mat-icon>format_indent_decrease</mat-icon></button>
+                      <button class="mv" (click)="indent(i)" [disabled]="!canIndent(i)" matTooltip="Indent (nest under previous)" aria-label="Indent"><mat-icon>format_indent_increase</mat-icon></button>
+                      <button class="x" (click)="remove(i)" aria-label="Remove" matTooltip="Remove"><mat-icon>close</mat-icon></button>
                     </span>
                   </li>
                 }
@@ -102,6 +117,11 @@ interface PageItem { name: string; title: string }
     </div>
   `,
   styles: [`
+    button mat-icon { font-size:16px; width:16px; height:16px; vertical-align:middle; }
+    .navctrls .x, .row .x, .navctrls .mv { display:inline-grid; place-items:center; }
+    .grip { font-size:18px; width:18px; height:18px; }
+    .ic mat-icon { font-size:16px; width:16px; height:16px; }
+    .plus mat-icon { font-size:16px; width:16px; height:16px; }
     .wrap { padding:20px 24px; max-width:1100px; margin:0 auto; }
     .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
     .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; }
@@ -110,6 +130,7 @@ interface PageItem { name: string; title: string }
     .btn.primary { background:#6750a4; color:#fff; border-color:#6750a4; font-weight:600; } .btn[disabled] { opacity:.5; }
     .grid { display:grid; grid-template-columns:320px 1fr; gap:18px; }
     .card { border:1px solid rgba(120,120,140,.18); border-radius:14px; padding:16px; margin-bottom:16px; }
+    .mf { width:100%; display:block; }
     .eyebrow { font-size:11px; text-transform:uppercase; letter-spacing:.06em; opacity:.55; margin-bottom:10px; }
     .muted { opacity:.6; } .sm { font-size:12px; }
     .lbl { display:block; font-size:12px; font-weight:600; margin:10px 0 5px; opacity:.8; }

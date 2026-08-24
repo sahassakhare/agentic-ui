@@ -121,6 +121,36 @@ a { color: var(--brand); text-decoration: none; }
 a:hover { text-decoration: underline; }
 code, kbd, .mono { font-family: var(--font-mono); }
 
+/* Leading icon inside a mat-option (renders in a global overlay, so this must
+   be a global rule — component-scoped styles can't reach the overlay panel). */
+.opt-ic {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin-right: 6px;
+  color: var(--text-muted);
+}
+
+/* Self-hosted Material Icons: bind the ligature font directly to mat-icon so
+   glyphs always resolve, independent of the default font-set class timing.
+   (The Studio uses ligature icons only — no svgIcon — so this is safe.) */
+mat-icon {
+  font-family: 'Material Icons';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
 :where(a, button, input, textarea, select, summary):focus-visible {
   outline: none;
   box-shadow: var(--ring);

@@ -11,6 +11,8 @@ export interface StarterTemplate {
   readonly kind: 'form' | 'page';
   readonly title: string;
   readonly description: string;
+  /** Material icon ligature (self-hosted font). */
+  readonly icon: string;
   readonly glyph: string;
   /** Base for the generated capability name (a short unique suffix is appended). */
   readonly nameBase: string;
@@ -26,7 +28,7 @@ export const STARTER_ROUTE: Readonly<Record<StarterTemplate['kind'], string>> = 
 export const STARTER_TEMPLATES: readonly StarterTemplate[] = [
   // ── Forms ──────────────────────────────────────────────────────────────────
   {
-    id: 'contact-form', kind: 'form', title: 'Contact form', glyph: '✉',
+    id: 'contact-form', kind: 'form', title: 'Contact form', icon: 'mail', glyph: '✉',
     description: 'Name, email and message — the classic intake form.',
     nameBase: 'contact-form',
     body: {
@@ -41,7 +43,7 @@ export const STARTER_TEMPLATES: readonly StarterTemplate[] = [
     },
   },
   {
-    id: 'feedback-form', kind: 'form', title: 'Feedback form', glyph: '★',
+    id: 'feedback-form', kind: 'form', title: 'Feedback form', icon: 'star', glyph: '★',
     description: 'A rating plus free-text comments — quick sentiment capture.',
     nameBase: 'feedback-form',
     body: {
@@ -55,7 +57,7 @@ export const STARTER_TEMPLATES: readonly StarterTemplate[] = [
     },
   },
   {
-    id: 'signup-form', kind: 'form', title: 'Signup form', glyph: '⊕',
+    id: 'signup-form', kind: 'form', title: 'Signup form', icon: 'person_add', glyph: '⊕',
     description: 'Name, email, organization and a role selector.',
     nameBase: 'signup-form',
     body: {
@@ -72,19 +74,19 @@ export const STARTER_TEMPLATES: readonly StarterTemplate[] = [
   },
   // ── Pages ──────────────────────────────────────────────────────────────────
   {
-    id: 'two-column-page', kind: 'page', title: 'Two-column page', glyph: '▥',
+    id: 'two-column-page', kind: 'page', title: 'Two-column page', icon: 'view_column', glyph: '▥',
     description: 'A content page with left and right regions ready to fill.',
     nameBase: 'two-column-page',
     body: { title: 'Two-column page', type: 'content', layout: 'two-column', regions: { left: [], right: [] }, access: { personas: [], scopes: [] } },
   },
   {
-    id: 'sidebar-page', kind: 'page', title: 'Sidebar page', glyph: '▦',
+    id: 'sidebar-page', kind: 'page', title: 'Sidebar page', icon: 'view_sidebar', glyph: '▦',
     description: 'Main content with a right-hand sidebar region.',
     nameBase: 'sidebar-page',
     body: { title: 'Sidebar page', type: 'content', layout: 'sidebar-right', regions: { main: [], aside: [] }, access: { personas: [], scopes: [] } },
   },
   {
-    id: 'dashboard-grid-page', kind: 'page', title: 'Dashboard grid', glyph: '▤',
+    id: 'dashboard-grid-page', kind: 'page', title: 'Dashboard grid', icon: 'dashboard', glyph: '▤',
     description: 'A three-cell grid layout for a metrics dashboard.',
     nameBase: 'dashboard-page',
     body: { title: 'Dashboard', type: 'content', layout: 'grid', regions: { a: [], b: [], c: [] }, access: { personas: [], scopes: [] } },

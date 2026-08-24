@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { MatButtonModule } from '@angular/material/button';
 import { tokensToCssVars, DEFAULT_TOKENS, type TokenSet, type ThemeMode } from '@infra-tools/agentic-ui';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
@@ -29,7 +30,7 @@ const COLOR_FIELDS: ColorGroup[] = [
 @Component({
   selector: 'aes-token-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule],
   template: `
     <div class="wrap">
       <header class="head">
@@ -43,7 +44,7 @@ const COLOR_FIELDS: ColorGroup[] = [
         <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
           [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
-        <button class="btn primary" (click)="save()" [disabled]="saving()">Save theme</button>
+        <button matButton="filled" (click)="save()" [disabled]="saving()">Save theme</button>
       </header>
 
       @if (loading()) { <p class="muted">Loading…</p> }
@@ -51,7 +52,7 @@ const COLOR_FIELDS: ColorGroup[] = [
         <div class="grid">
           <section class="card editors">
             <div class="eyebrow">Colors · <b>{{ mode() }}</b> mode</div>
-            <button class="btn ghost sm gen" (click)="generateFromBrand()">✦ Generate ramp from brand</button>
+            <button matButton class="gen" (click)="generateFromBrand()">✦ Generate ramp from brand</button>
             @for (g of colorFields; track g.group) {
               <div class="cgroup">{{ g.group }}</div>
               <div class="cgrid">

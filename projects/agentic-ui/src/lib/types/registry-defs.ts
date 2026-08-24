@@ -422,8 +422,12 @@ export interface IntentDef extends RegistryEntry {
 export interface FormFieldUi {
   /** Render order; lower numbers render first. */
   readonly order?: number;
-  /** Input type override; defaults to text. */
-  readonly widget?: 'text' | 'textarea' | 'number' | 'select' | 'date' | 'checkbox';
+  /** Input type override; defaults to text. `radio` renders `options` as a
+   *  radio group; `range` renders a slider with a live value read-out. */
+  readonly widget?:
+    | 'text' | 'email' | 'tel' | 'url' | 'password'
+    | 'textarea' | 'number' | 'select' | 'radio'
+    | 'date' | 'time' | 'range' | 'checkbox';
   /** Placeholder text. */
   readonly placeholder?: string;
   /** Options for select widgets. */

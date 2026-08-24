@@ -515,6 +515,44 @@ describe('FormRendererComponent — schema mode (no regression)', () => {
     expect(labelTexts.some((t) => t.startsWith('Name'))).toBe(true);
     expect(labelTexts.some((t) => t.startsWith('Email'))).toBe(true);
   });
+
+  it('renders the extended native widgets (email/url/time/range/radio)', () => {
+    const forms = TestBed.inject(FormRegistry);
+    forms.register(
+      agenticForm({
+        name: 'widgetForm',
+        description: 'extended widgets',
+        fieldsSchema: z.object({
+          contactEmail: z.string(),
+          website: z.string(),
+          startTime: z.string(),
+          volume: z.number(),
+          priority: z.string(),
+        }),
+        ui: {
+          contactEmail: { widget: 'email' },
+          website: { widget: 'url' },
+          startTime: { widget: 'time' },
+          volume: { widget: 'range' },
+          priority: { widget: 'radio', options: [{ value: 'low', label: 'Low' }, { value: 'high', label: 'High' }] },
+        },
+        submit: () => undefined,
+      }) as FormDef,
+    );
+    const fixture = TestBed.createComponent(FormRendererComponent);
+    fixture.componentRef.setInput('formName', 'widgetForm');
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+
+    expect(el.querySelector('input[type=email]')).toBeTruthy();
+    expect(el.querySelector('input[type=url]')).toBeTruthy();
+    expect(el.querySelector('input[type=time]')).toBeTruthy();
+    expect(el.querySelector('input[type=range]')).toBeTruthy();
+    // radio renders as a fieldset/legend group (valid HTML — no nested labels).
+    const fieldset = el.querySelector('fieldset.field-radio');
+    expect(fieldset).toBeTruthy();
+    expect(fieldset!.querySelectorAll('input[type=radio]').length).toBe(2);
+  });
 });
 
 describe('FormRendererComponent — multi-action bar', () => {

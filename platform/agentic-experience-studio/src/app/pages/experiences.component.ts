@@ -4,6 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { ExperienceCatalogService, type CapabilityRequirement, type Experience } from '../services/experience-catalog.service';
 import { ToastService } from '../services/toast.service';
 import { RequirementsBuilderComponent } from '../requirements-builder.component';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 
 type StateFilter = 'all' | 'draft' | 'review' | 'approved' | 'rejected' | 'deprecated';
 const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', 'rejected', 'deprecated'];
@@ -15,7 +20,7 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
  */
 @Component({
   selector: 'aes-experiences',
-  imports: [RouterLink, FormsModule, RequirementsBuilderComponent],
+  imports: [MatProgressSpinnerModule, RouterLink, FormsModule, RequirementsBuilderComponent, MatFormFieldModule, MatInputModule, MatButtonModule, MatButtonToggleModule],
   template: `
     <div class="page">
       <div class="page-header">
@@ -34,47 +39,45 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
       @if (createOpen()) {
         <form class="card card-pad create" (ngSubmit)="create()">
           <div class="grid-2">
-            <div class="field">
-              <label class="label" for="e-name">Name (id) <span class="req" aria-hidden="true">*</span></label>
-              <input class="input" id="e-name" name="name" [(ngModel)]="newName" placeholder="legalIntake"
-                     [attr.aria-invalid]="touched() && !newName.trim()" autocomplete="off" spellcheck="false" />
-              @if (touched() && !newName.trim()) { <span class="err">A unique name is required.</span> }
-            </div>
-            <div class="field">
-              <label class="label" for="e-title">Title <span class="req" aria-hidden="true">*</span></label>
-              <input class="input" id="e-title" name="title" [(ngModel)]="newTitle" placeholder="Legal Intake"
-                     [attr.aria-invalid]="touched() && !newTitle.trim()" autocomplete="off" />
-              @if (touched() && !newTitle.trim()) { <span class="err">A title is required.</span> }
-            </div>
-            <div class="field" style="grid-column:1 / -1">
-              <label class="label" for="e-goal">Goal <span class="req" aria-hidden="true">*</span></label>
-              <input class="input" id="e-goal" name="goal" [(ngModel)]="newGoal" placeholder="Create Legal Matter"
-                     [attr.aria-invalid]="touched() && !newGoal.trim()" />
-              @if (touched() && !newGoal.trim()) { <span class="err">A goal is required.</span> }
-            </div>
+            <mat-form-field appearance="outline" class="mf">
+              <mat-label>Name (id)</mat-label>
+              <input matInput name="name" [(ngModel)]="newName" placeholder="legalIntake" autocomplete="off" spellcheck="false" required />
+              @if (touched() && !newName.trim()) { <mat-error>A unique name is required.</mat-error> }
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="mf">
+              <mat-label>Title</mat-label>
+              <input matInput name="title" [(ngModel)]="newTitle" placeholder="Legal Intake" autocomplete="off" required />
+              @if (touched() && !newTitle.trim()) { <mat-error>A title is required.</mat-error> }
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="mf" style="grid-column:1 / -1">
+              <mat-label>Goal</mat-label>
+              <input matInput name="goal" [(ngModel)]="newGoal" placeholder="Create Legal Matter" required />
+              @if (touched() && !newGoal.trim()) { <mat-error>A goal is required.</mat-error> }
+            </mat-form-field>
             <div class="field" style="grid-column:1 / -1">
               <label class="label">Requirements <span class="help">— pick a kind, then a registry entry of that kind</span></label>
               <aes-requirements-builder [initial]="[]" (requirementsChange)="newRequires = $event" />
             </div>
           </div>
           <div class="row" style="margin-top:var(--s5)">
-            <button class="btn btn-primary" type="submit" [disabled]="saving()">
-              @if (saving()) { <span class="spinner" aria-hidden="true"></span> Creating… } @else { Create as draft }
+            <button matButton="filled" type="submit" [disabled]="saving()">
+              @if (saving()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Creating… } @else { Create as draft }
             </button>
-            <button class="btn btn-ghost" type="button" (click)="cancelCreate()">Cancel</button>
+            <button matButton type="button" (click)="cancelCreate()">Cancel</button>
           </div>
         </form>
       }
 
       <div class="toolbar">
-        <div class="segmented" role="tablist" aria-label="Filter by approval state">
+        <mat-button-toggle-group class="segmented" [value]="filter()" (change)="filter.set($event.value)"
+          hideSingleSelectionIndicator aria-label="Filter by approval state">
           @for (f of filters; track f) {
-            <button role="tab" [attr.aria-selected]="filter() === f" class="seg" [class.on]="filter() === f" (click)="filter.set(f)">
+            <mat-button-toggle [value]="f">
               {{ f }}
               @if (f !== 'all') { <span class="seg-count">{{ countOf(f) }}</span> }
-            </button>
+            </mat-button-toggle>
           }
-        </div>
+        </mat-button-toggle-group>
         <div class="search spacer" style="max-width:300px; flex:1">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           <input class="input" type="search" [(ngModel)]="query" aria-label="Search experiences" placeholder="Search experiences…" />
@@ -129,15 +132,13 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
     </div>
   `,
   styles: [`
+    .btn-spin { --mdc-circular-progress-active-indicator-color: currentColor; display:inline-block; vertical-align:middle; margin-right:6px; }
     .create { margin-bottom: var(--s5); }
+    .mf { width: 100%; }
     .toolbar { display: flex; align-items: center; gap: var(--s4); margin: var(--s5) 0 var(--s4); flex-wrap: wrap; }
-    .segmented { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-sm); }
-    .seg { font: inherit; font-size: var(--fs-sm); text-transform: capitalize; color: var(--text-muted);
-      background: transparent; border: 0; border-radius: 5px; padding: .3rem .6rem; cursor: pointer; display: inline-flex; align-items: center; gap: var(--s2); }
-    .seg:hover { color: var(--text); }
-    .seg.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); font-weight: 600; }
-    .seg-count { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint); background: var(--surface-2); padding: 0 .35rem; border-radius: var(--r-full); }
-    .seg.on .seg-count { background: var(--brand-soft); color: var(--brand); }
+    .segmented { text-transform: capitalize; }
+    .seg-count { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--text-faint); background: var(--surface-2); padding: 0 .35rem; border-radius: var(--r-full); margin-left: var(--s2); }
+    .segmented .mat-button-toggle-checked .seg-count { background: var(--brand-soft); color: var(--brand); }
     .rowcard.exp { padding: 0; }
     .rowcard.exp .main { flex: 1; display: block; padding: var(--s4); color: inherit; text-decoration: none; min-width: 0; }
     .rowcard.exp .main:hover { text-decoration: none; }

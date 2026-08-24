@@ -1,6 +1,16 @@
 import { ChangeDetectionStrategy, Component, computed, HostListener, inject, input, signal } from '@angular/core';
 import { CdkDrag, CdkDragHandle, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { CodeViewComponent } from '../components/code-view.component';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
@@ -39,7 +49,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
 @Component({
   selector: 'aes-workflow-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule],
+  imports: [MatProgressSpinnerModule, FormsModule, RouterLink, JourneyFlowComponent, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, CdkDragHandle, MatTooltipModule, MatButtonModule, MatIconModule, MatChipsModule, MatButtonToggleModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, CodeViewComponent],
   template: `
     <div class="page wide">
       <a routerLink="/workflows" class="back">
@@ -54,8 +64,8 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
         <div style="display:flex; gap:var(--s3); align-items:center">
           <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
             [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
-          <button class="btn btn-primary" type="button" (click)="save()" [disabled]="saving()">
-            @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… } @else { Save workflow }
+          <button matButton="filled" type="button" (click)="save()" [disabled]="saving()">
+            @if (saving()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Saving… } @else { Save workflow }
           </button>
         </div>
       </div>
@@ -65,7 +75,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
           <div class="eyebrow">Validation · {{ errorCount() }} error{{ errorCount() === 1 ? '' : 's' }}, {{ warnCount() }} warning{{ warnCount() === 1 ? '' : 's' }}</div>
           <ul>
             @for (iss of issues(); track $index) {
-              <li [class.err]="iss.level === 'error'"><span class="dot">{{ iss.level === 'error' ? '✕' : '⚠' }}</span> {{ iss.message }}</li>
+              <li [class.err]="iss.level === 'error'"><mat-icon class="dot">{{ iss.level === 'error' ? 'error' : 'warning' }}</mat-icon> {{ iss.message }}</li>
             }
           </ul>
         </div>
@@ -74,12 +84,15 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
       <div class="designer">
         <aside class="palette card card-pad">
           <div class="eyebrow" style="margin-bottom:var(--s2)">Components &amp; forms</div>
-          <input class="input" [(ngModel)]="q" placeholder="Search…" autocomplete="off" />
+          <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af" style="width:100%">
+            <mat-label>Search…</mat-label>
+            <input matInput [(ngModel)]="q" autocomplete="off" />
+          </mat-form-field>
           <div class="pal-list" cdkDropList id="wf-palette" [cdkDropListData]="paletteSource"
                [cdkDropListConnectedTo]="['wf-canvas']" [cdkDropListSortingDisabled]="true">
             @for (c of palette(); track c.name) {
               <div class="pal-item" cdkDrag [cdkDragData]="c.name">
-                <span class="grip">⋮⋮</span> {{ c.name }} <span class="kind">{{ c.kind }}</span>
+                <mat-icon class="grip">drag_indicator</mat-icon> {{ c.name }} <span class="kind">{{ c.kind }}</span>
               </div>
             }
           </div>
@@ -89,35 +102,45 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
           <div class="eyebrow rowbar" style="margin-bottom:var(--s3)">
             <span>Canvas · {{ steps().length }} step{{ steps().length === 1 ? '' : 's' }}</span>
             <span class="hbtns">
-              <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" matTooltip="Undo (⌘Z)" aria-label="Undo">↶</button>
-              <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" matTooltip="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
+              <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" matTooltip="Undo (⌘Z)" aria-label="Undo"><mat-icon>undo</mat-icon></button>
+              <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" matTooltip="Redo (⌘⇧Z)" aria-label="Redo"><mat-icon>redo</mat-icon></button>
             </span>
           </div>
           @if (!steps().length) { <div class="drop-empty">Drag components here to add steps.</div> }
           @for (s of steps(); track s.id; let i = $index) {
             <div class="step" [class.decision]="s.decision" cdkDrag [cdkDragData]="i">
               <div class="srow">
-                <span class="grip" cdkDragHandle>⋮⋮</span>
+                <mat-icon class="grip" cdkDragHandle>drag_indicator</mat-icon>
                 <span class="num">{{ s.decision ? '◇' : i + 1 }}</span>
-                <input class="input flex" [ngModel]="s.section" (ngModelChange)="patch(i, { section: $event })" placeholder="Step title" />
-                <span class="wchip">⛃ {{ s.widget }}</span>
-                <label class="dec"><input type="checkbox" [ngModel]="s.decision" (ngModelChange)="patch(i, { decision: $event })" /> decision</label>
-                <button class="rm" type="button" (click)="remove(i)" aria-label="Remove">✕</button>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex">
+                  <mat-label>Step title</mat-label>
+                  <input matInput [ngModel]="s.section" (ngModelChange)="patch(i, { section: $event })" />
+                </mat-form-field>
+                <mat-chip-set class="wchip-set"><mat-chip class="wchip"><mat-icon matChipAvatar>widgets</mat-icon>{{ s.widget }}</mat-chip></mat-chip-set>
+                <mat-checkbox [ngModel]="s.decision" (ngModelChange)="patch(i, { decision: $event })">decision</mat-checkbox>
+                <button class="rm" type="button" (click)="remove(i)" aria-label="Remove"><mat-icon>close</mat-icon></button>
               </div>
               @if (s.decision) {
                 <div class="branches">
                   <div class="branch">
                     <span class="when">branch on</span>
-                    <select class="input o" style="width:auto" [ngModel]="s.mode" (ngModelChange)="patch(i, { mode: $event })">
-                      <option value="state">state fields</option>
-                      <option value="decision">a decision</option>
-                    </select>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af o">
+                      <mat-select [ngModel]="s.mode" (ngModelChange)="patch(i, { mode: $event })">
+                        <mat-option value="state">state fields</mat-option>
+                        <mat-option value="decision">a decision</mat-option>
+                      </mat-select>
+                    </mat-form-field>
                     @if (s.mode === 'decision') {
-                      <select class="input g" [ngModel]="s.decisionRef" (ngModelChange)="patch(i, { decisionRef: $event })" title="Governed decision to evaluate">
-                        <option value="" disabled>decision…</option>
-                        @for (d of decisions(); track d.name) { <option [value]="d.name">◆ {{ d.name }}</option> }
-                      </select>
-                      <input class="input f" [ngModel]="s.output" (ngModelChange)="patch(i, { output: $event })" placeholder="output (opt)" title="Which decision output to branch on (blank = first)" />
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af g">
+                        <mat-label>Decision</mat-label>
+                        <mat-select [ngModel]="s.decisionRef" (ngModelChange)="patch(i, { decisionRef: $event })">
+                          @for (d of decisions(); track d.name) { <mat-option [value]="d.name"><mat-icon class="opt-ic">rule</mat-icon> {{ d.name }}</mat-option> }
+                        </mat-select>
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af f">
+                        <mat-label>Output</mat-label>
+                        <input matInput [ngModel]="s.output" (ngModelChange)="patch(i, { output: $event })" placeholder="opt" />
+                      </mat-form-field>
                     }
                   </div>
                 </div>
@@ -127,22 +150,30 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                   @for (c of s.cases; track $index; let ci = $index) {
                     <div class="branch">
                       <span class="when">when =</span>
-                      <input class="input v" [ngModel]="c.value" (ngModelChange)="patchCase(i, ci, { value: $event })" placeholder="output value" />
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af v">
+                        <mat-label>value</mat-label>
+                        <input matInput [ngModel]="c.value" (ngModelChange)="patchCase(i, ci, { value: $event })" />
+                      </mat-form-field>
                       <span class="arr">→</span>
-                      <select class="input g" [ngModel]="c.goto" (ngModelChange)="patchCase(i, ci, { goto: $event })">
-                        <option value="" disabled>go to…</option>
-                        @for (t of steps(); track t.id) { <option [value]="t.id">{{ t.section || t.id }}</option> }
-                      </select>
-                      <button class="rm sm" type="button" (click)="removeCase(i, ci)">✕</button>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af g">
+                        <mat-label>go to</mat-label>
+                        <mat-select [ngModel]="c.goto" (ngModelChange)="patchCase(i, ci, { goto: $event })">
+                          @for (t of steps(); track t.id) { <mat-option [value]="t.id">{{ t.section || t.id }}</mat-option> }
+                        </mat-select>
+                      </mat-form-field>
+                      <button class="rm sm" type="button" (click)="removeCase(i, ci)"><mat-icon>close</mat-icon></button>
                     </div>
                   }
                   <div class="branch">
                     <span class="when">else →</span>
-                    <select class="input g" [ngModel]="s.defaultNext" (ngModelChange)="patch(i, { defaultNext: $event })">
-                      <option value="">End</option>
-                      @for (t of steps(); track t.id) { <option [value]="t.id">{{ t.section || t.id }}</option> }
-                    </select>
-                    <button class="btn btn-ghost btn-sm" type="button" (click)="addCase(i)">+ Case</button>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af g">
+                      <mat-label>default</mat-label>
+                      <mat-select [ngModel]="s.defaultNext" (ngModelChange)="patch(i, { defaultNext: $event })">
+                        <mat-option value="">End</mat-option>
+                        @for (t of steps(); track t.id) { <mat-option [value]="t.id">{{ t.section || t.id }}</mat-option> }
+                      </mat-select>
+                    </mat-form-field>
+                    <button matButton type="button" (click)="addCase(i)">+ Case</button>
                   </div>
                 </div>
                 }
@@ -151,28 +182,41 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
                   @for (br of s.branches; track $index; let bi = $index) {
                     <div class="branch">
                       <span class="when">when</span>
-                      <input class="input f" [ngModel]="br.field" (ngModelChange)="patchBranch(i, bi, { field: $event })" placeholder="field" />
-                      <select class="input o" [ngModel]="br.op" (ngModelChange)="patchBranch(i, bi, { op: $event })">
-                        @for (o of ops; track o) { <option [value]="o">{{ o }}</option> }
-                      </select>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af f">
+                        <mat-label>field</mat-label>
+                        <input matInput [ngModel]="br.field" (ngModelChange)="patchBranch(i, bi, { field: $event })" />
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af o">
+                        <mat-select [ngModel]="br.op" (ngModelChange)="patchBranch(i, bi, { op: $event })">
+                          @for (o of ops; track o) { <mat-option [value]="o">{{ o }}</mat-option> }
+                        </mat-select>
+                      </mat-form-field>
                       @if (br.op !== 'truthy' && br.op !== 'falsy') {
-                        <input class="input v" [ngModel]="br.value" (ngModelChange)="patchBranch(i, bi, { value: $event })" placeholder="value" />
+                        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af v">
+                          <mat-label>value</mat-label>
+                          <input matInput [ngModel]="br.value" (ngModelChange)="patchBranch(i, bi, { value: $event })" />
+                        </mat-form-field>
                       }
                       <span class="arr">→</span>
-                      <select class="input g" [ngModel]="br.goto" (ngModelChange)="patchBranch(i, bi, { goto: $event })">
-                        <option value="" disabled>go to…</option>
-                        @for (t of steps(); track t.id) { <option [value]="t.id">{{ t.section || t.id }}</option> }
-                      </select>
-                      <button class="rm sm" type="button" (click)="removeBranch(i, bi)">✕</button>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af g">
+                        <mat-label>go to</mat-label>
+                        <mat-select [ngModel]="br.goto" (ngModelChange)="patchBranch(i, bi, { goto: $event })">
+                          @for (t of steps(); track t.id) { <mat-option [value]="t.id">{{ t.section || t.id }}</mat-option> }
+                        </mat-select>
+                      </mat-form-field>
+                      <button class="rm sm" type="button" (click)="removeBranch(i, bi)"><mat-icon>close</mat-icon></button>
                     </div>
                   }
                   <div class="branch">
                     <span class="when">else →</span>
-                    <select class="input g" [ngModel]="s.defaultNext" (ngModelChange)="patch(i, { defaultNext: $event })">
-                      <option value="">End</option>
-                      @for (t of steps(); track t.id) { <option [value]="t.id">{{ t.section || t.id }}</option> }
-                    </select>
-                    <button class="btn btn-ghost btn-sm" type="button" (click)="addBranch(i)">+ Branch</button>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af g">
+                      <mat-label>default</mat-label>
+                      <mat-select [ngModel]="s.defaultNext" (ngModelChange)="patch(i, { defaultNext: $event })">
+                        <mat-option value="">End</mat-option>
+                        @for (t of steps(); track t.id) { <mat-option [value]="t.id">{{ t.section || t.id }}</mat-option> }
+                      </mat-select>
+                    </mat-form-field>
+                    <button matButton type="button" (click)="addBranch(i)">+ Branch</button>
                   </div>
                 </div>
               }
@@ -181,8 +225,17 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
         </div>
 
         <div class="preview card card-pad">
-          <div class="eyebrow" style="margin-bottom:var(--s3)">Live journey</div>
-          @if (resolved().length) { <aes-journey-flow [steps]="resolved()" /> }
+          <div class="row" style="justify-content:space-between; align-items:center; margin-bottom:var(--s3)">
+            <div class="eyebrow" style="margin-bottom:0">{{ previewMode() === 'code' ? 'Workflow JSON' : 'Live journey' }}</div>
+            <mat-button-toggle-group [value]="previewMode()" (change)="previewMode.set($event.value)"
+              hideSingleSelectionIndicator aria-label="Preview mode" style="--mat-standard-button-toggle-height:30px; font-size:12px">
+              <mat-button-toggle value="flow" matTooltip="Journey diagram">Journey</mat-button-toggle>
+              <mat-button-toggle value="code" matTooltip="View the workflow JSON">Code</mat-button-toggle>
+            </mat-button-toggle-group>
+          </div>
+          @if (previewMode() === 'code') {
+            <aes-code-view [value]="currentBody()" [label]="wf()?.name ?? 'workflow'" />
+          } @else if (resolved().length) { <aes-journey-flow [steps]="resolved()" /> }
           @else { <div class="muted" style="font-size:var(--fs-sm)">Add steps to see the journey.</div> }
         </div>
       </div>
@@ -190,6 +243,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
     </div>
   `,
   styles: [`
+    .btn-spin { --mdc-circular-progress-active-indicator-color: currentColor; display:inline-block; vertical-align:middle; margin-right:6px; }
     .back { display:inline-flex; align-items:center; gap:var(--s1); color:var(--text-muted); font-size:var(--fs-sm); text-decoration:none; }
     .back:hover { color:var(--text); }
     .designer { display:grid; grid-template-columns: 240px minmax(0, 1fr) minmax(360px, 460px); gap:var(--s4); align-items:start; }
@@ -200,7 +254,7 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
     .pal-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:var(--r-sm);
       background:var(--surface-2); font-size:var(--fs-sm); font-family:var(--font-mono); cursor:grab; }
     .pal-item:hover { border-color:var(--brand); color:var(--brand); } .pal-item .kind { margin-left:auto; font-size:10px; opacity:.6; }
-    .grip { color:var(--text-faint); letter-spacing:-2px; }
+    .grip { color:var(--text-faint); font-size:18px; width:18px; height:18px; }
     .canvas { min-height:280px; display:flex; flex-direction:column; gap:var(--s2); }
     .drop-empty { border:2px dashed var(--border); border-radius:var(--r-md); padding:var(--s6); text-align:center; color:var(--text-muted); font-size:var(--fs-sm); }
     .step { border:1px solid var(--border); border-radius:var(--r-sm); padding:8px; background:var(--surface); }
@@ -209,7 +263,10 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
     .num { width:24px; height:24px; border-radius:50%; background:var(--brand-soft); color:var(--brand); display:grid; place-items:center; font-size:var(--fs-xs); font-weight:650; flex:none; }
     .step.decision .num { background:var(--warn-soft); color:var(--warn); }
     .srow .flex { flex:1; min-width:0; } .srow .input { padding:7px 9px; font-size:var(--fs-sm); }
-    .wchip { font-family:var(--font-mono); font-size:10px; color:var(--brand); background:var(--brand-soft); padding:2px 7px; border-radius:var(--r-full); white-space:nowrap; }
+    .wchip-set { display:inline-flex; }
+    .wchip.mat-mdc-chip { --mdc-chip-container-height:22px; --mdc-chip-elevated-container-color:var(--brand-soft); --mdc-chip-label-text-color:var(--brand);
+      font-family:var(--font-mono); font-size:10px; }
+    .wchip .mat-mdc-chip-avatar { font-size:13px; width:13px; height:13px; color:var(--brand); }
     .dec { display:inline-flex; align-items:center; gap:5px; font-size:var(--fs-xs); color:var(--text-muted); white-space:nowrap; }
     .rm { border:1px solid var(--border); background:var(--surface); border-radius:var(--r-sm); width:26px; height:26px; cursor:pointer; color:var(--text-muted); }
     .rm:hover { border-color:var(--danger); color:var(--danger); } .rm.sm { width:22px; height:22px; }
@@ -232,7 +289,11 @@ const OPS = ['==', '!=', 'in', 'truthy', 'falsy'] as const;
     .issues.has-err { border-left-color:var(--danger); }
     .issues ul { list-style:none; margin:var(--s2) 0 0; padding:0; display:flex; flex-direction:column; gap:4px; }
     .issues li { font-size:var(--fs-sm); color:var(--warn); display:flex; gap:7px; align-items:baseline; }
-    .issues li.err { color:var(--danger); } .issues .dot { font-size:11px; }
+    .issues li.err { color:var(--danger); }
+    .issues .dot { font-size:15px; width:15px; height:15px; vertical-align:middle; color:var(--warn); }
+    .issues li.err .dot { color:var(--danger); }
+    .rm, .hb { display:inline-grid; place-items:center; }
+    .rm mat-icon, .hb mat-icon { font-size:15px; width:15px; height:15px; }
   `],
 })
 export class WorkflowDesignerComponent implements HasUnsavedChanges {
@@ -266,6 +327,15 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
   readonly issues = computed(() => validateWorkflow(this.resolved()));
   readonly errorCount = computed(() => this.issues().filter((i) => i.level === 'error').length);
   readonly warnCount = computed(() => this.issues().filter((i) => i.level === 'warn').length);
+
+  /** Preview mode: the journey diagram, or the workflow JSON body. */
+  protected readonly previewMode = signal<'flow' | 'code'>('flow');
+  /** The workflow body as it would be saved — drives the Code preview. */
+  protected readonly currentBody = computed<Record<string, unknown>>(() => {
+    const base = { ...(this.wf()?.body ?? {}) } as Record<string, unknown>;
+    delete base['steps']; // canonicalize on workflow.steps
+    return { ...base, workflow: { steps: this.resolved() } };
+  });
 
   /** Resolve drafts → JourneyFlowStep[] (next auto-chains, or encodes branches). */
   readonly resolved = computed<JourneyFlowStep[]>(() => {

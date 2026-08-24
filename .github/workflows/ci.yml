@@ -16,6 +16,32 @@ permissions:
   contents: read
 
 jobs:
+  # Guard against library drift: publish.yml releases each package at whatever
+  # version its package.json holds and skips versions already on npm, so a lib
+  # change that forgets to bump its version silently never ships. Fail the PR
+  # when a publishable package's source changed but its version did not.
+  lib-version-guard:
+    name: Library version guard
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 5
+    steps:
+      - name: Checkout (full history for base diff)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19'
+
+      - name: Fetch base branch
+        run: git fetch origin "${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}" --depth=1 || true
+
+      - name: Check publishable packages were bumped when changed
+        run: node scripts/check-lib-versions.mjs
+
   build-and-test:
     name: Build + test (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
@@ -129,6 +155,13 @@ jobs:
 
       - name: Bundle-size guard (lib FESM under 864 KB)
         run: |
+          # Cap raised 864 KB → 896 KB for fuller mvk-form-renderer field
+          # coverage (email/tel/url/password/time/range native inputs + a radio
+          # fieldset + a11y aria-required/invalid), propagated from the Studio's
+          # form UX but kept Material-free (the lib has no Material peer dep).
+          # Measured: baseline ~859 KB → ~866 KB (+7 KB); 896 KB leaves ~30 KB
+          # headroom — same convention as prior raises. Tree-shaking holds
+          # (sideEffects:false) — apps that don't import mvk-form-renderer don't pay.
           # Cap raised 800 KB → 864 KB for the AEP Seam-D Experience Platform:
           # ExperiencePlanner (deterministic pre-plan → capability graph → access
           # gate → bundle), resolveCapabilityGraph, the Experience / Navigation /
@@ -179,8 +212,8 @@ jobs:
           # Lower this back if a refactor materially shrinks the surface.
           size=$(wc -c < dist/agentic-ui/fesm2022/infra-tools-agentic-ui.mjs)
           echo "FESM size: $size bytes"
-          if [ "$size" -gt 884736 ]; then
-            echo "::error::Lib FESM exceeded 864 KB ($size B). Investigate before merging."
+          if [ "$size" -gt 917504 ]; then
+            echo "::error::Lib FESM exceeded 896 KB ($size B). Investigate before merging."
             exit 1
           fi
 

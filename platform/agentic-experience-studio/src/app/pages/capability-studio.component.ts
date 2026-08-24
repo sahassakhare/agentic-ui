@@ -1,5 +1,15 @@
 import { Component, computed, inject, input, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatIconModule } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { CodeViewComponent } from '../components/code-view.component';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { CapabilityGraphService, type Usage } from '../services/capability-graph.service';
@@ -45,7 +55,7 @@ export interface StudioConfig {
  */
 @Component({
   selector: 'aes-capability-studio',
-  imports: [FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent],
+  imports: [MatProgressSpinnerModule, FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatIconModule, MatChipsModule, MatTooltipModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, CodeViewComponent],
   template: `
     <div class="page">
       <div class="page-header">
@@ -56,8 +66,8 @@ export interface StudioConfig {
             An Experience resolves against whatever is published here.</p>
         </div>
         <div class="row" style="gap:var(--s2); align-items:center">
-          @if (cfg().kind === 'component') { <a class="btn" routerLink="/components/upload">⬆ Upload library</a> }
-          <button class="btn btn-primary" type="button" (click)="toggleCreate()" [attr.aria-expanded]="createOpen()">
+          @if (cfg().kind === 'component') { <a matButton="outlined" routerLink="/components/upload">⬆ Upload library</a> }
+          <button matButton="filled" type="button" (click)="toggleCreate()" [attr.aria-expanded]="createOpen()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             New {{ cfg().noun }}
           </button>
@@ -76,48 +86,39 @@ export interface StudioConfig {
         <form class="card card-pad create" (ngSubmit)="save()">
           @if (editTarget()) { <div class="eyebrow" style="margin-bottom:var(--s3)">Editing · {{ editTarget()!.name }}</div> }
           <div class="grid-2">
-            <div class="field" [class.wide]="false">
-              <label class="label" [attr.for]="fid('name')">Name (id) @if (!editTarget()) { <span class="req" aria-hidden="true">*</span> }</label>
-              <input class="input" [id]="fid('name')" name="name" [(ngModel)]="values['name']" [disabled]="!!editTarget()"
-                     [attr.aria-invalid]="touched() && !editTarget() && !nameValid()" [placeholder]="cfg().noun + 'Name'"
-                     autocomplete="off" spellcheck="false" />
-              @if (editTarget()) { <span class="help">Name and kind are immutable.</span> }
-              @else if (touched() && !nameValid()) { <span class="err">A unique name is required.</span> }
-            </div>
+            <mat-form-field appearance="outline" class="mf">
+              <mat-label>Name (id)</mat-label>
+              <input matInput name="name" [(ngModel)]="values['name']" [disabled]="!!editTarget()"
+                     [placeholder]="cfg().noun + 'Name'" autocomplete="off" spellcheck="false" />
+              @if (editTarget()) { <mat-hint>Name and kind are immutable.</mat-hint> }
+              @else if (touched() && !nameValid()) { <mat-hint class="err-hint">A unique name is required.</mat-hint> }
+            </mat-form-field>
             @for (f of cfg().bodyFields; track f.key) {
-              <div class="field" [style.grid-column]="isWide(f) ? '1 / -1' : null">
-                <label class="label" [attr.for]="fid(f.key)">
-                  {{ f.label }} @if (f.required) { <span class="req" aria-hidden="true">*</span> }
-                </label>
-                @switch (f.type) {
-                  @case ('textarea') {
-                    <textarea class="textarea" rows="4" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]"
-                      [attr.aria-invalid]="touched() && f.required && !filled(f.key)" [placeholder]="f.placeholder ?? ''"></textarea>
+              @if (f.type === 'checkbox') {
+                <mat-checkbox class="field" [style.grid-column]="isWide(f) ? '1 / -1' : null" [name]="f.key" [(ngModel)]="values[f.key]">{{ f.label }}</mat-checkbox>
+              } @else {
+                <mat-form-field appearance="outline" class="mf" [style.grid-column]="isWide(f) ? '1 / -1' : null">
+                  <mat-label>{{ f.label }}</mat-label>
+                  @switch (f.type) {
+                    @case ('textarea') {
+                      <textarea matInput rows="4" [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''"></textarea>
+                    }
+                    @case ('list') {
+                      <textarea matInput rows="2" [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''"></textarea>
+                    }
+                    @case ('json') {
+                      <textarea matInput class="mono" rows="10" [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? '{ }'" spellcheck="false" autocomplete="off"></textarea>
+                    }
+                    @case ('number') {
+                      <input matInput type="number" [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''" />
+                    }
+                    @default {
+                      <input matInput [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''" autocomplete="off" />
+                    }
                   }
-                  @case ('list') {
-                    <textarea class="textarea" rows="2" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]"
-                      [attr.aria-invalid]="touched() && f.required && !filled(f.key)" [placeholder]="f.placeholder ?? ''"></textarea>
-                    <span class="help">Separate with spaces or commas.</span>
-                  }
-                  @case ('json') {
-                    <textarea class="textarea mono" rows="10" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]"
-                      [attr.aria-invalid]="!jsonOk(f.key)" [placeholder]="f.placeholder ?? '{ }'" spellcheck="false" autocomplete="off"></textarea>
-                    @if (!jsonOk(f.key)) { <span class="err">Invalid JSON.</span> }
-                    @else { <span class="help">Declarative JSON — the same shape the renderer, agents, and cross-registry composition consume.</span> }
-                  }
-                  @case ('checkbox') {
-                    <label class="checkbox"><input type="checkbox" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]" /> Enabled</label>
-                  }
-                  @case ('number') {
-                    <input class="input" type="number" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]" [placeholder]="f.placeholder ?? ''" />
-                  }
-                  @default {
-                    <input class="input" [id]="fid(f.key)" [name]="f.key" [(ngModel)]="values[f.key]"
-                      [attr.aria-invalid]="touched() && f.required && !filled(f.key)" [placeholder]="f.placeholder ?? ''" autocomplete="off" />
-                  }
-                }
-                @if (touched() && f.required && !filled(f.key)) { <span class="err">{{ f.label }} is required.</span> }
-              </div>
+                  @if (fieldHint(f); as h) { <mat-hint [class.err-hint]="isErrHint(f)">{{ h }}</mat-hint> }
+                </mat-form-field>
+              }
             }
           </div>
 
@@ -135,11 +136,11 @@ export interface StudioConfig {
           }
 
           <div class="row" style="margin-top:var(--s5)">
-            <button class="btn btn-primary" type="submit" [disabled]="saving()">
-              @if (saving()) { <span class="spinner" aria-hidden="true"></span> Saving… }
+            <button matButton="filled" type="submit" [disabled]="saving()">
+              @if (saving()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Saving… }
               @else if (editTarget()) { Save changes } @else { Create {{ cfg().noun }} }
             </button>
-            <button class="btn btn-ghost" type="button" (click)="cancelForm()">Cancel</button>
+            <button matButton type="button" (click)="cancelForm()">Cancel</button>
           </div>
         </form>
       }
@@ -147,7 +148,10 @@ export interface StudioConfig {
       <div class="toolbar">
         <div class="search">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <input class="input" type="search" [(ngModel)]="query" [attr.aria-label]="'Search ' + cfg().noun + 's'" [placeholder]="'Search ' + cfg().noun + 's…'" />
+          <mat-form-field appearance="outline" class="mf search-mf" subscriptSizing="dynamic">
+            <mat-label>Search {{ cfg().noun }}s</mat-label>
+            <input matInput type="search" [(ngModel)]="query" />
+          </mat-form-field>
         </div>
         <span class="count faint">{{ filtered().length }} of {{ items().length }}</span>
       </div>
@@ -161,7 +165,7 @@ export interface StudioConfig {
           <div class="empty-icon" style="background:var(--danger-soft);color:var(--danger)">!</div>
           <h3>Couldn’t load {{ cfg().noun }}s</h3>
           <p class="muted">{{ error() }}</p>
-          <button class="btn" type="button" (click)="refresh()">Retry</button>
+          <button matButton="outlined" type="button" (click)="refresh()">Retry</button>
         </div>
       } @else if (items().length === 0) {
         <div class="empty">
@@ -170,13 +174,13 @@ export interface StudioConfig {
           </div>
           <h3>No {{ cfg().noun }}s yet</h3>
           <p>Create your first {{ cfg().noun }} — it becomes available to every Experience in this tenant.</p>
-          <button class="btn btn-primary" type="button" (click)="openCreate()">New {{ cfg().noun }}</button>
+          <button matButton="filled" type="button" (click)="openCreate()">New {{ cfg().noun }}</button>
         </div>
       } @else if (filtered().length === 0) {
         <div class="empty">
           <h3>No matches</h3>
           <p>Nothing matches “{{ query() }}”.</p>
-          <button class="btn btn-ghost" type="button" (click)="query.set('')">Clear search</button>
+          <button matButton type="button" (click)="query.set('')">Clear search</button>
         </div>
       } @else {
         <ul class="rows">
@@ -191,38 +195,50 @@ export interface StudioConfig {
                 @let u = usageOf(c);
                 @if (u.uses.length || u.usedBy.length || u.unmet.length) {
                   <button type="button" class="usebtn" (click)="toggleUsage(c)" [attr.aria-expanded]="expandedUsage() === c.kind + ':' + c.name">
-                    @if (u.uses.length) { <span title="Composed of">↳ uses {{ u.uses.length }}</span> }
-                    @if (u.usedBy.length) { <span title="Referenced by">↰ used by {{ u.usedBy.length }}</span> }
-                    @if (u.unmet.length) { <span class="unmet" title="References that aren't defined">⚠ {{ u.unmet.length }} unmet</span> }
+                    @if (u.uses.length) { <span title="Composed of"><mat-icon class="ub-ic">subdirectory_arrow_right</mat-icon> uses {{ u.uses.length }}</span> }
+                    @if (u.usedBy.length) { <span title="Referenced by"><mat-icon class="ub-ic">call_received</mat-icon> used by {{ u.usedBy.length }}</span> }
+                    @if (u.unmet.length) { <span class="unmet" title="References that aren't defined"><mat-icon class="ub-ic">warning</mat-icon> {{ u.unmet.length }} unmet</span> }
                   </button>
                   @if (expandedUsage() === c.kind + ':' + c.name) {
                     <div class="usedetail">
                       @if (u.uses.length) {
                         <div class="ugrp"><span class="ulbl">Uses</span>
-                          @for (r of u.uses; track r.kind + r.name) { <span class="kchip" [style.--h]="km(r.kind).hue">{{ km(r.kind).glyph }} {{ r.name }} <em>{{ km(r.kind).label }}</em></span> }</div>
+                          <mat-chip-set>
+                            @for (r of u.uses; track r.kind + r.name) { <mat-chip class="kchip" [style.--h]="km(r.kind).hue"><mat-icon matChipAvatar>{{ km(r.kind).icon }}</mat-icon> {{ r.name }} <em>{{ km(r.kind).label }}</em></mat-chip> }
+                          </mat-chip-set></div>
                       }
                       @if (u.unmet.length) {
                         <div class="ugrp"><span class="ulbl unmet">Unmet</span>
-                          @for (r of u.unmet; track r.kind + r.name) { <span class="kchip unmet" [style.--h]="km(r.kind).hue">{{ km(r.kind).glyph }} {{ r.name }} <em>{{ km(r.kind).label }}?</em></span> }</div>
+                          <mat-chip-set>
+                            @for (r of u.unmet; track r.kind + r.name) { <mat-chip class="kchip unmet" [style.--h]="km(r.kind).hue"><mat-icon matChipAvatar>{{ km(r.kind).icon }}</mat-icon> {{ r.name }} <em>{{ km(r.kind).label }}?</em></mat-chip> }
+                          </mat-chip-set></div>
                       }
                       @if (u.usedBy.length) {
                         <div class="ugrp"><span class="ulbl">Used by</span>
-                          @for (r of u.usedBy; track r.kind + r.name) { <span class="kchip" [style.--h]="km(r.kind).hue">{{ km(r.kind).glyph }} {{ r.name }} <em>{{ km(r.kind).label }}</em></span> }</div>
+                          <mat-chip-set>
+                            @for (r of u.usedBy; track r.kind + r.name) { <mat-chip class="kchip" [style.--h]="km(r.kind).hue"><mat-icon matChipAvatar>{{ km(r.kind).icon }}</mat-icon> {{ r.name }} <em>{{ km(r.kind).label }}</em></mat-chip> }
+                          </mat-chip-set></div>
                       }
                     </div>
                   }
                 }
+                @if (expandedCode() === c.id) {
+                  <aes-code-view class="row-code" [value]="c.body" [label]="c.kind + ' · ' + c.name" [editable]="true" (save)="saveBody(c, $event)" />
+                }
               </div>
               @for (t of c.tags; track t) { <span class="badge plain badge-brand">{{ t }}</span> }
               <div class="row" style="gap:var(--s2)">
-                <button class="btn btn-ghost btn-sm" type="button" (click)="preview(c)">Preview</button>
-                @if (cfg().kind === 'form') { <a class="btn btn-sm" [routerLink]="['/forms', c.id, 'design']">Design</a> }
-                @if (cfg().kind === 'application') { <a class="btn btn-sm" [routerLink]="['/applications', c.id, 'design']">Design</a> }
-                @if (cfg().kind === 'page') { <a class="btn btn-sm" [routerLink]="['/pages', c.id, 'design']">Design</a> }
-                @if (cfg().kind === 'decision') { <a class="btn btn-sm" [routerLink]="['/decisions', c.id, 'design']">Design</a> }
-                @if (cfg().kind === 'theme') { <a class="btn btn-sm" [routerLink]="['/themes', c.id, 'design']">Design</a> }
-                <button class="btn btn-sm" type="button" (click)="startEdit(c)">Edit</button>
-                <button class="btn btn-danger btn-sm" type="button" (click)="askDelete(c)">Delete</button>
+                <button matButton type="button" (click)="toggleCode(c)" [attr.aria-expanded]="expandedCode() === c.id" matTooltip="View the JSON definition">
+                  <mat-icon>code</mat-icon> Code
+                </button>
+                <button matButton type="button" (click)="preview(c)">Preview</button>
+                @if (cfg().kind === 'form') { <a matButton [routerLink]="['/forms', c.id, 'design']">Design</a> }
+                @if (cfg().kind === 'application') { <a matButton [routerLink]="['/applications', c.id, 'design']">Design</a> }
+                @if (cfg().kind === 'page') { <a matButton [routerLink]="['/pages', c.id, 'design']">Design</a> }
+                @if (cfg().kind === 'decision') { <a matButton [routerLink]="['/decisions', c.id, 'design']">Design</a> }
+                @if (cfg().kind === 'theme') { <a matButton [routerLink]="['/themes', c.id, 'design']">Design</a> }
+                <button matButton type="button" (click)="startEdit(c)">Edit</button>
+                <button matButton class="danger-btn" type="button" (click)="askDelete(c)">Delete</button>
               </div>
             </li>
           }
@@ -258,8 +274,8 @@ export interface StudioConfig {
             <pre>{{ pretty(pv.body) }}</pre>
           </details>
           <div class="actions">
-            <button class="btn btn-ghost" type="button" (click)="previewTarget.set(null)">Close</button>
-            <button class="btn btn-primary" type="button" (click)="editFromPreview(pv)">Edit</button>
+            <button matButton type="button" (click)="previewTarget.set(null)">Close</button>
+            <button matButton="filled" type="button" (click)="editFromPreview(pv)">Edit</button>
           </div>
         </div>
       </div>
@@ -271,9 +287,9 @@ export interface StudioConfig {
           <h3 id="del-title">Delete “{{ target.name }}”?</h3>
           <p>This {{ cfg().noun }} will be removed from the catalog. Experiences that require it will show it as unmet. You can undo right after.</p>
           <div class="actions">
-            <button class="btn btn-ghost" type="button" (click)="pendingDelete.set(null)">Cancel</button>
-            <button class="btn btn-danger" type="button" (click)="confirmDelete(target)" [disabled]="deleting()">
-              @if (deleting()) { <span class="spinner" aria-hidden="true"></span> Deleting… } @else { Delete }
+            <button matButton type="button" (click)="pendingDelete.set(null)">Cancel</button>
+            <button matButton class="danger-btn" type="button" (click)="confirmDelete(target)" [disabled]="deleting()">
+              @if (deleting()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Deleting… } @else { Delete }
             </button>
           </div>
         </div>
@@ -282,18 +298,29 @@ export interface StudioConfig {
     @if (historyFor(); as hid) { <aes-history-panel [capabilityId]="hid" (close)="historyFor.set(null)" (changed)="onHistoryChanged(hid)" /> }
   `,
   styles: [`
+    .btn-spin { --mdc-circular-progress-active-indicator-color: currentColor; display:inline-block; vertical-align:middle; margin-right:6px; }
+    .danger-btn { --mat-sys-primary: var(--danger); color: var(--danger); }
+    .mf { width: 100%; }
+    .err-hint { color: var(--danger); }
+    .search-mf { max-width: 340px; }
+    mat-checkbox.field { display: inline-flex; align-items: center; }
     .usebtn { margin-top: 4px; border: none; background: none; padding: 0; cursor: pointer; display: inline-flex; gap: 12px; font-size: 11.5px; color: var(--text-muted); }
     .usebtn span { display: inline-flex; align-items: center; gap: 3px; }
+    .usebtn .ub-ic { font-size: 15px; width: 15px; height: 15px; }
     .usebtn:hover { color: var(--text); }
     .usebtn .unmet { color: var(--danger); font-weight: 600; }
     .usedetail { margin-top: 7px; display: flex; flex-direction: column; gap: 6px; padding: 9px 11px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; }
+    .row-code { display: block; margin-top: 8px; }
+    .row-code + * { margin-top: 0; }
     .ugrp { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .ulbl { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; opacity: .55; min-width: 52px; }
     .ulbl.unmet { color: var(--danger); opacity: 1; }
-    .kchip { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; padding: 2px 9px; border-radius: 999px;
-      background: hsl(var(--h) 55% 50% / .15); color: var(--text); }
-    .kchip em { opacity: .6; font-style: normal; font-size: 10.5px; }
-    .kchip.unmet { background: hsl(2 60% 50% / .1); color: var(--danger); border: 1px dashed hsl(2 55% 50% / .5); }
+    /* compact, hue-tinted mat-chips for the dependency taxonomy */
+    .kchip.mat-mdc-chip { --mdc-chip-container-height: 24px; font-size: 11.5px;
+      --mdc-chip-elevated-container-color: hsl(var(--h) 55% 50% / .15); --mdc-chip-label-text-color: var(--text); }
+    .kchip .mat-mdc-chip-avatar { font-size: 14px; width: 14px; height: 14px; color: hsl(var(--h) 55% 45%); }
+    .kchip em { opacity: .6; font-style: normal; font-size: 10.5px; margin-left: 3px; }
+    .kchip.unmet.mat-mdc-chip { --mdc-chip-elevated-container-color: hsl(2 60% 50% / .1); --mdc-chip-label-text-color: var(--danger); }
     .subtabs { display: flex; gap: var(--s1); margin: var(--s3) 0 0; border-bottom: 1px solid var(--border); }
     .subtabs a { font-size: var(--fs-sm); font-weight: 550; color: var(--text-muted); text-decoration: none;
       padding: .5rem .8rem; border-bottom: 2px solid transparent; }
@@ -328,6 +355,8 @@ export class CapabilityStudioComponent {
   private readonly auth = inject(AuthService);
   protected readonly km = kindMeta;
   protected readonly expandedUsage = signal<string | null>(null);
+  /** Capability id whose JSON code view is expanded (null = none). */
+  protected readonly expandedCode = signal<string | null>(null);
   readonly canApprove = computed(() => canApproveWith(this.auth.roles()));
   readonly historyFor = signal<string | null>(null);
 
@@ -377,6 +406,20 @@ export class CapabilityStudioComponent {
   isWide(f: StudioField): boolean { return f.type === 'textarea' || f.type === 'list' || f.type === 'json'; }
   filled(key: string): boolean { return String(this.values[key] ?? '').trim() !== ''; }
   nameValid(): boolean { return this.filled('name'); }
+
+  /** The single hint shown under a body field — one <mat-hint> outside the type
+   *  @switch so it always projects into MatFormField's hint slot (avoids NG8011). */
+  fieldHint(f: StudioField): string {
+    if (f.type === 'json' && !this.jsonOk(f.key)) return 'Invalid JSON.';
+    if (f.type !== 'json' && this.touched() && f.required && !this.filled(f.key)) return `${f.label} is required.`;
+    if (f.type === 'json') return 'Declarative JSON — the shape the renderer and agents consume.';
+    if (f.type === 'list') return 'Separate with spaces or commas.';
+    return '';
+  }
+  isErrHint(f: StudioField): boolean {
+    return (f.type === 'json' && !this.jsonOk(f.key))
+      || (f.type !== 'json' && this.touched() && !!f.required && !this.filled(f.key));
+  }
 
   /** A JSON field is OK when empty or when it parses. */
   jsonOk(key: string): boolean {
@@ -469,6 +512,21 @@ export class CapabilityStudioComponent {
     this.graph.version();   // re-read when the graph (re)builds
     return this.graph.usage(c);
   }
+  protected toggleCode(c: Capability): void {
+    this.expandedCode.set(this.expandedCode() === c.id ? null : c.id);
+  }
+
+  /** Save an edited JSON body straight back to the catalog (optimistic-concurrency guarded). */
+  protected saveBody(c: Capability, body: Record<string, unknown>): void {
+    this.catalog.update(c.id, { body }, c.version).subscribe({
+      next: (updated) => {
+        this.items.update((cur) => cur.map((x) => (x.id === updated.id ? updated : x)));
+        this.toast.success('Saved', `“${updated.name}” definition updated.`);
+      },
+      error: (err) => reportWriteError(this.toast, err, 'Save'),
+    });
+  }
+
   protected toggleUsage(c: Capability): void {
     const k = `${c.kind}:${c.name}`;
     this.expandedUsage.set(this.expandedUsage() === k ? null : k);

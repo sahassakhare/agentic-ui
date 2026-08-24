@@ -1,6 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
+import { CodeViewComponent } from '../components/code-view.component';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import {
   evaluateDecision, opsForType,
@@ -27,20 +33,22 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
 @Component({
   selector: 'aes-decision-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatIconModule, MatFormFieldModule, MatSelectModule, MatTooltipModule, CodeViewComponent],
   template: `
     <div class="wrap">
       <header class="head">
         <a routerLink="/decisions" class="back">← Decisions</a>
         <h1>{{ name() || 'Decision' }} · Table</h1>
-        <label class="hp">Hit policy
-          <select [(ngModel)]="hitPolicy">@for (h of hitPolicies; track h) { <option [value]="h">{{ h }}</option> }</select>
-        </label>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="hp-mf">
+          <mat-label>Hit policy</mat-label>
+          <mat-select [(ngModel)]="hitPolicy">@for (h of hitPolicies; track h) { <mat-option [value]="h">{{ h }}</mat-option> }</mat-select>
+        </mat-form-field>
         <span class="sp"></span>
         <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
           [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
-        <button class="btn primary" (click)="save()" [disabled]="saving()">Save decision</button>
+        <button matButton type="button" (click)="showCode.set(!showCode())" [attr.aria-pressed]="showCode()" matTooltip="View the decision JSON"><mat-icon>code</mat-icon> Code</button>
+        <button matButton="filled" (click)="save()" [disabled]="saving()">Save decision</button>
       </header>
 
       @if (loading()) { <p class="muted">Loading…</p> }
@@ -53,10 +61,10 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
                 <span class="chip in">
                   <input [ngModel]="f.name" (ngModelChange)="rename('inputs', $index, $event)" aria-label="Input name" />
                   <select class="ty" [ngModel]="f.type ?? 'string'" (ngModelChange)="setColType('inputs', $index, $event)" title="Data type" aria-label="Input type">@for (t of types; track t) { <option [value]="t">{{ t }}</option> }</select>
-                  <button (click)="delCol('inputs', $index)" aria-label="Remove input">✕</button>
+                  <button (click)="delCol('inputs', $index)" aria-label="Remove input" matTooltip="Remove input"><mat-icon>close</mat-icon></button>
                 </span>
               }
-              <button class="add" (click)="addCol('inputs')">＋ input</button>
+              <button class="add" (click)="addCol('inputs')"><mat-icon>add</mat-icon> input</button>
             </div>
             <div class="colset">
               <span class="lbl">Outputs</span>
@@ -64,10 +72,10 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
                 <span class="chip out">
                   <input [ngModel]="f.name" (ngModelChange)="rename('outputs', $index, $event)" aria-label="Output name" />
                   <select class="ty" [ngModel]="f.type ?? 'string'" (ngModelChange)="setColType('outputs', $index, $event)" title="Data type" aria-label="Output type">@for (t of types; track t) { <option [value]="t">{{ t }}</option> }</select>
-                  <button (click)="delCol('outputs', $index)" aria-label="Remove output">✕</button>
+                  <button (click)="delCol('outputs', $index)" aria-label="Remove output" matTooltip="Remove output"><mat-icon>close</mat-icon></button>
                 </span>
               }
-              <button class="add" (click)="addCol('outputs')">＋ output</button>
+              <button class="add" (click)="addCol('outputs')"><mat-icon>add</mat-icon> output</button>
             </div>
           </div>
 
@@ -96,13 +104,13 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
                       <td class="out"><input [ngModel]="thenVal(ri, f.name)" (ngModelChange)="setThen(ri, f.name, $event)" placeholder="value" /></td>
                     }
                     <td class="note"><input [ngModel]="annVal(ri)" (ngModelChange)="setAnnotation(ri, $event)" placeholder="note" aria-label="Rule note" /></td>
-                    <td><button class="x" (click)="delRule(ri)">✕</button></td>
+                    <td><button class="x" (click)="delRule(ri)" matTooltip="Remove rule" aria-label="Remove rule"><mat-icon>close</mat-icon></button></td>
                   </tr>
                 }
               </tbody>
             </table>
           </div>
-          <button class="btn ghost sm" (click)="addRule()">＋ Add rule</button>
+          <button matButton (click)="addRule()"><mat-icon>add</mat-icon> Add rule</button>
         </section>
 
         <section class="card test">
@@ -111,21 +119,33 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
             @for (f of inputs(); track f.name) {
               <label class="tin">{{ f.name }} <span class="tybadge">{{ f.type ?? 'string' }}</span><input [type]="testType(f)" [ngModel]="testInput()[f.name] || ''" (ngModelChange)="setTest(f.name, $event)" /></label>
             }
-            <button class="btn" (click)="runTest()">Evaluate →</button>
+            <button matButton (click)="runTest()">Evaluate →</button>
           </div>
           @if (result(); as res) {
             @if (res.outputs) {
               <div class="res ok">matched rule(s) {{ resRuleLabels() }} → {{ json(res.outputs) }}</div>
-              @if (res.conflict) { <div class="res warn">⚠ Hit policy is “unique” but multiple rules matched — your rules overlap. Make them disjoint or switch to “first”/“collect”.</div> }
+              @if (res.conflict) { <div class="res warn"><mat-icon class="res-ic">warning</mat-icon> Hit policy is “unique” but multiple rules matched — your rules overlap. Make them disjoint or switch to “first”/“collect”.</div> }
             }
             @else { <div class="res no">no rule matched</div> }
           }
         </section>
+
+        @if (showCode()) {
+          <section class="card">
+            <div class="eyebrow" style="margin-bottom:var(--s3)">Decision JSON</div>
+            <aes-code-view [value]="currentBody()" [label]="name() || 'decision'" />
+          </section>
+        }
       }
       @if (showHistory()) { <aes-history-panel [capabilityId]="id()" (close)="showHistory.set(false)" (changed)="reload()" /> }
     </div>
   `,
   styles: [`
+    button mat-icon { font-size:15px; width:15px; height:15px; vertical-align:middle; }
+    .add mat-icon { font-size:15px; width:15px; height:15px; vertical-align:middle; }
+    .res.warn { display:flex; align-items:center; gap:6px; }
+    .res-ic { font-size:16px; width:16px; height:16px; flex:none; }
+    .dt .x, .colhead button { display:inline-grid; place-items:center; }
     .wrap { padding:20px 24px; max-width:1150px; margin:0 auto; }
     .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
     .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; }
@@ -173,7 +193,12 @@ export class DecisionDesignerComponent implements HasUnsavedChanges {
   protected readonly approvalState = signal<ApprovalState>('draft');
   protected readonly capVersion = signal(0);
   protected readonly showHistory = signal(false);
+  protected readonly showCode = signal(false);
   protected readonly canApprove = computed(() => canApproveWith(this.auth.roles()));
+  /** The decision body as it would be saved — drives the Code section. */
+  protected readonly currentBody = computed<Record<string, unknown>>(() => ({
+    description: this.description, hitPolicy: this.hitPolicy(), inputs: this.inputs(), outputs: this.outputs(), rules: this.rules(),
+  }));
   private pristine = '';
 
   constructor() { queueMicrotask(() => this.load()); }

@@ -1,5 +1,8 @@
 import { Component, inject, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
+import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from './services/auth.service';
 import { ToastHostComponent } from './components/toast-host.component';
 import { CommandPaletteComponent } from './components/command-palette.component';
@@ -33,9 +36,12 @@ const NAV = [
  */
 @Component({
   selector: 'aes-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, ToastHostComponent, CommandPaletteComponent],
+  imports: [
+    RouterOutlet, RouterLink, RouterLinkActive, ToastHostComponent, CommandPaletteComponent,
+    MatToolbarModule, MatTabsModule, MatButtonModule,
+  ],
   template: `
-    <header class="topbar">
+    <mat-toolbar class="topbar">
       <a class="brand" routerLink="/experiences" aria-label="Experience Studio home">
         <span class="mark" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -46,68 +52,53 @@ const NAV = [
         <span class="wordmark">Experience&nbsp;Studio</span>
       </a>
 
-      @if (auth.isAuthenticated()) {
-        <nav class="nav" aria-label="Primary">
-          @for (item of nav; track item.path) {
-            <a [routerLink]="item.path" routerLinkActive="active">{{ item.label }}</a>
-          }
-        </nav>
+      <span class="spacer"></span>
 
-        <div class="controls">
-          <button class="btn btn-ghost btn-icon" type="button" [attr.aria-label]="'Switch to ' + (dark() ? 'light' : 'dark') + ' theme'" (click)="toggleTheme()">
-            @if (dark()) {
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.7"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-            } @else {
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M20 14.3A8 8 0 1 1 9.7 4a6.4 6.4 0 0 0 10.3 10.3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
-            }
-          </button>
-          <span class="tenant" title="Active tenant">
-            <span class="dot" aria-hidden="true"></span>{{ auth.tenant() }}
-          </span>
-          <button class="btn btn-ghost btn-sm" type="button" (click)="logout()">Sign out</button>
-        </div>
+      @if (auth.isAuthenticated()) {
+        <button matIconButton [attr.aria-label]="'Switch to ' + (dark() ? 'light' : 'dark') + ' theme'" (click)="toggleTheme()">
+          @if (dark()) {
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.7"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          } @else {
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M20 14.3A8 8 0 1 1 9.7 4a6.4 6.4 0 0 0 10.3 10.3Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+          }
+        </button>
+        <span class="tenant" title="Active tenant"><span class="dot" aria-hidden="true"></span>{{ auth.tenant() }}</span>
+        <button matButton (click)="logout()">Sign out</button>
       } @else {
-        <span class="spacer"></span>
         <span class="faint" style="font-size:var(--fs-sm)">Author governed experiences</span>
       }
-    </header>
+    </mat-toolbar>
 
-    <main><router-outlet /></main>
+    @if (auth.isAuthenticated()) {
+      <nav mat-tab-nav-bar [tabPanel]="tabPanel" class="navbar" aria-label="Primary" mat-stretch-tabs="false">
+        @for (item of nav; track item.path) {
+          <a mat-tab-link [routerLink]="item.path" routerLinkActive #rla="routerLinkActive" [active]="rla.isActive">{{ item.label }}</a>
+        }
+      </nav>
+    }
+
+    <mat-tab-nav-panel #tabPanel>
+      <main><router-outlet /></main>
+    </mat-tab-nav-panel>
     <aes-toast-host />
     <aes-command-palette />
   `,
   styles: [`
     :host { display: block; min-height: 100%; }
-    .topbar {
-      position: sticky; top: 0; z-index: 40;
-      display: flex; align-items: center; gap: var(--s5);
-      padding: 0 var(--s5); height: 58px;
-      background: color-mix(in srgb, var(--surface) 82%, transparent);
-      backdrop-filter: saturate(1.4) blur(10px);
-      border-bottom: 1px solid var(--border);
-    }
+    .topbar { position: sticky; top: 0; z-index: 41; gap: var(--s3); border-bottom: 1px solid var(--border); }
     .brand { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text); font-weight: 650; letter-spacing: -.01em; text-decoration: none; }
     .brand:hover { text-decoration: none; }
     .mark { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
-      background: var(--brand); color: var(--on-brand); box-shadow: var(--shadow-1); }
+      background: var(--brand); color: var(--on-brand); }
     .wordmark { font-size: var(--fs-md); }
-    .nav { display: flex; align-items: center; gap: var(--s1); overflow-x: auto; scrollbar-width: none; }
-    .nav::-webkit-scrollbar { display: none; }
-    .nav a { color: var(--text-muted); font-size: var(--fs-sm); font-weight: 500;
-      padding: .4rem .6rem; border-radius: var(--r-sm); white-space: nowrap; text-decoration: none;
-      transition: background .12s ease, color .12s ease; }
-    .nav a:hover { background: var(--surface-2); color: var(--text); text-decoration: none; }
-    .nav a.active { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
-    .controls { margin-left: auto; display: flex; align-items: center; gap: var(--s2); }
+    .spacer { flex: 1 1 auto; }
     .tenant { display: inline-flex; align-items: center; gap: var(--s2); font-size: var(--fs-sm); font-weight: 550;
       padding: .3rem .6rem; border: 1px solid var(--border); border-radius: var(--r-full); color: var(--text); }
     .tenant .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+    .navbar { position: sticky; top: 64px; z-index: 40; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 var(--s3); }
+    .faint { color: var(--text-muted); }
     main { display: block; }
-    @media (max-width: 860px) {
-      .topbar { gap: var(--s3); }
-      .wordmark { display: none; }
-      .tenant { display: none; }
-    }
+    @media (max-width: 860px) { .wordmark { display: none; } .tenant { display: none; } .navbar { top: 56px; } }
   `],
 })
 export class App {

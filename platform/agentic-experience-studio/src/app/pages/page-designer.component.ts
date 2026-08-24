@@ -3,8 +3,16 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CdkDrag, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ExperienceCatalogService } from '../services/experience-catalog.service';
+import { SchemaFormComponent } from '../schema-form.component';
+import { CodeViewComponent } from '../components/code-view.component';
 import { LifecycleBarComponent, type BarAction } from '../lifecycle-bar.component';
 import { HistoryPanelComponent } from '../history-panel.component';
 import { applyCapability, canApproveWith, handleBarAction, reportWriteError, type GovState } from '../governance-actions';
@@ -28,7 +36,6 @@ const TEMPLATE_REGIONS: Record<PageLayout, string[]> = {
 };
 const CONTENT_LAYOUTS = Object.keys(TEMPLATE_REGIONS) as PageLayout[];
 const SHELL_REGIONS = ['header', 'sidenav', 'aside', 'footer'];
-const KIND_GLYPH: Record<string, string> = { dashboard: '▦', experience: '›', form: '▤', workflow: '⇉', component: '◫', layout: '◧' };
 
 // Shell components + their editable props (shell mode).
 const SHELL_COMPONENTS: PaletteItem[] = [
@@ -60,21 +67,21 @@ const PROP_FIELDS: Record<string, PropField[]> = {
 @Component({
   selector: 'aes-page-designer',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule],
+  imports: [FormsModule, RouterLink, LifecycleBarComponent, HistoryPanelComponent, CdkDropList, CdkDrag, MatTooltipModule, MatButtonModule, MatButtonToggleModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, SchemaFormComponent, CodeViewComponent],
   template: `
     <div class="wrap">
       <header class="head">
         <a routerLink="/pages" class="back">← Pages</a>
         <h1>{{ name() || 'Page' }} · Designer</h1>
-        <div class="typetoggle">
-          <button [class.on]="type() === 'content'" (click)="setType('content')">Content page</button>
-          <button [class.on]="type() === 'shell'" (click)="setType('shell')">Master (shell)</button>
-        </div>
+        <mat-button-toggle-group class="typetoggle" [value]="type()" (change)="setType($event.value)" hideSingleSelectionIndicator aria-label="Page type">
+          <mat-button-toggle value="content">Content page</mat-button-toggle>
+          <mat-button-toggle value="shell">Master (shell)</mat-button-toggle>
+        </mat-button-toggle-group>
         <span class="sp"></span>
         <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
           [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
-        <button class="btn primary" (click)="save()" [disabled]="saving()">Save page</button>
+        <button matButton="filled" (click)="save()" [disabled]="saving()">Save page</button>
       </header>
 
       @if (loading()) { <p class="muted">Loading…</p> }
@@ -87,10 +94,14 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                 <div class="templates">
                   @for (l of contentLayouts; track l) { <button class="tpl" [class.on]="layout() === l" (click)="setLayout(l)">{{ l }}</button> }
                 </div>
-                <label class="lbl">Access — personas</label>
-                <input class="input" [(ngModel)]="personas" placeholder="admin, ops-manager" />
-                <label class="lbl">Access — scopes</label>
-                <input class="input" [(ngModel)]="scopes" placeholder="ops:read" />
+                <mat-form-field appearance="outline" class="af" style="width:100%">
+                  <mat-label>Access — personas</mat-label>
+                  <input matInput [(ngModel)]="personas" placeholder="admin, ops-manager" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="af" style="width:100%">
+                  <mat-label>Access — scopes</mat-label>
+                  <input matInput [(ngModel)]="scopes" placeholder="ops:read" />
+                </mat-form-field>
               </section>
             }
 
@@ -102,9 +113,9 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                   <div class="cat">{{ g.category }}</div>
                   @for (it of g.items; track it.kind + ':' + it.name) {
                     <button class="palette" cdkDrag [cdkDragData]="it" (click)="add(it)">
-                      <span class="ic" [class.dash]="it.kind === 'dashboard'">{{ glyph(it.kind) }}</span>
+                      <span class="ic" [class.dash]="it.kind === 'dashboard'"><mat-icon>{{ km(it.kind).icon }}</mat-icon></span>
                       <span class="pt"><span class="nm">{{ it.title }}</span><span class="gl">{{ it.kind }} · {{ it.name }}</span></span>
-                      <span class="plus">＋</span>
+                      <span class="plus"><mat-icon>add</mat-icon></span>
                     </button>
                   }
                 }
@@ -116,10 +127,12 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                 <div class="eyebrow">Properties · {{ sel.name }} <span class="muted sm">{{ sel.kind }}</span></div>
 
                 @if (regionNames().length > 1) {
-                  <label class="lbl">Region</label>
-                  <select class="input" [ngModel]="selection()?.region" (ngModelChange)="moveToRegion($event)" aria-label="Move to region">
-                    @for (r of regionNames(); track r) { <option [value]="r">{{ r }}</option> }
-                  </select>
+                  <mat-form-field appearance="outline" class="af" style="width:100%">
+                    <mat-label>Region</mat-label>
+                    <mat-select [ngModel]="selection()?.region" (ngModelChange)="moveToRegion($event)">
+                      @for (r of regionNames(); track r) { <mat-option [value]="r">{{ r }}</mat-option> }
+                    </mat-select>
+                  </mat-form-field>
                 }
 
                 @if (propFields(sel.name).length) {
@@ -130,14 +143,14 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                         <label class="lbl">{{ f.label }}</label>
                         @for (l of asLinks(propVal(sel, f.key)); track $index) {
                           <div class="linkrow">
-                            <input class="input sm" [ngModel]="l.label" (ngModelChange)="editLink($index, 'label', $event)" placeholder="Label" />
-                            <input class="input sm" [ngModel]="l.href" (ngModelChange)="editLink($index, 'href', $event)" placeholder="https://…" />
-                            <button class="x" (click)="removeLink($index)">✕</button>
+                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>Label</mat-label><input matInput [ngModel]="l.label" (ngModelChange)="editLink($index, 'label', $event)" /></mat-form-field>
+                            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>URL</mat-label><input matInput [ngModel]="l.href" (ngModelChange)="editLink($index, 'href', $event)" placeholder="https://…" /></mat-form-field>
+                            <button class="x" (click)="removeLink($index)" aria-label="Remove link"><mat-icon>close</mat-icon></button>
                           </div>
                         }
-                        <button class="btn ghost sm" (click)="addLink()">＋ Add link</button>
+                        <button matButton (click)="addLink()"><mat-icon>add</mat-icon> Add link</button>
                       }
-                      @default { <label class="lbl">{{ f.label }}</label><input class="input" [ngModel]="propVal(sel, f.key)" (ngModelChange)="setProp(f.key, $event)" /> }
+                      @default { <mat-form-field appearance="outline" class="af" style="width:100%"><mat-label>{{ f.label }}</mat-label><input matInput [ngModel]="propVal(sel, f.key)" (ngModelChange)="setProp(f.key, $event)" /></mat-form-field> }
                     }
                   }
                 } @else {
@@ -148,14 +161,14 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                   @for (row of propEntries(sel); track row.key) {
                     <div class="proprow">
                       <span class="pkey" [title]="row.key">{{ row.key }}</span>
-                      <input class="input sm" [ngModel]="displayVal(row.value)" (ngModelChange)="setPropRaw(row.key, $event)" [attr.aria-label]="row.key + ' value'" />
-                      <button class="x" (click)="removeProp(row.key)" aria-label="Remove property">✕</button>
+                      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>value</mat-label><input matInput [ngModel]="displayVal(row.value)" (ngModelChange)="setPropRaw(row.key, $event)" /></mat-form-field>
+                      <button class="x" (click)="removeProp(row.key)" aria-label="Remove property"><mat-icon>close</mat-icon></button>
                     </div>
                   }
                   <div class="proprow add">
-                    <input class="input sm" [ngModel]="newPropKey()" (ngModelChange)="newPropKey.set($event)" placeholder="prop name" aria-label="New property name" />
-                    <input class="input sm" [ngModel]="newPropValue()" (ngModelChange)="newPropValue.set($event)" placeholder="value / JSON" aria-label="New property value" />
-                    <button class="btn ghost sm addp" (click)="addProp()" [disabled]="!newPropKey().trim()" aria-label="Add property">＋</button>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>prop name</mat-label><input matInput [ngModel]="newPropKey()" (ngModelChange)="newPropKey.set($event)" /></mat-form-field>
+                    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>value / JSON</mat-label><input matInput [ngModel]="newPropValue()" (ngModelChange)="newPropValue.set($event)" /></mat-form-field>
+                    <button matButton class="addp" (click)="addProp()" [disabled]="!newPropKey().trim()" aria-label="Add property"><mat-icon>add</mat-icon></button>
                   </div>
                   @if (sel.kind === 'form') { <p class="muted sm">Add <code>initialValues</code> or <code>context</code> (a JSON object) to prefill the form.</p> }
                 }
@@ -171,8 +184,8 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                   @else { Regions · <span class="muted">{{ layout() }}</span> }
                 </span>
                 <span class="hbtns">
-                  <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" matTooltip="Undo (⌘Z)" aria-label="Undo">↶</button>
-                  <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" matTooltip="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
+                  <button type="button" class="hb" (click)="undo()" [disabled]="!canUndo()" matTooltip="Undo (⌘Z)" aria-label="Undo"><mat-icon>undo</mat-icon></button>
+                  <button type="button" class="hb" (click)="redo()" [disabled]="!canRedo()" matTooltip="Redo (⌘⇧Z)" aria-label="Redo"><mat-icon>redo</mat-icon></button>
                 </span>
               </div>
               <div class="regions" [attr.data-shell]="type() === 'shell'">
@@ -183,12 +196,12 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                     <div class="rhead">{{ r }} <span class="muted sm">{{ (regions()[r] || []).length }}</span></div>
                     @for (s of regions()[r]; track $index) {
                       <div class="block" cdkDrag [cdkDragData]="s" [class.sel]="isSelected(r, $index)" (click)="select(r, $index, $event)">
-                        <span class="ic" [class.dash]="s.kind === 'dashboard'">{{ glyph(s.kind) }}</span>
+                        <span class="ic" [class.dash]="s.kind === 'dashboard'"><mat-icon>{{ km(s.kind).icon }}</mat-icon></span>
                         <span class="bm"><span class="nm">{{ s.name }}</span><span class="gl">{{ s.kind }}</span></span>
                         <span class="ctrls">
-                          <button class="mv" (click)="moveSurface(r, $index, -1, $event)" [disabled]="$index === 0" matTooltip="Move up" aria-label="Move up">▲</button>
-                          <button class="mv" (click)="moveSurface(r, $index, 1, $event)" [disabled]="$index === (regions()[r] || []).length - 1" matTooltip="Move down" aria-label="Move down">▼</button>
-                          <button class="x" (click)="remove(r, $index, $event)" aria-label="Remove">✕</button>
+                          <button class="mv" (click)="moveSurface(r, $index, -1, $event)" [disabled]="$index === 0" matTooltip="Move up" aria-label="Move up"><mat-icon>keyboard_arrow_up</mat-icon></button>
+                          <button class="mv" (click)="moveSurface(r, $index, 1, $event)" [disabled]="$index === (regions()[r] || []).length - 1" matTooltip="Move down" aria-label="Move down"><mat-icon>keyboard_arrow_down</mat-icon></button>
+                          <button class="x" (click)="remove(r, $index, $event)" aria-label="Remove"><mat-icon>close</mat-icon></button>
                         </span>
                       </div>
                     } @empty { <div class="drop">click, then add →</div> }
@@ -200,31 +213,65 @@ const PROP_FIELDS: Record<string, PropField[]> = {
           </main>
 
           <aside class="preview">
-            <div class="eyebrow">Preview <span class="muted sm">— layout &amp; composition</span></div>
+            <div class="pv-head">
+              <div class="eyebrow">Preview <span class="muted sm">— {{ previewMode() === 'code' ? 'JSON body' : previewMode() === 'live' ? 'live surfaces' : 'layout & composition' }}</span></div>
+              <mat-button-toggle-group class="pv-seg" [value]="previewMode()"
+                (change)="previewMode.set($event.value)" hideSingleSelectionIndicator aria-label="Preview mode">
+                <mat-button-toggle value="struct" matTooltip="Structural wireframe">Structure</mat-button-toggle>
+                <mat-button-toggle value="live" matTooltip="Render surfaces live">Live</mat-button-toggle>
+                <mat-button-toggle value="code" matTooltip="View the page JSON">Code</mat-button-toggle>
+              </mat-button-toggle-group>
+            </div>
+            @if (previewMode() === 'code') {
+              <aes-code-view [value]="currentBody()" [label]="name() || 'page'" />
+            } @else if (livePreview()) {
+              <div class="pv-live" [attr.data-layout]="type() === 'shell' ? 'shell' : layout()">
+                @for (r of regionNames(); track r) {
+                  <div class="pvl-r" [style.grid-area]="type() === 'shell' ? null : r">
+                    <div class="pv-rlbl">{{ r }}</div>
+                    @for (s of tilesFor(r); track $index) {
+                      @if (s.kind === 'form' && formBody(s.name)) {
+                        <div class="pvl-surface"><div class="pvl-cap"><mat-icon>{{ km(s.kind).icon }}</mat-icon> {{ s.name }}</div>
+                          <aes-schema-form [body]="formBody(s.name)!" /></div>
+                      } @else {
+                        <div class="pvl-card" [style.--h]="km(s.kind).hue">
+                          <span class="pvl-glyph"><mat-icon>{{ km(s.kind).icon }}</mat-icon></span>
+                          <span class="pvl-meta"><span class="pvl-nm">{{ s.name }}</span><span class="pvl-kind">{{ km(s.kind).label }}</span></span>
+                          <span class="pvl-hub">renders in Hub</span>
+                        </div>
+                      }
+                    } @empty { <span class="pv-empty">empty</span> }
+                  </div>
+                }
+                @if (type() === 'shell') { <div class="pvl-r pvl-outlet">Page content <span class="muted sm">router-outlet</span></div> }
+              </div>
+              <div class="muted sm pv-note">Forms render live from the catalog. Experiences, dashboards, workflows &amp; components render in the Hub runtime.</div>
+            } @else {
             <div class="pv-frame" [attr.data-layout]="type() === 'shell' ? 'shell' : layout()">
               @if (type() === 'shell') {
                 <div class="pv-r pv-header"><div class="pv-rlbl">header</div>
-                  @for (s of tilesFor('header'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue">{{ km(s.kind).glyph }} {{ s.name }}</span> }</div>
+                  @for (s of tilesFor('header'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue"><mat-icon class="pv-tile-ic">{{ km(s.kind).icon }}</mat-icon> {{ s.name }}</span> }</div>
                 <div class="pv-mid">
                   <div class="pv-r pv-side"><div class="pv-rlbl">sidenav</div>
-                    @for (s of tilesFor('sidenav'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue">{{ km(s.kind).glyph }}</span> }</div>
+                    @for (s of tilesFor('sidenav'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue"><mat-icon class="pv-tile-ic">{{ km(s.kind).icon }}</mat-icon></span> }</div>
                   <div class="pv-r pv-content">Page content<span class="muted sm">router-outlet</span></div>
                   <div class="pv-r pv-aside"><div class="pv-rlbl">aside</div>
-                    @for (s of tilesFor('aside'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue">{{ km(s.kind).glyph }}</span> }</div>
+                    @for (s of tilesFor('aside'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue"><mat-icon class="pv-tile-ic">{{ km(s.kind).icon }}</mat-icon></span> }</div>
                 </div>
                 <div class="pv-r pv-footer"><div class="pv-rlbl">footer</div>
-                  @for (s of tilesFor('footer'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue">{{ km(s.kind).glyph }} {{ s.name }}</span> }</div>
+                  @for (s of tilesFor('footer'); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue"><mat-icon class="pv-tile-ic">{{ km(s.kind).icon }}</mat-icon> {{ s.name }}</span> }</div>
               } @else {
                 @for (r of regionNames(); track r) {
                   <div class="pv-r" [style.grid-area]="r">
                     <div class="pv-rlbl">{{ r }}</div>
-                    @for (s of tilesFor(r); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue" [title]="km(s.kind).label + ' · ' + s.name">{{ km(s.kind).glyph }} {{ s.name }}</span> }
+                    @for (s of tilesFor(r); track $index) { <span class="pv-tile" [style.--h]="km(s.kind).hue" [title]="km(s.kind).label + ' · ' + s.name"><mat-icon class="pv-tile-ic">{{ km(s.kind).icon }}</mat-icon> {{ s.name }}</span> }
                     @empty { <span class="pv-empty">empty</span> }
                   </div>
                 }
               }
             </div>
-            <div class="muted sm pv-note">Structural preview — surfaces render live in the Hub.</div>
+            <div class="muted sm pv-note">Structural preview — switch to <strong>Live</strong> to render surfaces.</div>
+            }
           </aside>
         </div>
       }
@@ -233,21 +280,19 @@ const PROP_FIELDS: Record<string, PropField[]> = {
   `,
   styles: [`
     .wrap { padding:20px 24px; max-width:1150px; margin:0 auto; }
-    .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
-    .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; }
-    .typetoggle { display:inline-flex; border:1px solid rgba(120,120,140,.3); border-radius:9px; overflow:hidden; }
-    .typetoggle button { font:inherit; font-size:12.5px; padding:6px 12px; border:none; background:transparent; color:inherit; cursor:pointer; }
-    .typetoggle button.on { background:#6750a4; color:#fff; }
+    .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; flex-wrap:wrap; }
+    .head h1 { font-size:18px; margin:0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; }
+    .typetoggle { --mat-standard-button-toggle-height:34px; flex:none; }
     .ok { color:#0a7d32; font-size:13px; }
     .btn { font:inherit; padding:9px 16px; border-radius:9px; border:1px solid rgba(120,120,140,.3); background:transparent; color:inherit; cursor:pointer; }
     .btn.primary { background:#6750a4; color:#fff; border-color:#6750a4; font-weight:600; } .btn[disabled] { opacity:.5; }
     .btn.ghost.sm { font-size:12px; padding:6px 10px; margin-top:8px; }
     .grid { display:grid; grid-template-columns:300px minmax(0,1fr) minmax(280px,360px); gap:16px; align-items:start; }
-    .col { position:sticky; top:16px; }
+    .col { position:sticky; top:16px; min-width:0; }
     .palscroll { max-height:46vh; overflow-y:auto; margin-top:6px; }
     @media (max-width:1180px){ .grid { grid-template-columns:280px minmax(0,1fr); } .preview { grid-column:1 / -1; } }
     @media (max-width:820px){ .grid { grid-template-columns:1fr; } .col,.preview { position:static; } .palscroll { max-height:none; } }
-    .preview { position:sticky; top:16px; align-self:start; }
+    .preview { position:sticky; top:16px; align-self:start; min-width:0; }
     .pv-frame { display:grid; gap:8px; margin-top:8px; padding:10px; min-height:200px; border:1px solid var(--border); border-radius:12px; background:var(--surface-2); }
     .pv-frame[data-layout='single']{ grid-template-areas:'main'; }
     .pv-frame[data-layout='two-column']{ grid-template-areas:'left right'; grid-template-columns:1fr 1fr; }
@@ -263,6 +308,30 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     .pv-mid { display:grid; grid-template-columns:56px 1fr 56px; gap:8px; }
     .pv-content { display:grid; place-content:center; text-align:center; gap:2px; min-height:80px; font-size:11px; opacity:.65; }
     .pv-note { margin-top:8px; text-align:center; }
+    /* preview header + mode toggle */
+    .pv-head { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+    .pv-head .eyebrow { margin-bottom:0; }
+    .pv-seg { --mat-standard-button-toggle-height:28px; font-size:11px; }
+    /* live preview render */
+    .pv-live { display:grid; gap:10px; margin-top:8px; padding:10px; min-height:200px; border:1px solid var(--border); border-radius:12px; background:var(--surface-2); }
+    .pv-live[data-layout='two-column']{ grid-template-areas:'left right'; grid-template-columns:1fr 1fr; }
+    .pv-live[data-layout='sidebar-right']{ grid-template-areas:'main aside'; grid-template-columns:2fr 1fr; }
+    .pv-live[data-layout='sidebar-left']{ grid-template-areas:'aside main'; grid-template-columns:1fr 2fr; }
+    .pv-live[data-layout='stacked']{ grid-template-areas:'top' 'main'; }
+    .pv-live[data-layout='grid']{ grid-template-areas:'a a' 'b c'; grid-template-columns:1fr 1fr; }
+    .pvl-r { display:flex; flex-direction:column; gap:8px; min-width:0; }
+    .pvl-surface { border:1px solid var(--border); border-radius:10px; background:var(--surface); padding:12px; min-width:0; }
+    .pvl-cap { font-size:11px; color:var(--text-muted); margin-bottom:8px; display:flex; align-items:center; gap:5px; }
+    .pvl-card { display:flex; align-items:center; gap:10px; padding:12px; border:1px solid var(--border); border-radius:10px;
+      background:linear-gradient(0deg, hsl(var(--h) 55% 50% / .06), hsl(var(--h) 55% 50% / .06)), var(--surface); }
+    .pvl-glyph { display:grid; place-items:center; width:30px; height:30px; border-radius:8px; font-size:15px; flex:none;
+      background:hsl(var(--h) 55% 50% / .16); color:hsl(var(--h) 55% 45%); }
+    .pvl-meta { display:flex; flex-direction:column; min-width:0; flex:1; }
+    .pvl-nm { font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pvl-kind { font-size:11px; color:var(--text-muted); text-transform:capitalize; }
+    .pvl-hub { font-size:10px; color:var(--text-faint); border:1px solid var(--border); border-radius:999px; padding:2px 7px; flex:none; }
+    .pvl-outlet { display:grid; place-content:center; text-align:center; gap:2px; min-height:80px; font-size:12px;
+      border:1px dashed var(--border); border-radius:8px; background:var(--surface); opacity:.7; }
     .card { border:1px solid rgba(120,120,140,.18); border-radius:14px; padding:16px; margin-bottom:16px; }
     .eyebrow { font-size:11px; text-transform:uppercase; letter-spacing:.06em; opacity:.55; margin-bottom:10px; }
     .muted { opacity:.6; } .sm { font-size:12px; }
@@ -270,13 +339,17 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     .input { width:100%; padding:9px 11px; border:1px solid rgba(120,120,140,.3); border-radius:8px; background:transparent; color:inherit; font:inherit; } .input.sm { padding:7px 9px; font-size:12.5px; }
     .templates { display:flex; flex-wrap:wrap; gap:6px; } .tpl { font:inherit; font-size:12px; padding:6px 10px; border:1px solid rgba(120,120,140,.3); border-radius:8px; background:transparent; color:inherit; cursor:pointer; } .tpl.on { background:rgba(103,80,164,.14); border-color:#6750a4; color:#6750a4; }
     .cat { font-size:11px; text-transform:uppercase; letter-spacing:.05em; opacity:.5; margin:12px 0 4px; }
-    .palette { display:flex; align-items:center; gap:10px; width:100%; padding:8px 10px; margin-top:6px; border:1px solid rgba(120,120,140,.22); border-radius:9px; background:transparent; color:inherit; cursor:pointer; text-align:left; } .palette:hover { background:rgba(103,80,164,.06); } .palette .plus { margin-left:auto; opacity:.5; }
+    .palette { display:flex; align-items:center; gap:10px; width:100%; padding:8px 10px; margin-top:6px; border:1px solid rgba(120,120,140,.22); border-radius:9px; background:transparent; color:inherit; cursor:pointer; text-align:left; } .palette:hover { background:rgba(103,80,164,.06); } .palette .plus { margin-left:auto; opacity:.5; display:inline-grid; place-items:center; }
+    .palette .plus mat-icon { font-size:18px; width:18px; height:18px; }
     .ic { display:grid; place-items:center; width:24px; height:24px; border-radius:6px; background:rgba(120,120,140,.14); font-size:12px; } .ic.dash { background:rgba(103,80,164,.18); color:#6750a4; }
-    .pt, .bm { display:flex; flex-direction:column; min-width:0; } .nm { font-size:13px; font-weight:600; } .gl { font-size:11px; opacity:.55; }
+    .pt, .bm { display:flex; flex-direction:column; min-width:0; flex:1 1 auto; }
+    .nm, .gl { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; } .nm { font-size:13px; font-weight:600; } .gl { font-size:11px; opacity:.55; }
+    .ic { flex:none; }
+    .block .ctrls { flex:none; }
     .linkrow { display:grid; grid-template-columns:1fr 1.3fr auto; gap:6px; margin-top:6px; align-items:center; } .linkrow .x { border:none; background:transparent; color:inherit; opacity:.5; cursor:pointer; }
-    .regions { display:grid; gap:14px; }
-    .regions[data-shell='true'] { grid-template-columns:1fr 1fr; }
-    .region { border:1.5px dashed rgba(120,120,140,.3); border-radius:12px; padding:12px; min-height:80px; cursor:pointer; } .region.on { border-color:#6750a4; background:rgba(103,80,164,.05); }
+    .regions { display:grid; gap:14px; min-width:0; }
+    .regions[data-shell='true'] { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+    .region { border:1.5px dashed rgba(120,120,140,.3); border-radius:12px; padding:12px; min-height:80px; cursor:pointer; min-width:0; } .region.on { border-color:#6750a4; background:rgba(103,80,164,.05); }
     .region.content { grid-column:1 / -1; background:rgba(120,120,140,.04); cursor:default; }
     .rhead { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; opacity:.7; margin-bottom:8px; }
     .block { display:flex; align-items:center; gap:9px; padding:8px 10px; margin-top:6px; border:1px solid rgba(120,120,140,.2); border-radius:9px; background:rgba(120,120,140,.03); } .block.sel { border-color:#6750a4; background:rgba(103,80,164,.08); }
@@ -299,6 +372,15 @@ const PROP_FIELDS: Record<string, PropField[]> = {
     .hb { border:1px solid var(--border); background:var(--surface); color:var(--text-muted); border-radius:var(--r-sm); width:26px; height:24px; font-size:14px; line-height:1; cursor:pointer; }
     .hb:hover:not([disabled]) { border-color:var(--brand); color:var(--brand); }
     .hb[disabled] { opacity:.35; cursor:default; }
+    /* compact mat-icon sizing per context (custom-classed buttons keep their tight layout) */
+    .ic mat-icon { font-size:16px; width:16px; height:16px; }
+    .pvl-glyph mat-icon { font-size:18px; width:18px; height:18px; }
+    .pvl-cap mat-icon { font-size:14px; width:14px; height:14px; }
+    .pv-tile-ic { font-size:13px; width:13px; height:13px; }
+    .block .mv mat-icon, .block .x mat-icon, .linkrow .x mat-icon, .proprow .x mat-icon { font-size:16px; width:16px; height:16px; }
+    .hb mat-icon { font-size:16px; width:16px; height:16px; }
+    .block .mv, .block .x { display:inline-grid; place-items:center; }
+    .hb { display:inline-grid; place-items:center; }
     .proprow { display:grid; grid-template-columns:auto 1fr auto; gap:6px; margin-top:6px; align-items:center; }
     .proprow.add { grid-template-columns:1fr 1fr auto; }
     .pkey { font-size:12px; opacity:.8; max-width:96px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -327,6 +409,12 @@ export class PageDesignerComponent implements HasUnsavedChanges {
   protected readonly newPropKey = signal('');
   protected readonly newPropValue = signal('');
   protected readonly surfacePalette = signal<PaletteGroup[]>([]);
+  /** Form capability bodies (name → body) so form surfaces render live in the preview. */
+  protected readonly formBodies = signal<Record<string, Record<string, unknown>>>({});
+  /** Preview mode: structural wireframe (default) vs live surface render. */
+  /** Preview mode: structural wireframe, live surface render, or the JSON body. */
+  protected readonly previewMode = signal<'struct' | 'live' | 'code'>('struct');
+  protected readonly livePreview = computed(() => this.previewMode() === 'live');
   protected readonly loading = signal(true);
   protected readonly saving = signal(false);
   protected readonly saved = signal(false);
@@ -403,10 +491,10 @@ export class PageDesignerComponent implements HasUnsavedChanges {
     if (k === 'z' && !e.shiftKey) { e.preventDefault(); this.undo(); }
     else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); this.redo(); }
   }
-
-  protected glyph(kind: string): string { return KIND_GLYPH[kind] ?? '›'; }
   protected readonly km = kindMeta;
   protected tilesFor(r: string): Surface[] { return this.regions()[r] ?? []; }
+  /** The catalog body for a form surface (by name), or null if not yet loaded / not a form. */
+  protected formBody(name: string): Record<string, unknown> | null { return this.formBodies()[name] ?? null; }
   protected propFields(name: string): PropField[] { return PROP_FIELDS[name] ?? []; }
   protected asLinks(v: unknown): { label: string; href: string }[] { return (Array.isArray(v) ? v : []) as { label: string; href: string }[]; }
   protected propVal(s: Surface, key: string): unknown { return s.props[key]; }
@@ -425,7 +513,12 @@ export class PageDesignerComponent implements HasUnsavedChanges {
       commit();
     });
     const kinds: [SurfaceKind, number][] = [['form', 2], ['workflow', 3], ['component', 4]];
-    for (const [k, gi] of kinds) this.caps.listByKind(k).subscribe((r) => { for (const c of r.items) groups[gi].items.push({ kind: k, name: c.name, title: (c.body?.['title'] as string) ?? c.name }); commit(); });
+    for (const [k, gi] of kinds) this.caps.listByKind(k).subscribe((r) => {
+      for (const c of r.items) groups[gi].items.push({ kind: k, name: c.name, title: (c.body?.['title'] as string) ?? c.name });
+      // Keep form bodies so the live preview can render each form surface for real.
+      if (k === 'form') this.formBodies.update((m) => { const next = { ...m }; for (const c of r.items) next[c.name] = c.body ?? {}; return next; });
+      commit();
+    });
 
     this.caps.get(this.id()).subscribe((c) => {
       const b = c.body as { title?: string; type?: PageType; layout?: PageLayout; regions?: Record<string, Surface[]>; access?: { personas?: string[]; scopes?: string[] } };
@@ -585,14 +678,19 @@ export class PageDesignerComponent implements HasUnsavedChanges {
   protected removeLink(i: number): void { this.updateSelected((p) => { p['links'] = this.asLinks(p['links']).filter((_, idx) => idx !== i); return p; }); }
   protected editLink(i: number, key: 'label' | 'href', v: string): void { this.updateSelected((p) => { p['links'] = this.asLinks(p['links']).map((l, idx) => (idx === i ? { ...l, [key]: v } : l)); return p; }); }
 
-  protected save(): void {
-    this.saving.set(true);
+  /** The page body as it would be saved — also drives the preview's Code view. */
+  protected readonly currentBody = computed<Record<string, unknown>>(() => {
     const list = (s: string) => s.split(/[\s,]+/).filter(Boolean);
     const regions: Record<string, Surface[]> = {};
     for (const r of this.regionNames()) if (this.regions()[r]?.length) regions[r] = this.regions()[r];
-    const body: Record<string, unknown> = this.type() === 'shell'
+    return this.type() === 'shell'
       ? { title: this.name(), type: 'shell', regions }
       : { title: this.name(), type: 'content', layout: this.layout(), regions, access: { personas: list(this.personas()), scopes: list(this.scopes()) } };
+  });
+
+  protected save(): void {
+    this.saving.set(true);
+    const body = this.currentBody();
     this.caps.update(this.id(), { body }, this.capVersion()).subscribe({
       next: (c) => { this.saving.set(false); this.saved.set(true); this.pristine = this.snapshot(); applyCapability(this.gov(), c); },
       error: (e) => { this.saving.set(false); reportWriteError(this.toast, e); },

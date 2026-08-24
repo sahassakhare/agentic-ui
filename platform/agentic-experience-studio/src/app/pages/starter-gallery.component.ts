@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
 import { STARTER_TEMPLATES, STARTER_ROUTE, type StarterTemplate } from '../starters';
@@ -15,6 +17,7 @@ interface StarterGroup { readonly kind: string; readonly label: string; readonly
 @Component({
   selector: 'aes-starter-gallery',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [MatProgressSpinnerModule, MatIconModule],
   template: `
     <div class="page">
       <div class="page-header" style="margin-top:var(--s4)">
@@ -32,12 +35,12 @@ interface StarterGroup { readonly kind: string; readonly label: string; readonly
             @for (t of g.items; track t.id) {
               <article class="card card-pad tpl">
                 <div class="tpl-head">
-                  <span class="glyph" aria-hidden="true">{{ t.glyph }}</span>
+                  <span class="glyph" aria-hidden="true"><mat-icon>{{ t.icon }}</mat-icon></span>
                   <h3>{{ t.title }}</h3>
                 </div>
                 <p class="desc">{{ t.description }}</p>
                 <button class="btn btn-primary" type="button" (click)="use(t)" [disabled]="busy() === t.id">
-                  @if (busy() === t.id) { <span class="spinner" aria-hidden="true"></span> Creating… }
+                  @if (busy() === t.id) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Creating… }
                   @else { Use this template }
                 </button>
               </article>
@@ -48,11 +51,13 @@ interface StarterGroup { readonly kind: string; readonly label: string; readonly
     </div>
   `,
   styles: [`
+    .btn-spin { --mdc-circular-progress-active-indicator-color: currentColor; display:inline-block; vertical-align:middle; margin-right:6px; }
     .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:var(--s4); }
     .tpl { display:flex; flex-direction:column; gap:var(--s2); }
     .tpl-head { display:flex; align-items:center; gap:var(--s3); }
     .tpl-head .glyph { width:34px; height:34px; display:grid; place-items:center; border-radius:var(--r-sm);
       background:var(--brand-soft); color:var(--brand); font-size:18px; }
+    .tpl-head .glyph mat-icon { font-size:20px; width:20px; height:20px; }
     .tpl-head h3 { margin:0; font-size:var(--fs-md); }
     .tpl .desc { margin:0; color:var(--text-muted); font-size:var(--fs-sm); line-height:1.5; flex:1; }
     .tpl .btn { align-self:flex-start; margin-top:var(--s2); }

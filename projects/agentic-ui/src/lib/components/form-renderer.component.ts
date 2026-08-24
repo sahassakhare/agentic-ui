@@ -134,21 +134,45 @@ interface ResolvedSection {
           <h3>{{ f.name }}</h3>
           @if (f.description) { <p class="desc">{{ f.description }}</p> }
           @for (field of fields(); track field.key) {
+            @if (field.ui.widget === 'radio') {
+              <fieldset class="field-radio">
+                <legend>{{ field.label }}@if (field.required) { <em aria-hidden="true">*</em> }</legend>
+                <span class="radio-group">
+                  @for (opt of field.ui.options ?? []; track opt.value) {
+                    <label class="radio">
+                      <input type="radio"
+                        [name]="field.key"
+                        [value]="opt.value"
+                        [ngModel]="readField(field.key)"
+                        (ngModelChange)="writeField(field.key, $event)"
+                        [attr.aria-required]="field.required || null" />
+                      <span>{{ opt.label }}</span>
+                    </label>
+                  }
+                </span>
+                @if (errorFor(field.key); as err) { <small class="error" role="alert">{{ err }}</small> }
+              </fieldset>
+            } @else {
             <label>
-              <span>{{ field.label }}@if (field.required) { <em>*</em> }</span>
+              <span>{{ field.label }}@if (field.required) { <em aria-hidden="true">*</em> }</span>
               @switch (field.ui.widget) {
                 @case ('textarea') {
                   <textarea
                     [ngModel]="readField(field.key)"
                     (ngModelChange)="writeField(field.key, $event)"
                     [name]="field.key"
-                    [placeholder]="field.ui.placeholder ?? ''"></textarea>
+                    [placeholder]="field.ui.placeholder ?? ''"
+                    [attr.aria-required]="field.required || null"
+                    [attr.aria-invalid]="!!errorFor(field.key) || null"></textarea>
                 }
                 @case ('select') {
                   <select
                     [ngModel]="readField(field.key)"
                     (ngModelChange)="writeField(field.key, $event)"
-                    [name]="field.key">
+                    [name]="field.key"
+                    [attr.aria-required]="field.required || null"
+                    [attr.aria-invalid]="!!errorFor(field.key) || null">
+                    @if (!field.required) { <option [ngValue]="undefined">—</option> }
                     @for (opt of field.ui.options ?? []; track opt.value) {
                       <option [value]="opt.value">{{ opt.label }}</option>
                     }
@@ -158,33 +182,59 @@ interface ResolvedSection {
                   <input type="checkbox"
                     [ngModel]="!!readField(field.key)"
                     (ngModelChange)="writeField(field.key, $event)"
-                    [name]="field.key" />
+                    [name]="field.key"
+                    [attr.aria-required]="field.required || null" />
                 }
                 @case ('number') {
                   <input type="number"
                     [ngModel]="readField(field.key)"
                     (ngModelChange)="writeField(field.key, +$event)"
                     [name]="field.key"
-                    [placeholder]="field.ui.placeholder ?? ''" />
+                    [placeholder]="field.ui.placeholder ?? ''"
+                    [attr.aria-required]="field.required || null"
+                    [attr.aria-invalid]="!!errorFor(field.key) || null" />
+                }
+                @case ('range') {
+                  <span class="range-row">
+                    <input type="range"
+                      [ngModel]="readField(field.key)"
+                      (ngModelChange)="writeField(field.key, +$event)"
+                      [name]="field.key"
+                      [attr.aria-required]="field.required || null" />
+                    <output class="range-out">{{ readField(field.key) ?? 0 }}</output>
+                  </span>
                 }
                 @case ('date') {
                   <input type="date"
                     [ngModel]="readField(field.key)"
                     (ngModelChange)="writeField(field.key, $event)"
-                    [name]="field.key" />
+                    [name]="field.key"
+                    [attr.aria-required]="field.required || null"
+                    [attr.aria-invalid]="!!errorFor(field.key) || null" />
                 }
-                @default {
-                  <input type="text"
+                @case ('time') {
+                  <input type="time"
                     [ngModel]="readField(field.key)"
                     (ngModelChange)="writeField(field.key, $event)"
                     [name]="field.key"
-                    [placeholder]="field.ui.placeholder ?? ''" />
+                    [attr.aria-required]="field.required || null"
+                    [attr.aria-invalid]="!!errorFor(field.key) || null" />
+                }
+                @default {
+                  <input [type]="inputType(field.ui.widget)"
+                    [ngModel]="readField(field.key)"
+                    (ngModelChange)="writeField(field.key, $event)"
+                    [name]="field.key"
+                    [placeholder]="field.ui.placeholder ?? ''"
+                    [attr.aria-required]="field.required || null"
+                    [attr.aria-invalid]="!!errorFor(field.key) || null" />
                 }
               }
               @if (errorFor(field.key); as err) {
-                <small class="error">{{ err }}</small>
+                <small class="error" role="alert">{{ err }}</small>
               }
             </label>
+            }
           }
           <div class="form-actions">
             @for (a of actions(); track $index) {
@@ -212,6 +262,14 @@ interface ResolvedSection {
     .desc { margin: 0; color: var(--text-muted, #6b7280); font-size: 0.85rem; }
     label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem; }
     label em { color: #b91c1c; font-style: normal; margin-left: 0.15rem; }
+    .field-radio { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+    .field-radio legend { padding: 0; font-size: 0.85rem; }
+    .field-radio legend em { color: #b91c1c; font-style: normal; margin-left: 0.15rem; }
+    .radio-group { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+    .radio { display: inline-flex; flex-direction: row; align-items: center; gap: 0.3rem; font-size: 0.85rem; }
+    .range-row { display: flex; align-items: center; gap: 0.5rem; }
+    .range-row input[type=range] { flex: 1; }
+    .range-out { font-variant-numeric: tabular-nums; color: var(--text-muted, #6b7280); min-width: 2ch; text-align: right; }
     input, select, textarea { padding: 0.4rem 0.5rem; border: 1px solid var(--border, #d1d5db); border-radius: 0.3rem; font: inherit; }
     .error { color: #b91c1c; font-size: 0.75rem; }
     .form-actions { display: flex; align-items: center; gap: 0.5rem; }
@@ -452,6 +510,11 @@ export class FormRendererComponent {
 
   protected writeField(key: string, value: unknown): void {
     this.values.update((cur) => ({ ...cur, [key]: value }));
+  }
+
+  /** Native input type for text-like widgets; anything else falls back to text. */
+  protected inputType(widget: FormFieldUi['widget']): string {
+    return widget === 'email' || widget === 'tel' || widget === 'url' || widget === 'password' ? widget : 'text';
   }
 
   protected errorFor(key: string): string | undefined {

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { MatTabsModule } from '@angular/material/tabs';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { environment } from '../../environments/environment';
@@ -23,7 +24,7 @@ interface IngestJob {
 @Component({
   selector: 'aes-component-ingest',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, MatTabsModule],
   template: `
     <div class="wrap">
       <a routerLink="/components" class="back">← Components</a>
@@ -32,22 +33,21 @@ interface IngestJob {
 
       @if (!job()) {
         <section class="card">
-          <div class="tabs">
-            <button [class.on]="mode() === 'npm'" (click)="mode.set('npm')">npm package</button>
-            <button [class.on]="mode() === 'url'" (click)="mode.set('url')">Tarball URL</button>
-            <button [class.on]="mode() === 'file'" (click)="mode.set('file')">Upload archive</button>
-          </div>
-          @if (mode() === 'npm') {
-            <label class="lbl">npm spec</label>
-            <input class="input" [(ngModel)]="npmSpec" placeholder="&#64;progress/kendo-angular-buttons@16.0.0" (keydown.enter)="discover()" />
-          } @else if (mode() === 'url') {
-            <label class="lbl">Tarball URL (.tgz)</label>
-            <input class="input" [(ngModel)]="url" placeholder="https://…/my-lib-1.0.0.tgz" (keydown.enter)="discover()" />
-            <p class="muted sm" style="margin-top:6px">A direct link to a packed library tarball — e.g. an npm registry URL or a release asset.</p>
-          } @else {
-            <label class="lbl">Library archive (.tgz / .zip)</label>
-            <input type="file" accept=".tgz,.gz,.zip" (change)="onFile($event)" />
-          }
+          <mat-tab-group class="ingest-tabs" [selectedIndex]="modeIndex()" (selectedIndexChange)="setModeByIndex($event)" mat-stretch-tabs="false">
+            <mat-tab label="npm package">
+              <label class="lbl">npm spec</label>
+              <input class="input" [(ngModel)]="npmSpec" placeholder="&#64;progress/kendo-angular-buttons@16.0.0" (keydown.enter)="discover()" />
+            </mat-tab>
+            <mat-tab label="Tarball URL">
+              <label class="lbl">Tarball URL (.tgz)</label>
+              <input class="input" [(ngModel)]="url" placeholder="https://…/my-lib-1.0.0.tgz" (keydown.enter)="discover()" />
+              <p class="muted sm" style="margin-top:6px">A direct link to a packed library tarball — e.g. an npm registry URL or a release asset.</p>
+            </mat-tab>
+            <mat-tab label="Upload archive">
+              <label class="lbl">Library archive (.tgz / .zip)</label>
+              <input type="file" accept=".tgz,.gz,.zip" (change)="onFile($event)" />
+            </mat-tab>
+          </mat-tab-group>
           @if (error()) { <p class="err">{{ error() }}</p> }
           <div class="actions">
             <button class="btn primary" (click)="discover()" [disabled]="busy() || !canSubmit()">
@@ -116,8 +116,8 @@ interface IngestJob {
     .back { font-size:13px; text-decoration:none; opacity:.7; } h1 { font-size:20px; margin:10px 0 6px; }
     .muted { opacity:.65; } .sm { font-size:12px; }
     .card { border:1px solid rgba(120,120,140,.18); border-radius:14px; padding:18px; margin-top:14px; }
-    .tabs { display:inline-flex; border:1px solid rgba(120,120,140,.3); border-radius:9px; overflow:hidden; margin-bottom:14px; }
-    .tabs button { font:inherit; font-size:13px; padding:7px 14px; border:none; background:transparent; color:inherit; cursor:pointer; } .tabs button.on { background:#6750a4; color:#fff; }
+    .ingest-tabs { margin-bottom:14px; }
+    .ingest-tabs .lbl { margin-top:14px; }
     .lbl { display:block; font-size:12px; font-weight:600; margin:8px 0 5px; opacity:.8; }
     .input { width:100%; padding:10px 12px; border:1px solid rgba(120,120,140,.3); border-radius:9px; background:transparent; color:inherit; font:inherit; }
     .actions { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
@@ -147,6 +147,9 @@ export class ComponentIngestComponent {
   private readonly base = environment.ingestUrl;
 
   protected readonly mode = signal<'npm' | 'url' | 'file'>('npm');
+  private static readonly MODES = ['npm', 'url', 'file'] as const;
+  protected readonly modeIndex = computed(() => ComponentIngestComponent.MODES.indexOf(this.mode()));
+  protected setModeByIndex(i: number): void { this.mode.set(ComponentIngestComponent.MODES[i] ?? 'npm'); }
   protected readonly npmSpec = signal('');
   protected readonly url = signal('');
   protected readonly file = signal<File | null>(null);

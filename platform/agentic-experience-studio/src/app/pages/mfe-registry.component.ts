@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { CapabilityCatalogService } from '../services/capability-catalog.service';
@@ -6,6 +6,8 @@ import { ToastService } from '../services/toast.service';
 import { ConfirmService } from '../services/confirm.service';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
 
 interface RemoteRecord {
   remoteName: string;
@@ -28,7 +30,7 @@ interface RemoteRecord {
 @Component({
   selector: 'aes-mfe-registry',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, MatMenuModule, MatButtonModule],
+  imports: [RouterLink, MatMenuModule, MatButtonModule, MatIconModule, MatChipsModule],
   template: `
     <div class="wrap">
       <div class="head">
@@ -37,8 +39,8 @@ interface RemoteRecord {
           <p class="muted sm">Remotes the Hub loads at boot. Built by the ingest service; managed here.</p>
         </div>
         <div class="head-actions">
-          <button class="btn" (click)="load()" [disabled]="busy()">↻ Refresh</button>
-          <a class="btn primary" routerLink="/components/upload">⬆ Upload library</a>
+          <button matButton (click)="load()" [disabled]="busy()">↻ Refresh</button>
+          <a matButton="filled" routerLink="/components/upload">⬆ Upload library</a>
         </div>
       </div>
 
@@ -79,7 +81,9 @@ interface RemoteRecord {
             @if (componentsOf(r.remoteName).length) {
               <div class="comps">
                 <span class="eyebrow">{{ componentsOf(r.remoteName).length }} component(s)</span>
-                @for (name of componentsOf(r.remoteName); track name) { <span class="wchip">⛃ {{ name }}</span> }
+                <mat-chip-set>
+                  @for (name of componentsOf(r.remoteName); track name) { <mat-chip class="wchip"><mat-icon matChipAvatar>widgets</mat-icon>{{ name }}</mat-chip> }
+                </mat-chip-set>
               </div>
             }
           </section>
@@ -108,7 +112,9 @@ interface RemoteRecord {
     .meta { margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; } .meta a { color:inherit; }
     .comps { margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
     .eyebrow { font-size:10px; text-transform:uppercase; letter-spacing:.06em; opacity:.55; margin-right:4px; }
-    .wchip { font-family:ui-monospace,Menlo,monospace; font-size:11px; color:#6750a4; background:rgba(103,80,164,.1); padding:2px 8px; border-radius:999px; }
+    .wchip.mat-mdc-chip { --mdc-chip-container-height:24px; --mdc-chip-elevated-container-color:var(--brand-soft, rgba(103,80,164,.1)); --mdc-chip-label-text-color:var(--brand, #6750a4);
+      font-family:ui-monospace,Menlo,monospace; font-size:11px; }
+    .wchip .mat-mdc-chip-avatar { font-size:14px; width:14px; height:14px; color:var(--brand, #6750a4); }
   `],
 })
 export class MfeRegistryComponent {

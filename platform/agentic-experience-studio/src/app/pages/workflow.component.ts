@@ -1,4 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
@@ -12,7 +13,7 @@ import { ToastService } from '../services/toast.service';
  */
 @Component({
   selector: 'aes-workflow',
-  imports: [FormsModule, RouterLink],
+  imports: [MatProgressSpinnerModule, FormsModule, RouterLink],
   template: `
     <div class="page">
       <div class="page-header">
@@ -37,7 +38,7 @@ import { ToastService } from '../services/toast.service';
           </div>
           <div class="row" style="margin-top:var(--s4)">
             <button class="btn btn-primary" type="submit" [disabled]="!canCreate() || saving()">
-              @if (saving()) { <span class="spinner" aria-hidden="true"></span> Creating… } @else { Create &amp; design → }
+              @if (saving()) { <mat-spinner diameter="16" class="btn-spin" aria-hidden="true"></mat-spinner> Creating… } @else { Create &amp; design → }
             </button>
             <button class="btn btn-ghost" type="button" (click)="cancelCreate()">Cancel</button>
           </div>
@@ -73,6 +74,7 @@ import { ToastService } from '../services/toast.service';
     </div>
   `,
   styles: [`
+    .btn-spin { --mdc-circular-progress-active-indicator-color: currentColor; display:inline-block; vertical-align:middle; margin-right:6px; }
     .create { margin-bottom: var(--s5); }
   `],
 })
