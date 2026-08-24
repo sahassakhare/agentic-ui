@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Trusted Publishing (OIDC): NO registry-url — that would write an empty
       # `_authToken` into .npmrc and suppress the OIDC token exchange. With
