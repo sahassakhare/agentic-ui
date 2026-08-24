@@ -140,7 +140,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                   @for (f of propFields(sel.name); track f.key) {
                     @switch (f.type) {
                       @case ('links') {
-                        <label class="lbl">{{ f.label }}</label>
+                        <span class="lbl">{{ f.label }}</span>
                         @for (l of asLinks(propVal(sel, f.key)); track $index) {
                           <div class="linkrow">
                             <mat-form-field appearance="outline" subscriptSizing="dynamic" class="af flex"><mat-label>Label</mat-label><input matInput [ngModel]="l.label" (ngModelChange)="editLink($index, 'label', $event)" /></mat-form-field>
@@ -157,7 +157,7 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                   <!-- Universal props editor: any surface, any prop. Values are parsed
                        as JSON when possible (numbers, booleans, objects, arrays) else kept
                        as strings — so authors can configure a surface without limits. -->
-                  <label class="lbl">Properties <span class="muted sm">— passed to this {{ sel.kind }}</span></label>
+                  <span class="lbl">Properties <span class="muted sm">— passed to this {{ sel.kind }}</span></span>
                   @for (row of propEntries(sel); track row.key) {
                     <div class="proprow">
                       <span class="pkey" [title]="row.key">{{ row.key }}</span>
@@ -192,10 +192,14 @@ const PROP_FIELDS: Record<string, PropField[]> = {
                 @for (r of regionNames(); track r) {
                   <div class="region" cdkDropList [id]="'region-' + r" [cdkDropListData]="regions()[r] || []"
                        [cdkDropListConnectedTo]="regionListIds()" (cdkDropListDropped)="onDrop($event, r)"
-                       [class.on]="activeRegion() === r" (click)="activeRegion.set(r)">
+                       [class.on]="activeRegion() === r" (click)="activeRegion.set(r)"
+                       tabindex="0" role="button" [attr.aria-pressed]="activeRegion() === r"
+                       [attr.aria-label]="'Region ' + r" (keydown.enter)="activeRegion.set(r)" (keydown.space)="activeRegion.set(r); $event.preventDefault()">
                     <div class="rhead">{{ r }} <span class="muted sm">{{ (regions()[r] || []).length }}</span></div>
                     @for (s of regions()[r]; track $index) {
-                      <div class="block" cdkDrag [cdkDragData]="s" [class.sel]="isSelected(r, $index)" (click)="select(r, $index, $event)">
+                      <div class="block" cdkDrag [cdkDragData]="s" [class.sel]="isSelected(r, $index)" (click)="select(r, $index, $event)"
+                        tabindex="0" role="button" [attr.aria-pressed]="isSelected(r, $index)" [attr.aria-label]="'Surface ' + s.name"
+                        (keydown.enter)="select(r, $index, $event)" (keydown.space)="select(r, $index, $event); $event.preventDefault()">
                         <span class="ic" [class.dash]="s.kind === 'dashboard'"><mat-icon>{{ km(s.kind).icon }}</mat-icon></span>
                         <span class="bm"><span class="nm">{{ s.name }}</span><span class="gl">{{ s.kind }}</span></span>
                         <span class="ctrls">

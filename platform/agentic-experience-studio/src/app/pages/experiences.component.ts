@@ -55,7 +55,7 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
               @if (touched() && !newGoal.trim()) { <mat-error>A goal is required.</mat-error> }
             </mat-form-field>
             <div class="field" style="grid-column:1 / -1">
-              <label class="label">Requirements <span class="help">— pick a kind, then a registry entry of that kind</span></label>
+              <span class="label">Requirements <span class="help">— pick a kind, then a registry entry of that kind</span></span>
               <aes-requirements-builder [initial]="[]" (requirementsChange)="newRequires = $event" />
             </div>
           </div>

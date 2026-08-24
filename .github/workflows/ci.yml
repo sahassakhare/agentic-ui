@@ -42,6 +42,40 @@ jobs:
       - name: Check publishable packages were bumped when changed
         run: node scripts/check-lib-versions.mjs
 
+  studio:
+    name: Studio (build + test + lint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19'
+          cache: npm
+
+      - name: Pin npm to 11.x (matches lockfile generator)
+        run: npm install -g npm@11.6.2
+
+      - name: Install workspace dependencies
+        run: npm ci --no-audit --fund=false
+
+      # The Studio resolves `@infra-tools/agentic-ui` via the tsconfig path
+      # alias `-> ./dist/agentic-ui`, so the lib must be built first.
+      - name: Build the library (primary entry + schematics)
+        run: npm run build:lib
+
+      - name: Lint the Studio (ESLint, 0 errors)
+        run: npm run lint:studio
+
+      - name: Unit tests (Vitest via @angular/build:unit-test)
+        run: npx ng test agentic-experience-studio --no-watch
+
+      - name: Build the Studio (production)
+        run: npx ng build agentic-experience-studio --configuration production
+
   build-and-test:
     name: Build + test (Node ${{ matrix.node }})
     runs-on: ubuntu-latest

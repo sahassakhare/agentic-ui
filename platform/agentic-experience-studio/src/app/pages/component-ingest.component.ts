@@ -35,17 +35,17 @@ interface IngestJob {
         <section class="card">
           <mat-tab-group class="ingest-tabs" [selectedIndex]="modeIndex()" (selectedIndexChange)="setModeByIndex($event)" mat-stretch-tabs="false">
             <mat-tab label="npm package">
-              <label class="lbl">npm spec</label>
-              <input class="input" [(ngModel)]="npmSpec" placeholder="&#64;progress/kendo-angular-buttons@16.0.0" (keydown.enter)="discover()" />
+              <label class="lbl" for="ci-npm">npm spec</label>
+              <input id="ci-npm" class="input" [(ngModel)]="npmSpec" placeholder="&#64;progress/kendo-angular-buttons@16.0.0" (keydown.enter)="discover()" />
             </mat-tab>
             <mat-tab label="Tarball URL">
-              <label class="lbl">Tarball URL (.tgz)</label>
-              <input class="input" [(ngModel)]="url" placeholder="https://…/my-lib-1.0.0.tgz" (keydown.enter)="discover()" />
+              <label class="lbl" for="ci-url">Tarball URL (.tgz)</label>
+              <input id="ci-url" class="input" [(ngModel)]="url" placeholder="https://…/my-lib-1.0.0.tgz" (keydown.enter)="discover()" />
               <p class="muted sm" style="margin-top:6px">A direct link to a packed library tarball — e.g. an npm registry URL or a release asset.</p>
             </mat-tab>
             <mat-tab label="Upload archive">
-              <label class="lbl">Library archive (.tgz / .zip)</label>
-              <input type="file" accept=".tgz,.gz,.zip" (change)="onFile($event)" />
+              <label class="lbl" for="ci-file">Library archive (.tgz / .zip)</label>
+              <input id="ci-file" type="file" accept=".tgz,.gz,.zip" (change)="onFile($event)" />
             </mat-tab>
           </mat-tab-group>
           @if (error()) { <p class="err">{{ error() }}</p> }

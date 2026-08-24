@@ -164,17 +164,17 @@ const CURRENCY_RE = /\b(amount|price|cost|total|salary|budget|fee|payment|balanc
                 @if (showErr(f); as e) { <span class="sf-err">{{ e }}</span> }
               }
               @case ('range') {
-                <label class="sf-toplbl">{{ labelOf(f) }}</label>
+                <span class="sf-toplbl">{{ labelOf(f) }}</span>
                 <div class="sf-range">
                   <span class="sf-rangeedge">{{ f.validation?.min ?? 0 }}</span>
                   <mat-slider [min]="f.validation?.min ?? 0" [max]="f.validation?.max ?? 100" discrete>
-                    <input matSliderThumb [formControlName]="f.name" />
+                    <input matSliderThumb [formControlName]="f.name" [attr.aria-label]="labelOf(f)" />
                   </mat-slider>
                   <span class="sf-rangeedge">{{ f.validation?.max ?? 100 }}</span>
                 </div>
               }
               @case ('file') {
-                <label class="sf-toplbl">{{ labelOf(f) }}</label>
+                <span class="sf-toplbl">{{ labelOf(f) }}</span>
                 <div class="sf-file" [class.dragover]="dragField() === f.name"
                   (dragover)="onDragOver(f.name, $event)" (dragleave)="onDragLeave($event)" (drop)="onDrop(f.name, $event)"
                   (click)="picker.click()" role="button" tabindex="0" [attr.aria-label]="'Upload ' + labelOf(f)"
@@ -190,7 +190,7 @@ const CURRENCY_RE = /\b(amount|price|cost|total|salary|budget|fee|payment|balanc
                 </div>
               }
               @case ('slot') {
-                <label class="sf-toplbl">{{ labelOf(f) }}</label>
+                <span class="sf-toplbl">{{ labelOf(f) }}</span>
                 <div class="sf-slot" title="Rendered by the ‘{{ f.widget }}’ component at runtime (loaded from its remote)">
                   <span class="sf-slot-glyph">◫</span>
                   <span class="sf-slot-meta">

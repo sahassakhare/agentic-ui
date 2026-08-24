@@ -65,7 +65,7 @@ import { PreviewHostComponent } from '../preview-host.component';
                 <input class="input" id="ed-title" name="title" [(ngModel)]="editTitle" /></div>
               <div class="field"><label class="label" for="ed-goal">Goal</label>
                 <input class="input" id="ed-goal" name="goal" [(ngModel)]="editGoal" /></div>
-              <div class="field" style="grid-column:1 / -1"><label class="label">Requirements <span class="help">— pick a kind, then a registry entry of that kind</span></label>
+              <div class="field" style="grid-column:1 / -1"><span class="label">Requirements <span class="help">— pick a kind, then a registry entry of that kind</span></span>
                 <aes-requirements-builder [initial]="editInitial()" (requirementsChange)="editRequires = $event" /></div>
             </div>
             <div class="row" style="margin-top:var(--s5)">

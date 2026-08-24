@@ -38,10 +38,14 @@ module.exports = tseslint.config(
       ...angular.configs.templateAccessibility,
     ],
     rules: {
-      // These a11y rules surface real improvements (label association, keyboard
-      // handlers on click targets) but warrant a dedicated a11y pass rather than
-      // blocking this branch — warnings for now, not errors.
-      '@angular-eslint/template/label-has-associated-control': 'warn',
+      // Labels are all associated with a control (or demoted to <span> where
+      // they only caption a composite) — enforced.
+      '@angular-eslint/template/label-has-associated-control': 'error',
+      // The genuinely-interactive click targets (page-designer region/surface,
+      // history version row) now carry tabindex + keyboard handlers. The
+      // remaining hits are dismiss backdrops/scrims (keyboard = Escape, wired
+      // via @HostListener) and listbox options (roving focus via the input) —
+      // per-element handlers would be the wrong fix, so these stay warnings.
       '@angular-eslint/template/click-events-have-key-events': 'warn',
       '@angular-eslint/template/interactive-supports-focus': 'warn',
     },

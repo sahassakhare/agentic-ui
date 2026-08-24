@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, signal, effect } from '@angular/core';
+import { Component, HostListener, computed, inject, input, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -376,6 +376,14 @@ export class CapabilityStudioComponent {
   readonly touched = signal(false);
   readonly query = signal('');
   readonly pendingDelete = signal<Capability | null>(null);
+
+  /** Keyboard dismiss for the modal dialogs — matches the scrim click. */
+  @HostListener('document:keydown.escape')
+  protected onEscape(): void {
+    if (this.pendingDelete()) { this.pendingDelete.set(null); return; }
+    if (this.previewTarget()) { this.previewTarget.set(null); }
+  }
+
   /** The authoring form is shown for either a create or an edit. */
   readonly formOpen = computed(() => this.createOpen() || this.editTarget() !== null);
 
