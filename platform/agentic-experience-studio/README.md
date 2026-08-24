@@ -43,6 +43,26 @@ each designer via a shared **approval bar** (`lifecycle-bar.component.ts`) +
   conflicting write surfaces a "changed elsewhere — reload" toast (HTTP 412).
 - **Unsaved-changes guard** — leaving a designer with pending edits prompts first.
 
+## UI & code view
+
+- **Angular Material** throughout — shell (`mat-toolbar` + `mat-tab-nav-bar`),
+  form fields, tabs (`mat-tab-group`) and toggles (`mat-button-toggle-group`),
+  chips, spinners, tooltips, and a self-hosted Material Icons set driving one
+  icon taxonomy across kinds, palettes, and chips (`services/kind-meta.ts`).
+- **Live form preview** — the shared `schema-form.component.ts` renders a form's
+  fields as real Material controls (text/email/number/date/time/textarea/
+  select/multiselect/checkbox/toggle/radio/range/file + a component slot),
+  with floating labels, `mat-error` validation, and submit-gating. It backs the
+  Form Designer preview and the Page Designer's **Live** surface preview.
+- **JSON code view** (`components/code-view.component.ts`) — a dependency-free,
+  syntax-highlighted, CSP-safe view of a capability's body with copy. It's
+  **read-only** in the designers (Page/Form/Workflow have a Code toggle; Decision
+  a Code button — they mirror the visual canvas) and **editable** in Capability
+  Studio, where you can edit the JSON body (live validation) and save it back to
+  the catalog under optimistic concurrency.
+- **Accessibility** — labels associated with controls, keyboard-operable
+  region/surface/version targets, and Escape-dismiss on every modal dialog.
+
 ## Run
 
 ```bash

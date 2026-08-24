@@ -23,7 +23,7 @@
 - **Schema-driven forms.** `<mvk-form-renderer>` consumes a `FormDef`'s field schema and emits validated values; the agent can fill, validate, and submit.
 - **Observability built in.** `AgenticTelemetrySink` is a no-op by default; `provideAgenticTelemetry({kind:'otel', providers})` gives you OpenTelemetry spans, metrics, and W3C `traceparent` propagation across the SSE boundary, so a single trace covers `chat shell → backend adapter → SSE route → agent → LLM → tool execution`.
 - **MCP bridge.** `mcpToolBridge({client})` imports a Model Context Protocol server's tools straight into `ToolRegistry`.
-- **Schematics for every artifact.** `ng add @infra-tools/agentic-ui` plus 9 generators (`tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `action`, `intent`, `form`).
+- **Schematics for every artifact.** `ng add @infra-tools/agentic-ui` plus generators: `tool`, `widget`, `chat-shell`, `backend`, `agent-server`, `mfe-capability`, `connect-studio`, `action`, `intent`, `form`, `trigger`, `dashboard`, `playbook`.
 - **Tested cross-backend.** A single `runConformance(backend)` suite exercises text streaming, tool calls, generative UI rendering, and abort semantics against any `AgenticBackend` implementation.
 
 ## Architecture decisions

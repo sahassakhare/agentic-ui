@@ -61,11 +61,13 @@ For non-substantive changes (bug fixes, doc updates, internal refactors), skip t
 
 ### Before you open a PR
 
-- ✅ Run `npx ng test agentic-ui --no-watch` and confirm 287/297 pass (10 schematics tests pre-fail without `npm run build:schematics`).
+- ✅ Run `npm run build:lib` then `npx ng test agentic-ui --no-watch` and confirm all pass. (Run `build:lib` first — the schematics tests need `dist/agentic-ui/schematics/collection.json`, produced by `npm run build:schematics` inside `build:lib`.)
 - ✅ Run `npx ng build agentic-ui` and confirm no errors.
+- ✅ If touching a **publishable package**, bump its `package.json#version` — the `lib-version-guard` CI check fails otherwise (see [RELEASING.md](./docs/RELEASING.md)).
+- ✅ If touching the **Studio**, run `npm run lint:studio` (0 errors) and `npx ng test agentic-experience-studio --no-watch`; the CI `studio` job runs these plus the production build.
 - ✅ If touching capability code in any demo, run the relevant Playwright spec.
 - ✅ If touching public APIs, update [`projects/agentic-ui/CHANGELOG.md`](./projects/agentic-ui/CHANGELOG.md) under `## [Unreleased]`.
-- ✅ Verify the bundle-size guard in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) won't trip (FESM cap is 300 KB).
+- ✅ Verify the bundle-size guard in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) won't trip (lib FESM cap is 896 KB).
 
 ### PR description requirements
 

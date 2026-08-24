@@ -56,7 +56,7 @@ That's a working chat UI talking to an AG-UI backend. For real tools + widgets +
 |------|---------|
 | **Chat shell** | `<mvk-chat-shell>` + composer + thread view + multi-modal attachments |
 | **Widget container** | `<mvk-widget-container>` resolves component names from `ComponentRegistry` and mounts via `*ngComponentOutlet` with Zod-validated props |
-| **Form renderer** | `<mvk-form-renderer>` drives schema-driven dynamic forms (`agenticForm` factory) with composable sections + reactive predicates |
+| **Form renderer** | `<mvk-form-renderer>` drives schema-driven dynamic forms (`agenticForm` factory) with composable sections + reactive predicates. Field widgets: text/email/tel/url/password, textarea, number, select, radio, date/time, range, checkbox — accessible native controls (no Material dependency) |
 | **15 registries** | Tool · Component · Capability · Backend · MFE · Action · Intent · Form · DataSource · **Approval (F4)** · **Operation (F5)** · Validation · Persistence · Layout · SchemaTransformer — all uniform `register / list / signal / removeBySource / setScopePolicy` |
 | **Orchestration loop** | `injectAgenticChat()` · `runUntilSettled` · abort signals · turn lifecycle hooks |
 | **Backend adapters** | `provideAgUiBackend` · `provideHashbrownBackend` · `provideA2uiBackend` — swap by config |
