@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject, input, output, signal, computed } from '@angular/core';
+import { ChangeDetectionStrategy, Component, HostListener, inject, input, output, signal, computed } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { CapabilityCatalogService, type CapabilityVersion } from './services/capability-catalog.service';
 import { ToastService } from './services/toast.service';
@@ -23,7 +23,9 @@ import { ToastService } from './services/toast.service';
         <div class="cols">
           <ul class="vlist">
             @for (v of versions(); track v.versionNo) {
-              <li [class.sel]="selected()?.versionNo === v.versionNo" (click)="selected.set(v)">
+              <li [class.sel]="selected()?.versionNo === v.versionNo" (click)="selected.set(v)"
+                  tabindex="0" role="button" [attr.aria-pressed]="selected()?.versionNo === v.versionNo"
+                  [attr.aria-label]="'Version ' + v.versionNo" (keydown.enter)="selected.set(v)" (keydown.space)="selected.set(v); $event.preventDefault()">
                 <div class="vrow">
                   <span class="vno">v{{ v.versionNo }}</span>
                   <span class="vr">{{ v.reason }}</span>
@@ -80,6 +82,10 @@ export class HistoryPanelComponent {
   readonly capabilityId = input.required<string>();
   readonly close = output<void>();
   readonly changed = output<void>();
+
+  /** Keyboard dismiss — matches the backdrop click and the ✕ button. */
+  @HostListener('document:keydown.escape')
+  protected onEscape(): void { this.close.emit(); }
 
   protected readonly versions = signal<readonly CapabilityVersion[]>([]);
   protected readonly selected = signal<CapabilityVersion | null>(null);
