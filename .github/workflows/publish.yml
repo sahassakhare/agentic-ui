@@ -1,16 +1,16 @@
 name: publish
 
-# Publishes the @infra-tools packages to npm from CI using the NPM_TOKEN repo
-# secret (an npm Granular Access Token with read+write on the @infra-tools scope
-# and "bypass 2FA" enabled, required for non-interactive CI publishing). GitHub
-# Actions is a supported OIDC provider, so provenance attestations still work
-# (publishConfig.provenance:true) via `id-token: write`.
+# Publishes the @infra-tools packages to npm using **Trusted Publishing (OIDC)**
+# — no NPM_TOKEN, no 2FA-bypass token (npm is deprecating those). GitHub Actions
+# is a supported OIDC provider; with `id-token: write` and npm >= 11.5.1,
+# `npm publish` exchanges a short-lived OIDC token automatically and attaches a
+# provenance attestation (publishConfig.provenance:true).
 #
-# NOTE: npm is deprecating token-based 2FA-bypass in favour of Trusted
-# Publishing (OIDC). To migrate, configure a trusted publisher per package on
-# npmjs.com (repo sahassakhare/agentic-ui, workflow publish.yml, blank
-# environment), then remove `registry-url` from setup-node and the
-# NODE_AUTH_TOKEN env blocks below so npm performs the OIDC token exchange.
+# PREREQUISITE — one-time, per package, on npmjs.com (else publish fails with an
+# auth error): each package → Settings → Trusted Publisher → GitHub Actions,
+# repo `sahassakhare/agentic-ui`, workflow `publish.yml`, blank environment.
+# Do this for ALL packages this workflow lists before the next run. There is no
+# token fallback — configuring the trusted publisher is what authorizes CI.
 #
 # Each step is idempotent: a version already on npm is skipped, so a re-run
 # only publishes what's new. Trigger manually (Actions -> publish -> Run
@@ -34,11 +34,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Node 20.19 (+ npm registry auth)
+      # Trusted Publishing (OIDC): NO registry-url — that would write an empty
+      # `_authToken` into .npmrc and suppress the OIDC token exchange. With
+      # id-token:write and a per-package trusted publisher configured on npm,
+      # `npm publish` (npm >= 11.5.1) exchanges the OIDC token automatically.
+      - name: Set up Node 20.19
         uses: actions/setup-node@v4
         with:
           node-version: '20.19'
-          registry-url: 'https://registry.npmjs.org'
           cache: npm
 
       # Match the lockfile generator (see .github/workflows/ci.yml).
@@ -63,8 +66,6 @@ jobs:
       # workflow is safe to re-run.
       - name: Publish @infra-tools/agentic-ui
         working-directory: dist/agentic-ui
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           v=$(node -p "require('./package.json').version")
           if npm view "@infra-tools/agentic-ui@$v" version >/dev/null 2>&1; then
@@ -75,8 +76,6 @@ jobs:
 
       - name: Build + publish @infra-tools/agentic-ui-server
         working-directory: projects/agentic-ui-server
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
           v=$(node -p "require('./package.json').version")
@@ -88,8 +87,6 @@ jobs:
 
       - name: Build + publish @infra-tools/agentic-platform-schematics
         working-directory: projects/agentic-platform-schematics
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
           v=$(node -p "require('./package.json').version")
@@ -101,8 +98,6 @@ jobs:
 
       - name: Build + publish @infra-tools/agentic-catalog-server
         working-directory: platform/agentic-catalog-server
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm install --no-audit --fund=false
           npm run build
@@ -115,8 +110,6 @@ jobs:
 
       - name: Build + publish @infra-tools/agentic-ui-mcp
         working-directory: projects/agentic-ui-mcp
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
           v=$(node -p "require('./package.json').version")
@@ -128,8 +121,6 @@ jobs:
 
       - name: Build + publish @infra-tools/agentic-ui-opa-authorizer
         working-directory: projects/agentic-ui-opa-authorizer
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
           v=$(node -p "require('./package.json').version")
@@ -141,8 +132,6 @@ jobs:
 
       - name: Build + publish @infra-tools/aep-embed-sdk
         working-directory: platform/aep-embed-sdk
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
           v=$(node -p "require('./package.json').version")
@@ -154,13 +143,99 @@ jobs:
 
       - name: Build + publish @infra-tools/mvk (mvk-cli)
         working-directory: platform/mvk-cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm run build
           v=$(node -p "require('./package.json').version")
           if npm view "@infra-tools/mvk@$v" version >/dev/null 2>&1; then
             echo "::notice::@infra-tools/mvk@$v already published — skipping"
+          else
+            npm publish --access public
+          fi
+
+      # --- integration/adapter packages ------------------------------------
+      # Standalone tsc packages, each with a `files` allowlist; all verified to
+      # build. server-stores depends on file:../agentic-ui-server, whose dist
+      # exists by now (built + published above), so its `npm install` resolves.
+      - name: Build + publish @infra-tools/agentic-ui-server-stores
+        working-directory: projects/agentic-ui-server-stores
+        run: |
+          npm install --no-audit --fund=false
+          npm run build
+          v=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-server-stores@$v" version >/dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-server-stores@$v already published — skipping"
+          else
+            npm publish --access public
+          fi
+
+      - name: Build + publish @infra-tools/agentic-ui-server-registrar
+        working-directory: projects/agentic-ui-server-registrar
+        run: |
+          npm install --no-audit --fund=false
+          npm run build
+          v=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-server-registrar@$v" version >/dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-server-registrar@$v already published — skipping"
+          else
+            npm publish --access public
+          fi
+
+      - name: Build + publish @infra-tools/agentic-ui-m365-agents
+        working-directory: projects/agentic-ui-m365-agents
+        run: |
+          npm install --no-audit --fund=false
+          npm run build
+          v=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-m365-agents@$v" version >/dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-m365-agents@$v already published — skipping"
+          else
+            npm publish --access public
+          fi
+
+      - name: Build + publish @infra-tools/agentic-ui-copilot-skill
+        working-directory: projects/agentic-ui-copilot-skill
+        run: |
+          npm install --no-audit --fund=false
+          npm run build
+          v=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-copilot-skill@$v" version >/dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-copilot-skill@$v already published — skipping"
+          else
+            npm publish --access public
+          fi
+
+      - name: Build + publish @infra-tools/agentic-ui-webmcp
+        working-directory: projects/agentic-ui-webmcp
+        run: |
+          npm install --no-audit --fund=false
+          npm run build
+          v=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-webmcp@$v" version >/dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-webmcp@$v already published — skipping"
+          else
+            npm publish --access public
+          fi
+
+      - name: Build + publish @infra-tools/agentic-ui-teams-bot
+        working-directory: projects/agentic-ui-teams-bot
+        run: |
+          npm install --no-audit --fund=false
+          npm run build
+          v=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-teams-bot@$v" version >/dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-teams-bot@$v already published — skipping"
+          else
+            npm publish --access public
+          fi
+
+      - name: Build + publish @infra-tools/agentic-ui-copilot-studio-connector
+        working-directory: projects/agentic-ui-copilot-studio-connector
+        run: |
+          npm install --no-audit --fund=false
+          npm run build
+          v=$(node -p "require('./package.json').version")
+          if npm view "@infra-tools/agentic-ui-copilot-studio-connector@$v" version >/dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-ui-copilot-studio-connector@$v already published — skipping"
           else
             npm publish --access public
           fi
