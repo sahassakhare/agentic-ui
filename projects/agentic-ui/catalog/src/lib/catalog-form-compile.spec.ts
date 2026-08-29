@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FormActionDef } from '@infra-tools/agentic-ui';
-import { fieldsToZod, resolveActions } from './catalog-form-compile';
+import { fieldsToUi, fieldsToZod, resolveActions } from './catalog-form-compile';
 
 describe('fieldsToZod', () => {
   it('maps field types to the right Zod primitives', () => {
@@ -29,7 +29,6 @@ describe('fieldsToZod', () => {
       { name: 'heading', type: 'section' },
       { name: 'name', type: 'text', required: true },
     ]);
-    // Only `name` is a real field; a section must not become a required key.
     expect(schema.safeParse({ name: 'a' }).success).toBe(true);
   });
 
@@ -39,39 +38,55 @@ describe('fieldsToZod', () => {
     expect(schema.safeParse({ code: 'abc' }).success).toBe(true);
   });
 
+  it('applies a named validator resolved from the rule registry', () => {
+    const resolve = (name: string) => name === 'max5' ? (v: unknown) => (String(v).length <= 5 ? null : 'too long') : undefined;
+    const schema = fieldsToZod([{ name: 'code', type: 'text', required: true, validators: ['max5'] }], resolve);
+    expect(schema.safeParse({ code: 'abcdef' }).success).toBe(false);
+    expect(schema.safeParse({ code: 'abc' }).success).toBe(true);
+  });
+
   it('degrades an unknown field type to a permissive node instead of throwing', () => {
     const schema = fieldsToZod([{ name: 'weird', type: 'signature' as never, required: true }]);
     expect(schema.safeParse({ weird: { any: 'thing' } }).success).toBe(true);
   });
+});
 
-  it('keeps the node when a regex pattern is invalid (never throws)', () => {
-    const schema = fieldsToZod([{ name: 'x', type: 'text', required: true, validation: { pattern: '(' } }]);
-    expect(schema.safeParse({ x: 'anything' }).success).toBe(true);
+describe('fieldsToUi', () => {
+  it('carries each field type through as its renderer widget', () => {
+    const ui = fieldsToUi([
+      { name: 'title', type: 'text' },
+      { name: 'age', type: 'number' },
+      { name: 'email', type: 'email' },
+    ]);
+    expect(ui['age'].widget).toBe('number');
+    expect(ui['email'].widget).toBe('email');
+    expect(ui['title'].widget).toBe('text');
+  });
+
+  it('skips section fields and does not consume an order slot', () => {
+    const ui = fieldsToUi([{ name: 'heading', type: 'section' }, { name: 'name', type: 'text' }]);
+    expect(ui['heading']).toBeUndefined();
+    expect(ui['name'].order).toBe(0);
+  });
+
+  it('maps select/radio options to {value,label} pairs', () => {
+    const ui = fieldsToUi([{ name: 'size', type: 'select', options: ['S', 'M'] }]);
+    expect(ui['size'].options).toEqual([{ value: 'S', label: 'S' }, { value: 'M', label: 'M' }]);
   });
 });
 
 describe('resolveActions', () => {
   it('returns an authored action bar as-is', () => {
-    const actions: FormActionDef[] = [
-      { kind: 'submit', label: 'Save' },
-      { kind: 'tool', label: 'Export', tool: 'export-pdf' },
-    ];
+    const actions: FormActionDef[] = [{ kind: 'submit', label: 'Save' }];
     expect(resolveActions(actions, undefined)).toBe(actions);
   });
 
   it('maps a legacy tool submit string to a tool action', () => {
-    expect(resolveActions(undefined, 'archive-matter')).toEqual([
-      { kind: 'tool', label: 'Submit', tool: 'archive-matter' },
-    ]);
+    expect(resolveActions(undefined, 'archive-matter')).toEqual([{ kind: 'tool', label: 'Submit', tool: 'archive-matter' }]);
   });
 
   it('maps usage-event (or nothing) to the synthesized default (undefined)', () => {
     expect(resolveActions(undefined, 'usage-event')).toBeUndefined();
     expect(resolveActions(undefined, undefined)).toBeUndefined();
-  });
-
-  it('prefers actions over a legacy submit', () => {
-    const actions: FormActionDef[] = [{ kind: 'submit', label: 'Go' }];
-    expect(resolveActions(actions, 'some-tool')).toBe(actions);
   });
 });

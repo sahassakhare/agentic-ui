@@ -23,6 +23,9 @@
       "@infra-tools/agentic-ui": [
         "./dist/agentic-ui"
       ],
+      "@infra-tools/agentic-ui/catalog": [
+        "./dist/agentic-ui/catalog"
+      ],
       "@infra-tools/aep-embed-sdk": [
         "./platform/aep-embed-sdk/src/index.ts"
       ],

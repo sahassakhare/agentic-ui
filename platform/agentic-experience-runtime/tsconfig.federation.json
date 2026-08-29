@@ -5,7 +5,12 @@
     "types": []
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "../../dist/agentic-ui",
+    "../../dist/agentic-ui/catalog",
+    "../aep-embed-sdk/src/index.ts",
+    "../../examples/demo-ediscovery-shared/dist/index",
+    "../../examples/demo-shared-tools/src/index.ts"
   ],
   "exclude": [
     "src/**/*.spec.ts"

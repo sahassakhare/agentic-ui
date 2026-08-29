@@ -1,15 +1,8 @@
-import { strings } from '@angular-devkit/core';
 import {
-  apply,
-  applyTemplates,
-  chain,
-  mergeWith,
-  move,
   Rule,
   SchematicContext,
   SchematicsException,
   Tree,
-  url,
 } from '@angular-devkit/schematics';
 import { NodePackageInstallTask } from '@angular-devkit/schematics/tasks';
 import { addDependencies } from '../utils/dependencies';
@@ -22,27 +15,36 @@ export interface ConnectStudioOptions {
   tenant: string;
   applicationName?: string;
   authMode: 'disabled' | 'oidc';
+  /** 'registries' (default) populates the lib registries; 'shell' renders the full catalog app. */
+  mode: 'registries' | 'shell';
+  /** App auth service class (implements CatalogAuth) to wire for OIDC. */
+  authService?: string;
   skipInstall: boolean;
 }
 
+const CATALOG_ENTRY = '@infra-tools/agentic-ui/catalog';
 const DEPS = {
-  '@infra-tools/agentic-ui': '^0.1.0',
+  '@infra-tools/agentic-ui': '^1.6.0',
   zod: '^3.23.0',
 };
 
 /**
- * Connect an existing standalone Angular app to an Experience Studio catalog
- * backend: scaffold a `catalog-runtime/` bridge and wire `provideCatalogRuntime`
- * into `app.config.ts`, so the app loads the tenant's governed capabilities
- * (experiences, forms, workflows, data sources, tools) at boot and live over SSE.
+ * Connect a standalone Angular app to an Experience Studio catalog backend by
+ * wiring `provideCatalogRuntime(...)` (from `@infra-tools/agentic-ui/catalog`)
+ * into `app.config.ts`. The runtime lives in the library, upgradable over npm —
+ * this schematic just configures it. `--mode registries` (default) fills the lib
+ * registries so the app embeds capabilities via `<mvk-form-renderer>` etc.;
+ * `--mode shell` (or `--shell`) also renders the full catalog-driven application.
  */
-export function connectStudio(rawOptions: Partial<ConnectStudioOptions> = {}): Rule {
+export function connectStudio(rawOptions: Partial<ConnectStudioOptions> & { shell?: boolean } = {}): Rule {
   const options: ConnectStudioOptions = {
     project: rawOptions.project,
     catalogUrl: rawOptions.catalogUrl ?? 'http://localhost:8081',
     tenant: rawOptions.tenant ?? 'acme',
     applicationName: rawOptions.applicationName,
     authMode: rawOptions.authMode ?? 'disabled',
+    mode: rawOptions.shell ? 'shell' : (rawOptions.mode ?? 'registries'),
+    authService: rawOptions.authService,
     skipInstall: rawOptions.skipInstall ?? false,
   };
 
@@ -57,7 +59,7 @@ export function connectStudio(rawOptions: Partial<ConnectStudioOptions> = {}): R
       throw new SchematicsException(`Could not find ${configPath}. Is this a standalone Angular app?`);
     }
 
-    // The bridge fills the lib platform's registries — warn if the platform
+    // The runtime fills the lib platform's registries — warn if the platform
     // isn't wired yet (run `ng add @infra-tools/agentic-ui` first).
     const configText = host.read(configPath)?.toString('utf-8') ?? '';
     if (!/provideAgenticUi(Platform)?\s*\(/.test(configText)) {
@@ -70,35 +72,44 @@ export function connectStudio(rawOptions: Partial<ConnectStudioOptions> = {}): R
 
     addDependencies(host, DEPS);
 
-    patchAppConfig(
-      host,
-      configPath,
-      [{ symbols: ['provideCatalogRuntime'], module: './catalog-runtime' }],
-      [buildProviderExpression(options)],
-    );
+    const imports = [{ symbols: ['provideCatalogRuntime'], module: CATALOG_ENTRY }];
+    patchAppConfig(host, configPath, imports, [buildProviderExpression(options)]);
 
-    const seedTemplate = apply(url('./files'), [
-      applyTemplates({ ...strings, ...options }),
-      move(`${sourceRoot}/app`),
-    ]);
+    if (options.authMode === 'oidc') {
+      context.logger.info(
+        '[connect-studio] OIDC selected. Provide your token/persona source to the runtime by adding:\n'
+        + `    { provide: CATALOG_AUTH, useExisting: ${options.authService ?? 'MyAuthService'} }\n`
+        + `  (import CATALOG_AUTH from '${CATALOG_ENTRY}'; your service implements CatalogAuth — token()/persona()/permissions()).`,
+      );
+    }
+    if (options.mode === 'shell') {
+      context.logger.info(
+        '[connect-studio] Shell mode: bootstrap the catalog shell in main.ts —\n'
+        + `    import { CatalogShellComponent } from '${CATALOG_ENTRY}';\n`
+        + '    bootstrapApplication(CatalogShellComponent, appConfig);\n'
+        + '  and ensure your app calls provideRouter([...]) (the runtime contributes catalog routes).',
+      );
+    }
 
     if (!options.skipInstall) {
       context.addTask(new NodePackageInstallTask());
     }
 
     context.logger.info(
-      `[connect-studio] Wired catalog runtime → ${options.catalogUrl} (tenant "${options.tenant}"). `
-      + 'See src/app/catalog-runtime/README.md.',
+      `[connect-studio] Wired provideCatalogRuntime → ${options.catalogUrl} (tenant "${options.tenant}", mode "${options.mode}").`,
     );
 
-    return chain([mergeWith(seedTemplate)]);
+    return host;
   };
 }
 
-/** Build the `provideCatalogRuntime({ ... })` provider expression for app.config.ts. */
+/** Build the `provideCatalogRuntime({ ... }, { mode })` expression for app.config.ts. */
 function buildProviderExpression(o: ConnectStudioOptions): string {
   const fields = [`baseUrl: '${o.catalogUrl}'`, `tenant: '${o.tenant}'`];
   if (o.applicationName) fields.push(`applicationName: '${o.applicationName}'`);
   if (o.authMode === 'oidc') fields.push(`authMode: 'oidc'`);
-  return `provideCatalogRuntime({ ${fields.join(', ')} })`;
+  const cfg = `{ ${fields.join(', ')} }`;
+  return o.mode === 'shell'
+    ? `provideCatalogRuntime(${cfg}, { mode: 'shell' })`
+    : `provideCatalogRuntime(${cfg})`;
 }

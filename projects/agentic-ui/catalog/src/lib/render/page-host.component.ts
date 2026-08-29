@@ -1,25 +1,23 @@
 /**
- * Renders one governed **Page** — a routed, designed layout. It resolves the
- * page for the current URL (via the application's route tree), enforces the
- * page's access gate, arranges its regions per the page's layout template, and
- * renders each surface in a region through the generalized {@link SurfaceHostComponent}.
- *
- * This is the unit the Hub's router mounts per route, so the end user navigates
- * real URLs between real pages — each a composition of surfaces.
+ * Renders one governed **Page** — a routed, designed layout. Resolves the page
+ * for the current URL (via the application's route tree), enforces the page's
+ * access gate, arranges its regions per the layout template, and renders each
+ * surface through {@link CatalogSurfaceHostComponent}. This is the unit the
+ * router mounts per route.
  */
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { Router, NavigationEnd } from '@angular/router';
 import { filter, map } from 'rxjs';
-import { SurfaceHostComponent } from './surface-host.component';
-import { ApplicationSource } from '../catalog/application-source';
-import { PageSource, type PageDef } from '../catalog/page-source';
-import { AuthService } from '../auth/auth.service';
+import { CatalogSurfaceHostComponent } from './surface-host.component';
+import { ApplicationSource } from '../application-source';
+import { PageSource, type PageDef } from '../page-source';
+import { CATALOG_AUTH } from '../catalog-config';
 
 @Component({
-  selector: 'app-page-host',
+  selector: 'catalog-page-host',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SurfaceHostComponent],
+  imports: [CatalogSurfaceHostComponent],
   template: `
     @if (page(); as p) {
       @if (denied()) {
@@ -29,7 +27,7 @@ import { AuthService } from '../auth/auth.service';
           @for (region of regionNames(); track region) {
             <section class="region" [attr.data-region]="region">
               @for (t of p.regions[region]; track t.kind + ':' + t.name) {
-                <app-surface-host [target]="t" />
+                <catalog-surface-host [target]="t" />
               }
             </section>
           }
@@ -54,13 +52,12 @@ import { AuthService } from '../auth/auth.service';
     .denied { background:rgba(192,57,43,.08); border-color:rgba(192,57,43,.3); color:#c0392b; }
   `],
 })
-export class PageHostComponent {
+export class CatalogPageHostComponent {
   private readonly router = inject(Router);
   private readonly appSource = inject(ApplicationSource);
   private readonly pages = inject(PageSource);
-  private readonly auth = inject(AuthService);
+  private readonly auth = inject(CATALOG_AUTH);
 
-  /** The current URL path (no leading slash, no query) — supports nested routes. */
   private readonly currentPath = toSignal(
     this.router.events.pipe(
       filter((e): e is NavigationEnd => e instanceof NavigationEnd),
@@ -70,7 +67,6 @@ export class PageHostComponent {
   );
   private normalize(url: string): string { return url.split('?')[0].replace(/^\/+|\/+$/g, ''); }
 
-  /** Resolve the page by matching the full URL path in the flattened route tree. */
   protected readonly page = computed<PageDef | undefined>(() => {
     this.pages.count();
     const flat = this.appSource.flatNav();
@@ -85,8 +81,8 @@ export class PageHostComponent {
   protected readonly denied = computed(() => {
     const a = this.page()?.access;
     if (!a) return false;
-    const persona = this.auth.persona();
-    const held = new Set(this.auth.permissions());
+    const persona = this.auth.persona?.() ?? 'end-user';
+    const held = new Set(this.auth.permissions?.() ?? []);
     if (a.personas?.length && !a.personas.includes(persona)) return true;
     if (a.scopes?.length && !a.scopes.every((s) => held.has(s))) return true;
     return false;
@@ -94,7 +90,7 @@ export class PageHostComponent {
   protected readonly deniedReason = computed(() => {
     const a = this.page()?.access;
     if (!a) return '';
-    const persona = this.auth.persona();
+    const persona = this.auth.persona?.() ?? 'end-user';
     if (a.personas?.length && !a.personas.includes(persona)) return `persona "${persona}" not allowed`;
     return `missing permission(s): ${(a.scopes ?? []).join(', ')}`;
   });

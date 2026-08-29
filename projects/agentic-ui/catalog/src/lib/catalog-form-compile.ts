@@ -26,10 +26,21 @@ export interface CatalogFormField {
   readonly type?:
     | 'text' | 'email' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'section';
   readonly required?: boolean;
+  readonly label?: string;
+  readonly placeholder?: string;
   readonly options?: readonly string[];
   readonly validation?: CatalogFieldValidation;
   /** Names of `kind:'validation'` rules to enforce on this field. */
   readonly validators?: readonly string[];
+}
+
+/** The per-field UI hint the library form-renderer reads (`FormDef.ui`). Mirrors
+ *  the lib's non-exported `FormFieldUi`; the widget union is a subset of it. */
+interface FieldUi {
+  readonly order?: number;
+  readonly widget?: 'text' | 'email' | 'number' | 'date' | 'textarea' | 'select' | 'checkbox' | 'radio';
+  readonly placeholder?: string;
+  readonly options?: readonly { readonly value: string; readonly label: string }[];
 }
 
 /**
@@ -76,6 +87,27 @@ export function fieldsToZod(
     shape[f.name] = node;
   }
   return z.object(shape);
+}
+
+/**
+ * Build the `FormDef.ui` map so the renderer picks the right control per field
+ * (number → number input, email → email input, select/radio → options), instead
+ * of defaulting every field to a plain text box. Without this, a `number` field
+ * renders as text and its value reaches a bound tool as a string, not a number.
+ */
+export function fieldsToUi(fields: readonly CatalogFormField[]): Record<string, FieldUi> {
+  const ui: Record<string, FieldUi> = {};
+  let order = 0;
+  for (const f of fields) {
+    if (!f?.name || f.type === 'section') continue;
+    ui[f.name] = {
+      widget: (f.type ?? 'text') as FieldUi['widget'],
+      order: order++,
+      ...(f.placeholder ? { placeholder: f.placeholder } : {}),
+      ...(f.options?.length ? { options: f.options.map((o) => ({ value: o, label: o })) } : {}),
+    };
+  }
+  return ui;
 }
 
 /** Fold named `kind:'validation'` rules onto a field as Zod refinements. */

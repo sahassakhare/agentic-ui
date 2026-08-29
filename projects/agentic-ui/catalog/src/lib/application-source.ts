@@ -1,20 +1,16 @@
 /**
- * Loads the governed **Application** (a `kind: 'application'` capability authored in
- * the Experience Studio) and turns it into the runtime app shell's structure:
- * a title, an assistant config, and a navigation menu whose entries bind to
- * approved experiences/dashboards.
- *
- * This is what makes the whole app "driven by the Studio": the shell's menu,
- * title and assistant are not hardcoded — they come from one governed catalog
+ * Loads the governed **Application** (a `kind:'application'` capability authored
+ * in Experience Studio) and turns it into the app shell's structure: a title, an
+ * assistant config, and a navigation menu whose entries bind to approved
+ * experiences/dashboards/pages. This is what makes the app "driven by the
+ * Studio": the shell's menu, title and assistant come from one governed catalog
  * capability, re-hydrated live over the catalog SSE stream.
  */
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { NavigationRegistry, type NavigationDef } from '@infra-tools/agentic-ui';
-import { environment } from '../../environments/environment';
-import { AuthService } from '../auth/auth.service';
+import { CatalogClient } from './catalog-client';
+import { CATALOG_CONFIG } from './catalog-config';
 
-const CATALOG_URL = environment.catalogBaseUrl;
-const TENANT = environment.tenant;
 // A valid `CapabilitySource` (external:*) so the whole menu can be cleared with
 // removeBySource() on each re-hydrate.
 const NAV_SOURCE = 'external:application' as const;
@@ -60,6 +56,7 @@ export function flattenNav(entries: readonly NavEntry[], base = '', depth = 0): 
   }
   return out;
 }
+
 export interface AppAssistant {
   readonly backend?: string;
   readonly enabled?: boolean;
@@ -69,7 +66,7 @@ export interface ApplicationDef {
   readonly name: string;
   readonly title: string;
   readonly description?: string;
-  readonly master?: string;          // a kind:'master' capability name (app shell)
+  readonly master?: string;          // a kind:'page' (type:'shell') capability name
   readonly assistant?: AppAssistant;
   readonly menu: readonly AppMenuEntry[];
   readonly nav: readonly NavEntry[];
@@ -87,15 +84,15 @@ interface CapabilityRow {
 
 @Injectable({ providedIn: 'root' })
 export class ApplicationSource {
+  private readonly client = inject(CatalogClient);
   private readonly navReg = inject(NavigationRegistry);
-  private readonly auth = inject(AuthService);
-  private stream?: EventSource;
+  private readonly cfg = inject(CATALOG_CONFIG);
 
-  private static readonly APP_KEY = 'hub.currentApp';
+  private static readonly APP_KEY = 'agentic.currentApp';
   /** Every governed application in the catalog. */
   readonly applications = signal<ApplicationDef[]>([]);
-  /** The currently-open application's name (persisted; defaults to env). */
-  readonly current = signal<string>(environment.applicationName);
+  /** The currently-open application's name (persisted; defaults to config). */
+  readonly current = signal<string>(this.cfg.applicationName ?? '');
   /** The active application definition (falls back to the first). */
   readonly application = computed<ApplicationDef | null>(() => {
     const apps = this.applications();
@@ -108,14 +105,14 @@ export class ApplicationSource {
     try { const s = localStorage.getItem(ApplicationSource.APP_KEY); if (s) this.current.set(s); } catch { /* no-op */ }
   }
 
-  /** Switch which application the Hub renders (persisted) + refresh its nav menu. */
+  /** Switch which application the shell renders (persisted) + refresh its nav menu. */
   setCurrent(name: string): void {
     this.current.set(name);
     try { localStorage.setItem(ApplicationSource.APP_KEY, name); } catch { /* no-op */ }
     const app = this.application(); if (app) this.registerNav(app);
   }
 
-  readonly title = computed(() => this.application()?.title ?? 'Experience Hub');
+  readonly title = computed(() => this.application()?.title ?? 'App');
   readonly menu = computed<readonly AppMenuEntry[]>(() =>
     [...(this.application()?.menu ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
   /** The route tree — the pages the app navigates between (sorted by order). */
@@ -133,18 +130,11 @@ export class ApplicationSource {
   }
   readonly assistantEnabled = computed(() => this.application()?.assistant?.enabled === true);
 
-  /** Load the configured application capability and register its menu into NavigationRegistry. */
+  /** Load application capabilities and register the active one's menu into NavigationRegistry. */
   async hydrate(): Promise<void> {
     try {
-      const url = `${CATALOG_URL}/v1/catalogs/${encodeURIComponent(TENANT)}/capabilities?kind=application`;
-      const headers: Record<string, string> = { accept: 'application/json' };
-      const token = this.auth.token();
-      if (environment.authMode === 'oidc' && token) headers['authorization'] = `Bearer ${token}`;
-      const res = await fetch(url, { headers });
-      if (!res.ok) throw new Error(`catalog returned ${res.status}`);
-      const { items } = (await res.json()) as { items: CapabilityRow[] };
+      const items = await this.client.listByKind<CapabilityRow>('application');
       if (!items.length) throw new Error('no applications in the catalog');
-
       const defs: ApplicationDef[] = items.map((row) => ({
         name: row.name,
         title: row.body.title ?? row.name,
@@ -157,7 +147,7 @@ export class ApplicationSource {
         theme: row.body.theme,
       }));
       this.applications.set(defs);
-      // Keep the current selection valid; default to env, else the first app.
+      // Keep the current selection valid; default to config, else the first app.
       if (!defs.some((d) => d.name === this.current())) this.current.set(defs[0].name);
       const app = this.application(); if (app) this.registerNav(app);
       this.lastSync.set(new Date().toLocaleTimeString());
@@ -167,19 +157,11 @@ export class ApplicationSource {
     }
   }
 
-  /** Re-hydrate when a `capability` (the application) or `experience` changes in the catalog. */
+  /** Re-hydrate when a capability (the application) or an experience changes. */
   startLiveSync(): void {
-    if (this.stream) return;
-    try {
-      this.stream = new EventSource(`${CATALOG_URL}/v1/catalogs/${encodeURIComponent(TENANT)}/stream`);
-      this.stream.onmessage = (ev) => {
-        try {
-          const data = JSON.parse(ev.data) as { entityType?: string };
-          if (data.entityType === 'capability' || data.entityType === 'experience') void this.hydrate();
-        } catch { /* ignore keepalives */ }
-      };
-      this.stream.onerror = () => { /* browser auto-reconnects */ };
-    } catch { /* SSE unavailable — manual refresh covers it */ }
+    this.client.onMutation((m) => {
+      if (m.entityType === 'capability' || m.entityType === 'experience') void this.hydrate();
+    });
   }
 
   private registerNav(def: ApplicationDef): void {

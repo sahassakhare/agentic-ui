@@ -31,6 +31,21 @@
       "enum": ["disabled", "oidc"],
       "default": "disabled"
     },
+    "authService": {
+      "type": "string",
+      "description": "For OIDC: the app auth service class (implements CatalogAuth) to wire as CATALOG_AUTH."
+    },
+    "mode": {
+      "type": "string",
+      "description": "'registries' populates the lib registries (embed capabilities in an existing app); 'shell' renders the full catalog-driven application.",
+      "enum": ["registries", "shell"],
+      "default": "registries"
+    },
+    "shell": {
+      "type": "boolean",
+      "description": "Shorthand for --mode shell.",
+      "default": false
+    },
     "skipInstall": {
       "type": "boolean",
       "description": "Skip running npm install at the end.",

@@ -1,54 +1,26 @@
 import {
-  ApplicationConfig, inject, makeEnvironmentProviders, EnvironmentInjector, runInInjectionContext,
+  ApplicationConfig, inject, makeEnvironmentProviders,
   provideBrowserGlobalErrorListeners, provideZonelessChangeDetection, provideAppInitializer,
 } from '@angular/core';
-import { provideRouter, withComponentInputBinding, type Routes } from '@angular/router';
+import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
-import {
-  provideAgenticUiPlatform, provideAgUiBackend,
-  provideStaticJsonMfeRegistry, MfeRegistryClient, loadRemoteCapabilities, createRemoteLoader,
-} from '@infra-tools/agentic-ui';
+import { provideAgenticUiPlatform, provideAgUiBackend } from '@infra-tools/agentic-ui';
+import { provideCatalogRuntime, CATALOG_AUTH, type CatalogAuth } from '@infra-tools/agentic-ui/catalog';
 import { widgets, registerCatalog } from './registry/capabilities';
 import { dashboardWidgets, registerDashboards } from './registry/dashboards';
-import { shellWidgets } from './registry/shell-widgets';
 import { appTools } from './agentic/tools';
 import { environment } from '../environments/environment';
-import { CatalogExperienceSource } from './catalog/catalog-experience-source';
-import { CatalogValidationSource } from './catalog/catalog-validation-source';
-import { CatalogFormSource } from './catalog/catalog-form-source';
-import { CatalogWorkflowSource } from './catalog/catalog-workflow-source';
-import { CatalogThemeSource } from './catalog/catalog-theme-source';
-import { CatalogDataSource } from './catalog/catalog-data-source';
-import { CatalogToolSource } from './catalog/catalog-tool-source';
-import { CatalogPromptSource } from './catalog/catalog-prompt-source';
-import { CatalogSkillSource } from './catalog/catalog-skill-source';
-import { CatalogNavigationSource } from './catalog/catalog-navigation-source';
-import { CatalogDecisionSource } from './catalog/catalog-decision-source';
-import { DecisionRegistry } from './catalog/decision-registry';
-import { AGENTIC_DECISION_EVALUATOR } from '@infra-tools/agentic-ui';
-import { ApplicationSource } from './catalog/application-source';
-import { PageSource } from './catalog/page-source';
-import { PageHostComponent } from './render/page-host.component';
+import { AuthService } from './auth/auth.service';
 
 /**
- * Catalog-driven routing: every page renders through PageHostComponent, which
- * resolves the page for the current URL from the application's route tree. Real
- * URLs, deep links and back/forward come for free; the pages themselves are
- * governed capabilities loaded at boot.
- */
-const routes: Routes = [
-  { path: '', pathMatch: 'full', component: PageHostComponent },
-  { path: '**', component: PageHostComponent },   // nested paths (/reports/monthly) resolve in PageHost
-];
-
-/**
- * The Hub runs on the deterministic ExperiencePlanner + the agentic-ui render
- * hosts AND a real agentic assistant. `provideAgenticUiPlatform` installs the
- * platform (ComponentRegistry, BackendRegistry, LAYOUT_POLICY, MCP-UI) and wires
- * the assistant to a real AG-UI backend (`environment.agentUrl`). At boot it
- * registers the host kit (journey + dashboard widgets, forms/workflows,
- * layouts/dashboards/datasources) and hydrates the governed Application +
- * approved experiences from the catalog, re-hydrating live over SSE.
+ * The Hub now consumes the Studio catalog entirely through the library:
+ * `provideCatalogRuntime(..., { mode: 'shell' })` (from
+ * `@infra-tools/agentic-ui/catalog`) compiles all 13 governed capability kinds
+ * into the registries, contributes the catalog routes + shell components, wires
+ * MFE discovery, and re-hydrates live over ONE shared SSE connection. The Hub's
+ * root `App` stays a thin login wrapper around that shell. `provideAgenticUiPlatform`
+ * installs the platform + the real AG-UI assistant; the demo host kit
+ * (`registerCatalog`/`registerDashboards`) still seeds a few sample capabilities.
  */
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -57,9 +29,11 @@ export const appConfig: ApplicationConfig = {
     // Ingested libraries (e.g. PrimeNG) use Angular animations; provide them so
     // their components mount instead of throwing on a synthetic @-property.
     provideAnimationsAsync(),
-    provideRouter(routes, withComponentInputBinding()),
+    // Empty base route set — `provideCatalogRuntime` (shell mode) contributes the
+    // catalog page-host routes via ROUTES multi.
+    provideRouter([], withComponentInputBinding()),
     provideAgenticUiPlatform({
-      widgets: [...widgets, ...dashboardWidgets, ...shellWidgets],
+      widgets: [...widgets, ...dashboardWidgets],
       tools: appTools,
       // Single active chat transport: a real LLM-backed AG-UI SSE server.
       transport: makeEnvironmentProviders([provideAgUiBackend({ url: environment.agentUrl })]),
@@ -67,94 +41,33 @@ export const appConfig: ApplicationConfig = {
     }),
     provideAppInitializer(() => registerCatalog()),
     provideAppInitializer(() => registerDashboards()),
-    // MFE federation: discover catalog-registered remotes and load each remote's
-    // CapabilityModule (its components/tools) into the host registries — so a
-    // federated component becomes a bindable surface, loaded at runtime.
-    provideStaticJsonMfeRegistry({ url: environment.mfeRegistryUrl }),
-    provideAppInitializer(() => {
-      const injector = inject(EnvironmentInjector);
-      const client = inject(MfeRegistryClient);
-      return runInInjectionContext(injector, async () => {
-        const remotes = await client.discover(environment.mfeEnv).catch(() => []);
-        await Promise.allSettled(remotes.map((remote) =>
-          runInInjectionContext(injector, () =>
-            // Type-aware loader: Native Federation is handled directly (by
-            // remoteEntry URL, so remotes discovered at runtime load without a
-            // rebuilt boot manifest); Module Federation remotes need a host-wired
-            // loader (install @module-federation/runtime + pass moduleFederation).
-            loadRemoteCapabilities({ remote, loader: createRemoteLoader(remote) })
-              .catch((err) => console.warn('[hub] MFE load failed:', remote.remoteName, err)),
-          ),
-        ));
-      });
-    }),
-    provideAppInitializer(async () => {
-      const source = inject(CatalogExperienceSource);
-      await source.hydrate();      // load approved experiences from the catalog
-      source.startLiveSync();      // SSE: re-hydrate on Studio edits
-    }),
-    provideAppInitializer(async () => {
-      // Before forms: a form field's named validators resolve from these rules.
-      const rules = inject(CatalogValidationSource);
-      await rules.hydrate();       // compile kind:'validation' → ValidationRuleRegistry
-      rules.startLiveSync();       // SSE: re-hydrate when a rule is edited
-    }),
-    provideAppInitializer(async () => {
-      const forms = inject(CatalogFormSource);
-      await forms.hydrate();       // compile kind:'form' capabilities → FormRegistry
-      forms.startLiveSync();       // SSE: re-hydrate when a form (or validation rule) is edited
-    }),
-    provideAppInitializer(async () => {
-      const flows = inject(CatalogWorkflowSource);
-      await flows.hydrate();       // compile kind:'workflow' capabilities → FormRegistry
-      flows.startLiveSync();       // SSE: re-hydrate when a workflow is edited
-    }),
-    provideAppInitializer(async () => {
-      const themes = inject(CatalogThemeSource);
-      await themes.hydrate();      // load kind:'theme' capabilities (design tokens)
-      themes.startLiveSync();      // SSE: re-apply when a theme is edited
-    }),
-    provideAppInitializer(async () => {
-      // Data sources before tools: a tool resolves its data source at call time,
-      // but hydrating sources first keeps the first agent turn consistent.
-      const data = inject(CatalogDataSource);
-      await data.hydrate();        // compile kind:'datasource' (endpoint) → DataSourceRegistry
-      data.startLiveSync();        // SSE: re-hydrate when a data source is edited
-    }),
-    provideAppInitializer(async () => {
-      const tools = inject(CatalogToolSource);
-      await tools.hydrate();       // compile kind:'tool' (dataSource-bound) → ToolRegistry
-      tools.startLiveSync();       // SSE: re-hydrate when a tool/data source is edited
-    }),
-    provideAppInitializer(async () => {
-      // Context/planner capabilities — compile catalog rows into their registries.
-      const prompts = inject(CatalogPromptSource);
-      const skills = inject(CatalogSkillSource);
-      const nav = inject(CatalogNavigationSource);
-      await Promise.all([prompts.hydrate(), skills.hydrate(), nav.hydrate()]);
-      prompts.startLiveSync(); skills.startLiveSync(); nav.startLiveSync();
-    }),
-    // Let the workflow engine branch on a governed decision: the lib's
-    // AGENTIC_DECISION_EVALUATOR seam, backed by the Hub's DecisionRegistry.
+    // Adapt the Hub's AuthService to the runtime's auth seam (token for the
+    // catalog fetch in oidc mode; persona/permissions for shell access gating).
     {
-      provide: AGENTIC_DECISION_EVALUATOR,
-      useFactory: () => {
-        const registry = inject(DecisionRegistry);
-        return { evaluate: async (decision: string, input: Readonly<Record<string, unknown>>) => registry.evaluate(decision, input as Record<string, unknown>)?.outputs ?? null };
+      provide: CATALOG_AUTH,
+      useFactory: (): CatalogAuth => {
+        const a = inject(AuthService);
+        return {
+          token: () => a.token(),
+          persona: () => a.persona(),
+          permissions: () => a.permissions(),
+          isAuthenticated: () => a.isAuthenticated(),
+          principalId: () => a.principal()?.id ?? 'end-user',
+          logout: () => a.logout(),
+        };
       },
     },
-    provideAppInitializer(async () => {
-      // Decisions → DecisionRegistry + an executable tool per decision.
-      const decisions = inject(CatalogDecisionSource);
-      await decisions.hydrate();
-      decisions.startLiveSync();
-    }),
-    provideAppInitializer(async () => {
-      const app = inject(ApplicationSource);
-      const pages = inject(PageSource);
-      // The shell page, content pages and route tree must be present before the first route.
-      await Promise.all([app.hydrate(), pages.hydrate()]);
-      app.startLiveSync();         // SSE: re-hydrate when the app/pages/experiences change
-    }),
+    provideCatalogRuntime(
+      {
+        baseUrl: environment.catalogBaseUrl,
+        tenant: environment.tenant,
+        applicationName: environment.applicationName,
+        authMode: environment.authMode,
+        dataSourceSecrets: environment.dataSourceSecrets,
+        mfeRegistryUrl: environment.mfeRegistryUrl,
+        mfeEnv: environment.mfeEnv,
+      },
+      { mode: 'shell' },
+    ),
   ],
 };

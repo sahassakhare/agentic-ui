@@ -1,8 +1,8 @@
 /**
  * Runtime registry of compiled decisions (name → table + evaluator). Populated
- * by `CatalogDecisionSource`. Gives the Hub a governed, testable place to
- * evaluate a `kind:'decision'` — the substrate for the assistant (via a tool),
- * and for forms/workflows to branch on a decision by name (follow-on).
+ * by `CatalogDecisionSource`. A governed, testable place to evaluate a
+ * `kind:'decision'` — the substrate for the assistant (via a tool) and for
+ * forms/workflows to branch on a decision by name.
  */
 import { Injectable } from '@angular/core';
 import { evaluateDecision, type DecisionTable, type DecisionResult } from './decision-eval';

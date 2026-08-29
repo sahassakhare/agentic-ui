@@ -1,19 +1,17 @@
 /**
  * Reusable **shell components** — the building blocks of a master page. Each is a
- * normal registry component, so it can be dropped into any master-page region (or
- * even a page) and configured with props. They inject app state (nav, identity)
- * as needed, so a designed shell is assembled entirely from these + your own
- * components. This is what makes the master page fully composable: logo, sidenav,
- * header, footer and the assistant are all just components in regions.
+ * normal registry component, so it can be dropped into any master-page region and
+ * configured with props: logo, sidenav, header, footer and the assistant. They
+ * inject app state (nav, identity) via the catalog runtime's `ApplicationSource`
+ * and `CATALOG_AUTH` seam, so a designed shell is assembled entirely from these.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { ChatShellComponent } from '@infra-tools/agentic-ui';
+import { ChatShellComponent, agenticWidget, type ComponentDef } from '@infra-tools/agentic-ui';
 import { z } from 'zod';
-import { agenticWidget, type ComponentDef } from '@infra-tools/agentic-ui';
-import { ApplicationSource, flattenNav } from '../catalog/application-source';
-import { AuthService } from '../auth/auth.service';
+import { ApplicationSource, flattenNav } from '../application-source';
+import { CATALOG_AUTH } from '../catalog-config';
 
 /** Brand logo — an image (`src`) or a mark + text. */
 @Component({
@@ -65,18 +63,12 @@ export class LogoWidget {
 })
 export class SidenavWidget {
   private readonly app = inject(ApplicationSource);
-  private readonly auth = inject(AuthService);
+  private readonly auth = inject(CATALOG_AUTH);
   readonly title = input<string>();
-  protected readonly nav = computed(() => flattenNav(this.app.navFor(this.auth.persona())));
+  protected readonly nav = computed(() => flattenNav(this.app.navFor(this.auth.persona?.() ?? 'end-user')));
 }
 
-/**
- * Enterprise header bar — module title + optional breadcrumb/subtitle, a global
- * search box, a notifications bell (with count), a help link, and a user menu
- * (avatar + name + role + sign-out). Every element is prop-configurable so the
- * same component serves any application's header. Emits searches to the console
- * hook (a real app would route them); the user menu toggles inline.
- */
+/** Enterprise header bar — title/subtitle, search, notifications, user menu. */
 @Component({
   selector: 'shell-header',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -107,12 +99,12 @@ export class SidenavWidget {
 
       <div class="user" (click)="menuOpen.set(!menuOpen())">
         <span class="avatar">{{ initials() }}</span>
-        @if (showPersona() !== false) { <span class="uname">{{ auth.persona() }}</span> }
+        @if (showPersona() !== false) { <span class="uname">{{ persona() }}</span> }
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         @if (menuOpen()) {
           <div class="menu" (click)="$event.stopPropagation()">
-            <div class="mrow head"><span class="avatar lg">{{ initials() }}</span><div><strong>{{ userName() || auth.persona() }}</strong><span class="role">{{ auth.persona() }}</span></div></div>
-            <button class="mrow" (click)="auth.logout()">Sign out</button>
+            <div class="mrow head"><span class="avatar lg">{{ initials() }}</span><div><strong>{{ userName() || persona() }}</strong><span class="role">{{ persona() }}</span></div></div>
+            <button class="mrow" (click)="signOut()">Sign out</button>
           </div>
         }
       </div>
@@ -142,7 +134,7 @@ export class SidenavWidget {
 })
 export class HeaderWidget {
   protected readonly app = inject(ApplicationSource);
-  protected readonly auth = inject(AuthService);
+  private readonly auth = inject(CATALOG_AUTH);
   readonly title = input<string>();
   readonly subtitle = input<string>();
   readonly userName = input<string>();
@@ -155,13 +147,15 @@ export class HeaderWidget {
 
   protected readonly query = signal('');
   protected readonly menuOpen = signal(false);
+  protected persona(): string { return this.auth.persona?.() ?? 'user'; }
   protected readonly initials = computed(() => {
-    const n = this.userName() || this.auth.persona() || 'U';
+    const n = this.userName() || this.persona() || 'U';
     return n.split(/[\s-]+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || 'U';
   });
 
   protected runSearch(): void { if (this.query().trim()) console.info('[header] search:', this.query()); }
   protected bell(): void { console.info('[header] notifications'); }
+  protected signOut(): void { this.auth.logout?.(); }
 }
 
 /** A footer — text + links. */
@@ -224,5 +218,5 @@ export const shellWidgets: readonly ComponentDef[] = [
   w('app-assistant', AssistantWidget),
 ];
 
-/** Names + categories for designers (so the palette can group "Shell" components). */
+/** Names for designers (so a palette can group "Shell" components). */
 export const SHELL_COMPONENT_NAMES = ['app-logo', 'app-sidenav', 'app-header', 'app-footer', 'app-assistant'] as const;

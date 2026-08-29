@@ -13,7 +13,7 @@ import { FormsModule } from '@angular/forms';
 import { ExperienceRegistry } from '@infra-tools/agentic-ui';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
-import { CatalogExperienceSource } from '../catalog/catalog-experience-source';
+import { CatalogExperienceSource } from '@infra-tools/agentic-ui/catalog';
 
 @Component({
   selector: 'app-login',

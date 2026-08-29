@@ -1,9 +1,8 @@
 /**
  * Renders a resolved experience as the actual end-user application — a
  * dashboard, a guided workflow journey, or a plain form — by switching the
- * library renderers on the resolved {@link RenderMode}. Both paths reuse
- * `@infra-tools/agentic-ui` renderers unchanged; this component is the only
- * new wiring that unifies dashboards and journeys under one host.
+ * library renderers on the resolved {@link RenderMode}. Reuses the
+ * `@infra-tools/agentic-ui` renderers unchanged.
  */
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import {
@@ -14,7 +13,7 @@ import {
 import { resolveRenderMode, type RenderMode } from './experience-render-mode';
 
 @Component({
-  selector: 'app-experience-host',
+  selector: 'catalog-experience-host',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DashboardCanvasComponent, WorkflowRendererComponent, FormRendererComponent],
   template: `
@@ -43,7 +42,7 @@ import { resolveRenderMode, type RenderMode } from './experience-render-mode';
     .notice.bad { background:rgba(192,57,43,.08); border-color:rgba(192,57,43,.3); color:#c0392b; }
   `],
 })
-export class ExperienceHostComponent {
+export class CatalogExperienceHostComponent {
   private readonly dashboards = inject(DashboardRegistry);
 
   readonly experience = input<ExperienceDef | undefined>();
@@ -53,7 +52,6 @@ export class ExperienceHostComponent {
     resolveRenderMode(this.experience(), this.plan(), this.dashboards),
   );
 
-  // Narrowing helpers for the template (strictTemplates-friendly).
   protected asDashboard(m: RenderMode) { return m as Extract<RenderMode, { kind: 'dashboard' }>; }
   protected asNamed(m: RenderMode) { return m as Extract<RenderMode, { kind: 'workflow' | 'form' }>; }
   protected asDenied(m: RenderMode) { return m as Extract<RenderMode, { kind: 'denied' }>; }

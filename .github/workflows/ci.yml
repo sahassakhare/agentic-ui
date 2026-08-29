@@ -251,6 +251,23 @@ jobs:
             exit 1
           fi
 
+      - name: Bundle-size guard (catalog secondary entry under 160 KB)
+        run: |
+          # `@infra-tools/agentic-ui/catalog` — the Studio catalog-consumption
+          # runtime (provideCatalogRuntime + 13 sources + render hosts + shell).
+          # A SEPARATE entry point so it does NOT count against the primary FESM
+          # cap above (see docs/adr/0052): host-app level, never a federation
+          # singleton, so primary imports stay external. Measured: registries mode
+          # ~57 KB; full shell mode ~118 KB (render hosts + 5 shell widgets +
+          # CatalogShellComponent). 160 KB leaves ~40 KB headroom — same convention
+          # as the primary guard's raises.
+          size=$(wc -c < dist/agentic-ui/fesm2022/infra-tools-agentic-ui-catalog.mjs)
+          echo "catalog FESM size: $size bytes"
+          if [ "$size" -gt 163840 ]; then
+            echo "::error::catalog FESM exceeded 160 KB ($size B). Investigate before merging."
+            exit 1
+          fi
+
       - name: Build TypeDoc API site
         run: npm run docs:api
 

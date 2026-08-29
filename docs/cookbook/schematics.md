@@ -173,9 +173,14 @@ equivalent.
 
 ## `connect-studio` — connect an app to the catalog backend
 
-Wires an **existing** standalone Angular app to an Experience Studio catalog
-service, so it loads the tenant's governed capabilities at boot and stays live
-over SSE — no host rebuild when an author changes something in Studio.
+Wires a standalone Angular app to an Experience Studio catalog service, so it
+loads the tenant's governed capabilities at boot and stays live over SSE — no
+host rebuild when an author changes something in Studio.
+
+The runtime lives in the library at **`@infra-tools/agentic-ui/catalog`**
+(a tree-shakeable secondary entry — see [ADR-0052](../adr/0052-catalog-consumption-secondary-entry.md)),
+so this schematic is a thin wrapper: it just patches one provider call into
+`app.config.ts`. Nothing is scaffolded into your app.
 
 ```bash
 ng g @infra-tools/agentic-ui:connect-studio \
@@ -184,45 +189,70 @@ ng g @infra-tools/agentic-ui:connect-studio \
   [--tenant=acme] \
   [--applicationName=<app>] \
   [--authMode=disabled|oidc] \
+  [--mode=registries|shell] [--shell] \
   [--skipInstall]
 ```
 
 Aliased `cs`. What it does:
 
-- Scaffolds `src/app/catalog-runtime/` — a self-contained bridge: a
-  `CatalogClient` (HTTP + one pooled SSE stream), pure compile helpers
-  (`catalog-http.ts`, `form-compile.ts`), and five `Catalog*Source` services
-  that compile catalog rows into the library's registries.
-- Patches `app.config.ts` — adds `provideCatalogRuntime({ baseUrl, tenant, … })`
-  and its import (idempotent).
+- Patches `app.config.ts` — adds `provideCatalogRuntime({ baseUrl, tenant, … }, { mode })`
+  importing from `@infra-tools/agentic-ui/catalog` (idempotent).
 - Adds `@infra-tools/agentic-ui` + `zod` to `package.json`.
+- For `--shell`, also prints the two one-liners to finish (bootstrap the shell
+  root + `provideRouter`); for `--authMode=oidc`, the `CATALOG_AUTH` wiring.
+
+### Two modes
+
+- **`registries`** (default) — hydrates the library registries so an **existing**
+  app embeds specific governed capabilities via `<mvk-form-renderer [formName]>`,
+  `<mvk-widget-container>`, etc. Lightest touch; no shell, no routing.
+- **`shell`** (`--shell`) — additionally renders the **whole** catalog-driven
+  application (routing + page/surface/experience hosts + master-page shell +
+  theme + MFE), like the Experience Hub. Bootstrap `CatalogShellComponent`:
+  ```ts
+  import { CatalogShellComponent } from '@infra-tools/agentic-ui/catalog';
+  bootstrapApplication(CatalogShellComponent, appConfig);
+  ```
+
+### All 13 governed kinds are compiled
 
 | Catalog kind | Compiled into | Rendered / used by |
 |---|---|---|
 | `experience` | `ExperienceRegistry` | the planner / experience host |
 | `form` | `FormRegistry` | `<mvk-form-renderer [formName]>` |
-| `workflow` | `FormRegistry` (`.workflow`) | `<mvk-workflow-renderer [formName]>` |
+| `workflow` | `FormRegistry` (`.workflow`) | `<mvk-workflow-renderer>` |
 | `datasource` | `DataSourceRegistry` | tools, at call time |
 | `tool` | `ToolRegistry` | the assistant |
+| `prompt` / `skill` | `PromptRegistry` / `SkillRegistry` | the planner |
+| `navigation` | `NavigationRegistry` | the shell menu |
+| `validation` | `ValidationRuleRegistry` | form field validators (by name) |
+| `decision` | `DecisionRegistry` + a tool | workflows / the assistant |
+| `theme` | design-token map | the shell theme |
+| `application` / `page` *(shell mode)* | app/page defs | the shell + router |
 
-Prerequisite: the library platform must be present — run
-`ng add @infra-tools/agentic-ui` first (the bridge fills registries that
-`provideAgenticUi()` / `provideAgenticUiPlatform()` provide; the schematic warns
-if it can't find one). For `--authMode=oidc`, also provide a `CATALOG_AUTH` that
-returns the current bearer token (see the generated `catalog-runtime/README.md`).
+All 13 re-hydrate live over **one shared SSE connection**.
+
+### Prerequisites & config
+
+Run `ng add @infra-tools/agentic-ui` first — the runtime fills registries that
+`provideAgenticUiPlatform()` provides (the schematic warns if it can't find one).
+For OIDC, provide your token/persona source:
+```ts
+import { CATALOG_AUTH } from '@infra-tools/agentic-ui/catalog';
+{ provide: CATALOG_AUTH, useExisting: MyAuthService }   // implements CatalogAuth
+```
+**Native Federation hosts** must add `@infra-tools/agentic-ui/catalog` to `shared`
+(non-singleton) in `federation.config.js` — see ADR-0052.
 
 | Flag | Default | Meaning |
 |---|---|---|
 | `--project` | workspace default | Which Angular project to patch |
 | `--catalogUrl` | `http://localhost:8081` | Catalog service base URL |
 | `--tenant` | `acme` | Tenant / catalog id to read from |
-| `--applicationName` | — | Which `kind:'application'` capability is the shell (optional) |
+| `--applicationName` | — | Which `kind:'application'` capability is the shell (shell mode) |
 | `--authMode` | `disabled` | `disabled` (trusted-network dev) or `oidc` (forward a bearer token) |
+| `--mode` / `--shell` | `registries` | `registries` (embed) or `shell` (full app) |
 | `--skipInstall` | `false` | Skip `npm install` at the end |
-
-The generated bridge covers the registry-backed content kinds; extend it for
-`navigation` / `prompt` / `skill` / `theme` / `decision` / `validation` by
-adding a source with the same shape (see the folder README).
 
 ## Extended-registry generators
 

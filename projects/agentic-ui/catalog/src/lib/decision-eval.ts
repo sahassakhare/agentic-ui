@@ -1,8 +1,7 @@
 /**
- * DMN-style decision table model + a pure evaluator — the runtime copy of the
- * Studio's `decision/decision-eval.ts` (identical, zero imports). Kept local to
- * the Hub so the runtime doesn't cross-import the Studio app. A decision is a
- * governed `kind:'decision'` capability: named inputs → named outputs via rules.
+ * DMN-style decision table model + a pure evaluator. A decision is a governed
+ * `kind:'decision'` capability: named inputs → named outputs via rules. Zero
+ * imports — trivially testable.
  */
 export type DecisionOp = 'any' | '==' | '!=' | '>' | '<' | '>=' | '<=' | 'in';
 export type HitPolicy = 'first' | 'unique' | 'collect';

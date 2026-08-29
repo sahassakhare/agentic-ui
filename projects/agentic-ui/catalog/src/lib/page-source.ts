@@ -1,17 +1,13 @@
 /**
- * Loads governed **Pages** (`kind:'page'` capabilities) authored in the Studio.
+ * Loads governed **Pages** (`kind:'page'` capabilities authored in the Studio).
  * A Page is a routed, designed layout: a layout template + named **regions**,
  * where each region stacks one or more surfaces (experiences/dashboards/forms/
- * components). The application's route tree points at these by name; the Hub's
+ * components). The application's route tree points at these by name; the shell's
  * router renders one per URL. Re-hydrates live over the catalog SSE stream.
  */
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { environment } from '../../environments/environment';
-import { AuthService } from '../auth/auth.service';
+import { CatalogClient } from './catalog-client';
 import type { SurfaceTarget } from './application-source';
-
-const CATALOG_URL = environment.catalogBaseUrl;
-const TENANT = environment.tenant;
 
 /** How a page arranges its regions. The PageHost maps each to a CSS grid. */
 export type PageLayout = 'single' | 'two-column' | 'sidebar-right' | 'sidebar-left' | 'stacked' | 'grid';
@@ -40,7 +36,7 @@ interface CapabilityRow {
 
 @Injectable({ providedIn: 'root' })
 export class PageSource {
-  private readonly auth = inject(AuthService);
+  private readonly client = inject(CatalogClient);
 
   private readonly byName = signal<ReadonlyMap<string, PageDef>>(new Map());
   readonly count = computed(() => this.byName().size);
@@ -50,13 +46,7 @@ export class PageSource {
 
   async hydrate(): Promise<void> {
     try {
-      const url = `${CATALOG_URL}/v1/catalogs/${encodeURIComponent(TENANT)}/capabilities?kind=page`;
-      const headers: Record<string, string> = { accept: 'application/json' };
-      const token = this.auth.token();
-      if (environment.authMode === 'oidc' && token) headers['authorization'] = `Bearer ${token}`;
-      const res = await fetch(url, { headers });
-      if (!res.ok) throw new Error(`catalog returned ${res.status}`);
-      const { items } = (await res.json()) as { items: CapabilityRow[] };
+      const items = await this.client.listByKind<CapabilityRow>('page');
       const map = new Map<string, PageDef>();
       for (const row of items) {
         map.set(row.name, {
@@ -73,5 +63,10 @@ export class PageSource {
     } catch (e) {
       this.error.set((e as Error).message);
     }
+  }
+
+  /** Re-hydrate on any capability change (a page edit is a `capability` mutation). */
+  startLiveSync(): void {
+    this.client.onMutation((m) => { if (m.entityType === 'capability') void this.hydrate(); });
   }
 }
