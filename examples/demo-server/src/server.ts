@@ -97,6 +97,23 @@ if (apiKey) {
       description: 'support tickets, account problems, complaints',
       examples: ['Open a ticket for my refund', 'Status of ticket TICK-123', 'My account is locked'],
     }),
+    createSpecialist({
+      id: 'authoring',
+      factory: (id) => new GeminiAgent(id, {
+        apiKey, model,
+        systemInstruction:
+          'You are an authoring assistant inside the Experience Studio, a low-code tool for designing GOVERNED ' +
+          'capabilities. When the author asks you to draft something (a form, page, workflow, decision, …), call ' +
+          '`createDraftCapability` with the correct `kind` and a `body` valid for that kind — for a form the body is ' +
+          '{ "description": string, "schema": { "fields": [ { "name": string, "type": "text"|"email"|"number"|"date"|' +
+          '"textarea"|"select"|"checkbox"|"radio"|"section", "label"?: string, "required"?: boolean, "options"?: string[] } ] } }. ' +
+          'Use `listCapabilities`/`getCapability` to inspect existing ones and avoid duplicates. Everything you create is a ' +
+          'DRAFT the author refines and publishes — after creating, say it is a draft and offer to open it in the designer. ' +
+          'Do not invent kinds or field types outside the allowed sets.' + sharedRules,
+      }),
+      description: 'draft governed capabilities (forms, pages, workflows, decisions) in the Studio',
+      examples: ['Draft a contact form with name, email and message', 'Create a workflow to onboard an employee', 'List the forms I already have'],
+    }),
   ]);
 
   // Orchestrator: classifies user intent, then forwards the chosen specialist's

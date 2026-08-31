@@ -3,9 +3,14 @@ import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/rou
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatButtonModule } from '@angular/material/button';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from './services/auth.service';
+import { FeatureFlagsService } from './services/feature-flags.service';
 import { ToastHostComponent } from './components/toast-host.component';
 import { CommandPaletteComponent } from './components/command-palette.component';
+import { CopilotRailComponent } from './copilot/copilot-rail.component';
+import { environment } from '../environments/environment';
 
 const NAV = [
   { path: '/experiences', label: 'Experiences' },
@@ -38,7 +43,8 @@ const NAV = [
   selector: 'aes-root',
   imports: [
     RouterOutlet, RouterLink, RouterLinkActive, ToastHostComponent, CommandPaletteComponent,
-    MatToolbarModule, MatTabsModule, MatButtonModule,
+    CopilotRailComponent, MatToolbarModule, MatTabsModule, MatButtonModule,
+    MatSlideToggleModule, MatTooltipModule,
   ],
   template: `
     <mat-toolbar class="topbar">
@@ -55,6 +61,11 @@ const NAV = [
       <span class="spacer"></span>
 
       @if (auth.isAuthenticated()) {
+        <mat-slide-toggle class="ai-toggle" [checked]="flags.aiAssistedAuthoring()" [disabled]="!platformAllowsAssistant"
+          (change)="onAssistantToggle($event.checked)"
+          matTooltip="AI authoring assistant — drafts capabilities from a description. Authoring works normally without it.">
+          AI assistant
+        </mat-slide-toggle>
         <button matIconButton [attr.aria-label]="'Switch to ' + (dark() ? 'light' : 'dark') + ' theme'" (click)="toggleTheme()">
           @if (dark()) {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.7"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
@@ -78,7 +89,10 @@ const NAV = [
     }
 
     <mat-tab-nav-panel #tabPanel>
-      <main><router-outlet /></main>
+      <div class="workspace">
+        <main><router-outlet /></main>
+        @if (auth.isAuthenticated()) { <aes-copilot-rail /> }
+      </div>
     </mat-tab-nav-panel>
     <aes-toast-host />
     <aes-command-palette />
@@ -97,15 +111,29 @@ const NAV = [
     .tenant .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
     .navbar { position: sticky; top: 64px; z-index: 40; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 var(--s3); }
     .faint { color: var(--text-muted); }
-    main { display: block; }
+    .ai-toggle { margin-right: var(--s2); font-size: var(--fs-sm); }
+    .workspace { display: flex; align-items: flex-start; }
+    main { display: block; flex: 1 1 auto; min-width: 0; }
+    aes-copilot-rail { position: sticky; top: 112px; align-self: stretch; }
     @media (max-width: 860px) { .wordmark { display: none; } .tenant { display: none; } .navbar { top: 56px; } }
   `],
 })
 export class App {
   protected readonly auth = inject(AuthService);
+  protected readonly flags = inject(FeatureFlagsService);
   private readonly router = inject(Router);
   protected readonly nav = NAV;
   protected readonly dark = signal(this.initialDark());
+
+  /** The platform/tenant layer must permit the copilot; an author can only opt OUT,
+   *  so the toggle is disabled when nothing is there to enable. */
+  protected readonly platformAllowsAssistant =
+    (environment as { featureFlags?: Record<string, boolean> }).featureFlags?.['aiAssistedAuthoring'] === true;
+
+  /** Top-bar toggle: author opt-out of the AI copilot (persisted per browser). */
+  onAssistantToggle(checked: boolean): void {
+    this.flags.setAuthorOptOut('aiAssistedAuthoring', !checked);
+  }
 
   private initialDark(): boolean {
     const saved = localStorage.getItem('aes-theme');
