@@ -24,6 +24,7 @@ const createDraftCapability = agenticTool({
     + '• form → { description, schema: { fields: [ { name, type: text|email|number|date|textarea|select|checkbox|radio|section, label?, required?, options?: string[] } ] } }\n'
     + '• decision → { description, hitPolicy: first|unique|collect, inputs: [ { name, label?, type?: string|number|boolean|date } ], outputs: [ { name, label? } ], rules: [ { when: { <inputName>: { op: "=="|"!="|">"|"<"|">="|"<="|"in"|"any", value?: string } }, then: { <outputName>: string } } ] } — a DMN table; use op "any" (no value) for a catch-all row, and put a catch-all last.\n'
     + '• page → { title, layout: single|two-column|sidebar-right|sidebar-left|stacked|grid, regions: { <regionName>: [ { kind: form|experience|dashboard|component, name: "<an EXISTING capability name>" } ] } } — a page COMPOSES existing capabilities; call listCapabilities first and only reference real names, never invent them.\n'
+    + '• workflow → { description, steps: [ { id: "<kebab>", section: "<heading>", widget: "<kebab component name>", next: "<next step id>" | null } ] } — a guided journey; steps chain via `next` (the LAST step\'s next is null). Draft the step sequence from the description; the author wires the real widget for each step in the designer.\n'
     + 'Use short kebab-case names. After creating, say it is a draft and offer to open it in the designer.',
   schema: z.object({
     kind: KIND.describe('The capability kind to create.'),
