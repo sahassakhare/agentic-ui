@@ -50,7 +50,8 @@
           "options": {
             "tsConfig": "projects/agentic-ui/tsconfig.spec.json",
             "include": [
-              "**/*.spec.ts"
+              "**/*.spec.ts",
+              "../catalog/**/*.spec.ts"
             ]
           }
         }

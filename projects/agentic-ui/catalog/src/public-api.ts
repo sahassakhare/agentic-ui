@@ -34,6 +34,10 @@ export { CatalogExperienceHostComponent } from './lib/render/experience-host.com
 
 // Registries + client (shell mode / advanced hosts).
 export { CatalogClient, type CatalogMutation } from './lib/catalog-client';
+export {
+  CatalogComponentSource, CATALOG_REMOTE_LOADER,
+  type ComponentResolution, type CatalogRemoteLoader,
+} from './lib/component-source';
 export { ValidationRuleRegistry } from './lib/validation-rule-registry';
 export { DecisionRegistry, type DecisionEntry } from './lib/decision-registry';
 

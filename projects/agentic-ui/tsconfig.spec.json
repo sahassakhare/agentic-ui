@@ -11,6 +11,7 @@
   "include": [
     "src/**/*.d.ts",
     "src/**/*.spec.ts",
+    "catalog/**/*.spec.ts",
     "ag-ui/**/*.spec.ts",
     "hashbrown/**/*.spec.ts",
     "a2ui/**/*.spec.ts",

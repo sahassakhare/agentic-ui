@@ -9,15 +9,16 @@
  *   component / mfe         → <mvk-widget-container>
  *   layout                 → <mvk-workspace-layout>  (a slot map of components)
  */
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal } from '@angular/core';
 import {
-  ExperiencePlanner, ExperienceRegistry, LayoutRegistry,
+  ExperiencePlanner, ExperienceRegistry, LayoutRegistry, ComponentRegistry,
   FormRendererComponent, WorkflowRendererComponent,
   WidgetContainerComponent, WorkspaceLayoutComponent,
   type ExperienceDef, type AgenticWidgetInstance, type SlotMap,
 } from '@infra-tools/agentic-ui';
 import { CatalogExperienceHostComponent } from './experience-host.component';
 import { CATALOG_AUTH } from '../catalog-config';
+import { CatalogComponentSource } from '../component-source';
 import type { SurfaceKind, SurfaceTarget } from '../application-source';
 
 export type { SurfaceKind, SurfaceTarget };
@@ -37,7 +38,13 @@ export type { SurfaceKind, SurfaceTarget };
       @switch (target().kind) {
         @case ('form')      { <div class="stagewrap"><mvk-form-renderer [formName]="target().name" [initialValues]="formInitialValues()" [context]="formContext()" /></div> }
         @case ('workflow')  { <div class="stagewrap"><mvk-workflow-renderer [formName]="target().name" /></div> }
-        @case ('component') { <div class="stagewrap"><mvk-widget-container [widget]="widgetInstance()" /></div> }
+        @case ('component') {
+          @switch (componentState()) {
+            @case ('ready')   { <div class="stagewrap"><mvk-widget-container [widget]="widgetInstance()" /></div> }
+            @case ('loading') { <div class="notice">Loading component “{{ target().name }}”…</div> }
+            @default          { <div class="notice bad">Component “{{ target().name }}” could not be loaded.</div> }
+          }
+        }
         @case ('layout') {
           @if (slotMap(); as sm) { <mvk-workspace-layout [slots]="sm" /> }
           @else { <div class="notice bad">No layout named "{{ target().name }}" is registered.</div> }
@@ -59,8 +66,36 @@ export class CatalogSurfaceHostComponent {
   private readonly auth = inject(CATALOG_AUTH);
   private readonly experiences = inject(ExperienceRegistry);
   private readonly layouts = inject(LayoutRegistry);
+  private readonly components = inject(ComponentRegistry);
+  private readonly componentSource = inject(CatalogComponentSource, { optional: true });
 
   readonly target = input.required<SurfaceTarget>();
+
+  /**
+   * Resolution state for a `component` surface. Federated catalog components
+   * load their remote lazily on first render; until then the widget isn't in
+   * the `ComponentRegistry` and the container would render nothing.
+   */
+  protected readonly componentState = signal<'loading' | 'ready' | 'missing' | 'failed'>('loading');
+
+  constructor() {
+    // Drive lazy federated-component loading. Reads `target()` (re-runs on change)
+    // and `ComponentRegistry.get()` (re-runs when a remote registers the widget),
+    // so the surface flips to 'ready' the moment its remote finishes loading.
+    effect(() => {
+      const t = this.target();
+      if (t.kind !== 'component') return;
+      const name = t.name;
+      if (this.components.get(name)) { this.componentState.set('ready'); return; }
+      if (!this.componentSource) { this.componentState.set('missing'); return; }
+      this.componentState.set('loading');
+      void this.componentSource.ensure(name).then((r) => {
+        if (this.target().name !== name) return; // stale — target changed under us
+        if (this.components.get(name)) this.componentState.set('ready');
+        else this.componentState.set(r === 'not-federated' ? 'missing' : 'failed');
+      });
+    });
+  }
 
   protected readonly isExperience = computed(() => {
     const k = this.target().kind;
