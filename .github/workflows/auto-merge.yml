@@ -1,0 +1,45 @@
+name: auto-merge
+
+# Hands-off merging. Once a PR is "ready for review" (not a draft) and all the
+# required status checks on `main` pass, GitHub merges it automatically — nobody
+# has to watch for "ready to merge". The merge then fires the auto-publish
+# workflows on main. Hold a PR by keeping it a DRAFT; mark it ready to arm.
+#
+# ONE-TIME REPO SETTINGS a workflow cannot set for you (do these once, or
+# `gh pr merge --auto` below just errors until they exist):
+#   1. Settings → General → Pull Requests → ✅ "Allow auto-merge".
+#   2. Settings → Branches → protect `main`: ✅ "Require status checks to pass"
+#      + "Require branches to be up to date", and select the checks:
+#        - Library version guard
+#        - Studio (build + test + lint)
+#        - Build + test (Node 20.19)   (+ any other matrix entries)
+#      (Auto-merge needs ≥1 required check to have something to wait on. For a
+#      solo repo, leave "Require approvals" at 0 so green CI alone merges.)
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, synchronize]
+
+# Minimal, and we never check out PR code — pull_request_target only arms
+# auto-merge, so untrusted PR contents never run with these permissions.
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  arm-auto-merge:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      # Dependabot can't approve its own PR; approve so a review gate (if any) is met.
+      - name: Approve Dependabot PRs
+        if: github.actor == 'dependabot[bot]'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr review --approve "${{ github.event.pull_request.html_url }}" || true
+
+      # Flag the PR for auto-merge; GitHub merges it once required checks pass.
+      - name: Enable auto-merge (squash)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge --auto --squash "${{ github.event.pull_request.html_url }}"

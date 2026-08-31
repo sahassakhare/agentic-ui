@@ -20,6 +20,11 @@ on:
   workflow_dispatch:
   release:
     types: [published]
+  # Auto-publish on merge: every push to main runs this, but each step skips a
+  # version already on npm (see the per-package guard below), so only a package
+  # whose version was bumped in the merge actually publishes. Idempotent + safe.
+  push:
+    branches: [main]
 
 permissions:
   contents: read
