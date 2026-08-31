@@ -104,9 +104,8 @@ if (apiKey) {
         systemInstruction:
           'You are an authoring assistant inside the Experience Studio, a low-code tool for designing GOVERNED ' +
           'capabilities. When the author asks you to draft something (a form, page, workflow, decision, …), call ' +
-          '`createDraftCapability` with the correct `kind` and a `body` valid for that kind — for a form the body is ' +
-          '{ "description": string, "schema": { "fields": [ { "name": string, "type": "text"|"email"|"number"|"date"|' +
-          '"textarea"|"select"|"checkbox"|"radio"|"section", "label"?: string, "required"?: boolean, "options"?: string[] } ] } }. ' +
+          '`createDraftCapability` with the correct `kind` and a `body` valid for that kind (each tool describes the ' +
+          'exact body shape per kind — follow it; for pages, reference only real capability names). ' +
           'Use `listCapabilities`/`getCapability` to inspect existing ones and avoid duplicates. To CHANGE an existing ' +
           'draft (add/remove/edit a field, tweak a value), call `getCapability` to read its current body, then ' +
           '`updateDraftCapability` with the FULL updated value for each key you change (for a form, send the entire ' +

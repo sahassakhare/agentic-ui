@@ -19,12 +19,12 @@ const KIND = z.enum([
 const createDraftCapability = agenticTool({
   name: 'createDraftCapability',
   description:
-    'Create a governed capability as an AI-assisted DRAFT the author can then refine and publish. '
-    + 'Choose the right `kind` and emit a `body` matching that kind. For kind="form" the body MUST be '
-    + '{ "description": string, "schema": { "fields": [ { "name": string, "type": '
-    + '"text"|"email"|"number"|"date"|"textarea"|"select"|"checkbox"|"radio"|"section", "label"?: string, '
-    + '"required"?: boolean, "options"?: string[] } ] } }. '
-    + 'Use short kebab-case names. After creating, tell the author it is a draft and offer to open it in the designer.',
+    'Create a governed capability as an AI-assisted DRAFT the author refines and publishes. Choose the right '
+    + '`kind` and emit a `body` matching it:\n'
+    + '• form → { description, schema: { fields: [ { name, type: text|email|number|date|textarea|select|checkbox|radio|section, label?, required?, options?: string[] } ] } }\n'
+    + '• decision → { description, hitPolicy: first|unique|collect, inputs: [ { name, label?, type?: string|number|boolean|date } ], outputs: [ { name, label? } ], rules: [ { when: { <inputName>: { op: "=="|"!="|">"|"<"|">="|"<="|"in"|"any", value?: string } }, then: { <outputName>: string } } ] } — a DMN table; use op "any" (no value) for a catch-all row, and put a catch-all last.\n'
+    + '• page → { title, layout: single|two-column|sidebar-right|sidebar-left|stacked|grid, regions: { <regionName>: [ { kind: form|experience|dashboard|component, name: "<an EXISTING capability name>" } ] } } — a page COMPOSES existing capabilities; call listCapabilities first and only reference real names, never invent them.\n'
+    + 'Use short kebab-case names. After creating, say it is a draft and offer to open it in the designer.',
   schema: z.object({
     kind: KIND.describe('The capability kind to create.'),
     name: z.string().min(1).describe('A short kebab-case name, e.g. "contact-form".'),
