@@ -11,7 +11,7 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ChatShellComponent } from '@infra-tools/agentic-ui';
 import { FeatureFlagsService } from '../services/feature-flags.service';
-import { CapabilityCatalogService } from '../services/capability-catalog.service';
+import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { authoringBridge, lastDraft, designerPathFor, type AuthoringDraft } from './authoring-bridge';
 
 const ALL_KINDS = ['form', 'page', 'workflow', 'decision', 'application', 'theme', 'experience', 'tool', 'datasource', 'prompt', 'skill', 'navigation', 'validation'];
@@ -66,15 +66,27 @@ export class CopilotRailComponent {
         id: c.id, name: c.name, kind: c.kind, lifecycle: (c as { lifecycle?: string }).lifecycle,
       })));
     };
-    authoringBridge.get = async (idOrName, kind) => {
-      try { const c = await firstValueFrom(this.caps.get(idOrName)); if (c) return c.body; } catch { /* not an id */ }
-      if (kind) {
-        const r = await firstValueFrom(this.caps.listByKind(kind)).catch(() => ({ items: [] }));
-        return (r.items ?? []).find((x) => x.name === idOrName)?.body ?? null;
-      }
-      return null;
+    authoringBridge.get = async (idOrName, kind) => (await this.resolveCap(idOrName, kind))?.body ?? null;
+    authoringBridge.updateDraft = async (idOrName, kind, bodyPatch): Promise<AuthoringDraft> => {
+      const cap = await this.resolveCap(idOrName, kind);
+      if (!cap) throw new Error(`Couldn't find "${idOrName}" to update.`);
+      const merged = { ...cap.body, ...bodyPatch };
+      const c = await firstValueFrom(this.caps.update(cap.id, { body: merged }, (cap as { version?: number }).version));
+      const draft = { id: c.id, name: c.name, kind: c.kind, designerPath: designerPathFor(c.kind, c.id) };
+      void this.router.navigateByUrl(draft.designerPath);
+      return draft;
     };
     authoringBridge.openDesigner = (path) => { void this.router.navigateByUrl(path); };
+  }
+
+  /** Resolve a capability by id, or by name within a kind (full record incl. version). */
+  private async resolveCap(idOrName: string, kind?: string): Promise<Capability | null> {
+    try { const c = await firstValueFrom(this.caps.get(idOrName)); if (c) return c; } catch { /* not an id */ }
+    if (kind) {
+      const r = await firstValueFrom(this.caps.listByKind(kind)).catch(() => ({ items: [] as readonly Capability[] }));
+      return (r.items ?? []).find((x) => x.name === idOrName) ?? null;
+    }
+    return null;
   }
 
   protected open(d: AuthoringDraft): void {

@@ -29,6 +29,8 @@ export interface AuthoringBridge {
   list?(kind?: string): Promise<readonly CapabilitySummary[]>;
   /** Fetch one capability's body by id (or name within a kind). */
   get?(idOrName: string, kind?: string): Promise<Record<string, unknown> | null>;
+  /** Refine an existing DRAFT — shallow-merge `bodyPatch` into its body (If-Match versioned). */
+  updateDraft?(idOrName: string, kind: string | undefined, bodyPatch: Record<string, unknown>): Promise<AuthoringDraft>;
   /** Navigate the author to a designer route. */
   openDesigner?(path: string): void;
 }

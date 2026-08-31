@@ -20,14 +20,25 @@ describe('designerPathFor', () => {
 describe('authoring tools', () => {
   beforeEach(() => {
     delete authoringBridge.createDraft;
+    delete authoringBridge.updateDraft;
     delete authoringBridge.list;
     delete authoringBridge.get;
     lastDraft.set(null);
   });
 
-  it('exposes the three authoring tools', () => {
+  it('exposes the four authoring tools', () => {
     expect(authoringTools.map((t) => (t as ToolDef).name).sort())
-      .toEqual(['createDraftCapability', 'getCapability', 'listCapabilities']);
+      .toEqual(['createDraftCapability', 'getCapability', 'listCapabilities', 'updateDraftCapability']);
+  });
+
+  it('updateDraftCapability delegates to the bridge and records the last draft', async () => {
+    const draft = { id: 'f9', name: 'contact-form', kind: 'form', designerPath: '/forms/f9/design' };
+    authoringBridge.updateDraft = vi.fn().mockResolvedValue(draft);
+    const patch = { schema: { fields: [{ name: 'phone', type: 'text' }] } };
+    const res = await call(byName('updateDraftCapability'), { idOrName: 'contact-form', kind: 'form', bodyPatch: patch });
+    expect(authoringBridge.updateDraft).toHaveBeenCalledWith('contact-form', 'form', patch);
+    expect(res).toMatchObject({ ok: true, id: 'f9', designerPath: '/forms/f9/design' });
+    expect(lastDraft()).toEqual(draft);
   });
 
   it('createDraftCapability delegates to the bridge and records the last draft', async () => {

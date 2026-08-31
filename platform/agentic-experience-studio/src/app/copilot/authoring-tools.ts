@@ -69,5 +69,30 @@ const getCapability = agenticTool({
   },
 });
 
+const updateDraftCapability = agenticTool({
+  name: 'updateDraftCapability',
+  description:
+    'Refine an EXISTING draft — shallow-merge `bodyPatch` into its body (top-level keys are replaced). '
+    + 'ALWAYS call getCapability first to read the current body, then send the WHOLE updated value for any '
+    + 'key you change. For a form, to add/remove/edit fields send the entire `schema` with ALL fields '
+    + '(the array is replaced, not merged): { "schema": { "fields": [ …all existing fields plus your change… ] } }. '
+    + 'Leaves it a draft. Returns where to open it.',
+  schema: z.object({
+    idOrName: z.string().describe('The capability id, or its name (pass kind too when using a name).'),
+    kind: KIND.optional().describe('The kind, required when idOrName is a name.'),
+    bodyPatch: z.record(z.unknown()).describe('Top-level body keys to replace (send full sub-objects/arrays).'),
+  }),
+  handler: async ({ idOrName, kind, bodyPatch }) => {
+    if (!authoringBridge.updateDraft) return { ok: false, error: 'The authoring copilot is not active.' };
+    try {
+      const draft = await authoringBridge.updateDraft(idOrName, kind, bodyPatch as Record<string, unknown>);
+      lastDraft.set(draft);
+      return { ok: true, id: draft.id, kind: draft.kind, name: draft.name, designerPath: draft.designerPath };
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+  },
+});
+
 /** The copilot tool-kit passed to `provideAgenticUiPlatform`. */
-export const authoringTools: ToolDef[] = [createDraftCapability, listCapabilities, getCapability] as unknown as ToolDef[];
+export const authoringTools: ToolDef[] = [createDraftCapability, updateDraftCapability, listCapabilities, getCapability] as unknown as ToolDef[];

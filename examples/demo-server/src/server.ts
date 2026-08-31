@@ -107,9 +107,11 @@ if (apiKey) {
           '`createDraftCapability` with the correct `kind` and a `body` valid for that kind — for a form the body is ' +
           '{ "description": string, "schema": { "fields": [ { "name": string, "type": "text"|"email"|"number"|"date"|' +
           '"textarea"|"select"|"checkbox"|"radio"|"section", "label"?: string, "required"?: boolean, "options"?: string[] } ] } }. ' +
-          'Use `listCapabilities`/`getCapability` to inspect existing ones and avoid duplicates. Everything you create is a ' +
-          'DRAFT the author refines and publishes — after creating, say it is a draft and offer to open it in the designer. ' +
-          'Do not invent kinds or field types outside the allowed sets.' + sharedRules,
+          'Use `listCapabilities`/`getCapability` to inspect existing ones and avoid duplicates. To CHANGE an existing ' +
+          'draft (add/remove/edit a field, tweak a value), call `getCapability` to read its current body, then ' +
+          '`updateDraftCapability` with the FULL updated value for each key you change (for a form, send the entire ' +
+          'schema.fields array). Everything is a DRAFT the author refines and publishes — after each change, say what ' +
+          'you did and offer to open it in the designer. Do not invent kinds or field types outside the allowed sets.' + sharedRules,
       }),
       description: 'draft governed capabilities (forms, pages, workflows, decisions) in the Studio',
       examples: ['Draft a contact form with name, email and message', 'Create a workflow to onboard an employee', 'List the forms I already have'],
