@@ -12,6 +12,7 @@ import {
   WorkflowRegistry,
   MemoryRegistry,
 } from '../registries';
+import { AGENTIC_TELEMETRY_SINK, type AgenticTelemetrySink } from '../telemetry/telemetry-sink';
 import type {
   ComponentDef,
   DataSourceDef,
@@ -204,5 +205,62 @@ describe('ExperiencePlanner (AEP Seam D)', () => {
     const plan = planner.plan({ experienceId: 'brokenExp', user })!;
     expect(plan.skills).toEqual(['brokenSkill']);
     expect(plan.tools).toEqual([]);
+  });
+});
+
+describe('ExperiencePlanner memoization (plan §11)', () => {
+  let planner: ExperiencePlanner;
+  let experiences: ExperienceRegistry;
+  let tools: ToolRegistry;
+  let emits: { name: string }[];
+
+  beforeEach(() => {
+    emits = [];
+    const sink: AgenticTelemetrySink = {
+      emit: (name) => { emits.push({ name }); },
+      startSpan: () => ({ end() {}, recordError() {}, setAttribute() {} }),
+      counter: () => {}, histogram: () => {},
+    };
+    TestBed.configureTestingModule({ providers: [{ provide: AGENTIC_TELEMETRY_SINK, useValue: sink }] });
+    planner = TestBed.inject(ExperiencePlanner);
+    experiences = TestBed.inject(ExperienceRegistry);
+    tools = TestBed.inject(ToolRegistry);
+    experiences.register({
+      name: 'exp', title: 'x', goal: 'g', approvalState: 'approved',
+      requires: [{ kind: 'tool', name: 't1' }],
+    });
+    tools.register({ name: 't1' } as ToolDef);
+  });
+
+  it('returns the same plan object for identical inputs (cache hit)', () => {
+    const p1 = planner.plan({ experienceId: 'exp', user });
+    const p2 = planner.plan({ experienceId: 'exp', user });
+    expect(p1).toBe(p2); // reference-equal → compute was skipped
+  });
+
+  it('still emits telemetry on a cache hit (audit stays complete)', () => {
+    planner.plan({ experienceId: 'exp', user });
+    planner.plan({ experienceId: 'exp', user });
+    expect(emits.filter((e) => e.name === 'agentic.experience.plan')).toHaveLength(2);
+  });
+
+  it('invalidates the cache when a source registry changes', () => {
+    const p1 = planner.plan({ experienceId: 'exp', user });
+    tools.register({ name: 't2' } as ToolDef); // any registry mutation
+    const p2 = planner.plan({ experienceId: 'exp', user });
+    expect(p1).not.toBe(p2); // recomputed
+  });
+
+  it('invalidates when the experience approval state changes', () => {
+    const p1 = planner.plan({ experienceId: 'exp', user });
+    experiences.transition('exp', 'deprecate', { actor: { userId: 'admin' } });
+    const p2 = planner.plan({ experienceId: 'exp', user, allowUnapproved: true });
+    expect(p1).not.toBe(p2);
+  });
+
+  it('keys the cache per persona (different persona → different entry)', () => {
+    const a = planner.plan({ experienceId: 'exp', user: { id: 'u', persona: 'counsel' } });
+    const b = planner.plan({ experienceId: 'exp', user: { id: 'u', persona: 'paralegal' } });
+    expect(a).not.toBe(b);
   });
 });
