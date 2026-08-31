@@ -10,7 +10,9 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDialog } from '@angular/material/dialog';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { TestRunnerDialogComponent } from './test-runner-dialog.component';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { CapabilityGraphService, type Usage } from '../services/capability-graph.service';
 import { kindMeta } from '../services/kind-meta';
@@ -237,6 +239,7 @@ export interface StudioConfig {
                 @if (cfg().kind === 'page') { <a matButton [routerLink]="['/pages', c.id, 'design']">Design</a> }
                 @if (cfg().kind === 'decision') { <a matButton [routerLink]="['/decisions', c.id, 'design']">Design</a> }
                 @if (cfg().kind === 'theme') { <a matButton [routerLink]="['/themes', c.id, 'design']">Design</a> }
+                @if (cfg().kind === 'tool' || cfg().kind === 'datasource') { <button matButton type="button" (click)="test(c)" matTooltip="Dry-run this HTTP call"><mat-icon>play_arrow</mat-icon> Test</button> }
                 <button matButton type="button" (click)="startEdit(c)">Edit</button>
                 <button matButton class="danger-btn" type="button" (click)="askDelete(c)">Delete</button>
               </div>
@@ -353,6 +356,12 @@ export class CapabilityStudioComponent {
   private readonly graph = inject(CapabilityGraphService);
   private readonly toast = inject(ToastService);
   private readonly auth = inject(AuthService);
+  private readonly dialog = inject(MatDialog);
+
+  /** Open the live Test panel for a tool/datasource — dry-run the HTTP call. */
+  protected test(c: Capability): void {
+    this.dialog.open(TestRunnerDialogComponent, { data: { capability: c, kind: this.cfg().kind as 'tool' | 'datasource' } });
+  }
   protected readonly km = kindMeta;
   protected readonly expandedUsage = signal<string | null>(null);
   /** Capability id whose JSON code view is expanded (null = none). */
