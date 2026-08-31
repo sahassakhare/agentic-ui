@@ -1,12 +1,12 @@
 {
   "$schema": "http://json-schema.org/schema",
-  "$id": "AgenticPlatformScaffold",
-  "title": "Scaffold the Agentic Experience Platform monorepo",
+  "$id": "AgenticExamplesScaffold",
+  "title": "Scaffold the Agentic Experience Platform example apps",
   "type": "object",
   "properties": {
     "directory": {
       "type": "string",
-      "description": "Target directory the workspace is scaffolded into.",
+      "description": "Target directory the examples are scaffolded into.",
       "default": "."
     },
     "overwrite": {

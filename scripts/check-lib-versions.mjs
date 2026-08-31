@@ -18,13 +18,22 @@
  */
 import { execSync } from 'node:child_process';
 
-/** Packages released by .github/workflows/publish.yml, dir → npm name. */
+/**
+ * Packages released by .github/workflows/publish.yml, dir → npm name.
+ *
+ * The two scaffold schematics — `agentic-platform-schematics` and
+ * `agentic-examples-schematics` — are intentionally NOT here: each embeds a
+ * build-time snapshot of the repo (gitignored), so a manual per-PR bump can't
+ * track its real staleness. They are auto-versioned + published on every
+ * qualifying merge by .github/workflows/{schematics-release,
+ * examples-schematics-release}.yml (npm is their version-of-record), which makes
+ * the manual-bump guard redundant for them.
+ */
 const PACKAGES = [
   ['projects/agentic-ui', '@infra-tools/agentic-ui'],
   ['projects/agentic-ui-server', '@infra-tools/agentic-ui-server'],
   ['projects/agentic-ui-mcp', '@infra-tools/agentic-ui-mcp'],
   ['projects/agentic-ui-opa-authorizer', '@infra-tools/agentic-ui-opa-authorizer'],
-  ['projects/agentic-platform-schematics', '@infra-tools/agentic-platform-schematics'],
   ['platform/agentic-catalog-server', '@infra-tools/agentic-catalog-server'],
   ['platform/aep-embed-sdk', '@infra-tools/aep-embed-sdk'],
   ['platform/mvk-cli', '@infra-tools/mvk'],

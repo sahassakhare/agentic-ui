@@ -1,0 +1,115 @@
+name: schematics-release
+
+# Auto-publish @infra-tools/agentic-platform-schematics on EVERY merge to main
+# that touches scaffolded content.
+#
+# WHY: this package embeds a BUILD-TIME snapshot of the whole repo
+# (projects/, platform/, examples/, docs/ — see
+# projects/agentic-platform-schematics/scripts/populate-templates.mjs). The
+# snapshot is gitignored, so a change anywhere in that content silently makes the
+# last-published package stale, and the PR version-drift guard
+# (scripts/check-lib-versions.mjs) can't see it. This workflow closes the gap:
+# every qualifying merge rebuilds the snapshot from the merged tree and publishes
+# a fresh patch, so the published schematics always scaffolds the latest codebase.
+#
+# VERSIONING: npm is the version-of-record. The next version is
+# max(floor, npm-latest + patch), computed at publish time — NO commit back to
+# the protected main branch, NO manual bump per PR. The committed package.json
+# "version" is only a floor (raise it for an intentional minor/major).
+#
+# PREREQUISITE (one-time, on npmjs.com — else the publish step fails auth, there
+# is no token fallback): @infra-tools/agentic-platform-schematics -> Settings ->
+# Trusted Publisher -> GitHub Actions, repo `sahassakhare/agentic-ui`, workflow
+# `schematics-release.yml`, blank environment. (publish.yml uses the same OIDC
+# path; this is the per-package, per-workflow authorization.)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # The snapshot inputs (populate-templates.mjs TOP_DIRS + TOP_FILES). A
+      # change to any of these can alter the scaffolded output.
+      - 'projects/**'
+      - 'platform/**'
+      - 'docs/**'
+      - 'package.json'
+      - 'angular.json'
+      - 'tsconfig*.json'
+      - 'README.md'
+      - 'LICENSE'
+      - '.editorconfig'
+      - '.prettierrc'
+      - '.gitignore'
+      # Re-run when the release workflow itself changes (lets you test edits).
+      - '.github/workflows/schematics-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required for npm provenance / OIDC trusted publishing
+
+# Serialize releases so two merges can't race the npm-latest read and collide.
+concurrency:
+  group: schematics-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Bump + publish schematics (latest codebase snapshot)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Trusted Publishing (OIDC): NO registry-url — that writes an empty
+      # _authToken into .npmrc and suppresses the OIDC token exchange.
+      - name: Set up Node 20.19
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19'
+          cache: npm
+
+      - name: Pin npm to 11.x (OIDC publish needs >= 11.5.1)
+        run: npm install -g npm@11.6.2
+
+      - name: Install workspace dependencies
+        run: npm ci --no-audit --fund=false
+
+      # next = max(floor, npm-latest + patch). Pure node (no semver CLI) — this
+      # package uses plain x.y.z, no prerelease tags.
+      - name: Compute next version
+        id: ver
+        working-directory: projects/agentic-platform-schematics
+        run: |
+          next=$(node -e '
+            const cp = require("node:child_process");
+            const pkg = require("./package.json");
+            const floor = pkg.version;
+            let latest = "";
+            try { latest = cp.execSync(`npm view ${pkg.name} version`, { stdio: ["ignore","pipe","ignore"] }).toString().trim(); } catch {}
+            const inc = (v) => { const [a,b,c] = v.split(".").map(Number); return `${a}.${b}.${c+1}`; };
+            const cmp = (x,y) => { const A = x.split(".").map(Number), B = y.split(".").map(Number); for (let i=0;i<3;i++){ if (A[i]!==B[i]) return A[i]-B[i]; } return 0; };
+            const cand = latest ? inc(latest) : floor;
+            process.stdout.write(cmp(cand, floor) >= 0 ? cand : floor);
+          ')
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "::notice::Publishing @infra-tools/agentic-platform-schematics@$next"
+
+      # Stamp the computed version (not committed) then rebuild the snapshot from
+      # THIS merged tree (`npm run build` => populate + tsc + copy-assets).
+      - name: Stamp version + rebuild snapshot
+        working-directory: projects/agentic-platform-schematics
+        run: |
+          npm version "${{ steps.ver.outputs.next }}" --no-git-tag-version --allow-same-version
+          npm run build
+
+      - name: Publish (idempotent — skip if the version already exists)
+        working-directory: projects/agentic-platform-schematics
+        run: |
+          v="${{ steps.ver.outputs.next }}"
+          if npm view "@infra-tools/agentic-platform-schematics@$v" version >/dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-platform-schematics@$v already published — skipping"
+          else
+            npm publish --access public
+          fi

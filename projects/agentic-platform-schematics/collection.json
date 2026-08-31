@@ -7,7 +7,7 @@
       "schema": "./scaffold/schema.json"
     },
     "scaffold": {
-      "description": "Scaffold the Agentic Experience Platform monorepo (projects/, platform/, examples/ + workspace config). Security-sensitive scripts are never included.",
+      "description": "Scaffold the Agentic Experience Platform monorepo (projects/, platform/, docs/ + workspace config). Example apps ship separately in @infra-tools/agentic-examples-schematics. Security-sensitive scripts are never included.",
       "factory": "./scaffold/index#scaffold",
       "schema": "./scaffold/schema.json"
     }

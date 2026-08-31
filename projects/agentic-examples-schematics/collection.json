@@ -1,0 +1,15 @@
+{
+  "$schema": "../../node_modules/@angular-devkit/schematics/collection-schema.json",
+  "schematics": {
+    "ng-add": {
+      "description": "Scaffold the Agentic Experience Platform example apps into the current workspace.",
+      "factory": "./scaffold/index#scaffold",
+      "schema": "./scaffold/schema.json"
+    },
+    "scaffold": {
+      "description": "Scaffold the Agentic Experience Platform example apps (examples/). Companion to @infra-tools/agentic-platform-schematics. Security-sensitive scripts are never included.",
+      "factory": "./scaffold/index#scaffold",
+      "schema": "./scaffold/schema.json"
+    }
+  }
+}

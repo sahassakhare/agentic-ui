@@ -1,0 +1,98 @@
+name: examples-schematics-release
+
+# Auto-publish @infra-tools/agentic-examples-schematics on every merge to main
+# that changes the example apps (or this package's own source).
+#
+# WHY: this package embeds a BUILD-TIME snapshot of examples/ (see
+# projects/agentic-examples-schematics/scripts/populate-templates.mjs, which
+# reuses the platform package's shared security-aware snapshotter). The snapshot
+# is gitignored, so a change under examples/ silently makes the last-published
+# package stale. This workflow rebuilds the snapshot from the merged tree and
+# publishes a fresh patch, so the published examples scaffold always tracks the
+# latest examples/ tree. Companion to schematics-release.yml (the platform).
+#
+# VERSIONING: npm is the version-of-record. next = max(committed-floor,
+# npm-latest + patch), computed at publish time — NO commit back to main, NO
+# manual bump. The committed package.json "version" (0.1.0) is only a floor.
+#
+# PREREQUISITE (one-time, on npmjs.com — else the publish step fails auth, there
+# is no token fallback): @infra-tools/agentic-examples-schematics -> Settings ->
+# Trusted Publisher -> GitHub Actions, repo `sahassakhare/agentic-ui`, workflow
+# `examples-schematics-release.yml`, blank environment.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'examples/**'
+      # The examples scaffold's own logic (index/schema/populate/collection).
+      - 'projects/agentic-examples-schematics/**'
+      # The shared snapshotter it imports from the platform package.
+      - 'projects/agentic-platform-schematics/scripts/snapshot-repo.mjs'
+      - '.github/workflows/examples-schematics-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required for npm provenance / OIDC trusted publishing
+
+concurrency:
+  group: examples-schematics-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Bump + publish examples schematics (latest examples snapshot)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20.19
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19'
+          cache: npm
+
+      - name: Pin npm to 11.x (OIDC publish needs >= 11.5.1)
+        run: npm install -g npm@11.6.2
+
+      - name: Install workspace dependencies
+        run: npm ci --no-audit --fund=false
+
+      # next = max(floor, npm-latest + patch). Pure node (no semver CLI) — this
+      # package uses plain x.y.z, no prerelease tags.
+      - name: Compute next version
+        id: ver
+        working-directory: projects/agentic-examples-schematics
+        run: |
+          next=$(node -e '
+            const cp = require("node:child_process");
+            const pkg = require("./package.json");
+            const floor = pkg.version;
+            let latest = "";
+            try { latest = cp.execSync(`npm view ${pkg.name} version`, { stdio: ["ignore","pipe","ignore"] }).toString().trim(); } catch {}
+            const inc = (v) => { const [a,b,c] = v.split(".").map(Number); return `${a}.${b}.${c+1}`; };
+            const cmp = (x,y) => { const A = x.split(".").map(Number), B = y.split(".").map(Number); for (let i=0;i<3;i++){ if (A[i]!==B[i]) return A[i]-B[i]; } return 0; };
+            const cand = latest ? inc(latest) : floor;
+            process.stdout.write(cmp(cand, floor) >= 0 ? cand : floor);
+          ')
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "::notice::Publishing @infra-tools/agentic-examples-schematics@$next"
+
+      - name: Stamp version + rebuild snapshot
+        working-directory: projects/agentic-examples-schematics
+        run: |
+          npm version "${{ steps.ver.outputs.next }}" --no-git-tag-version --allow-same-version
+          npm run build
+
+      - name: Publish (idempotent — skip if the version already exists)
+        working-directory: projects/agentic-examples-schematics
+        run: |
+          v="${{ steps.ver.outputs.next }}"
+          if npm view "@infra-tools/agentic-examples-schematics@$v" version >/dev/null 2>&1; then
+            echo "::notice::@infra-tools/agentic-examples-schematics@$v already published — skipping"
+          else
+            npm publish --access public
+          fi
