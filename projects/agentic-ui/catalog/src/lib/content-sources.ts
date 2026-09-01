@@ -97,7 +97,7 @@ export class CatalogValidationSource {
   }
 
   startLiveSync(): void {
-    this.client.onMutation((m) => { if (m.entityType === 'capability') void this.hydrate(); });
+    this.client.onCapabilityKind('validation', () => void this.hydrate());
   }
 }
 
@@ -132,7 +132,7 @@ export class CatalogFormSource {
 
   startLiveSync(): void {
     // A capability edit re-compiles forms (covers form AND validation-rule edits).
-    this.client.onMutation((m) => { if (m.entityType === 'capability') void this.hydrate(); });
+    this.client.onCapabilityKind('form', () => void this.hydrate());
   }
 
   private toDef(row: CatalogFormRow): Parameters<FormRegistry['register']>[0] {
@@ -176,7 +176,7 @@ export class CatalogWorkflowSource {
   }
 
   startLiveSync(): void {
-    this.client.onMutation((m) => { if (m.entityType === 'capability') void this.hydrate(); });
+    this.client.onCapabilityKind('workflow', () => void this.hydrate());
   }
 
   private toDef(row: CatalogWorkflowRow): Parameters<FormRegistry['register']>[0] | null {
@@ -213,7 +213,7 @@ export class CatalogThemeSource {
   }
 
   startLiveSync(): void {
-    this.client.onMutation((m) => { if (m.entityType === 'capability') void this.hydrate(); });
+    this.client.onCapabilityKind('theme', () => void this.hydrate());
   }
 }
 
@@ -253,7 +253,7 @@ export class CatalogDataSource {
   }
 
   startLiveSync(): void {
-    this.client.onMutation((m) => { if (m.entityType === 'capability') void this.hydrate(); });
+    this.client.onCapabilityKind('datasource', () => void this.hydrate());
   }
 
   private toDef(row: CatalogDataSourceRow): DataSourceDef | null {
@@ -296,7 +296,7 @@ export class CatalogToolSource {
   }
 
   startLiveSync(): void {
-    this.client.onMutation((m) => { if (m.entityType === 'capability') void this.hydrate(); });
+    this.client.onCapabilityKind('tool', () => void this.hydrate());
   }
 
   private toDef(row: CatalogToolRow): ToolDef | null {
@@ -356,7 +356,7 @@ export class CatalogPromptSource {
   }
 
   startLiveSync(): void {
-    this.client.onMutation((m) => { if (m.entityType === 'capability') void this.hydrate(); });
+    this.client.onCapabilityKind('prompt', () => void this.hydrate());
   }
 
   private toDef(row: CatalogPromptRow): PromptDef {
@@ -398,7 +398,7 @@ export class CatalogSkillSource {
   }
 
   startLiveSync(): void {
-    this.client.onMutation((m) => { if (m.entityType === 'capability') void this.hydrate(); });
+    this.client.onCapabilityKind('skill', () => void this.hydrate());
   }
 
   private toDef(row: CatalogSkillRow): SkillDef {
@@ -439,7 +439,7 @@ export class CatalogNavigationSource {
   }
 
   startLiveSync(): void {
-    this.client.onMutation((m) => { if (m.entityType === 'capability') void this.hydrate(); });
+    this.client.onCapabilityKind('navigation', () => void this.hydrate());
   }
 
   private toDef(row: CatalogNavigationRow): NavigationDef {
@@ -484,7 +484,7 @@ export class CatalogDecisionSource {
   }
 
   startLiveSync(): void {
-    this.client.onMutation((m) => { if (m.entityType === 'capability') void this.hydrate(); });
+    this.client.onCapabilityKind('decision', () => void this.hydrate());
   }
 
   private toTable(row: CatalogDecisionRow): DecisionTable {

@@ -33,7 +33,7 @@ export { CatalogSurfaceHostComponent } from './lib/render/surface-host.component
 export { CatalogExperienceHostComponent } from './lib/render/experience-host.component';
 
 // Registries + client (shell mode / advanced hosts).
-export { CatalogClient, type CatalogMutation } from './lib/catalog-client';
+export { CatalogClient, capabilityMutationMatches, type CatalogMutation } from './lib/catalog-client';
 export {
   CatalogComponentSource, CATALOG_REMOTE_LOADER,
   type ComponentResolution, type CatalogRemoteLoader,

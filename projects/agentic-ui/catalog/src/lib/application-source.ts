@@ -157,11 +157,10 @@ export class ApplicationSource {
     }
   }
 
-  /** Re-hydrate when a capability (the application) or an experience changes. */
+  /** Re-hydrate when the application capability, or any experience, changes. */
   startLiveSync(): void {
-    this.client.onMutation((m) => {
-      if (m.entityType === 'capability' || m.entityType === 'experience') void this.hydrate();
-    });
+    this.client.onCapabilityKind('application', () => void this.hydrate());
+    this.client.onMutation((m) => { if (m.entityType === 'experience') void this.hydrate(); });
   }
 
   private registerNav(def: ApplicationDef): void {

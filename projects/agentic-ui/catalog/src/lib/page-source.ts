@@ -67,6 +67,6 @@ export class PageSource {
 
   /** Re-hydrate on any capability change (a page edit is a `capability` mutation). */
   startLiveSync(): void {
-    this.client.onMutation((m) => { if (m.entityType === 'capability') void this.hydrate(); });
+    this.client.onCapabilityKind('page', () => void this.hydrate());
   }
 }
