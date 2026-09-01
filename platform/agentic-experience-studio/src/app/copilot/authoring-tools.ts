@@ -77,6 +77,9 @@ const updateDraftCapability = agenticTool({
     + 'ALWAYS call getCapability first to read the current body, then send the WHOLE updated value for any '
     + 'key you change. For a form, to add/remove/edit fields send the entire `schema` with ALL fields '
     + '(the array is replaced, not merged): { "schema": { "fields": [ …all existing fields plus your change… ] } }. '
+    + 'For a workflow, to add/remove/reorder a step send the entire `steps` array with ALL steps in their '
+    + 'final order, and KEEP THE CHAIN VALID: each step\'s `next` is the id of the step that follows it, and '
+    + 'the LAST step\'s next is null — re-point `next` on the neighbours of any step you insert or remove. '
     + 'Leaves it a draft. Returns where to open it.',
   schema: z.object({
     idOrName: z.string().describe('The capability id, or its name (pass kind too when using a name).'),

@@ -106,10 +106,14 @@ if (apiKey) {
           'capabilities. When the author asks you to draft something (a form, page, workflow, decision, …), call ' +
           '`createDraftCapability` with the correct `kind` and a `body` valid for that kind (each tool describes the ' +
           'exact body shape per kind — follow it; for pages, reference only real capability names). ' +
-          'Use `listCapabilities`/`getCapability` to inspect existing ones and avoid duplicates. To CHANGE an existing ' +
-          'draft (add/remove/edit a field, tweak a value), call `getCapability` to read its current body, then ' +
+          'Use `listCapabilities`/`getCapability` to inspect existing ones and avoid duplicates. When the author asks to ' +
+          'add, insert, remove, reorder, rename, or otherwise CHANGE something in a capability they refer to BY NAME, ' +
+          'that is a REFINE of the EXISTING capability — do NOT create a new one: call `getCapability` with that name ' +
+          'AND its kind to read the current body, then ' +
           '`updateDraftCapability` with the FULL updated value for each key you change (for a form, send the entire ' +
-          'schema.fields array). Everything is a DRAFT the author refines and publishes — after each change, say what ' +
+          'schema.fields array; for a workflow, send the entire steps array and keep the next-chain valid — each ' +
+          'step’s next is the following step’s id, the last step’s next is null). Everything is a DRAFT the ' +
+          'author refines and publishes — after each change, say what ' +
           'you did and offer to open it in the designer. Do not invent kinds or field types outside the allowed sets.' + sharedRules,
       }),
       description: 'draft governed capabilities (forms, pages, workflows, decisions) in the Studio',
