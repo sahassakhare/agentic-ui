@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import { buildIntegrationHarness, type IntegrationHarness } from '../test-helpers/integration.js';
+import { catalogBus } from '../events/catalog-bus.js';
 
 const TENANT = 'test-tenant';
 const BASE = `http://localhost/v1/catalogs/${TENANT}/capabilities`;
@@ -134,6 +135,40 @@ describe('capabilities routes', () => {
     const inclList = await h.fetch(new Request(`${BASE}?includeDeleted=true`, { headers: { Authorization: auth } }));
     const inclBody = await inclList.json();
     expect(inclBody.items.find((i: { name: string }) => i.name === 'doomed')).toBeDefined();
+  });
+
+  it('mutation events carry the capability kind (for targeted client re-hydrate)', async () => {
+    const auth = await h.authHeader();
+    const events: { operation: string; kind?: string }[] = [];
+    const unsub = catalogBus.subscribe((e) => {
+      if (e.entityType === 'capability') events.push({ operation: e.operation, kind: e.kind });
+    });
+    try {
+      const create = await h.fetch(new Request(BASE, {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'form', name: 'evented-form', body: { schema: { fields: [] } } }),
+      }));
+      expect(create.status).toBe(201);
+      const id = (await create.json()).id;
+
+      const patch = await h.fetch(new Request(`${BASE}/${id}`, {
+        method: 'PATCH',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lifecycle: 'deprecated' }),
+      }));
+      expect(patch.status).toBe(200);
+
+      const del = await h.fetch(new Request(`${BASE}/${id}`, { method: 'DELETE', headers: { Authorization: auth } }));
+      expect(del.status).toBe(204);
+    } finally {
+      unsub();
+    }
+
+    const kindOf = (op: string) => events.find((e) => e.operation === op)?.kind;
+    expect(kindOf('create')).toBe('form');
+    expect(kindOf('update')).toBe('form');
+    expect(kindOf('delete')).toBe('form');
   });
 
   it('GET non-UUID id → 404', async () => {

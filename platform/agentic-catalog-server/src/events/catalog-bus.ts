@@ -37,6 +37,14 @@ export interface CatalogMutationEvent {
   /** Server-stamped ISO 8601 timestamp. */
   readonly occurredAt: string;
   /**
+   * For `entityType:'capability'`, the affected row's `kind`. Lets a client
+   * re-hydrate ONLY the source that owns that kind instead of every source,
+   * with no follow-up lookup. Not tenant-sensitive, so RLS-safe to ship.
+   * Absent on delete when the kind isn't cheaply available — the client then
+   * broad-refreshes (the row is already gone).
+   */
+  readonly kind?: string;
+  /**
    * Optional minimal payload — clients use this as a hint to
    * decide whether to re-fetch. We deliberately do NOT ship the
    * full row to keep events small + RLS-safe (a full payload

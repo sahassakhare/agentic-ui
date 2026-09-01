@@ -186,6 +186,7 @@ export function capabilitiesRoutes(
       operation: 'create',
       entityId: created.id,
       occurredAt: new Date().toISOString(),
+      kind: created.kind,
       summary: { kind: created.kind, name: created.name },
     });
     c.status(201);
@@ -225,6 +226,7 @@ export function capabilitiesRoutes(
       operation: 'update',
       entityId: updated.id,
       occurredAt: new Date().toISOString(),
+      kind: updated.kind,
       summary: { lifecycle: updated.lifecycle },
     });
     return c.json(CapabilitySchema.parse(updated));
@@ -261,6 +263,7 @@ export function capabilitiesRoutes(
       operation: 'delete',
       entityId: deleted.id,
       occurredAt: new Date().toISOString(),
+      kind: deleted.kind,
     });
     c.status(204);
     return c.body(null);
