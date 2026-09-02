@@ -11,15 +11,11 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { snapshotRepo } from '../../agentic-platform-schematics/scripts/snapshot-repo.mjs';
+import { EXAMPLES_SNAPSHOT_INPUTS } from './snapshot-inputs.mjs';
 
 const PKG = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-const { copied, excludedSecurity } = await snapshotRepo({
-  pkgDir: PKG,
-  topDirs: ['examples'],
-  topFiles: [],          // companion package — root workspace config comes from the platform scaffold
-  includeTsconfig: false,
-});
+const { copied, excludedSecurity } = await snapshotRepo({ pkgDir: PKG, ...EXAMPLES_SNAPSHOT_INPUTS });
 
 console.log(`✓ Examples snapshot complete: ${copied} files copied into files/`);
 console.log(`✓ Excluded ${excludedSecurity.length} security-sensitive item(s) (see EXCLUDED.md):`);

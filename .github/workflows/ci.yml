@@ -42,6 +42,9 @@ jobs:
       - name: Check publishable packages were bumped when changed
         run: node scripts/check-lib-versions.mjs
 
+      - name: Check schematics release workflows cover every snapshot input
+        run: node scripts/check-schematics-release-paths.mjs
+
   studio:
     name: Studio (build + test + lint)
     runs-on: ubuntu-latest

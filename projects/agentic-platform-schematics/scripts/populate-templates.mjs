@@ -11,15 +11,11 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { snapshotRepo } from './snapshot-repo.mjs';
+import { PLATFORM_SNAPSHOT_INPUTS } from './snapshot-inputs.mjs';
 
 const PKG = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-const { copied, excludedSecurity } = await snapshotRepo({
-  pkgDir: PKG,
-  topDirs: ['projects', 'platform', 'docs'],
-  topFiles: ['package.json', 'angular.json', 'README.md', '.editorconfig', '.gitignore', '.prettierrc', 'LICENSE'],
-  includeTsconfig: true,
-});
+const { copied, excludedSecurity } = await snapshotRepo({ pkgDir: PKG, ...PLATFORM_SNAPSHOT_INPUTS });
 
 console.log(`✓ Platform snapshot complete: ${copied} files copied into files/`);
 console.log(`✓ Excluded ${excludedSecurity.length} security-sensitive item(s) (see EXCLUDED.md):`);
