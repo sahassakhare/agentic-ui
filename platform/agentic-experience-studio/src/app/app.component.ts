@@ -7,6 +7,8 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AuthService } from './services/auth.service';
 import { FeatureFlagsService } from './services/feature-flags.service';
+import { AppFilterService } from './services/app-filter.service';
+import { FormsModule } from '@angular/forms';
 import { ToastHostComponent } from './components/toast-host.component';
 import { CommandPaletteComponent } from './components/command-palette.component';
 import { CopilotRailComponent } from './copilot/copilot-rail.component';
@@ -44,7 +46,7 @@ const NAV = [
   imports: [
     RouterOutlet, RouterLink, RouterLinkActive, ToastHostComponent, CommandPaletteComponent,
     CopilotRailComponent, MatToolbarModule, MatTabsModule, MatButtonModule,
-    MatSlideToggleModule, MatTooltipModule,
+    MatSlideToggleModule, MatTooltipModule, FormsModule,
   ],
   template: `
     <mat-toolbar class="topbar">
@@ -61,6 +63,15 @@ const NAV = [
       <span class="spacer"></span>
 
       @if (auth.isAuthenticated()) {
+        @if (appFilter.apps().length) {
+          <label class="appfilter" [class.active]="!!appFilter.selected()" title="Filter every category by the application that uses it">
+            <span class="afl">App</span>
+            <select [ngModel]="appFilter.selected() ?? ''" (ngModelChange)="appFilter.selected.set($event || null)" aria-label="Filter by application">
+              <option value="">All applications</option>
+              @for (a of appFilter.apps(); track a.id) { <option [value]="a.name">{{ a.name }}</option> }
+            </select>
+          </label>
+        }
         <mat-slide-toggle class="ai-toggle" [checked]="flags.aiAssistedAuthoring()" [disabled]="!platformAllowsAssistant"
           (change)="onAssistantToggle($event.checked)"
           matTooltip="AI authoring assistant — drafts capabilities from a description. Authoring works normally without it.">
@@ -100,6 +111,11 @@ const NAV = [
   styles: [`
     :host { display: block; min-height: 100%; }
     .topbar { position: sticky; top: 0; z-index: 41; gap: var(--s3); border-bottom: 1px solid var(--border); }
+    .appfilter { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 3px 8px; font-size: var(--fs-sm); }
+    .appfilter.active { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 10%, transparent); }
+    .appfilter .afl { opacity: .6; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    .appfilter select { border: none; background: transparent; color: inherit; font: inherit; font-size: var(--fs-sm); cursor: pointer; max-width: 180px; }
+    @media (max-width: 860px) { .appfilter { display: none; } }
     .brand { display: inline-flex; align-items: center; gap: var(--s2); color: var(--text); font-weight: 650; letter-spacing: -.01em; text-decoration: none; }
     .brand:hover { text-decoration: none; }
     .mark { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
@@ -121,6 +137,7 @@ const NAV = [
 export class App {
   protected readonly auth = inject(AuthService);
   protected readonly flags = inject(FeatureFlagsService);
+  protected readonly appFilter = inject(AppFilterService);
   private readonly router = inject(Router);
   protected readonly nav = NAV;
   protected readonly dark = signal(this.initialDark());

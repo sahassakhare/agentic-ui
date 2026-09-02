@@ -3,6 +3,8 @@ import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ExperienceCatalogService, type CapabilityRequirement, type Experience } from '../services/experience-catalog.service';
 import { ToastService } from '../services/toast.service';
+import { CapabilityGraphService } from '../services/capability-graph.service';
+import { AppFilterService } from '../services/app-filter.service';
 import { RequirementsBuilderComponent } from '../requirements-builder.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -149,6 +151,8 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
 export class ExperiencesComponent {
   private readonly catalog = inject(ExperienceCatalogService);
   private readonly toast = inject(ToastService);
+  private readonly graph = inject(CapabilityGraphService);
+  protected readonly appFilter = inject(AppFilterService);
 
   readonly items = signal<readonly Experience[]>([]);
   readonly loading = signal(false);
@@ -167,7 +171,10 @@ export class ExperiencesComponent {
   readonly visible = computed(() => {
     const f = this.filter();
     const q = this.query().trim().toLowerCase();
+    const app = this.appFilter.selected();
+    const members = app ? this.graph.membersOf(app) : null;
     return this.items().filter((e) => {
+      if (members && !members.has(`experience:${e.name}`)) return false;
       if (f !== 'all' && e.approvalState !== f) return false;
       if (!q) return true;
       return e.title.toLowerCase().includes(q) || e.name.toLowerCase().includes(q) || e.goal.toLowerCase().includes(q);
@@ -223,6 +230,7 @@ export class ExperiencesComponent {
       next: (res) => { this.items.set(res.items); this.loading.set(false); },
       error: (err) => { this.error.set(describe(err)); this.loading.set(false); },
     });
+    this.graph.load(); // for the application filter's membership set
   }
 }
 

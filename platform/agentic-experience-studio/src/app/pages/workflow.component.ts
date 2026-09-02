@@ -1,9 +1,11 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { ToastService } from '../services/toast.service';
+import { CapabilityGraphService } from '../services/capability-graph.service';
+import { AppFilterService } from '../services/app-filter.service';
 
 /**
  * Workflow Studio — lists `workflow`-kind capabilities. Authoring is unified on
@@ -58,7 +60,7 @@ import { ToastService } from '../services/toast.service';
         </div>
       } @else {
         <ul class="rows" style="margin-top:var(--s5)">
-          @for (w of items(); track w.id) {
+          @for (w of visible(); track w.id) {
             <li class="rowcard">
               <div class="stack" style="gap:2px; flex:1">
                 <span class="name">{{ w.name }}</span>
@@ -82,8 +84,17 @@ export class WorkflowComponent {
   private readonly catalog = inject(CapabilityCatalogService);
   private readonly toast = inject(ToastService);
   private readonly router = inject(Router);
+  private readonly graph = inject(CapabilityGraphService);
+  protected readonly appFilter = inject(AppFilterService);
 
   readonly items = signal<readonly Capability[]>([]);
+  /** Items scoped to the Studio-wide application filter (all when none selected). */
+  readonly visible = computed(() => {
+    const app = this.appFilter.selected();
+    if (!app) return this.items();
+    const members = this.graph.membersOf(app);
+    return this.items().filter((w) => members.has(`workflow:${w.name}`));
+  });
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
@@ -106,6 +117,7 @@ export class WorkflowComponent {
       next: (res) => { this.items.set(res.items); this.loading.set(false); },
       error: (err) => { this.error.set(msg(err)); this.loading.set(false); },
     });
+    this.graph.load(); // for the application filter's membership set
   }
 
   /** Create an empty workflow and jump straight into the one canvas designer. */

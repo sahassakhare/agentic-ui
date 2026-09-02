@@ -47,6 +47,34 @@ export class CapabilityGraphService {
     });
   }
 
+  /** Memoized transitive-membership sets, invalidated when the graph rebuilds. */
+  private readonly membersCache = new Map<string, ReadonlySet<string>>();
+  private membersCacheVersion = -1;
+
+  /**
+   * Every capability an application transitively composes — the forward closure
+   * from `application:<name>` over the uses-graph (app → pages → surfaces →
+   * their components/tools/validators/decisions/…), returned as a set of
+   * `kind:name` keys and INCLUDING the application node itself. Used to filter a
+   * category list to one application. Memoized per app until the next rebuild.
+   */
+  membersOf(appName: string): ReadonlySet<string> {
+    this.version(); // establish a reactive dependency on (re)builds
+    if (this.membersCacheVersion !== this.version()) { this.membersCache.clear(); this.membersCacheVersion = this.version(); }
+    const hit = this.membersCache.get(appName);
+    if (hit) return hit;
+    const seen = new Set<string>();
+    const stack = [key('application', appName)];
+    while (stack.length) {
+      const k = stack.pop()!;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      for (const r of this.usesMap.get(k) ?? []) if (r.exists) stack.push(key(r.kind, r.name));
+    }
+    this.membersCache.set(appName, seen);
+    return seen;
+  }
+
   usage(cap: Pick<Capability, 'kind' | 'name'>): Usage {
     const uses = this.usesMap.get(key(cap.kind, cap.name));
     if (!uses) return EMPTY;

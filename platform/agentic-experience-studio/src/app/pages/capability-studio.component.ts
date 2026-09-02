@@ -15,6 +15,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { TestRunnerDialogComponent } from './test-runner-dialog.component';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
 import { CapabilityGraphService, type Usage } from '../services/capability-graph.service';
+import { AppFilterService } from '../services/app-filter.service';
 import { kindMeta } from '../services/kind-meta';
 import { ToastService } from '../services/toast.service';
 import { AuthService } from '../services/auth.service';
@@ -354,6 +355,7 @@ export interface StudioConfig {
 export class CapabilityStudioComponent {
   private readonly catalog = inject(CapabilityCatalogService);
   private readonly graph = inject(CapabilityGraphService);
+  protected readonly appFilter = inject(AppFilterService);
   private readonly toast = inject(ToastService);
   private readonly auth = inject(AuthService);
   private readonly dialog = inject(MatDialog);
@@ -399,12 +401,23 @@ export class CapabilityStudioComponent {
   values: Record<string, unknown> = {};
 
   readonly filtered = computed(() => {
+    let list = this.items();
+    // Application filter (Studio-wide): keep only capabilities the selected
+    // application transitively composes. The app itself is included so its row
+    // shows on the Applications list.
+    const app = this.appFilter.selected();
+    if (app) {
+      const members = this.graph.membersOf(app);
+      list = list.filter((c) => members.has(`${c.kind}:${c.name}`));
+    }
     const q = this.query().trim().toLowerCase();
-    if (!q) return this.items();
-    return this.items().filter((c) =>
-      c.name.toLowerCase().includes(q) ||
-      c.tags.some((t) => t.toLowerCase().includes(q)) ||
-      JSON.stringify(c.body).toLowerCase().includes(q));
+    if (q) {
+      list = list.filter((c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.tags.some((t) => t.toLowerCase().includes(q)) ||
+        JSON.stringify(c.body).toLowerCase().includes(q));
+    }
+    return list;
   });
 
   constructor() {
