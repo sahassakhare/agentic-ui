@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { wireDesignerLiveSync } from './designer-live-sync';
+import { createHistory, type UndoRedo } from './designer-history';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -45,6 +46,8 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
           <mat-select [(ngModel)]="hitPolicy">@for (h of hitPolicies; track h) { <mat-option [value]="h">{{ h }}</mat-option> }</mat-select>
         </mat-form-field>
         <span class="sp"></span>
+        <button type="button" class="ur" (click)="history.undo()" [disabled]="!history.canUndo()" title="Undo (⌘Z)" aria-label="Undo">↶</button>
+        <button type="button" class="ur" (click)="history.redo()" [disabled]="!history.canRedo()" title="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
         <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
           [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
@@ -149,7 +152,7 @@ const TYPES: DecisionType[] = ['string', 'number', 'boolean', 'date'];
     .dt .x, .colhead button { display:inline-grid; place-items:center; }
     .wrap { padding:20px 24px; max-width:1150px; margin:0 auto; }
     .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
-    .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; }
+    .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; } .ur { border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:var(--r-sm); width:30px; height:30px; font-size:15px; line-height:1; cursor:pointer; } .ur:disabled { opacity:.4; cursor:default; }
     .hp { font-size:12px; display:flex; align-items:center; gap:6px; } .hp select { font:inherit; padding:5px 8px; border-radius:7px; border:1px solid rgba(120,120,140,.3); background:transparent; color:inherit; }
     .ok { color:#0a7d32; font-size:13px; }
     .btn { font:inherit; padding:8px 14px; border-radius:9px; border:1px solid rgba(120,120,140,.3); background:transparent; color:inherit; cursor:pointer; }
@@ -202,7 +205,15 @@ export class DecisionDesignerComponent implements HasUnsavedChanges {
   }));
   private pristine = '';
 
-  constructor() { wireDesignerLiveSync({ id: () => this.id(), reload: () => this.reload(), isDirty: () => this.hasUnsavedChanges() }); }
+  protected readonly history: UndoRedo;
+  constructor() {
+    wireDesignerLiveSync({ id: () => this.id(), reload: () => this.reload(), isDirty: () => this.hasUnsavedChanges() });
+    this.history = createHistory({
+      state: () => ({ inputs: this.inputs(), outputs: this.outputs(), rules: this.rules(), hitPolicy: this.hitPolicy() }),
+      apply: (s) => { this.inputs.set(s.inputs); this.outputs.set(s.outputs); this.rules.set(s.rules); this.hitPolicy.set(s.hitPolicy); },
+      ready: () => !this.loading(),
+    });
+  }
 
   private load(): void {
     this.caps.get(this.id()).subscribe((c) => {

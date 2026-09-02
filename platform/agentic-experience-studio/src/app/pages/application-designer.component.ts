@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { wireDesignerLiveSync } from './designer-live-sync';
+import { createHistory, type UndoRedo } from './designer-history';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -41,6 +42,8 @@ interface PageItem { name: string; title: string }
         <a routerLink="/applications" class="back">← Applications</a>
         <h1>{{ name() || 'Application' }} · Designer</h1>
         <span class="sp"></span>
+        <button type="button" class="ur" (click)="history.undo()" [disabled]="!history.canUndo()" title="Undo (⌘Z)" aria-label="Undo">↶</button>
+        <button type="button" class="ur" (click)="history.redo()" [disabled]="!history.canRedo()" title="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
         <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
           [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
@@ -125,7 +128,7 @@ interface PageItem { name: string; title: string }
     .plus mat-icon { font-size:16px; width:16px; height:16px; }
     .wrap { padding:20px 24px; max-width:1100px; margin:0 auto; }
     .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; }
-    .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; }
+    .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; } .ur { border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:var(--r-sm); width:30px; height:30px; font-size:15px; line-height:1; cursor:pointer; } .ur:disabled { opacity:.4; cursor:default; }
     .ok { color:#0a7d32; font-size:13px; }
     .btn { font:inherit; padding:9px 16px; border-radius:9px; border:1px solid rgba(120,120,140,.3); background:transparent; color:inherit; cursor:pointer; }
     .btn.primary { background:#6750a4; color:#fff; border-color:#6750a4; font-weight:600; } .btn[disabled] { opacity:.5; }
@@ -194,7 +197,15 @@ export class ApplicationDesignerComponent implements HasUnsavedChanges {
     return this.pages().filter((p) => !inNav.has(p.name));
   });
 
-  constructor() { wireDesignerLiveSync({ id: () => this.id(), reload: () => this.reload(), isDirty: () => this.hasUnsavedChanges() }); }
+  protected readonly history: UndoRedo;
+  constructor() {
+    wireDesignerLiveSync({ id: () => this.id(), reload: () => this.reload(), isDirty: () => this.hasUnsavedChanges() });
+    this.history = createHistory({
+      state: () => ({ title: this.title(), description: this.description(), assistant: this.assistantEnabled(), master: this.master(), nav: this.nav() }),
+      apply: (s) => { this.title.set(s.title); this.description.set(s.description); this.assistantEnabled.set(s.assistant); this.master.set(s.master); this.nav.set(s.nav); },
+      ready: () => !this.loading(),
+    });
+  }
 
   private load(): void {
     const item = (c: { name: string; body: Record<string, unknown> }) => ({ name: c.name, title: (c.body?.['title'] as string) ?? c.name });

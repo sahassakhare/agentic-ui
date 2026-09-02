@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { wireDesignerLiveSync } from './designer-live-sync';
+import { createHistory, type UndoRedo } from './designer-history';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -42,6 +43,8 @@ const COLOR_FIELDS: ColorGroup[] = [
           <button [class.on]="mode() === 'dark'" (click)="mode.set('dark')">Dark</button>
         </div>
         <span class="sp"></span>
+        <button type="button" class="ur" (click)="history.undo()" [disabled]="!history.canUndo()" title="Undo (⌘Z)" aria-label="Undo">↶</button>
+        <button type="button" class="ur" (click)="history.redo()" [disabled]="!history.canRedo()" title="Redo (⌘⇧Z)" aria-label="Redo">↷</button>
         <aes-lifecycle-bar [lifecycle]="lifecycle()" [approvalState]="approvalState()" [canApprove]="canApprove()"
           [busy]="saving()" (action)="onBarAction($event)" (history)="showHistory.set(true)" />
         @if (saved()) { <span class="ok">✓ saved</span> }
@@ -98,7 +101,7 @@ const COLOR_FIELDS: ColorGroup[] = [
   styles: [`
     .wrap { padding:20px 24px; max-width:1150px; margin:0 auto; }
     .head { display:flex; align-items:center; gap:14px; margin-bottom:18px; flex-wrap:wrap; }
-    .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; }
+    .head h1 { font-size:18px; margin:0; } .back { font-size:13px; text-decoration:none; opacity:.7; } .sp { flex:1; } .ur { border:1px solid var(--border); background:var(--surface); color:var(--text); border-radius:var(--r-sm); width:30px; height:30px; font-size:15px; line-height:1; cursor:pointer; } .ur:disabled { opacity:.4; cursor:default; }
     .modes { display:inline-flex; border:1px solid rgba(120,120,140,.3); border-radius:9px; overflow:hidden; }
     .modes button { font:inherit; font-size:12.5px; padding:5px 12px; border:none; background:transparent; color:inherit; cursor:pointer; }
     .modes button.on { background:#6750a4; color:#fff; }
@@ -155,7 +158,11 @@ export class TokenDesignerComponent implements HasUnsavedChanges {
   protected readonly previewStyle = computed(() =>
     Object.entries(tokensToCssVars(this.tokens(), this.mode())).map(([k, v]) => `${k}:${v}`).join(';'));
 
-  constructor() { wireDesignerLiveSync({ id: () => this.id(), reload: () => this.reload(), isDirty: () => this.hasUnsavedChanges() }); }
+  protected readonly history: UndoRedo;
+  constructor() {
+    wireDesignerLiveSync({ id: () => this.id(), reload: () => this.reload(), isDirty: () => this.hasUnsavedChanges() });
+    this.history = createHistory({ state: () => this.tokens(), apply: (t) => this.tokens.set(t), ready: () => !this.loading() });
+  }
 
   private load(): void {
     this.caps.get(this.id()).subscribe({
