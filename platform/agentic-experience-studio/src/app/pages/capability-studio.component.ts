@@ -56,6 +56,14 @@ export interface StudioConfig {
  * per-field validation, a confirm-before-delete dialog, and undoable delete
  * feedback via toasts. All visuals reuse the design-system classes.
  */
+
+/**
+ * Kinds the application filter never scopes — shared building blocks every
+ * application composes from, so their registry always lists all of them.
+ * `component` is the widget palette; add other primitives here if the team
+ * decides they're app-agnostic too.
+ */
+const APP_FILTER_EXEMPT_KINDS = new Set<string>(['component']);
 @Component({
   selector: 'aes-capability-studio',
   imports: [MatProgressSpinnerModule, FormsModule, RouterLink, RouterLinkActive, PreviewHostComponent, SchemaFormComponent, LifecycleBarComponent, HistoryPanelComponent, MatButtonModule, MatIconModule, MatChipsModule, MatTooltipModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, CodeViewComponent],
@@ -157,6 +165,7 @@ export interface StudioConfig {
           </mat-form-field>
         </div>
         <span class="count faint">{{ filtered().length }} of {{ items().length }}</span>
+        @if (appFilterExempt()) { <span class="count faint" title="Building blocks are shared across applications">· shared building blocks — not filtered by application</span> }
       </div>
 
       @if (loading()) {
@@ -405,13 +414,18 @@ export class CapabilityStudioComponent {
 
   values: Record<string, unknown> = {};
 
+  /** True when the application filter is active but this kind is a shared building block, so the list stays global. */
+  protected readonly appFilterExempt = computed(() => !!this.appFilter.selected() && APP_FILTER_EXEMPT_KINDS.has(this.cfg().kind));
+
   readonly filtered = computed(() => {
     let list = this.items();
     // Application filter (Studio-wide): keep only capabilities the selected
     // application transitively composes. The app itself is included so its row
-    // shows on the Applications list.
+    // shows on the Applications list. EXEMPT kinds are shared building blocks
+    // every app composes from (components — the widget palette), so their
+    // registry always shows all, never scoped to one application.
     const app = this.appFilter.selected();
-    if (app) {
+    if (app && !APP_FILTER_EXEMPT_KINDS.has(this.cfg().kind)) {
       const members = this.graph.membersOf(app);
       list = list.filter((c) => members.has(`${c.kind}:${c.name}`));
     }
