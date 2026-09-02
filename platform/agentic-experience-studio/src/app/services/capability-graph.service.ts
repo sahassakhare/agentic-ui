@@ -1,6 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { CapabilityCatalogService, type Capability } from './capability-catalog.service';
+import { ExperienceCatalogService, type ExperienceListResponse } from './experience-catalog.service';
 
 /** A reference from one capability to another. `exists=false` = an unmet reference. */
 export interface CapRef { kind: string; name: string; exists: boolean; }
@@ -13,9 +15,14 @@ export interface Usage {
   readonly unmet: readonly CapRef[];
 }
 
-/** Kinds fetched to build the graph — the composites plus everything they can target. */
+/**
+ * Kinds fetched to build the graph — the composites plus everything they can
+ * target. Experiences are NOT here: they live in a separate store and are
+ * loaded via `ExperienceCatalogService` (see `load`) so their `requires` can be
+ * followed too.
+ */
 const GRAPH_KINDS = [
-  'application', 'page', 'form', 'workflow', 'decision', 'experience',
+  'application', 'page', 'form', 'workflow', 'decision',
   'component', 'tool', 'datasource', 'validation', 'action', 'skill', 'navigation', 'dashboard', 'prompt',
 ];
 
@@ -31,6 +38,7 @@ const EMPTY: Usage = { uses: [], usedBy: [], unmet: [] };
 @Injectable({ providedIn: 'root' })
 export class CapabilityGraphService {
   private readonly catalog = inject(CapabilityCatalogService);
+  private readonly experiences = inject(ExperienceCatalogService);
   private readonly byKey = new Map<string, Capability>();      // `kind:name` → cap
   private readonly byName = new Map<string, Capability[]>();    // name → caps (any kind)
   private readonly usesMap = new Map<string, CapRef[]>();       // `kind:name` → resolved refs
@@ -40,10 +48,20 @@ export class CapabilityGraphService {
   readonly loaded = signal(false);
   readonly version = signal(0);   // bump to notify views after a (re)build
 
-  /** Fetch every graph kind and (re)build. Safe to call repeatedly. */
+  /** Fetch every graph kind + experiences and (re)build. Safe to call repeatedly. */
   load(): void {
-    forkJoin(Object.fromEntries(GRAPH_KINDS.map((k) => [k, this.catalog.listByKind(k)]))).subscribe({
-      next: (res) => { this.build(Object.values(res).flatMap((r) => r.items)); },
+    forkJoin({
+      caps: forkJoin(Object.fromEntries(GRAPH_KINDS.map((k) => [k, this.catalog.listByKind(k)]))),
+      exps: this.experiences.list({}).pipe(catchError(() => of({ items: [] } as unknown as ExperienceListResponse))),
+    }).subscribe({
+      next: ({ caps, exps }) => {
+        const capItems = Object.values(caps).flatMap((r) => r.items);
+        // Fold experiences (separate store) into the graph as `experience:` nodes,
+        // so a page→experience ref resolves and the experience's own `requires`
+        // are followed — making app membership transitive through experiences.
+        const expItems = (exps.items ?? []).map((e) => ({ kind: 'experience', name: e.name, body: e.body ?? {} }) as unknown as Capability);
+        this.build([...capItems, ...expItems]);
+      },
       error: () => { /* leave prior graph */ },
     });
   }
@@ -171,6 +189,11 @@ function extractRefs(c: Capability): { kind: string; name: string }[] {
         const next = st?.next as { decision?: string } | undefined;
         if (next && typeof next === 'object' && typeof next.decision === 'string') push('decision', next.decision);
       }
+      break;
+    }
+    case 'experience': {
+      // An experience composes the capabilities in its `requires` list.
+      for (const r of (b['requires'] as { kind?: string; name?: string }[] | undefined) ?? []) push(r?.kind ?? 'component', r?.name);
       break;
     }
     case 'skill': for (const t of (b['tools'] as string[] | undefined) ?? []) push('tool', t); break;
