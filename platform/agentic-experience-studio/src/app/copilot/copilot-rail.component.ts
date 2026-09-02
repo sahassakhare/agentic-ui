@@ -12,7 +12,7 @@ import { firstValueFrom } from 'rxjs';
 import { ChatShellComponent } from '@infra-tools/agentic-ui';
 import { FeatureFlagsService } from '../services/feature-flags.service';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
-import { authoringBridge, lastDraft, designerPathFor, type AuthoringDraft } from './authoring-bridge';
+import { authoringBridge, recentDrafts, designerPathFor, type AuthoringDraft } from './authoring-bridge';
 
 const ALL_KINDS = ['form', 'page', 'workflow', 'decision', 'application', 'theme', 'experience', 'tool', 'datasource', 'prompt', 'skill', 'navigation', 'validation'];
 
@@ -24,8 +24,16 @@ const ALL_KINDS = ['form', 'page', 'workflow', 'decision', 'application', 'theme
     @if (flags.aiAssistedAuthoring()) {
       <aside class="copilot" aria-label="AI authoring assistant">
         <header class="chd"><span class="dot"></span> AI Authoring <span class="sub">drafts capabilities</span></header>
-        @if (draft(); as d) {
-          <button class="open" (click)="open(d)">Open “{{ d.name }}” in the {{ d.kind }} designer →</button>
+        @if (recent().length) {
+          <div class="drafts" aria-label="Recently drafted capabilities">
+            @for (d of recent(); track d.id) {
+              <button class="open" (click)="open(d)" [title]="openLabel(d)">
+                <span class="cat" [attr.data-kind]="d.kind">{{ kindLabel(d.kind) }}</span>
+                <span class="dn">{{ d.name }}</span>
+                <span class="go">{{ openLabel(d) }} →</span>
+              </button>
+            }
+          </div>
         }
         <mvk-chat-shell mode="rail" showToolCalls="compact" placeholder="Describe a capability to draft…" />
       </aside>
@@ -36,8 +44,15 @@ const ALL_KINDS = ['form', 'page', 'workflow', 'decision', 'application', 'theme
     @media (max-width: 1100px) { .copilot { display:none; } }
     .chd { display:flex; align-items:center; gap:8px; padding:12px 4px; font-size:13px; font-weight:600; border-bottom:1px solid rgba(120,120,140,.14); }
     .chd .dot { width:8px; height:8px; border-radius:50%; background:#0a7d32; } .chd .sub { margin-left:auto; font-size:11px; font-weight:400; opacity:.5; }
-    .open { margin:10px 0; padding:8px 11px; border:1px solid rgba(103,80,164,.35); border-radius:9px; background:rgba(103,80,164,.1); color:inherit; font:inherit; font-size:12.5px; text-align:left; cursor:pointer; }
-    .open:hover { background:rgba(103,80,164,.18); }
+    .drafts { display:flex; flex-direction:column; gap:6px; margin:10px 0; max-height:38%; overflow:auto; }
+    .open { display:grid; grid-template-columns:auto 1fr; grid-template-areas:"cat name" "cat go"; column-gap:8px; align-items:center;
+      padding:7px 10px; border:1px solid rgba(103,80,164,.35); border-radius:9px; background:rgba(103,80,164,.08); color:inherit; font:inherit; text-align:left; cursor:pointer; }
+    .open:hover { background:rgba(103,80,164,.16); }
+    .cat { grid-area:cat; align-self:center; font-size:10px; font-weight:700; letter-spacing:.02em; text-transform:uppercase;
+      padding:3px 7px; border-radius:999px; background:rgba(103,80,164,.16); color:#6750a4; white-space:nowrap; }
+    @media (prefers-color-scheme: dark) { .cat { color:#d0bcff; background:rgba(208,188,255,.16); } }
+    .dn { grid-area:name; font-size:12.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .go { grid-area:go; font-size:11px; opacity:.6; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     mvk-chat-shell { flex:1; min-height:0; display:block; }
   `],
 })
@@ -45,7 +60,16 @@ export class CopilotRailComponent {
   protected readonly flags = inject(FeatureFlagsService);
   private readonly caps = inject(CapabilityCatalogService);
   private readonly router = inject(Router);
-  protected readonly draft = lastDraft;
+  protected readonly recent = recentDrafts;
+
+  /** Capitalized singular kind, e.g. "form" → "Form". */
+  protected kindLabel(kind: string): string { return kind.charAt(0).toUpperCase() + kind.slice(1); }
+  /** True when the kind opens a rich designer (path ends /design) vs. its category list. */
+  protected isDesigner(d: AuthoringDraft): boolean { return d.designerPath.endsWith('/design'); }
+  /** Honest action label: the designer for designer-kinds, otherwise the category list. */
+  protected openLabel(d: AuthoringDraft): string {
+    return this.isDesigner(d) ? `Open in the ${d.kind} designer` : `Go to ${this.kindLabel(d.kind)}`;
+  }
 
   constructor() {
     authoringBridge.createDraft = async (kind, name, body): Promise<AuthoringDraft> => {
@@ -102,6 +126,5 @@ export class CopilotRailComponent {
 
   protected open(d: AuthoringDraft): void {
     void this.router.navigateByUrl(d.designerPath);
-    lastDraft.set(null);
   }
 }

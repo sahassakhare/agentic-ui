@@ -8,7 +8,7 @@
  */
 import { z } from 'zod';
 import { agenticTool, type ToolDef } from '@infra-tools/agentic-ui';
-import { authoringBridge, lastDraft, noteMutation } from './authoring-bridge';
+import { authoringBridge, lastDraft, noteMutation, pushRecent } from './authoring-bridge';
 
 /** The governed capability kinds an author can create. */
 const KIND = z.enum([
@@ -38,6 +38,7 @@ const createDraftCapability = agenticTool({
     try {
       const draft = await authoringBridge.createDraft(kind, name, body as Record<string, unknown>);
       lastDraft.set(draft);
+      pushRecent(draft);
       noteMutation(draft.id);
       return { ok: true, id: draft.id, kind: draft.kind, name: draft.name, designerPath: draft.designerPath };
     } catch (e) {
@@ -105,6 +106,7 @@ const updateDraftCapability = agenticTool({
     try {
       const draft = await authoringBridge.updateDraft(idOrName, kind, bodyPatch as Record<string, unknown>);
       lastDraft.set(draft);
+      pushRecent(draft);
       noteMutation(draft.id);
       return { ok: true, id: draft.id, kind: draft.kind, name: draft.name, designerPath: draft.designerPath };
     } catch (e) {

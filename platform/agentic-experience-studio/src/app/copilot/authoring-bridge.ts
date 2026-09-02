@@ -57,6 +57,14 @@ export function noteMutation(id: string): void {
   lastMutation.set({ id, at: Date.now() });
 }
 
+/** Recent capabilities the copilot drafted/edited this session — the rail shows them as category-tagged jump links. */
+export const recentDrafts = signal<readonly AuthoringDraft[]>([]);
+
+/** Push a draft to the front of the recents (dedupe by id, keep the last 6). */
+export function pushRecent(d: AuthoringDraft): void {
+  recentDrafts.update((list) => [d, ...list.filter((x) => x.id !== d.id)].slice(0, 6));
+}
+
 /** Kinds that have a rich design route (a `/:id/design` page in app.routes.ts); others link to the list. */
 const DESIGNER_KINDS = new Set(['form', 'page', 'workflow', 'decision', 'application', 'theme']);
 
