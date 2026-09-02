@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { wireDesignerLiveSync } from './designer-live-sync';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -193,7 +194,7 @@ export class ApplicationDesignerComponent implements HasUnsavedChanges {
     return this.pages().filter((p) => !inNav.has(p.name));
   });
 
-  constructor() { queueMicrotask(() => this.load()); }
+  constructor() { wireDesignerLiveSync({ id: () => this.id(), reload: () => this.reload(), isDirty: () => this.hasUnsavedChanges() }); }
 
   private load(): void {
     const item = (c: { name: string; body: Record<string, unknown> }) => ({ name: c.name, title: (c.body?.['title'] as string) ?? c.name });

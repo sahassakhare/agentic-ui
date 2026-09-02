@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, effect, HostListener, inject, input, signal } from '@angular/core';
+import { wireDesignerLiveSync } from './designer-live-sync';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { CdkDrag, CdkDropList, moveItemInArray, type CdkDragDrop } from '@angular/cdk/drag-drop';
@@ -445,7 +446,7 @@ export class PageDesignerComponent implements HasUnsavedChanges {
   });
 
   constructor() {
-    queueMicrotask(() => this.load());
+    wireDesignerLiveSync({ id: () => this.id(), reload: () => this.reload(), isDirty: () => this.hasUnsavedChanges() });
     // Record a history snapshot whenever regions() changes through an edit. undo/
     // redo and load pre-set lastRegions so their own writes aren't re-recorded.
     effect(() => {

@@ -77,6 +77,17 @@ export class CopilotRailComponent {
       return draft;
     };
     authoringBridge.openDesigner = (path) => { void this.router.navigateByUrl(path); };
+    // Resolve the capability currently open in a designer from the URL, so the
+    // copilot can act on "this"/"the open form" without the author naming it.
+    authoringBridge.getActive = () => {
+      const url = this.router.url.split('?')[0].replace(/^\/+/, '');
+      // e.g. forms/<id>/design, workflows/<id>/design, decisions/<id>/design,
+      // pages/<id>/design, applications/<id>/design, themes/<id>/design, experiences/<id>
+      const m = url.match(/^([a-z]+)s\/([^/]+)(?:\/design)?$/);
+      if (!m) return null;
+      const [, kind, id] = m;
+      return { id, kind };
+    };
   }
 
   /** Resolve a capability by id, or by name within a kind (full record incl. version). */

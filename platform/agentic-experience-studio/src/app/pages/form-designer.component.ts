@@ -23,6 +23,7 @@ import { AuthService } from '../services/auth.service';
 import type { ApprovalState } from '../services/capability-catalog.service';
 import type { Lifecycle } from '../lifecycle';
 import type { HasUnsavedChanges } from '../guards/unsaved-changes.guard';
+import { wireDesignerLiveSync } from './designer-live-sync';
 
 /**
  * Drag-and-drop Form Designer. The Component registry is the palette; dragging a
@@ -319,7 +320,9 @@ export class FormDesignerComponent implements HasUnsavedChanges {
     schema: { fields: this.fields(), actions: this.actions(), submit: legacySubmit(this.actions()) },
   }));
 
-  constructor() { queueMicrotask(() => this.load()); }
+  constructor() {
+    wireDesignerLiveSync({ id: () => this.id(), reload: () => this.reload(), isDirty: () => this.hasUnsavedChanges() });
+  }
 
   private load(): void {
     this.catalog.get(this.id()).subscribe({

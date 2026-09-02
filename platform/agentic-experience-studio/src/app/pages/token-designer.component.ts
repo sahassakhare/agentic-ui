@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { wireDesignerLiveSync } from './designer-live-sync';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -154,7 +155,7 @@ export class TokenDesignerComponent implements HasUnsavedChanges {
   protected readonly previewStyle = computed(() =>
     Object.entries(tokensToCssVars(this.tokens(), this.mode())).map(([k, v]) => `${k}:${v}`).join(';'));
 
-  constructor() { queueMicrotask(() => this.load()); }
+  constructor() { wireDesignerLiveSync({ id: () => this.id(), reload: () => this.reload(), isDirty: () => this.hasUnsavedChanges() }); }
 
   private load(): void {
     this.caps.get(this.id()).subscribe({

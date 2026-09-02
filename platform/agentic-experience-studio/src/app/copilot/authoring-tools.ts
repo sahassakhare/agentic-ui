@@ -8,7 +8,7 @@
  */
 import { z } from 'zod';
 import { agenticTool, type ToolDef } from '@infra-tools/agentic-ui';
-import { authoringBridge, lastDraft } from './authoring-bridge';
+import { authoringBridge, lastDraft, noteMutation } from './authoring-bridge';
 
 /** The governed capability kinds an author can create. */
 const KIND = z.enum([
@@ -38,6 +38,7 @@ const createDraftCapability = agenticTool({
     try {
       const draft = await authoringBridge.createDraft(kind, name, body as Record<string, unknown>);
       lastDraft.set(draft);
+      noteMutation(draft.id);
       return { ok: true, id: draft.id, kind: draft.kind, name: draft.name, designerPath: draft.designerPath };
     } catch (e) {
       return { ok: false, error: (e as Error).message };
@@ -70,6 +71,19 @@ const getCapability = agenticTool({
   },
 });
 
+const getActiveCapability = agenticTool({
+  name: 'getActiveCapability',
+  description:
+    'Return the capability the author currently has OPEN in a designer (its id + kind), so you can resolve '
+    + 'references like "this form", "the open workflow", or "the current page". Returns { open: false } when no '
+    + 'designer is open. Use this FIRST for such references, then getCapability + updateDraftCapability to edit it.',
+  schema: z.object({}),
+  handler: async () => {
+    const active = authoringBridge.getActive?.() ?? null;
+    return active ? { open: true, id: active.id, kind: active.kind } : { open: false };
+  },
+});
+
 const updateDraftCapability = agenticTool({
   name: 'updateDraftCapability',
   description:
@@ -91,6 +105,7 @@ const updateDraftCapability = agenticTool({
     try {
       const draft = await authoringBridge.updateDraft(idOrName, kind, bodyPatch as Record<string, unknown>);
       lastDraft.set(draft);
+      noteMutation(draft.id);
       return { ok: true, id: draft.id, kind: draft.kind, name: draft.name, designerPath: draft.designerPath };
     } catch (e) {
       return { ok: false, error: (e as Error).message };
@@ -99,4 +114,4 @@ const updateDraftCapability = agenticTool({
 });
 
 /** The copilot tool-kit passed to `provideAgenticUiPlatform`. */
-export const authoringTools: ToolDef[] = [createDraftCapability, updateDraftCapability, listCapabilities, getCapability] as unknown as ToolDef[];
+export const authoringTools: ToolDef[] = [createDraftCapability, updateDraftCapability, listCapabilities, getCapability, getActiveCapability] as unknown as ToolDef[];

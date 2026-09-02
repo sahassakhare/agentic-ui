@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, HostListener, inject, input, signal } from '@angular/core';
+import { wireDesignerLiveSync } from './designer-live-sync';
 import { CdkDrag, CdkDragHandle, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -363,7 +364,7 @@ export class WorkflowDesignerComponent implements HasUnsavedChanges {
     }));
   });
 
-  constructor() { queueMicrotask(() => this.load()); }
+  constructor() { wireDesignerLiveSync({ id: () => this.id(), reload: () => this.reload(), isDirty: () => this.hasUnsavedChanges() }); }
 
   private load(): void {
     this.catalog.get(this.id()).subscribe({

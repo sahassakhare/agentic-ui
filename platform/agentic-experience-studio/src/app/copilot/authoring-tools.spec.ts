@@ -23,12 +23,22 @@ describe('authoring tools', () => {
     delete authoringBridge.updateDraft;
     delete authoringBridge.list;
     delete authoringBridge.get;
+    delete authoringBridge.getActive;
     lastDraft.set(null);
   });
 
-  it('exposes the four authoring tools', () => {
+  it('exposes the five authoring tools', () => {
     expect(authoringTools.map((t) => (t as ToolDef).name).sort())
-      .toEqual(['createDraftCapability', 'getCapability', 'listCapabilities', 'updateDraftCapability']);
+      .toEqual(['createDraftCapability', 'getActiveCapability', 'getCapability', 'listCapabilities', 'updateDraftCapability']);
+  });
+
+  it('getActiveCapability returns the open designer capability from the bridge', async () => {
+    authoringBridge.getActive = () => ({ id: 'f7', kind: 'form' });
+    expect(await call(byName('getActiveCapability'), {})).toEqual({ open: true, id: 'f7', kind: 'form' });
+  });
+
+  it('getActiveCapability reports none open when no designer is active', async () => {
+    expect(await call(byName('getActiveCapability'), {})).toEqual({ open: false });
   });
 
   it('updateDraftCapability delegates to the bridge and records the last draft', async () => {

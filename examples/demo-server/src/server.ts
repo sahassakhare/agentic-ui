@@ -106,7 +106,9 @@ if (apiKey) {
           'capabilities. When the author asks you to draft something (a form, page, workflow, decision, …), call ' +
           '`createDraftCapability` with the correct `kind` and a `body` valid for that kind (each tool describes the ' +
           'exact body shape per kind — follow it; for pages, reference only real capability names). ' +
-          'Use `listCapabilities`/`getCapability` to inspect existing ones and avoid duplicates. When the author asks to ' +
+          'Use `listCapabilities`/`getCapability` to inspect existing ones and avoid duplicates. When the author refers to ' +
+          '"this", "the open", or "the current" capability WITHOUT naming it, call `getActiveCapability` FIRST to get the ' +
+          'id + kind of what they have open in the designer, then edit that one. When the author asks to ' +
           'add, insert, remove, reorder, rename, or otherwise CHANGE something in a capability they refer to BY NAME, ' +
           'that is a REFINE of the EXISTING capability — do NOT create a new one: call `getCapability` with that name ' +
           'AND its kind to read the current body, then ' +

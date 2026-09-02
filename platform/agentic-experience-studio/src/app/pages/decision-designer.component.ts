@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { wireDesignerLiveSync } from './designer-live-sync';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -201,7 +202,7 @@ export class DecisionDesignerComponent implements HasUnsavedChanges {
   }));
   private pristine = '';
 
-  constructor() { queueMicrotask(() => this.load()); }
+  constructor() { wireDesignerLiveSync({ id: () => this.id(), reload: () => this.reload(), isDirty: () => this.hasUnsavedChanges() }); }
 
   private load(): void {
     this.caps.get(this.id()).subscribe((c) => {
