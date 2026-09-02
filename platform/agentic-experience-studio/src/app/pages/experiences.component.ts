@@ -126,6 +126,9 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
                   <span class="desc" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ e.goal }}</span>
                 </div>
               </a>
+              @for (app of appsOf(e); track app) {
+                <button type="button" class="appchip" (click)="appFilter.selected.set(app)" [title]="'Used by ' + app + ' — click to filter'">◆ {{ app }}</button>
+              }
               <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </li>
           }
@@ -146,6 +149,8 @@ const FILTERS: readonly StateFilter[] = ['all', 'draft', 'review', 'approved', '
     .rowcard.exp .main:hover { text-decoration: none; }
     .rowcard.exp .chev { color: var(--text-faint); margin-right: var(--s4); flex: none; }
     .rowcard.exp:hover .chev { color: var(--brand); }
+    .appchip { border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--border)); background: color-mix(in srgb, var(--brand) 8%, transparent); color: var(--brand); border-radius: 999px; padding: 1px 8px; font-size: 10.5px; font-weight: 600; cursor: pointer; white-space: nowrap; margin-right: var(--s2); }
+    .appchip:hover { background: color-mix(in srgb, var(--brand) 16%, transparent); }
   `],
 })
 export class ExperiencesComponent {
@@ -183,6 +188,8 @@ export class ExperiencesComponent {
 
   constructor() { this.refresh(); }
 
+  /** Application(s) that transitively use this experience — clickable membership chips. */
+  appsOf(e: Experience): string[] { this.graph.version(); return this.graph.appsUsing({ kind: 'experience', name: e.name }); }
   countOf(f: StateFilter): number { return this.items().filter((e) => e.approvalState === f).length; }
   badgeClass(state: string): string {
     return state === 'approved' ? 'badge-ok'

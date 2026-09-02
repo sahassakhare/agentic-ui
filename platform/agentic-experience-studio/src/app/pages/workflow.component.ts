@@ -63,7 +63,12 @@ import { AppFilterService } from '../services/app-filter.service';
           @for (w of visible(); track w.id) {
             <li class="rowcard">
               <div class="stack" style="gap:2px; flex:1">
-                <span class="name">{{ w.name }}</span>
+                <div class="row" style="gap:6px; align-items:center; flex-wrap:wrap">
+                  <span class="name">{{ w.name }}</span>
+                  @for (app of appsOf(w); track app) {
+                    <button type="button" class="appchip" (click)="appFilter.selected.set(app)" [title]="'Used by ' + app + ' — click to filter'">◆ {{ app }}</button>
+                  }
+                </div>
                 <span class="desc">{{ stepCount(w) }} step{{ stepCount(w) === 1 ? '' : 's' }}</span>
               </div>
               <span class="badge" [class.badge-ok]="w.lifecycle === 'published'">{{ w.lifecycle }}</span>
@@ -78,6 +83,8 @@ import { AppFilterService } from '../services/app-filter.service';
   styles: [`
     .btn-spin { --mdc-circular-progress-active-indicator-color: currentColor; display:inline-block; vertical-align:middle; margin-right:6px; }
     .create { margin-bottom: var(--s5); }
+    .appchip { border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--border)); background: color-mix(in srgb, var(--brand) 8%, transparent); color: var(--brand); border-radius: 999px; padding: 1px 8px; font-size: 10.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .appchip:hover { background: color-mix(in srgb, var(--brand) 16%, transparent); }
   `],
 })
 export class WorkflowComponent {
@@ -155,6 +162,8 @@ export class WorkflowComponent {
     const wf = w.body['workflow'] as { steps?: unknown[] } | undefined;
     return wf?.steps?.length ?? 0;
   }
+  /** Application(s) that transitively use this workflow — clickable membership chips. */
+  appsOf(w: Capability): string[] { this.graph.version(); return this.graph.appsUsing(w); }
 }
 
 function msg(err: unknown): string {

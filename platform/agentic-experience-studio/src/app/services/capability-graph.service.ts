@@ -65,12 +65,17 @@ export class CapabilityGraphService {
     const hit = this.membersCache.get(appName);
     if (hit) return hit;
     const seen = new Set<string>();
-    const stack = [key('application', appName)];
+    const start = key('application', appName);
+    seen.add(start);
+    const stack = [start];
     while (stack.length) {
       const k = stack.pop()!;
-      if (seen.has(k)) continue;
-      seen.add(k);
-      for (const r of this.usesMap.get(k) ?? []) if (r.exists) stack.push(key(r.kind, r.name));
+      for (const r of this.usesMap.get(k) ?? []) {
+        const rk = key(r.kind, r.name);
+        if (seen.has(rk)) continue;
+        seen.add(rk);                 // record membership even for leaves the graph doesn't hold (e.g. experiences live in a separate store)
+        if (r.exists) stack.push(rk);  // but only traverse INTO capabilities the graph resolved
+      }
     }
     this.membersCache.set(appName, seen);
     return seen;
