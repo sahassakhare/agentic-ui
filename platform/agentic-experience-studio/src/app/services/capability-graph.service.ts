@@ -35,6 +35,7 @@ export class CapabilityGraphService {
   private readonly byName = new Map<string, Capability[]>();    // name → caps (any kind)
   private readonly usesMap = new Map<string, CapRef[]>();       // `kind:name` → resolved refs
   private readonly usedByMap = new Map<string, CapRef[]>();
+  private appNames: readonly string[] = [];                     // application capability names, for reverse lookup
 
   readonly loaded = signal(false);
   readonly version = signal(0);   // bump to notify views after a (re)build
@@ -75,6 +76,13 @@ export class CapabilityGraphService {
     return seen;
   }
 
+  /** Application names that transitively compose this capability (reverse of {@link membersOf}). */
+  appsUsing(cap: Pick<Capability, 'kind' | 'name'>): string[] {
+    this.version(); // reactive on rebuilds
+    const k = key(cap.kind, cap.name);
+    return this.appNames.filter((a) => a !== cap.name && this.membersOf(a).has(k));
+  }
+
   usage(cap: Pick<Capability, 'kind' | 'name'>): Usage {
     const uses = this.usesMap.get(key(cap.kind, cap.name));
     if (!uses) return EMPTY;
@@ -87,6 +95,7 @@ export class CapabilityGraphService {
 
   private build(caps: Capability[]): void {
     this.byKey.clear(); this.byName.clear(); this.usesMap.clear(); this.usedByMap.clear();
+    this.appNames = caps.filter((c) => c.kind === 'application').map((c) => c.name);
     for (const c of caps) {
       this.byKey.set(key(c.kind, c.name), c);
       const list = this.byName.get(c.name) ?? [];

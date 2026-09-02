@@ -193,6 +193,9 @@ export interface StudioConfig {
                 <div class="row" style="gap:var(--s2)">
                   <span class="name">{{ c.name }}</span>
                   <span class="badge" [class.badge-ok]="c.lifecycle === 'published'" [class.badge-warn]="c.lifecycle === 'draft'" [class.badge-danger]="c.lifecycle === 'deprecated' || c.lifecycle === 'disabled'">{{ c.lifecycle }}</span>
+                  @for (app of appsOf(c); track app) {
+                    <button type="button" class="appchip" (click)="appFilter.selected.set(app)" [title]="'Used by ' + app + ' — click to filter to it'">◆ {{ app }}</button>
+                  }
                 </div>
                 @if (summarize(c)) { <span class="desc" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ summarize(c) }}</span> }
                 @let u = usageOf(c);
@@ -309,6 +312,8 @@ export interface StudioConfig {
     .search-mf { max-width: 340px; }
     mat-checkbox.field { display: inline-flex; align-items: center; }
     .usebtn { margin-top: 4px; border: none; background: none; padding: 0; cursor: pointer; display: inline-flex; gap: 12px; font-size: 11.5px; color: var(--text-muted); }
+    .appchip { border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--border)); background: color-mix(in srgb, var(--brand) 8%, transparent); color: var(--brand); border-radius: 999px; padding: 1px 8px; font-size: 10.5px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .appchip:hover { background: color-mix(in srgb, var(--brand) 16%, transparent); }
     .usebtn span { display: inline-flex; align-items: center; gap: 3px; }
     .usebtn .ub-ic { font-size: 15px; width: 15px; height: 15px; }
     .usebtn:hover { color: var(--text); }
@@ -541,6 +546,11 @@ export class CapabilityStudioComponent {
   protected usageOf(c: Capability): Usage {
     this.graph.version();   // re-read when the graph (re)builds
     return this.graph.usage(c);
+  }
+  /** Application(s) that transitively use this capability — shown as clickable chips. */
+  protected appsOf(c: Capability): string[] {
+    this.graph.version();
+    return this.graph.appsUsing(c);
   }
   protected toggleCode(c: Capability): void {
     this.expandedCode.set(this.expandedCode() === c.id ? null : c.id);
