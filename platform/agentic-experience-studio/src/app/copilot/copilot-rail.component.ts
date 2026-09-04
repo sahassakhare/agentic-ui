@@ -12,7 +12,7 @@ import { firstValueFrom } from 'rxjs';
 import { ChatShellComponent } from '@infra-tools/agentic-ui';
 import { FeatureFlagsService } from '../services/feature-flags.service';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
-import { ExperienceCatalogService, type ExperienceBody } from '../services/experience-catalog.service';
+import { ExperienceCatalogService, type ExperienceBody, type Experience } from '../services/experience-catalog.service';
 import { authoringBridge, recentDrafts, designerPathFor, type AuthoringDraft } from './authoring-bridge';
 
 const ALL_KINDS = ['form', 'page', 'workflow', 'decision', 'application', 'theme', 'experience', 'tool', 'datasource', 'prompt', 'skill', 'navigation', 'validation'];
@@ -108,8 +108,33 @@ export class CopilotRailComponent {
       ));
       return results.flat();
     };
-    authoringBridge.get = async (idOrName, kind) => (await this.resolveCap(idOrName, kind))?.body ?? null;
+    authoringBridge.get = async (idOrName, kind) => {
+      if (kind === 'experience') {
+        const e = await this.resolveExperience(idOrName);
+        return e ? { title: e.title, goal: e.goal, ...(e.body ?? {}) } : null;
+      }
+      return (await this.resolveCap(idOrName, kind))?.body ?? null;
+    };
     authoringBridge.updateDraft = async (idOrName, kind, bodyPatch): Promise<AuthoringDraft> => {
+      if (kind === 'experience') {
+        const e = await this.resolveExperience(idOrName);
+        if (!e) throw new Error(`Couldn't find experience "${idOrName}" to update.`);
+        // title/goal are top-level on an experience; intents/requires are its body.
+        const patch = bodyPatch as { title?: string; goal?: string } & ExperienceBody;
+        const body = {
+          ...(e.body ?? {}),
+          ...(patch.intents !== undefined ? { intents: patch.intents } : {}),
+          ...(patch.requires !== undefined ? { requires: patch.requires } : {}),
+        };
+        const u = await firstValueFrom(this.experiences.update(e.id, {
+          ...(patch.title !== undefined ? { title: patch.title } : {}),
+          ...(patch.goal !== undefined ? { goal: patch.goal } : {}),
+          body,
+        }));
+        const exDraft = { id: u.id, name: u.name, kind: 'experience', designerPath: designerPathFor('experience', u.id) };
+        void this.router.navigateByUrl(exDraft.designerPath);
+        return exDraft;
+      }
       const cap = await this.resolveCap(idOrName, kind);
       if (!cap) throw new Error(`Couldn't find "${idOrName}" to update.`);
       const merged = { ...cap.body, ...bodyPatch };
@@ -140,6 +165,13 @@ export class CopilotRailComponent {
       return (r.items ?? []).find((x) => x.name === idOrName) ?? null;
     }
     return null;
+  }
+
+  /** Resolve an experience by id, or by name (experiences live in their own store). */
+  private async resolveExperience(idOrName: string): Promise<Experience | null> {
+    try { const e = await firstValueFrom(this.experiences.get(idOrName)); if (e) return e; } catch { /* not an id */ }
+    const r = await firstValueFrom(this.experiences.list({})).catch(() => ({ items: [] as readonly Experience[] }));
+    return (r.items ?? []).find((x) => x.name === idOrName) ?? null;
   }
 
   protected open(d: AuthoringDraft): void {
