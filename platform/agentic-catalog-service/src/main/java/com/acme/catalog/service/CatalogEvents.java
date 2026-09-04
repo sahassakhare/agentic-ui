@@ -30,9 +30,23 @@ public class CatalogEvents {
     }
 
     public void publish(String tenant, String entityType, String operation, String entityId) {
-        Map<String, Object> event = Map.of(
-                "tenantId", tenant, "entityType", entityType, "operation", operation,
-                "entityId", entityId, "occurredAt", java.time.Instant.now().toString());
+        publish(tenant, entityType, operation, entityId, null);
+    }
+
+    /**
+     * Publish with the affected capability's {@code kind}, so a client can
+     * re-hydrate only the source that owns that kind (and target deletes)
+     * without a follow-up lookup. {@code kind} may be null for non-capability
+     * entities; it is then omitted from the event.
+     */
+    public void publish(String tenant, String entityType, String operation, String entityId, String kind) {
+        Map<String, Object> event = new java.util.HashMap<>();
+        event.put("tenantId", tenant);
+        event.put("entityType", entityType);
+        event.put("operation", operation);
+        event.put("entityId", entityId);
+        event.put("occurredAt", java.time.Instant.now().toString());
+        if (kind != null) event.put("kind", kind);
         for (Client c : clients) {
             if (!c.tenant().equals(tenant)) continue;
             try { c.emitter().send(SseEmitter.event().data(event)); }

@@ -44,7 +44,7 @@ public class CapabilityController {
     public ResponseEntity<Map<String, Object>> create(@PathVariable String tenant, @RequestBody JsonNode body) {
         var actor = current.requireTenant(tenant);
         var c = svc.create(tenant, body, actor.id());
-        events.publish(tenant, "capability", "create", c.id);
+        events.publish(tenant, "capability", "create", c.id, c.kind);
         return ResponseEntity.status(HttpStatus.CREATED).eTag(etag(c)).body(views.capability(c));
     }
 
@@ -54,7 +54,7 @@ public class CapabilityController {
                                                       @RequestHeader(value = "If-Match", required = false) String ifMatch) {
         var actor = current.requireTenant(tenant);
         var c = svc.update(tenant, id, patch, parseVersion(ifMatch), actor.id());
-        events.publish(tenant, "capability", "update", c.id);
+        events.publish(tenant, "capability", "update", c.id, c.kind);
         return withEtag(c);
     }
 
@@ -66,7 +66,7 @@ public class CapabilityController {
         if (action == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "action is required");
         String comment = body.hasNonNull("comment") ? body.get("comment").asText() : null;
         var c = svc.transition(tenant, id, action, comment, actor);
-        events.publish(tenant, "capability", "update", c.id);
+        events.publish(tenant, "capability", "update", c.id, c.kind);
         return withEtag(c);
     }
 
@@ -81,7 +81,7 @@ public class CapabilityController {
                                                         @PathVariable int versionNo) {
         var actor = current.requireTenant(tenant);
         var c = svc.rollback(tenant, id, versionNo, actor.id());
-        events.publish(tenant, "capability", "update", c.id);
+        events.publish(tenant, "capability", "update", c.id, c.kind);
         return withEtag(c);
     }
 
@@ -90,7 +90,7 @@ public class CapabilityController {
                                        @RequestHeader(value = "If-Match", required = false) String ifMatch) {
         current.requireTenant(tenant);
         var c = svc.softDelete(tenant, id, parseVersion(ifMatch));
-        events.publish(tenant, "capability", "delete", c.id);
+        events.publish(tenant, "capability", "delete", c.id, c.kind);
         return ResponseEntity.noContent().build();
     }
 
