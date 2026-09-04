@@ -29,6 +29,7 @@ const createDraftCapability = agenticTool({
     + '• tool → { description, dataSource: "<an EXISTING datasource name>", method: GET|POST|PUT|PATCH|DELETE, path: "/route/{arg}", inputs: [ "arg1", "arg2" ], body?: { <field>: "{arg}" } } — an HTTP call bound to a datasource; {arg} placeholders are filled from `inputs` at call time. Call listCapabilities (kind datasource) and reference a real one.\n'
     + '• prompt → { description, template: "… {{var}} …", model?: "claude-opus-5" } — a governed prompt template; {{var}} are interpolation slots.\n'
     + '• skill → { description, tools: [ "<EXISTING tool names>" ], prompt?: "<an EXISTING prompt name>" } — bundles governed tools + an optional prompt; reference real names (listCapabilities).\n'
+    + '• experience → { title, goal, intents?: string[], requires: [ { kind: form|workflow|component|decision|dashboard, name: "<an EXISTING capability name>" } ] } — a goal-oriented bundle that COMPOSES existing capabilities; call listCapabilities and reference only real names.\n'
     + 'Use short kebab-case names. After creating, say it is a draft and offer to open it in the designer.',
   schema: z.object({
     kind: KIND.describe('The capability kind to create.'),

@@ -68,7 +68,8 @@ export function pushRecent(d: AuthoringDraft): void {
 /** Kinds that have a rich design route (a `/:id/design` page in app.routes.ts); others link to the list. */
 const DESIGNER_KINDS = new Set(['form', 'page', 'workflow', 'decision', 'application', 'theme']);
 
-/** Build the designer/list route for a freshly created capability. */
+/** Build the designer/detail/list route for a freshly created capability. */
 export function designerPathFor(kind: string, id: string): string {
+  if (kind === 'experience') return `/experiences/${id}`; // experiences open a detail page, not a `/design` route
   return DESIGNER_KINDS.has(kind) ? `/${kind}s/${id}/design` : `/${kind}s`;
 }

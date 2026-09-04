@@ -12,6 +12,7 @@ import { firstValueFrom } from 'rxjs';
 import { ChatShellComponent } from '@infra-tools/agentic-ui';
 import { FeatureFlagsService } from '../services/feature-flags.service';
 import { CapabilityCatalogService, type Capability } from '../services/capability-catalog.service';
+import { ExperienceCatalogService, type ExperienceBody } from '../services/experience-catalog.service';
 import { authoringBridge, recentDrafts, designerPathFor, type AuthoringDraft } from './authoring-bridge';
 
 const ALL_KINDS = ['form', 'page', 'workflow', 'decision', 'application', 'theme', 'experience', 'tool', 'datasource', 'prompt', 'skill', 'navigation', 'validation'];
@@ -59,6 +60,7 @@ const ALL_KINDS = ['form', 'page', 'workflow', 'decision', 'application', 'theme
 export class CopilotRailComponent {
   protected readonly flags = inject(FeatureFlagsService);
   private readonly caps = inject(CapabilityCatalogService);
+  private readonly experiences = inject(ExperienceCatalogService);
   private readonly router = inject(Router);
   protected readonly recent = recentDrafts;
 
@@ -73,8 +75,20 @@ export class CopilotRailComponent {
 
   constructor() {
     authoringBridge.createDraft = async (kind, name, body): Promise<AuthoringDraft> => {
-      const c = await firstValueFrom(this.caps.create({ kind, name, body, authoredBy: 'ai-assisted' }));
-      const draft = { id: c.id, name: c.name, kind: c.kind, designerPath: designerPathFor(c.kind, c.id) };
+      let draft: AuthoringDraft;
+      if (kind === 'experience') {
+        // Experiences live in a separate store; title + goal are top-level, the
+        // rest (intents/requires) is the ExperienceBody.
+        const b = body as { title?: string; goal?: string } & ExperienceBody;
+        const e = await firstValueFrom(this.experiences.create({
+          name, title: b.title ?? name, goal: b.goal ?? name,
+          body: { intents: b.intents, requires: b.requires },
+        }));
+        draft = { id: e.id, name: e.name, kind: 'experience', designerPath: designerPathFor('experience', e.id) };
+      } else {
+        const c = await firstValueFrom(this.caps.create({ kind, name, body, authoredBy: 'ai-assisted' }));
+        draft = { id: c.id, name: c.name, kind: c.kind, designerPath: designerPathFor(c.kind, c.id) };
+      }
       // Take the author straight into the designer (the draft→refine flow). The
       // rail lives in the app shell, so it persists across this navigation; the
       // "Open in designer" button remains as a way back to the last draft.
@@ -83,12 +97,16 @@ export class CopilotRailComponent {
     };
     authoringBridge.list = async (kind) => {
       const kinds = kind ? [kind] : ALL_KINDS;
-      const results = await Promise.all(
-        kinds.map((k) => firstValueFrom(this.caps.listByKind(k)).catch(() => ({ items: [] }))),
-      );
-      return results.flatMap((r) => (r.items ?? []).map((c) => ({
-        id: c.id, name: c.name, kind: c.kind, lifecycle: (c as { lifecycle?: string }).lifecycle,
-      })));
+      const results = await Promise.all(kinds.map((k) =>
+        k === 'experience'
+          ? firstValueFrom(this.experiences.list({}))
+              .then((r) => (r.items ?? []).map((e) => ({ id: e.id, name: e.name, kind: 'experience', lifecycle: e.approvalState })))
+              .catch(() => [])
+          : firstValueFrom(this.caps.listByKind(k))
+              .then((r) => (r.items ?? []).map((c) => ({ id: c.id, name: c.name, kind: c.kind, lifecycle: (c as { lifecycle?: string }).lifecycle })))
+              .catch(() => []),
+      ));
+      return results.flat();
     };
     authoringBridge.get = async (idOrName, kind) => (await this.resolveCap(idOrName, kind))?.body ?? null;
     authoringBridge.updateDraft = async (idOrName, kind, bodyPatch): Promise<AuthoringDraft> => {
