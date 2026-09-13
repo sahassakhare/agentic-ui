@@ -79,6 +79,21 @@ New ADR-048 — **Backend-adapter parity contract.** Codifies: (a) every adapter
 
 ## Slice L2 — Observability emit wiring
 
+> **STATUS 2026-09-13: DONE (L2.1 + L2.2).** Emit is wired — the orchestrator
+> emits the turn + tool-call lifecycle (`agentic.run.*`, `agentic.tool_call.*`,
+> approval histograms, LRO events), the registries emit register/remove/dropped/
+> namespaced/etc., and the experience planner emits plan/access_denied/unresolved
+> — **70+ distinct `agentic.*` event names**, far past the ≥15 bar. Telemetry
+> test fixtures + sequence assertions exist (`run-orchestrator*.spec`,
+> `approval-registry.spec`, `inject-agentic-chat-telemetry.spec`). The provider is
+> **`provideAgenticTelemetry({ kind })`** / **`provideAgenticTelemetryConsole()`**
+> (not `provideOtelTelemetry` as sketched below), already wired in
+> `examples/demo-monolith/src/app/app.config.ts`, and `docs/cookbook/
+> observability.md` exists. README corrected to stop overclaiming W3C SSE
+> propagation. **Remaining (already out-of-scope here):** W3C trace-context
+> propagation across SSE (ADR-001 follow-up). The section below is the original
+> (stale) problem statement.
+
 ### What's broken today
 
 [`README.md:234`](../../README.md) claims emit points are "baked in from M1." Grep across `projects/agentic-ui/src/lib/**` finds **26 references to `AgenticTelemetrySink`** and **zero `.emit()` callsites** in orchestrator + registries. `provideOtelTelemetry` is wired in **zero** demo `app.config.ts` files. Adopters wiring an OTel sink today see no traces.
