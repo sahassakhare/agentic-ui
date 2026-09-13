@@ -1,7 +1,35 @@
 # Local-dev fixtures
 
-These files are **only** for `docker compose -f platform/docker-compose.yml up`
-local development. They do not ship in production deployments.
+These files are **only** for local development. They do not ship in production
+deployments.
+
+## One-command stack: `dev-up.sh` / `dev-down.sh`
+
+Bring the whole platform up natively (no Docker needed) — the six services the
+Studio + Hub need, in dependency order, each **idempotent** (a port already
+listening is left alone) and behind a **health gate**. The catalog runs on the
+embedded H2 `local` profile, so there's no external database to start.
+
+```bash
+./platform/local-dev/dev-up.sh          # start everything
+./platform/local-dev/dev-up.sh studio   # start only named service(s)
+./platform/local-dev/dev-down.sh        # stop everything
+```
+
+| Service | Port | Notes |
+|---|---|---|
+| catalog (Java + H2) | 8081 | needs JDK 21 (`mvn spring-boot:run`, `local` profile) |
+| ingest | 4320 | seeded with the `matter-management` remote so the Hub's matter widgets resolve |
+| matter-management MFE | 4301 | Native-Federation remote the Hub loads |
+| agent (demo-server) | 4111 | needs `examples/demo-server/.env` (Gemini key) or the copilot is echo-only |
+| Studio | 4600 | authoring |
+| Hub | 4700 | runtime |
+
+Logs stream to `platform/local-dev/.logs/<svc>.log` (gitignored). First run of
+the Angular dev servers (Studio/Hub/MFE) compiles for ~1–2 min — the health gate
+waits. Prereqs: `npm ci` at the repo root, JDK 21, and the demo-server `.env`.
+Studio `environment.ts` `authMode` is intentionally kept local — the launcher
+does not touch it.
 
 ## `dev-jwks/`
 

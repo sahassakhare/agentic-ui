@@ -3,3 +3,4 @@
 # (overwritten by mint-dev-key.mjs) so the dev-jwks nginx container
 # has something to serve.
 dev-private.pem
+.logs/
