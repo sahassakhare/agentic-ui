@@ -1,6 +1,6 @@
 {
   "name": "@infra-tools/agentic-catalog-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Capability catalog server — control-plane T2 foundation. Hono + Postgres (RLS) + JWT/JWKS. Multi-tenant capability registry, federated identity, audit trail.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/sahassakhare/agentic-ui#readme",
