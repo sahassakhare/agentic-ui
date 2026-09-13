@@ -58,8 +58,18 @@ Experiences persist in the **existing** `agentic-catalog-server` (Node/Hono + Po
 
 ### Negative / trade-offs
 - The registry set grows by six (+ Experience). Justified per registry against "no homeless concept"; the count still sits well inside the mature-plugin-platform band (VS Code 50+).
-- The planner rebuilds its lookup + graph per call — **memoization (plan §11) is deferred** as a scale optimization; correct multi-signal cache invalidation is deferred rather than shipped fragile.
 - A **real OIDC redirect** flow and **function-of-state** workflow branches need external infra and are out of scope (the studio accepts a pasted JWT; the workflow editor covers string/terminal `next`).
+
+### Performance
+
+`ExperiencePlanner.plan()` is **memoized** (plan §11): keyed on
+`(resolvedExperience, persona, permissions, allowUnapproved)`, with synchronous
+signal-based invalidation — a `computed` epoch reads every source registry plus
+`ExperienceRegistry.approved()` (which tracks the entries, approval overlay, and
+scope policy), so the whole cache is dropped the instant any of them changes, with
+no stale-cache window (an effect would flush a tick late). Telemetry is emitted on
+every call, cache hits included, so the access-decision audit trail stays complete
+— only the expensive graph traversal is memoized.
 
 ### Neutral
 - `policies` on an experience are advisory in-runtime — enforcement is the downstream OPA layer's job. This is intentional (non-goal: no OPA in the bundle) and documented on the field, but adopters must not assume declaring a policy enforces it in-runtime; use `personas` / `requiredPermissions` for in-runtime denial.

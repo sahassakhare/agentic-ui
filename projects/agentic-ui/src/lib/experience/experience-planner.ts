@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
 import {
   createCapabilityLookup,
   resolveCapabilityGraph,
@@ -116,11 +116,67 @@ export class ExperiencePlanner {
   private readonly workflows = inject(WorkflowRegistry);
   private readonly telemetry = inject(AGENTIC_TELEMETRY_SINK);
 
-  /** Resolve + plan an experience for a user. Returns `null` if none resolves. */
+  /**
+   * Reactive invalidation token (plan §11 memoization). Reads every source that
+   * can change a plan; its identity changes whenever any of them mutates.
+   * Reading `approved()` also tracks the experience entries, the approval
+   * overlay, and the scope policy. Synchronous by design — `computed`
+   * recomputes on read the instant a dependency changes, so there is no
+   * stale-cache window (an effect would flush a tick late).
+   */
+  private readonly epoch = computed<readonly unknown[]>(() => [
+    this.tools.signal(), this.components.signal(), this.forms.signal(),
+    this.dataSources.signal(), this.prompts.signal(), this.skills.signal(),
+    this.knowledge.signal(), this.memory.signal(), this.workflows.signal(),
+    this.experiences.approved(),
+  ]);
+  private cacheEpoch: readonly unknown[] | null = null;
+  private readonly planCache = new Map<string, { plan: ExperiencePlan; truncated: number }>();
+
+  /**
+   * Resolve + plan an experience for a user. Returns `null` if none resolves.
+   *
+   * Memoized on `(resolvedExperience, persona, permissions, allowUnapproved)`;
+   * the whole cache is dropped the instant any source registry, approval state,
+   * or scope policy changes (via {@link epoch}). Telemetry is emitted on EVERY
+   * call — cache hits included — so the access-decision audit trail stays
+   * complete; only the expensive graph traversal is memoized.
+   */
   plan(input: ExperiencePlanInput): ExperiencePlan | null {
+    const currentEpoch = this.epoch();
+    if (currentEpoch !== this.cacheEpoch) {
+      this.planCache.clear();
+      this.cacheEpoch = currentEpoch;
+    }
+
     const experience = this.resolveExperience(input);
     if (!experience) return null;
 
+    const key = this.cacheKey(input, experience.name);
+    let entry = this.planCache.get(key);
+    if (!entry) {
+      entry = this.computePlan(experience, input);
+      this.planCache.set(key, entry);
+    }
+    this.emitTelemetry(entry.plan, input, entry.truncated);
+    return entry.plan;
+  }
+
+  /** Memoization key — the inputs that determine the plan output. */
+  private cacheKey(input: ExperiencePlanInput, resolvedName: string): string {
+    return JSON.stringify({
+      n: resolvedName,
+      p: input.user.persona,
+      perms: [...(input.user.permissions ?? [])].sort(),
+      au: input.allowUnapproved ?? false,
+    });
+  }
+
+  /** The expensive part — access gate + graph traversal. No telemetry (that's per-call). */
+  private computePlan(
+    experience: ExperienceDef,
+    input: ExperiencePlanInput,
+  ): { plan: ExperiencePlan; truncated: number } {
     const access = this.evaluateAccess(experience, input);
     const base = {
       experienceId: experience.name,
@@ -131,19 +187,15 @@ export class ExperiencePlanner {
     };
 
     if (!access.allowed) {
-      // Denied → no capability resolution. Denial is itself the audit record —
-      // and it MUST be observable (this is an access-control decision point).
-      this.telemetry.emit('agentic.experience.access_denied', {
-        experienceId: experience.name,
-        persona: input.user.persona,
-        userId: input.user.id,
-        reason: access.reason,
-      });
+      // Denied → no capability resolution. Denial is itself the audit record.
       return {
-        ...base,
-        components: [], forms: [], tools: [], dataSources: [], prompts: [],
-        knowledge: [], memory: [], skills: [], workflow: undefined, unmet: [],
-        rationale: [{ capability: `experience:${experience.name}`, kind: 'experience', reason: access.reason ?? 'access denied' }],
+        truncated: 0,
+        plan: {
+          ...base,
+          components: [], forms: [], tools: [], dataSources: [], prompts: [],
+          knowledge: [], memory: [], skills: [], workflow: undefined, unmet: [],
+          rationale: [{ capability: `experience:${experience.name}`, kind: 'experience', reason: access.reason ?? 'access denied' }],
+        },
       };
     }
 
@@ -171,36 +223,50 @@ export class ExperiencePlanner {
         .map((e) => ({ capability: e.to, kind: e.to.split(':')[0], reason: e.reason! })),
     ];
 
-    const plan: ExperiencePlan = {
-      ...base,
-      components: byKind('component'),
-      forms: byKind('form'),
-      tools: [...toolSet],
-      dataSources: byKind('dataSource'),
-      prompts: byKind('prompt'),
-      knowledge: byKind('knowledge'),
-      memory: byKind('memory'),
-      skills: skillNames,
-      workflow,
-      unmet: graph.unmet,
-      rationale,
+    return {
+      truncated: graph.truncated.length,
+      plan: {
+        ...base,
+        components: byKind('component'),
+        forms: byKind('form'),
+        tools: [...toolSet],
+        dataSources: byKind('dataSource'),
+        prompts: byKind('prompt'),
+        knowledge: byKind('knowledge'),
+        memory: byKind('memory'),
+        skills: skillNames,
+        workflow,
+        unmet: graph.unmet,
+        rationale,
+      },
     };
+  }
 
+  /** Emits the access-decision telemetry for a plan — runs on every `plan()` call. */
+  private emitTelemetry(plan: ExperiencePlan, input: ExperiencePlanInput, truncated: number): void {
+    if (!plan.access.allowed) {
+      this.telemetry.emit('agentic.experience.access_denied', {
+        experienceId: plan.experienceId,
+        persona: input.user.persona,
+        userId: input.user.id,
+        reason: plan.access.reason,
+      });
+      return;
+    }
     this.telemetry.emit('agentic.experience.plan', {
-      experienceId: experience.name,
+      experienceId: plan.experienceId,
       persona: input.user.persona,
       userId: input.user.id,
       toolCount: plan.tools.length,
       unmetCount: plan.unmet.length,
-      truncated: graph.truncated.length,
+      truncated,
     });
     if (plan.unmet.length > 0) {
       this.telemetry.emit('agentic.experience.unresolved', {
-        experienceId: experience.name,
+        experienceId: plan.experienceId,
         unmet: plan.unmet.map((u) => `${u.requirement.kind}:${u.requirement.name ?? u.requirement.tag ?? '*'}`),
       });
     }
-    return plan;
   }
 
   /** Builds a capability lookup over the live registries, keyed by kind. */

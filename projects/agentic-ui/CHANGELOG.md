@@ -4,6 +4,14 @@ All notable changes to `@infra-tools/agentic-ui` are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1]
+
+### Changed — `ExperiencePlanner` result memoization
+
+- **`ExperiencePlanner.plan()` is now memoized** (ADR-051 Seam D, plan §11). Repeated plans for the same resolved experience and caller skip the access-gate + capability-graph traversal and return a cached result. The cache is keyed on `(resolvedExperience, persona, permissions, allowUnapproved)`.
+- **Invalidation is synchronous** via a `computed` epoch that reads every source registry signal plus `ExperienceRegistry.approved()` (entries, approval overlay, and scope policy) — the whole cache drops the instant any of them changes, with no stale-cache window.
+- **Telemetry is unchanged**: `agentic.experience.plan` / `access_denied` / `unresolved` still emit on every call, cache hits included, so the access-decision audit trail stays complete. Only the graph computation is skipped.
+
 ## [1.5.0]
 
 Consolidates the features landed since `1.4.0` (which shipped without a changelog entry) plus the new catalog-connect schematic.
