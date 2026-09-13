@@ -1,0 +1,19 @@
+# Contract tests — H2 in-memory (fresh per run), auth disabled, demo seed OFF
+# (each test creates the data it asserts on, so counts are deterministic).
+spring:
+  datasource:
+    url: jdbc:h2:mem:catalog-test;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  flyway:
+    locations: classpath:db/migration/h2
+  h2:
+    console:
+      enabled: false
+
+catalog:
+  auth:
+    mode: disabled
+  seed:
+    enabled: false
