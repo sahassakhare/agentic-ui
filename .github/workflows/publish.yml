@@ -1,16 +1,15 @@
 name: publish
 
-# Publishes the @infra-tools packages to npm using **Trusted Publishing (OIDC)**
-# — no NPM_TOKEN, no 2FA-bypass token (npm is deprecating those). GitHub Actions
-# is a supported OIDC provider; with `id-token: write` and npm >= 11.5.1,
-# `npm publish` exchanges a short-lived OIDC token automatically and attaches a
-# provenance attestation (publishConfig.provenance:true).
+# Publishes the @infra-tools packages to npm using a single **NPM_TOKEN** secret
+# (one Automation token covering every package below), set at the job level as
+# NODE_AUTH_TOKEN and consumed via setup-node's registry-url .npmrc.
 #
-# PREREQUISITE — one-time, per package, on npmjs.com (else publish fails with an
-# auth error): each package → Settings → Trusted Publisher → GitHub Actions,
-# repo `sahassakhare/agentic-ui`, workflow `publish.yml`, blank environment.
-# Do this for ALL packages this workflow lists before the next run. There is no
-# token fallback — configuring the trusted publisher is what authorizes CI.
+# PREREQUISITE — one-time (else publish fails with an auth error):
+#   1. npmjs.com → Access Tokens → Generate → **Automation** (bypasses 2FA),
+#      with read/write to the @infra-tools packages.
+#   2. GitHub → repo Settings → Secrets and variables → Actions → add secret
+#      **NPM_TOKEN** with that value.
+# One secret authorizes every package here — no per-package config.
 #
 # Each step is idempotent: a version already on npm is skipped, so a re-run
 # only publishes what's new. Trigger manually (Actions -> publish -> Run
@@ -35,18 +34,21 @@ jobs:
     name: Publish @infra-tools/* to npm
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      # One Automation token for every package's `npm publish` below.
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Trusted Publishing (OIDC): NO registry-url — that would write an empty
-      # `_authToken` into .npmrc and suppress the OIDC token exchange. With
-      # id-token:write and a per-package trusted publisher configured on npm,
-      # `npm publish` (npm >= 11.5.1) exchanges the OIDC token automatically.
+      # Token auth: `registry-url` makes setup-node write an .npmrc that reads
+      # NODE_AUTH_TOKEN (set at the job level from the NPM_TOKEN secret). Use an
+      # npm **Automation** token so publishing bypasses 2FA in CI.
       - name: Set up Node 20.19
         uses: actions/setup-node@v7
         with:
           node-version: '20.19'
+          registry-url: 'https://registry.npmjs.org'
           cache: npm
 
       # Match the lockfile generator (see .github/workflows/ci.yml).

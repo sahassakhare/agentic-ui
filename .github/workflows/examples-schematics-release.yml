@@ -15,10 +15,10 @@ name: examples-schematics-release
 # npm-latest + patch), computed at publish time — NO commit back to main, NO
 # manual bump. The committed package.json "version" (0.1.0) is only a floor.
 #
-# PREREQUISITE (one-time, on npmjs.com — else the publish step fails auth, there
-# is no token fallback): @infra-tools/agentic-examples-schematics -> Settings ->
-# Trusted Publisher -> GitHub Actions, repo `sahassakhare/agentic-ui`, workflow
-# `examples-schematics-release.yml`, blank environment.
+# PREREQUISITE (one-time — else the publish step fails auth): the repo secret
+# `NPM_TOKEN` (an npm **Automation** token, which bypasses 2FA). Consumed as
+# NODE_AUTH_TOKEN via setup-node's registry-url .npmrc. A token can CREATE this
+# brand-new package on first publish — no manual first publish needed.
 
 on:
   push:
@@ -45,14 +45,20 @@ jobs:
     name: Bump + publish examples schematics (latest examples snapshot)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Token auth: registry-url writes an .npmrc that reads NODE_AUTH_TOKEN
+      # (job-level, from the NPM_TOKEN secret). Use an npm Automation token.
+      # A token can create this brand-new package on first publish.
       - name: Set up Node 20.19
         uses: actions/setup-node@v7
         with:
           node-version: '20.19'
+          registry-url: 'https://registry.npmjs.org'
           cache: npm
 
       - name: Pin npm to 11.x (OIDC publish needs >= 11.5.1)

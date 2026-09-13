@@ -17,11 +17,10 @@ name: schematics-release
 # the protected main branch, NO manual bump per PR. The committed package.json
 # "version" is only a floor (raise it for an intentional minor/major).
 #
-# PREREQUISITE (one-time, on npmjs.com — else the publish step fails auth, there
-# is no token fallback): @infra-tools/agentic-platform-schematics -> Settings ->
-# Trusted Publisher -> GitHub Actions, repo `sahassakhare/agentic-ui`, workflow
-# `schematics-release.yml`, blank environment. (publish.yml uses the same OIDC
-# path; this is the per-package, per-workflow authorization.)
+# PREREQUISITE (one-time — else the publish step fails auth): add a repo secret
+# `NPM_TOKEN` (an npm **Automation** token, which bypasses 2FA). It is consumed
+# as NODE_AUTH_TOKEN via setup-node's registry-url .npmrc — the same single
+# token used by publish.yml + examples-schematics-release.yml.
 
 on:
   push:
@@ -58,16 +57,19 @@ jobs:
     name: Bump + publish schematics (latest codebase snapshot)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # Trusted Publishing (OIDC): NO registry-url — that writes an empty
-      # _authToken into .npmrc and suppresses the OIDC token exchange.
+      # Token auth: registry-url writes an .npmrc that reads NODE_AUTH_TOKEN
+      # (job-level, from the NPM_TOKEN secret). Use an npm Automation token.
       - name: Set up Node 20.19
         uses: actions/setup-node@v7
         with:
           node-version: '20.19'
+          registry-url: 'https://registry.npmjs.org'
           cache: npm
 
       - name: Pin npm to 11.x (OIDC publish needs >= 11.5.1)
