@@ -46,10 +46,31 @@ function sh(cmd) {
   return execSync(cmd, { encoding: 'utf8' }).trim();
 }
 
+function canResolve(ref) {
+  try { sh(`git rev-parse --verify --quiet "${ref}^{commit}"`); return true; } catch { return false; }
+}
+
+/**
+ * Resolve the base ref, fetching it if the runner's checkout didn't set up the
+ * remote-tracking ref (e.g. actions/checkout leaving no `origin/main`). Returns
+ * a ref usable by `git merge-base`, or null if it truly can't be obtained.
+ */
 function resolveBase(argv) {
-  if (argv[2]) return argv[2];
-  if (process.env.GITHUB_BASE_REF) return `origin/${process.env.GITHUB_BASE_REF}`;
-  return 'main';
+  if (argv[2]) return canResolve(argv[2]) ? argv[2] : fetchRef(argv[2]);
+  const branch = process.env.GITHUB_BASE_REF || 'main';
+  for (const ref of [`origin/${branch}`, branch]) if (canResolve(ref)) return ref;
+  return fetchRef(branch);
+}
+
+/** Fetch `<branch>` (strip any `origin/` prefix) from origin and return a usable ref, or null. */
+function fetchRef(branch) {
+  const b = branch.replace(/^origin\//, '');
+  try {
+    sh(`git fetch --no-tags origin "${b}"`);
+    if (canResolve('FETCH_HEAD')) return 'FETCH_HEAD';
+    if (canResolve(`origin/${b}`)) return `origin/${b}`;
+  } catch { /* fall through */ }
+  return null;
 }
 
 function versionAt(ref, dir) {
@@ -61,11 +82,15 @@ function versionAt(ref, dir) {
 }
 
 const base = resolveBase(process.argv);
+if (!base) {
+  console.error('✖ Cannot resolve the base ref (tried the PR base / origin/main and a fetch). Pass one: node scripts/check-lib-versions.mjs <ref>');
+  process.exit(2);
+}
 let mergeBase;
 try {
-  mergeBase = sh(`git merge-base ${base} HEAD`);
+  mergeBase = sh(`git merge-base "${base}" HEAD`);
 } catch {
-  console.error(`✖ Cannot resolve base ref "${base}". Fetch it, or pass one: node scripts/check-lib-versions.mjs <ref>`);
+  console.error(`✖ Cannot compute merge-base against "${base}" (shallow clone without shared history?). Use fetch-depth: 0, or pass a ref: node scripts/check-lib-versions.mjs <ref>`);
   process.exit(2);
 }
 
