@@ -28,7 +28,17 @@ The over-engineering cuts called out in the review (deprecate dead registries; t
 
 ## Slice L1 — Backend-adapter parity (Hashbrown + A2UI catch up to AG-UI)
 
-### What's broken today
+> **Status (2026-09-13): substantially DONE — the "What's broken today" table below is now stale.** An audit of the live code found L1.1–L1.3 largely landed since this plan was written:
+> - **Message + tool serialization** is shared: both Hashbrown and A2UI convert through `_shared/canonical-messages.ts` (`serializeToolsForWire` carries the full `parametersSchema` → JSON-Schema; `flattenContentToString`). Tool schemas are no longer dropped.
+> - **Event deserialization** is validated: both backends parse via `_shared/canonical-events.ts` `parseAgenticEventStrict` — the `as unknown as AgenticEvent` casts are gone.
+> - **A2UI dispatcher correctness**: the `threadId: ''` / `runId: ''` placeholder bug is fixed — the in-flight `threadId`/`runId` now thread through to `dispatch()`.
+> - **`state` threading**: A2UI already posts `state: input.state ?? {}`. Hashbrown did **not** — a real ADR-048-2 violation, since `HASHBROWN_CAPABILITIES.clientTools = true` mandates it. **Fixed 2026-09-13**: [`hashbrown-backend.ts`](../../projects/agentic-ui/src/lib/backends/hashbrown/hashbrown-backend.ts) now posts `body: JSON.stringify({ ...params, state: input.state ?? {} })` (`state` isn't part of `Chat.Api.CompletionCreateParams`, so it's added to the body directly), with two regression tests in `hashbrown-backend.spec.ts` asserting the body threads `state` (and defaults to `{}`).
+> - **ADR-048** (parity contract) exists, including ADR-048-2 (a `clientTools` adapter MUST post `state`).
+>
+> **Residual**: the two adapters' message-converter paths aren't perfectly uniform — Hashbrown has a dedicated `convertMessagesToHashbrown`, A2UI uses `flattenContentToString` inline. Cosmetic; both carry tools + state correctly. Tracked separately; not blocking.
+
+### What's broken today <!-- STALE — see Status block above -->
+
 
 Concrete diff against `AgUiBackend`:
 

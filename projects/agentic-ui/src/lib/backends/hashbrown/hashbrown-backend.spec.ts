@@ -117,6 +117,29 @@ describe('HashbrownBackend — native @hashbrownai/core integration', () => {
     expect(body.tools[0]?.parameters?.properties?.['limit']).toBeDefined();
   });
 
+  it('threads the host per-turn `state` into the posted body (ADR-048-2 clientTools contract)', async () => {
+    globalThis.fetch = stubFetch(framesResponse([{ type: 'generation-finish' }]));
+
+    const backend = new HashbrownBackend({ url: 'http://hashbrown.test/run' }, new InMemoryTelemetrySink());
+    const state = { persona: 'ops-manager', route: '/matters/42', matterId: '42' };
+    await collect(backend.run(baseInput({ state })));
+
+    // A clientTools adapter MUST post the host's `state` (persona/route/matter);
+    // Chat.Api's typed params don't carry it, so the adapter adds it directly.
+    const body = lastRequest?.body as { state?: Record<string, unknown> };
+    expect(body.state).toEqual(state);
+  });
+
+  it('defaults `state` to {} in the posted body when the run supplies none', async () => {
+    globalThis.fetch = stubFetch(framesResponse([{ type: 'generation-finish' }]));
+
+    const backend = new HashbrownBackend({ url: 'http://hashbrown.test/run' }, new InMemoryTelemetrySink());
+    await collect(backend.run(baseInput()));
+
+    const body = lastRequest?.body as { state?: Record<string, unknown> };
+    expect(body.state).toEqual({});
+  });
+
   it('decodes a frame stream into run-started → text-delta* → run-finished', async () => {
     globalThis.fetch = stubFetch(framesResponse([
       { type: 'generation-start' },

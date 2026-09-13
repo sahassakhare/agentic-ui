@@ -94,7 +94,11 @@ export class HashbrownBackend implements AgenticBackend {
           Accept: 'application/octet-stream',
           ...(this.config.headers ?? {}),
         },
-        body: JSON.stringify(params),
+        // ADR-048-2: a clientTools adapter MUST thread the host's per-turn
+        // `state` (ADR-013). It isn't part of Chat.Api's typed params, so add it
+        // to the posted body directly; a Hashbrown server that doesn't consume
+        // `state` ignores it, one that does gets persona/route/matter context.
+        body: JSON.stringify({ ...params, state: input.state ?? {} }),
       });
       if (!res.ok || !res.body) {
         throw new Error(`Hashbrown request failed: ${res.status} ${res.statusText}`);
