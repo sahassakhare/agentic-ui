@@ -37,14 +37,14 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Trusted Publishing (OIDC): NO registry-url — that would write an empty
       # `_authToken` into .npmrc and suppress the OIDC token exchange. With
       # id-token:write and a per-package trusted publisher configured on npm,
       # `npm publish` (npm >= 11.5.1) exchanges the OIDC token automatically.
       - name: Set up Node 20.19
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20.19'
           cache: npm
