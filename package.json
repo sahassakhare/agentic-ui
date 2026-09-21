@@ -32,8 +32,8 @@
   },
   "dependencies": {
     "@ag-ui/client": "^0.0.52",
-    "@angular-architects/module-federation": "^21.2.2",
-    "@angular-architects/native-federation": "^21.2.5",
+    "@angular-architects/module-federation": "^21.2.3",
+    "@angular-architects/native-federation": "^21.2.6",
     "@angular/animations": "^21.0.0",
     "@angular/cdk": "^21.2.14",
     "@angular/common": "^21.2.23",
