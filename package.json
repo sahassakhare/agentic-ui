@@ -63,7 +63,7 @@
     "@hashbrownai/core": "^0.5.0",
     "@playwright/test": "^1.63.0",
     "@schematics/angular": "^21.0.0",
-    "@types/node": "^26.6.1",
+    "@types/node": "^26.6.2",
     "angular-eslint": "^22.5.0",
     "eslint": "^10.11.0",
     "fake-indexeddb": "^6.2.5",
