@@ -60,7 +60,7 @@
     "@angular/cli": "^21.2.26",
     "@angular/compiler-cli": "^21.2.25",
     "@compodoc/compodoc": "^2.0.0",
-    "@hashbrownai/core": "^0.6.1",
+    "@hashbrownai/core": "^0.7.0",
     "@playwright/test": "^1.64.0",
     "@schematics/angular": "^22.2.2",
     "@types/node": "^26.6.4",
