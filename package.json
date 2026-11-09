@@ -49,7 +49,7 @@
     "es-module-shims": "^2.8.4",
     "material-icons": "^1.13.14",
     "rxjs": "7.8.2",
-    "tslib": "^2.3.0",
+    "tslib": "^2.9.1",
     "zod": "^4.6.7",
     "zod-to-json-schema": "3.25.2"
   },
